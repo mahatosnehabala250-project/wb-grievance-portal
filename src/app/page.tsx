@@ -11,6 +11,7 @@ import {
   RotateCcw, Zap, Star, Clock3, CheckCircle, XCircle, ChevronDown,
   ArrowLeft, MessageSquare, ShieldCheck, Globe, BarChart2,
   Printer, UserCircle, Hand, Gauge, Timer, Award, BadgeCheck, PlayCircle, Ban, CircleCheckBig,
+  Settings, CircleHelp, Monitor, Mail, Volume2, LayoutGrid, Keyboard,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -102,7 +103,7 @@ interface DashboardData {
   userLocation: string;
 }
 
-type ViewType = 'dashboard' | 'complaints' | 'users';
+type ViewType = 'dashboard' | 'complaints' | 'users' | 'analytics' | 'settings';
 
 /* ═══════════════════════════════════════════════════════════════════
    CONSTANTS
@@ -246,20 +247,28 @@ function RoleBadge({ role }: { role: string }) {
   );
 }
 
-function StatCard({ title, value, icon: Icon, color, bgColor, delay = 0, suffix = '' }: {
-  title: string; value: number; icon: React.ElementType; color: string; bgColor: string; delay?: number; suffix?: string;
+function StatCard({ title, value, icon: Icon, color, bgColor, delay = 0, suffix = '', trend = 0 }: {
+  title: string; value: number; icon: React.ElementType; color: string; bgColor: string; delay?: number; suffix?: string; trend?: number;
 }) {
   const display = useCountUp(value, 700, delay);
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: delay / 1000 }}>
-      <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group relative border-l-4" style={{ borderLeftColor: color }}>
+      <Card className="border-0 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-300 overflow-hidden group relative border-l-4" style={{ borderLeftColor: color, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
         <CardContent className="p-5 pl-6">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1.5 flex-1 min-w-0">
               <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{title}</p>
-              <p className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-                {display}{suffix}
-              </p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                  {display}{suffix}
+                </p>
+                {trend !== 0 && (
+                  <span className={`flex items-center text-xs font-bold ${trend > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {trend > 0 ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+                    {Math.abs(trend)}%
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex items-center justify-center rounded-xl p-3 group-hover:scale-110 transition-transform duration-300" style={{ backgroundColor: bgColor }}>
               <Icon className="h-5 w-5 animate-pulse" style={{ color }} />
@@ -306,25 +315,38 @@ function PieLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }: {
 function LoadingSkeleton() {
   return (
     <div className="space-y-5">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="h-2 w-2 rounded-full bg-sky-500 animate-pulse" />
+        <span className="text-xs font-medium text-muted-foreground">Loading...</span>
+      </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[120px] rounded-xl" />)}
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-[120px] rounded-xl bg-muted overflow-hidden relative">
+            <div className="absolute inset-0 shimmer-bg" style={{ animationDelay: `${i * 150}ms` }} />
+          </div>
+        ))}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <Skeleton className="h-[300px] rounded-xl lg:col-span-2" />
-        <Skeleton className="h-[300px] rounded-xl" />
+        <div className="h-[300px] rounded-xl bg-muted overflow-hidden relative shimmer-bg lg:col-span-2" />
+        <div className="h-[300px] rounded-xl bg-muted overflow-hidden relative shimmer-bg" style={{ animationDelay: '200ms' }} />
       </div>
     </div>
   );
 }
 
-function EmptyState({ message, icon: Icon }: { message: string; icon?: React.ElementType }) {
+function EmptyState({ message, icon: Icon, action, onAction }: { message: string; icon?: React.ElementType; action?: string; onAction?: () => void }) {
   const Ic = Icon || FileText;
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="h-16 w-16 rounded-full flex items-center justify-center mb-4" style={{ background: 'linear-gradient(135deg, #E3F2FD, #F3E8FF)' }}>
+      <div className="h-16 w-16 rounded-full flex items-center justify-center mb-4" style={{ background: 'linear-gradient(135deg, #E3F2FD, #F3E8FF, #FEF3C7)' }}>
         <Ic className="h-8 w-8" style={{ color: NAVY }} />
       </div>
-      <p className="text-muted-foreground text-sm font-medium">{message}</p>
+      <p className="text-muted-foreground text-sm font-medium max-w-xs">{message}</p>
+      {action && onAction && (
+        <Button variant="outline" size="sm" className="mt-4 text-xs gap-1.5" onClick={onAction}>
+          {action}
+        </Button>
+      )}
     </div>
   );
 }
@@ -368,6 +390,8 @@ function LoginView() {
         }}
         transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
       />
+      {/* CSS dot grid background animation */}
+      <div className="absolute inset-0 dot-grid-bg opacity-30" />
       {/* Subtle pattern texture */}
       <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }} />
       {/* Decorative circles */}
@@ -405,7 +429,10 @@ function LoginView() {
             }} />
           )}
           <CardHeader className="pb-4">
+            <div className="flex items-center justify-center gap-2 mb-1">
             <CardTitle className="text-lg font-bold text-center">Sign In to Portal</CardTitle>
+            <Badge className="bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300 border-0 text-[10px] px-1.5 py-0 font-bold">v2.0</Badge>
+          </div>
             <CardDescription className="text-center text-xs">
               Access the grievance management dashboard
             </CardDescription>
@@ -504,10 +531,34 @@ function LoginView() {
           &copy; 2025 Government of West Bengal &mdash; All Rights Reserved
         </p>
       </div>
-      {/* Shimmer animation keyframes */}
+      {/* Global animation keyframes */}
       <style>{`
         @keyframes shimmer {
           100% { transform: translateX(100%); }
+        }
+        @keyframes shimmerBg {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .shimmer-bg {
+          background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--muted-foreground) / 0.08) 50%, hsl(var(--muted)) 75%);
+          background-size: 200% 100%;
+          animation: shimmerBg 1.5s ease-in-out infinite;
+        }
+        @keyframes dotDrift {
+          0% { background-position: 0 0; }
+          100% { background-position: 40px 40px; }
+        }
+        .dot-grid-bg {
+          background-image: radial-gradient(circle, rgba(255,255,255,0.25) 1px, transparent 1px);
+          background-size: 40px 40px;
+          animation: dotDrift 15s linear infinite;
+        }
+        [data-sonner-toast][data-type="success"] {
+          border-left: 4px solid #16A34A !important;
+        }
+        [data-sonner-toast][data-type="error"] {
+          border-left: 4px solid #DC2626 !important;
         }
       `}</style>
     </div>
@@ -1166,6 +1217,7 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto border-0 shadow-2xl">
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.15 }}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base font-bold">
             <Hash className="h-4 w-4" style={{ color: NAVY }} />
@@ -1367,6 +1419,7 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
             </Button>
           </div>
         </div>
+        </motion.div>
       </DialogContent>
     </Dialog>
   );
@@ -1424,6 +1477,7 @@ function NewComplaintDialog({ open, onOpenChange, onCreated }: {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto border-0 shadow-2xl">
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.15 }}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base font-bold">
             <Plus className="h-5 w-5" style={{ color: NAVY }} />
@@ -1499,6 +1553,7 @@ function NewComplaintDialog({ open, onOpenChange, onCreated }: {
             File Complaint
           </Button>
         </DialogFooter>
+        </motion.div>
       </DialogContent>
     </Dialog>
   );
@@ -1842,7 +1897,7 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
           <div className="hidden md:block">
             <Card className="border-0 shadow-sm overflow-hidden">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow className="bg-muted/50">
                     <TableHead className="w-10">
                       <input type="checkbox" checked={selectedIds.size === complaints.length && complaints.length > 0} onChange={toggleSelectAll} className="cursor-pointer rounded" />
@@ -1874,7 +1929,7 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
                     ))
                   ) : (
                     complaints.map((c, idx) => (
-                      <TableRow key={c.id} className={`hover:bg-muted/30 transition-colors ${idx % 2 === 1 ? 'bg-muted/20' : ''} ${flashIds.has(c.id) ? 'bg-emerald-100 dark:bg-emerald-900/30' : ''}`}>
+                      <TableRow key={c.id} className={`hover:bg-muted/30 hover:border-l-2 hover:border-l-sky-400 transition-all border-l-2 border-l-transparent ${idx % 2 === 1 ? 'bg-muted/20' : ''} ${flashIds.has(c.id) ? 'bg-emerald-100 dark:bg-emerald-900/30' : ''}`}>
                         <TableCell>
                           <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="cursor-pointer rounded" />
                         </TableCell>
@@ -2320,6 +2375,7 @@ function UserManagementView() {
       {/* Create User Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-md border-0 shadow-2xl">
+          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.15 }}>
           <DialogHeader>
             <DialogTitle className="text-base font-bold">Create New User</DialogTitle>
             <DialogDescription>Add a new user to the system</DialogDescription>
@@ -2374,12 +2430,14 @@ function UserManagementView() {
               {creating ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Create User'}
             </Button>
           </DialogFooter>
+          </motion.div>
         </DialogContent>
       </Dialog>
 
       {/* Reset Password Dialog */}
       <Dialog open={!!resetPwdUser} onOpenChange={(v) => { if (!v) setResetPwdUser(null); }}>
         <DialogContent className="sm:max-w-sm border-0 shadow-2xl">
+          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.15 }}>
           <DialogHeader>
             <DialogTitle className="text-base font-bold">Reset Password</DialogTitle>
             <DialogDescription>Set new password for {resetPwdUser?.username}</DialogDescription>
@@ -2396,12 +2454,14 @@ function UserManagementView() {
               {resetting ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Reset'}
             </Button>
           </DialogFooter>
+          </motion.div>
         </DialogContent>
       </Dialog>
 
       {/* Confirm Deactivate Dialog */}
       <Dialog open={!!confirmUser} onOpenChange={(v) => { if (!v) setConfirmUser(null); }}>
         <DialogContent className="sm:max-w-sm border-0 shadow-2xl">
+          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.15 }}>
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
@@ -2422,10 +2482,752 @@ function UserManagementView() {
               {confirmUser?.isActive ? 'Deactivate' : 'Activate'}
             </Button>
           </DialogFooter>
+          </motion.div>
         </DialogContent>
       </Dialog>
     </div>
   );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ANALYTICS VIEW
+   ═══════════════════════════════════════════════════════════════════ */
+
+function AnalyticsView() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sortField, setSortField] = useState<'name' | 'count' | 'resolved' | 'open'>('count');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const [dashRes, compRes] = await Promise.all([
+          fetch('/api/dashboard', { headers: authHeaders() }),
+          fetch('/api/complaints?limit=9999', { headers: authHeaders() }),
+        ]);
+        if (dashRes.ok) setData(await dashRes.json());
+        if (compRes.ok) {
+          const compJson = await compRes.json();
+          setComplaints(compJson.complaints || []);
+        }
+      } catch { /* silent */ }
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const handleSort = useCallback((field: typeof sortField) => {
+    if (sortField === field) setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDir('desc'); }
+  }, [sortField]);
+
+  if (loading) return <LoadingSkeleton />;
+  if (!data) return <EmptyState message="Unable to load analytics data" />;
+
+  const { stats, byCategory, byGroup, groupByField, monthlyTrend } = data;
+
+  // Source distribution
+  const sourceMap: Record<string, number> = {};
+  complaints.forEach((c) => { sourceMap[c.source || 'Unknown'] = (sourceMap[c.source || 'Unknown'] || 0) + 1; });
+  const sourceData = Object.entries(sourceMap).map(([name, value]) => ({ name, value }));
+  const sourceColors = ['#0A2463', '#16A34A', '#D97706', '#DC2626', '#7C3AED', '#0284C7'];
+
+  // Average resolution time
+  const resolvedComplaints = complaints.filter((c) => c.status === 'RESOLVED' && c.createdAt && c.updatedAt);
+  const avgResolutionMs = resolvedComplaints.length > 0
+    ? resolvedComplaints.reduce((sum, c) => sum + (new Date(c.updatedAt).getTime() - new Date(c.createdAt).getTime()), 0) / resolvedComplaints.length
+    : 0;
+  const avgResolutionHours = Math.round(avgResolutionMs / (1000 * 60 * 60) * 10) / 10;
+  const avgResolutionDays = Math.round(avgResolutionHours / 24 * 10) / 10;
+
+  // SLA Compliance (48 hours)
+  const withinSLA = resolvedComplaints.filter((c) => {
+    const diff = new Date(c.updatedAt).getTime() - new Date(c.createdAt).getTime();
+    return diff <= 48 * 60 * 60 * 1000;
+  }).length;
+  const slaCompliance = resolvedComplaints.length > 0 ? Math.round((withinSLA / resolvedComplaints.length) * 100) : 0;
+
+  // Category resolution rates
+  const catResolution: { category: string; total: number; resolved: number; rate: number }[] = [];
+  const catBuckets: Record<string, { total: number; resolved: number }> = {};
+  complaints.forEach((c) => {
+    if (!catBuckets[c.category]) catBuckets[c.category] = { total: 0, resolved: 0 };
+    catBuckets[c.category].total++;
+    if (c.status === 'RESOLVED') catBuckets[c.category].resolved++;
+  });
+  Object.entries(catBuckets).forEach(([category, v]) => {
+    catResolution.push({ category, ...v, rate: Math.round((v.resolved / v.total) * 100) });
+  });
+  catResolution.sort((a, b) => b.rate - a.rate);
+
+  // Top performing areas
+  const sortedGroups = [...byGroup].sort((a, b) => {
+    const rateA = a.count > 0 ? a.resolved / a.count : 0;
+    const rateB = b.count > 0 ? b.resolved / b.count : 0;
+    return rateB - rateA;
+  });
+  const topPerformers = sortedGroups.slice(0, 5);
+  const bottomPerformers = sortedGroups.slice(-3).reverse();
+
+  // Sortable group data
+  const sortedGroupData = [...byGroup].sort((a, b) => {
+    let cmp = 0;
+    if (sortField === 'name') cmp = a.name.localeCompare(b.name);
+    else if (sortField === 'count') cmp = a.count - b.count;
+    else if (sortField === 'resolved') cmp = a.resolved - b.resolved;
+    else if (sortField === 'open') cmp = a.open - b.open;
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+
+  const areaChartConfig = {
+    total: { label: 'Total', color: NAVY },
+    open: { label: 'Open', color: '#DC2626' },
+    resolved: { label: 'Resolved', color: '#16A34A' },
+    inProgress: { label: 'In Progress', color: '#D97706' },
+  };
+
+  const pieChartConfig: Record<string, { label: string; color: string }> = {};
+  sourceData.forEach((s, i) => { pieChartConfig[s.name] = { label: s.name, color: sourceColors[i % sourceColors.length] }; });
+
+  const barConfig = {
+    rate: { label: 'Resolution Rate %', color: '#16A34A' },
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">Analytics & Insights</h2>
+          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+            <BarChart2 className="h-3.5 w-3.5" />
+            Comprehensive performance metrics and trends
+          </p>
+        </div>
+      </div>
+
+      {/* ═══ KPI Cards Row ═══ */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <Card className="border-0 shadow-sm" style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#E3F2FD' }}>
+                  <Timer className="h-4 w-4" style={{ color: NAVY }} />
+                </div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Avg Resolution</p>
+              </div>
+              <p className="text-2xl font-black" style={{ color: NAVY }}>{avgResolutionDays}<span className="text-sm font-medium text-muted-foreground ml-1">days</span></p>
+              <p className="text-[11px] text-muted-foreground mt-1">{avgResolutionHours} hours average</p>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <Card className="border-0 shadow-sm" style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                </div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">SLA Compliance</p>
+              </div>
+              <p className="text-2xl font-black text-emerald-600">{slaCompliance}<span className="text-sm font-medium text-muted-foreground ml-1">%</span></p>
+              <p className="text-[11px] text-muted-foreground mt-1">Resolved within 48h</p>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <Card className="border-0 shadow-sm" style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                  <Activity className="h-4 w-4 text-amber-600" />
+                </div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Total Resolved</p>
+              </div>
+              <p className="text-2xl font-black text-amber-600">{stats.resolved}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">of {stats.total} complaints</p>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+          <Card className="border-0 shadow-sm" style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-8 w-8 rounded-lg bg-red-50 flex items-center justify-center">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                </div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Critical Open</p>
+              </div>
+              <p className="text-2xl font-black text-red-600">{stats.critical}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">{stats.open} total open</p>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* ═══ Complaint Volume Trends (Large Area Chart) ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" style={{ color: NAVY }} />
+              Complaint Volume Trends
+            </CardTitle>
+            <CardDescription className="text-xs">Overview of complaint volumes and status distribution</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {monthlyTrend.length > 0 ? (
+              <ChartContainer config={areaChartConfig} className="h-[350px] w-full">
+                <AreaChart data={monthlyTrend} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="analyticsFillTotal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={NAVY} stopOpacity={0.2} />
+                      <stop offset="95%" stopColor={NAVY} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="analyticsFillResolved" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#16A34A" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#16A34A" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="analyticsFillOpen" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#DC2626" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#DC2626" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <Area type="monotone" dataKey="total" stroke={NAVY} fill="url(#analyticsFillTotal)" strokeWidth={2.5} />
+                  <Area type="monotone" dataKey="open" stroke="#DC2626" fill="url(#analyticsFillOpen)" strokeWidth={1.5} />
+                  <Area type="monotone" dataKey="resolved" stroke="#16A34A" fill="url(#analyticsFillResolved)" strokeWidth={1.5} />
+                  <Area type="monotone" dataKey="inProgress" stroke="#D97706" fill="transparent" strokeWidth={1.5} strokeDasharray="4 4" />
+                </AreaChart>
+              </ChartContainer>
+            ) : (
+              <EmptyState message="No trend data available" />
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ═══ District Comparison Table + Category Performance + Source Distribution ═══ */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* District Comparison Table */}
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="lg:col-span-2">
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Building2 className="h-4 w-4" style={{ color: NAVY }} />
+                {groupByField === 'district' ? 'District' : 'Block'} Comparison
+              </CardTitle>
+              <CardDescription className="text-xs">Sortable by total, open, resolved</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-background z-10">
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:bg-muted" onClick={() => handleSort('name')}>
+                        <span className="flex items-center gap-1">{groupByField === 'district' ? 'District' : 'Block'} {sortField === 'name' && <ArrowUpDown className="h-3 w-3" />}</span>
+                      </TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:bg-muted" onClick={() => handleSort('count')}>
+                        <span className="flex items-center gap-1">Total {sortField === 'count' && <ArrowUpDown className="h-3 w-3" />}</span>
+                      </TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:bg-muted" onClick={() => handleSort('open')}>
+                        <span className="flex items-center gap-1">Open {sortField === 'open' && <ArrowUpDown className="h-3 w-3" />}</span>
+                      </TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider">In Progress</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:bg-muted" onClick={() => handleSort('resolved')}>
+                        <span className="flex items-center gap-1">Resolved {sortField === 'resolved' && <ArrowUpDown className="h-3 w-3" />}</span>
+                      </TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider">Resolution Rate</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedGroupData.map((g, idx) => {
+                      const rate = g.count > 0 ? Math.round((g.resolved / g.count) * 100) : 0;
+                      return (
+                        <TableRow key={g.name} className={`transition-colors hover:bg-muted/30 ${idx % 2 === 1 ? 'bg-muted/15' : ''}`}>
+                          <TableCell className="text-xs font-medium">{g.name}</TableCell>
+                          <TableCell className="text-xs font-bold tabular-nums">{g.count}</TableCell>
+                          <TableCell className="text-xs tabular-nums text-red-600 font-medium">{g.open}</TableCell>
+                          <TableCell className="text-xs tabular-nums text-amber-600 font-medium">{g.inProgress}</TableCell>
+                          <TableCell className="text-xs tabular-nums text-emerald-600 font-medium">{g.resolved}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden max-w-[80px]">
+                                <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${rate}%` }} />
+                              </div>
+                              <span className="text-xs font-bold tabular-nums w-8 text-right">{rate}%</span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Source Distribution Pie + Category Performance */}
+        <div className="space-y-5">
+          {/* Source Distribution */}
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Globe className="h-4 w-4" style={{ color: NAVY }} />
+                  Source Distribution
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {sourceData.length > 0 ? (
+                  <ChartContainer config={pieChartConfig} className="h-[220px] w-full">
+                    <PieChart>
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Pie data={sourceData} cx="50%" cy="50%" innerRadius={40} outerRadius={75} paddingAngle={3} dataKey="value">
+                        {sourceData.map((_, idx) => (
+                          <Cell key={idx} fill={sourceColors[idx % sourceColors.length]} />
+                        ))}
+                      </Pie>
+                      <Legend verticalAlign="bottom" iconType="circle" iconSize={8} formatter={(value: string) => <span className="text-[11px]">{value}</span>} />
+                    </PieChart>
+                  </ChartContainer>
+                ) : (
+                  <EmptyState message="No source data" />
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Category Performance */}
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold">Category Resolution Rate</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {catResolution.length > 0 ? (
+                  <ScrollArea className="h-[250px] pr-2">
+                    <ChartContainer config={barConfig} className="h-full w-full">
+                      <BarChart data={catResolution} layout="vertical" margin={{ top: 0, right: 30, left: 80, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10 }} unit="%" />
+                        <YAxis dataKey="category" type="category" tick={{ fontSize: 10 }} width={75} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Bar dataKey="rate" radius={[0, 4, 4, 0]}>
+                          {catResolution.map((entry, idx) => (
+                            <Cell key={idx} fill={entry.rate >= 70 ? '#16A34A' : entry.rate >= 40 ? '#D97706' : '#DC2626'} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ChartContainer>
+                  </ScrollArea>
+                ) : (
+                  <EmptyState message="No category data" />
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* ═══ Top & Bottom Performing Areas ═══ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                <Award className="h-4 w-4" />
+                Top Performing Areas
+              </CardTitle>
+              <CardDescription className="text-xs">Best resolution rates</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {topPerformers.map((g, idx) => {
+                  const rate = g.count > 0 ? Math.round((g.resolved / g.count) * 100) : 0;
+                  return (
+                    <div key={g.name} className="flex items-center gap-3">
+                      <div className="h-7 w-7 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-xs font-black text-emerald-700 dark:text-emerald-400">
+                        {idx + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-foreground truncate">{g.name}</span>
+                          <span className="text-xs font-bold text-emerald-600 tabular-nums">{rate}%</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-1">
+                          <motion.div className="h-full rounded-full bg-emerald-500" initial={{ width: 0 }} animate={{ width: `${rate}%` }} transition={{ duration: 0.8, delay: idx * 0.1 }} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-red-700 dark:text-red-400">
+                <AlertTriangle className="h-4 w-4" />
+                Needs Attention
+              </CardTitle>
+              <CardDescription className="text-xs">Lowest resolution rates</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {bottomPerformers.map((g, idx) => {
+                  const rate = g.count > 0 ? Math.round((g.resolved / g.count) * 100) : 0;
+                  return (
+                    <div key={g.name} className="flex items-center gap-3">
+                      <div className="h-7 w-7 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center text-xs font-black text-red-700 dark:text-red-400">
+                        !
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-foreground truncate">{g.name}</span>
+                          <span className="text-xs font-bold text-red-600 tabular-nums">{rate}%</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-1">
+                          <motion.div className="h-full rounded-full bg-red-500" initial={{ width: 0 }} animate={{ width: `${rate}%` }} transition={{ duration: 0.8, delay: idx * 0.1 }} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {bottomPerformers.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">All areas performing well!</p>}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SETTINGS VIEW
+   ═══════════════════════════════════════════════════════════════════ */
+
+function SettingsView() {
+  const user = useAuthStore((s) => s.user);
+  const { theme, setTheme } = useTheme();
+
+  // Notification preferences (localStorage)
+  const [emailNotifs, setEmailNotifs] = useState(() => localStorage.getItem('wb_email_notifs') === 'true');
+  const [soundAlerts, setSoundAlerts] = useState(() => localStorage.getItem('wb_sound_alerts') === 'true');
+  const [autoRefresh, setAutoRefresh] = useState(() => localStorage.getItem('wb_auto_refresh') === 'true');
+  const [compactView, setCompactView] = useState(() => localStorage.getItem('wb_compact_view') === 'true');
+
+  useEffect(() => { localStorage.setItem('wb_email_notifs', String(emailNotifs)); }, [emailNotifs]);
+  useEffect(() => { localStorage.setItem('wb_sound_alerts', String(soundAlerts)); }, [soundAlerts]);
+  useEffect(() => { localStorage.setItem('wb_auto_refresh', String(autoRefresh)); }, [autoRefresh]);
+  useEffect(() => { localStorage.setItem('wb_compact_view', String(compactView)); }, [compactView]);
+
+  const themeOptions = [
+    { value: 'light' as const, label: 'Light', icon: Sun, description: 'Clean, bright appearance', bg: 'bg-white border-2', ring: 'ring-sky-500' },
+    { value: 'dark' as const, label: 'Dark', icon: Moon, description: 'Easy on the eyes', bg: 'bg-gray-900 border-2', ring: 'ring-sky-500' },
+    { value: 'system' as const, label: 'System', icon: Monitor, description: 'Follow your OS setting', bg: 'bg-gradient-to-br from-white to-gray-900 border-2', ring: 'ring-sky-500' },
+  ];
+
+  return (
+    <div className="space-y-5 max-w-3xl">
+      <div>
+        <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">Settings</h2>
+        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+          <Settings className="h-3.5 w-3.5" />
+          Manage your preferences and account
+        </p>
+      </div>
+
+      {/* ═══ Profile Section ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <UserCircle className="h-4 w-4" style={{ color: NAVY }} />
+              Profile
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-start gap-4">
+              <div className="h-16 w-16 rounded-2xl flex items-center justify-center text-white text-xl font-black shrink-0" style={{ backgroundColor: NAVY }}>
+                {(user?.name || 'U').charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Full Name</p>
+                    <p className="text-sm font-semibold text-foreground">{user?.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Username</p>
+                    <p className="text-sm font-mono text-foreground">@{user?.username}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Role</p>
+                    <RoleBadge role={user?.role || ''} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Location</p>
+                    <p className="text-sm text-foreground">{user?.location}</p>
+                  </div>
+                  {user?.district && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">District</p>
+                      <p className="text-sm text-foreground">{user.district}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ═══ Appearance Section ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <Sun className="h-4 w-4" style={{ color: NAVY }} />
+              Appearance
+            </CardTitle>
+            <CardDescription className="text-xs">Choose your preferred theme</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-3">
+              {themeOptions.map((opt) => {
+                const isActive = theme === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => setTheme(opt.value)}
+                    className={`relative p-4 rounded-xl transition-all text-center group ${opt.bg} ${isActive ? `${opt.ring} ring-2 shadow-md scale-[1.02]` : 'opacity-70 hover:opacity-100 hover:scale-[1.01]'}`}
+                  >
+                    {isActive && (
+                      <div className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-sky-500 flex items-center justify-center">
+                        <CheckCircle className="h-3 w-3 text-white" />
+                      </div>
+                    )}
+                    <div className="flex justify-center mb-2">
+                      <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${opt.value === 'dark' ? 'bg-gray-800' : opt.value === 'system' ? 'bg-gradient-to-br from-gray-100 to-gray-800' : 'bg-gray-100'}`}>
+                        <opt.icon className={`h-5 w-5 ${opt.value === 'dark' ? 'text-yellow-400' : opt.value === 'system' ? 'text-gray-400' : 'text-gray-700'}`} />
+                      </div>
+                    </div>
+                    <p className="text-xs font-bold text-foreground">{opt.label}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{opt.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ═══ Notification Preferences ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <Bell className="h-4 w-4" style={{ color: NAVY }} />
+              Notification Preferences
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {[
+              { label: 'Email notifications for critical complaints', description: 'Receive alerts when critical complaints are filed', icon: Mail, checked: emailNotifs, onChange: setEmailNotifs },
+              { label: 'Sound alerts', description: 'Play a sound for new notifications', icon: Volume2, checked: soundAlerts, onChange: setSoundAlerts },
+              { label: 'Auto-refresh dashboard', description: 'Automatically refresh data every 60 seconds', icon: RefreshCw, checked: autoRefresh, onChange: setAutoRefresh },
+              { label: 'Compact view', description: 'Reduce spacing for denser information display', icon: LayoutGrid, checked: compactView, onChange: setCompactView },
+            ].map((pref) => (
+              <div key={pref.label} className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                    <pref.icon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0">
+                    <Label className="text-sm font-medium cursor-pointer">{pref.label}</Label>
+                    <p className="text-[11px] text-muted-foreground">{pref.description}</p>
+                  </div>
+                </div>
+                <Switch checked={pref.checked} onCheckedChange={pref.onChange} />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ═══ About Section ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" style={{ color: NAVY }} />
+              About
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-xl bg-muted/50 border border-border/50">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Application</p>
+                <p className="text-sm font-semibold text-foreground">WB Grievance Portal</p>
+              </div>
+              <div className="p-3 rounded-xl bg-muted/50 border border-border/50">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Version</p>
+                <p className="text-sm font-semibold text-foreground">2.0.0</p>
+              </div>
+              <div className="p-3 rounded-xl bg-muted/50 border border-border/50">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Framework</p>
+                <p className="text-sm font-semibold text-foreground">Next.js 16 + React</p>
+              </div>
+              <div className="p-3 rounded-xl bg-muted/50 border border-border/50">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">UI Library</p>
+                <p className="text-sm font-semibold text-foreground">shadcn/ui + Tailwind</p>
+              </div>
+            </div>
+            <Separator />
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: NAVY }}>
+                <Shield className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground">Government of West Bengal</p>
+                <p className="text-[11px] text-muted-foreground">AI Public Support System &middot; পশ্চিমবঙ্গ সরকার</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   KEYBOARD SHORTCUTS DIALOG
+   ═══════════════════════════════════════════════════════════════════ */
+
+function KeyboardShortcutsDialog({ open, onOpenChange, onNavigate, onNewComplaint, onRefresh, onToggleTheme }: {
+  open: boolean; onOpenChange: (v: boolean) => void;
+  onNavigate?: (view: ViewType) => void;
+  onNewComplaint?: () => void;
+  onRefresh?: () => void;
+  onToggleTheme?: () => void;
+}) {
+  const shortcuts = [
+    { key: 'D', label: 'Go to Dashboard', action: () => onNavigate?.('dashboard') },
+    { key: 'C', label: 'Go to Complaints', action: () => onNavigate?.('complaints') },
+    { key: 'A', label: 'Go to Analytics', action: () => onNavigate?.('analytics') },
+    { key: 'N', label: 'New Complaint', action: onNewComplaint },
+    { key: 'R', label: 'Refresh Dashboard', action: onRefresh },
+    { key: 'T', label: 'Toggle Theme', action: onToggleTheme },
+    { key: 'Esc', label: 'Close Dialog', action: () => onOpenChange(false) },
+    { key: '?', label: 'Show Shortcuts', action: () => onOpenChange(false) },
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md border-0 shadow-2xl">
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.15 }}>
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Keyboard className="h-5 w-5" style={{ color: NAVY }} />
+              Keyboard Shortcuts
+            </DialogTitle>
+            <DialogDescription className="text-xs">Quick navigation and actions</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-1.5 mt-3">
+            {shortcuts.map((s) => (
+              <button
+                key={s.key}
+                onClick={() => { s.action?.(); onOpenChange(false); }}
+                className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted transition-colors text-left group"
+              >
+                <span className="text-sm text-foreground group-hover:text-foreground">{s.label}</span>
+                <kbd className="inline-flex items-center h-6 px-2 rounded bg-muted border border-border/60 text-[11px] font-mono font-bold text-muted-foreground group-hover:text-foreground group-hover:border-foreground/30 transition-colors">
+                  {s.key === '?' ? '?' : s.key === 'Esc' ? 'Esc' : s.key}
+                </kbd>
+              </button>
+            ))}
+          </div>
+          <div className="mt-4 pt-3 border-t">
+            <p className="text-[11px] text-muted-foreground text-center">
+              Press <kbd className="inline-flex h-5 px-1.5 rounded bg-muted border border-border/60 text-[10px] font-mono font-bold">?</kbd> or <kbd className="inline-flex h-5 px-1.5 rounded bg-muted border border-border/60 text-[10px] font-mono font-bold">Ctrl+K</kbd> to toggle this dialog
+            </p>
+          </div>
+        </motion.div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   KEYBOARD SHORTCUT HANDLER (internal hook component)
+   ═══════════════════════════════════════════════════════════════════ */
+
+function KeyboardShortcutHandler({ shortcutOpen, setShortcutOpen, setNewComplaintOpen, setMobileSidebarOpen, handleNavigate, handleRefresh, isDark, setTheme }: {
+  shortcutOpen: boolean;
+  setShortcutOpen: (v: boolean | ((prev: boolean) => boolean)) => void;
+  setNewComplaintOpen: (v: boolean) => void;
+  setMobileSidebarOpen: (v: boolean) => void;
+  handleNavigate: (view: ViewType) => void;
+  handleRefresh: () => void;
+  isDark: boolean;
+  setTheme: (theme: string) => void;
+}) {
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if ((e.target as HTMLElement).isContentEditable) return;
+
+      const key = e.key.toLowerCase();
+
+      if (key === '?' || (e.ctrlKey && key === 'k')) {
+        e.preventDefault();
+        setShortcutOpen((v) => !v);
+      } else if (key === 'escape') {
+        setShortcutOpen(false);
+        setNewComplaintOpen(false);
+        setMobileSidebarOpen(false);
+      } else if (key === 'd' && !shortcutOpen) {
+        e.preventDefault();
+        handleNavigate('dashboard');
+      } else if (key === 'c' && !shortcutOpen) {
+        e.preventDefault();
+        handleNavigate('complaints');
+      } else if (key === 'a' && !shortcutOpen) {
+        e.preventDefault();
+        handleNavigate('analytics');
+      } else if (key === 'n' && !shortcutOpen) {
+        e.preventDefault();
+        setNewComplaintOpen(true);
+      } else if (key === 'r' && !shortcutOpen) {
+        e.preventDefault();
+        handleRefresh();
+      } else if (key === 't' && !shortcutOpen) {
+        e.preventDefault();
+        setTheme(isDark ? 'light' : 'dark');
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [shortcutOpen, isDark, handleNavigate, handleRefresh, setTheme, setShortcutOpen, setNewComplaintOpen, setMobileSidebarOpen]);
+
+  return null;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -2445,6 +3247,9 @@ export default function HomePage() {
   const [notificationData, setNotificationData] = useState<Complaint[]>([]);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const criticalCount = notificationData.length;
+
+  // Keyboard shortcut dialog
+  const [shortcutOpen, setShortcutOpen] = useState(false);
 
   // Dashboard refresh
   const dashboardRef = useRef<{ fetchDashboard: () => void } | null>(null);
@@ -2519,7 +3324,9 @@ export default function HomePage() {
   const navItems = [
     { id: 'dashboard' as ViewType, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'complaints' as ViewType, label: 'Complaints', icon: FileText },
+    { id: 'analytics' as ViewType, label: 'Analytics', icon: BarChart2 },
     ...(user?.role === 'ADMIN' ? [{ id: 'users' as ViewType, label: 'Users', icon: Users }] : []),
+    { id: 'settings' as ViewType, label: 'Settings', icon: Settings },
   ];
 
   // Not logged in
@@ -2529,6 +3336,17 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      {/* Keyboard shortcut listener - placed after all variable declarations */}
+      <KeyboardShortcutHandler
+        shortcutOpen={shortcutOpen}
+        setShortcutOpen={setShortcutOpen}
+        setNewComplaintOpen={setNewComplaintOpen}
+        setMobileSidebarOpen={setMobileSidebarOpen}
+        handleNavigate={handleNavigate}
+        handleRefresh={handleRefresh}
+        isDark={isDark}
+        setTheme={setTheme}
+      />
       {/* ═══ HEADER ═══ */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
         {/* Animated gradient border at bottom */}
@@ -2551,6 +3369,11 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-1.5">
+            {/* Keyboard Shortcut Button */}
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setShortcutOpen(true)} title="Keyboard shortcuts">
+              <CircleHelp className="h-4 w-4" />
+            </Button>
+
             {/* Refresh Button */}
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={handleRefresh} title="Refresh data">
               <RotateCcw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -2670,10 +3493,10 @@ export default function HomePage() {
               <button
                 key={item.id}
                 onClick={() => handleNavigate(item.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border-l-[3px] ${
                   view === item.id
-                    ? 'bg-white dark:bg-gray-800 shadow-sm text-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    ? 'bg-white dark:bg-gray-800 shadow-sm text-foreground border-l-[#0A2463]'
+                    : 'text-muted-foreground hover:bg-gradient-to-r hover:from-muted/80 hover:to-transparent hover:text-foreground border-l-transparent'
                 }`}
               >
                 <item.icon className="h-4 w-4" />
@@ -2715,6 +3538,12 @@ export default function HomePage() {
                 {view === 'users' && (
                   <UserManagementView />
                 )}
+                {view === 'analytics' && (
+                  <AnalyticsView />
+                )}
+                {view === 'settings' && (
+                  <SettingsView />
+                )}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -2746,19 +3575,27 @@ export default function HomePage() {
         <div className="flex items-center justify-around px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
           <button
             onClick={() => handleNavigate('dashboard')}
-            className={`flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-lg transition-colors ${view === 'dashboard' ? 'text-foreground' : 'text-muted-foreground'}`}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${view === 'dashboard' ? 'text-foreground' : 'text-muted-foreground'}`}
           >
             <LayoutDashboard className={`h-5 w-5 ${view === 'dashboard' ? 'text-foreground' : ''}`} />
-            <span className="text-[10px] font-medium">Dashboard</span>
+            <span className="text-[10px] font-medium">Home</span>
             {view === 'dashboard' && <div className="h-0.5 w-4 rounded-full" style={{ backgroundColor: NAVY }} />}
           </button>
           <button
             onClick={() => handleNavigate('complaints')}
-            className={`flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-lg transition-colors ${view === 'complaints' ? 'text-foreground' : 'text-muted-foreground'}`}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${view === 'complaints' ? 'text-foreground' : 'text-muted-foreground'}`}
           >
             <FileText className={`h-5 w-5 ${view === 'complaints' ? 'text-foreground' : ''}`} />
-            <span className="text-[10px] font-medium">Complaints</span>
+            <span className="text-[10px] font-medium">Cases</span>
             {view === 'complaints' && <div className="h-0.5 w-4 rounded-full" style={{ backgroundColor: NAVY }} />}
+          </button>
+          <button
+            onClick={() => handleNavigate('analytics')}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${view === 'analytics' ? 'text-foreground' : 'text-muted-foreground'}`}
+          >
+            <BarChart2 className={`h-5 w-5 ${view === 'analytics' ? 'text-foreground' : ''}`} />
+            <span className="text-[10px] font-medium">Stats</span>
+            {view === 'analytics' && <div className="h-0.5 w-4 rounded-full" style={{ backgroundColor: NAVY }} />}
           </button>
           <button
             onClick={() => setNewComplaintOpen(true)}
@@ -2769,16 +3606,14 @@ export default function HomePage() {
             </div>
             <span className="text-[10px] font-medium text-muted-foreground">New</span>
           </button>
-          {user?.role === 'ADMIN' && (
-            <button
-              onClick={() => handleNavigate('users')}
-              className={`flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-lg transition-colors ${view === 'users' ? 'text-foreground' : 'text-muted-foreground'}`}
-            >
-              <Users className={`h-5 w-5 ${view === 'users' ? 'text-foreground' : ''}`} />
-              <span className="text-[10px] font-medium">Users</span>
-              {view === 'users' && <div className="h-0.5 w-4 rounded-full" style={{ backgroundColor: NAVY }} />}
-            </button>
-          )}
+          <button
+            onClick={() => handleNavigate('settings')}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${view === 'settings' ? 'text-foreground' : 'text-muted-foreground'}`}
+          >
+            <Settings className={`h-5 w-5 ${view === 'settings' ? 'text-foreground' : ''}`} />
+            <span className="text-[10px] font-medium">More</span>
+            {view === 'settings' && <div className="h-0.5 w-4 rounded-full" style={{ backgroundColor: NAVY }} />}
+          </button>
         </div>
       </nav>
 
@@ -2820,10 +3655,10 @@ export default function HomePage() {
               <button
                 key={item.id}
                 onClick={() => handleNavigate(item.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border-l-[3px] ${
                   view === item.id
-                    ? 'bg-muted text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                    ? 'bg-muted text-foreground shadow-sm border-l-[#0A2463]'
+                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground border-l-transparent'
                 }`}
               >
                 <item.icon className="h-4 w-4" />
@@ -2846,6 +3681,16 @@ export default function HomePage() {
 
       {/* New Complaint state lifted up for mobile bottom nav */}
       <NewComplaintDialog open={newComplaintOpen} onOpenChange={setNewComplaintOpen} onCreated={() => {}} />
+
+      {/* Keyboard Shortcuts Dialog */}
+      <KeyboardShortcutsDialog
+        open={shortcutOpen}
+        onOpenChange={setShortcutOpen}
+        onNavigate={handleNavigate}
+        onNewComplaint={() => setNewComplaintOpen(true)}
+        onRefresh={handleRefresh}
+        onToggleTheme={() => setTheme(isDark ? 'light' : 'dark')}
+      />
     </div>
   );
 }
