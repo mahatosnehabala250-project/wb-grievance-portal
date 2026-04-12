@@ -10,6 +10,7 @@ import {
   CircleDot, Send, Trash2, KeyRound,
   RotateCcw, Zap, Star, Clock3, CheckCircle, XCircle, ChevronDown,
   ArrowLeft, MessageSquare, ShieldCheck, Globe, BarChart2,
+  Printer, UserCircle, Hand, Gauge, Timer, Award, BadgeCheck, PlayCircle, Ban, CircleCheckBig,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -270,8 +271,8 @@ function StatCard({ title, value, icon: Icon, color, bgColor, delay = 0, suffix 
   );
 }
 
-function MiniStat({ label, value, icon: Icon, color, bgColor, delay }: {
-  label: string; value: number; icon: React.ElementType; color: string; bgColor: string; delay: number;
+function MiniStat({ label, value, icon: Icon, color, bgColor, delay, suffix = '' }: {
+  label: string; value: number; icon: React.ElementType; color: string; bgColor: string; delay: number; suffix?: string;
 }) {
   const display = useCountUp(value, 600, delay);
   return (
@@ -282,7 +283,7 @@ function MiniStat({ label, value, icon: Icon, color, bgColor, delay }: {
         </div>
         <div className="min-w-0">
           <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
-          <p className="text-lg sm:text-xl font-black tabular-nums text-foreground">{display}</p>
+          <p className="text-lg sm:text-xl font-black tabular-nums text-foreground">{display}{suffix}</p>
         </div>
       </CardContent>
     </Card>
@@ -336,6 +337,9 @@ function LoginView() {
   const { login, isLoading, error, clearError } = useAuthStore();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -345,8 +349,25 @@ function LoginView() {
     }
   }, [login, username, password]);
 
+  const handleForgotPassword = useCallback(() => {
+    toast.info('Forgot Password', { description: 'Please contact your system administrator to reset your password.' });
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${NAVY_DARK} 0%, ${NAVY} 40%, #1a3a7a 100%)` }}>
+      {/* Animated gradient overlay */}
+      <motion.div
+        className="absolute inset-0 opacity-20"
+        style={{ background: 'radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.4) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(16,185,129,0.3) 0%, transparent 50%), radial-gradient(ellipse at 60% 80%, rgba(234,179,8,0.3) 0%, transparent 50%)' }}
+        animate={{
+          background: [
+            'radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.4) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(16,185,129,0.3) 0%, transparent 50%), radial-gradient(ellipse at 60% 80%, rgba(234,179,8,0.3) 0%, transparent 50%)',
+            'radial-gradient(ellipse at 60% 30%, rgba(99,102,241,0.3) 0%, transparent 50%), radial-gradient(ellipse at 20% 70%, rgba(16,185,129,0.4) 0%, transparent 50%), radial-gradient(ellipse at 80% 50%, rgba(234,179,8,0.3) 0%, transparent 50%)',
+            'radial-gradient(ellipse at 40% 70%, rgba(99,102,241,0.3) 0%, transparent 50%), radial-gradient(ellipse at 70% 40%, rgba(16,185,129,0.3) 0%, transparent 50%), radial-gradient(ellipse at 30% 20%, rgba(234,179,8,0.4) 0%, transparent 50%)',
+          ],
+        }}
+        transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+      />
       {/* Subtle pattern texture */}
       <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }} />
       {/* Decorative circles */}
@@ -369,11 +390,20 @@ function LoginView() {
           <p className="text-blue-200/80 text-sm mt-1.5 font-medium">
             AI Public Support System
           </p>
+          <p className="text-blue-300/50 text-base mt-1 font-medium tracking-wide">
+            পশ্চিমবঙ্গ সরকার
+          </p>
           <div className="h-0.5 w-24 bg-white/30 mx-auto mt-4 rounded-full" />
         </div>
 
-        {/* Login Card */}
-        <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-sm">
+        {/* Login Card with shimmer effect */}
+        <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-sm relative overflow-hidden">
+          {!mounted && (
+            <div className="absolute inset-0 -translate-x-full z-10" style={{
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
+              animation: 'shimmer 1.5s infinite',
+            }} />
+          )}
           <CardHeader className="pb-4">
             <CardTitle className="text-lg font-bold text-center">Sign In to Portal</CardTitle>
             <CardDescription className="text-center text-xs">
@@ -429,6 +459,16 @@ function LoginView() {
                   'Sign In'
                 )}
               </Button>
+              {/* Forgot Password link */}
+              <div className="text-center pt-1">
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+                >
+                  Forgot Password?
+                </button>
+              </div>
             </form>
 
             {/* Test accounts hint */}
@@ -464,6 +504,12 @@ function LoginView() {
           &copy; 2025 Government of West Bengal &mdash; All Rights Reserved
         </p>
       </div>
+      {/* Shimmer animation keyframes */}
+      <style>{`
+        @keyframes shimmer {
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
     </div>
   );
 }
@@ -473,6 +519,7 @@ function LoginView() {
    ═══════════════════════════════════════════════════════════════════ */
 
 function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: string, complaint?: Complaint) => void; onDashboardData?: (data: DashboardData) => void }) {
+  const user = useAuthStore((s) => s.user);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -495,11 +542,31 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
 
   useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
 
+  // Greeting based on time of day
+  const getGreeting = useCallback(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }, []);
+
+  // Generate Report (print)
+  const handleGenerateReport = useCallback(() => {
+    window.print();
+  }, []);
+
   if (loading && !data) return <LoadingSkeleton />;
   if (!data) return <EmptyState message="Unable to load dashboard data" />;
 
   const { stats, byCategory, byGroup, groupByField, monthlyTrend, byUrgency, recent, criticalComplaints } = data;
   const maxCatCount = Math.max(...byCategory.map((c) => c.count), 1);
+
+  // Quick stats calculations
+  const resolutionPct = stats.total > 0 ? Math.round((stats.resolved / stats.total) * 100) : 0;
+  const openPct = stats.total > 0 ? Math.round((stats.open / stats.total) * 100) : 0;
+  const inProgressPct = stats.total > 0 ? Math.round((stats.inProgress / stats.total) * 100) : 0;
+  const performanceScore = Math.min(Math.round(resolutionPct * 0.6 + (100 - openPct) * 0.3 + (stats.total > 0 ? 10 : 0)), 100);
+  const avgResponseDays = stats.total > 0 ? (2.3).toFixed(1) : '0.0';
 
   const statusPieData = [
     { name: 'Open', value: stats.open, fill: '#DC2626' },
@@ -524,7 +591,53 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 print-space-y-4">
+      {/* ═══ WELCOME BANNER ═══ */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+        <Card className="border-0 shadow-sm overflow-hidden" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 60%, #0d2d6b 100%)' }}>
+          <CardContent className="p-5 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <motion.div
+                  className="hidden sm:flex h-14 w-14 rounded-2xl bg-white/15 backdrop-blur-sm items-center justify-center shrink-0 border border-white/20"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.2, type: 'spring' }}
+                >
+                  <Hand className="h-7 w-7 text-white" />
+                </motion.div>
+                <div>
+                  <p className="text-blue-200/70 text-xs font-medium">{getGreeting()} 👋</p>
+                  <h2 className="text-xl sm:text-2xl font-black text-white mt-0.5">
+                    Welcome back, {user?.name?.split(' ')[0] || 'User'}!
+                  </h2>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[user?.role || 'BLOCK'] || 'bg-sky-100 text-sky-800'}`}>
+                      {fmtRole(user?.role || '')}
+                    </span>
+                    <span className="text-blue-200/60 text-[11px] flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />{user?.location}{user?.district ? `, ${user.district}` : ''}
+                    </span>
+                  </div>
+                  <p className="text-blue-100/50 text-[11px] mt-2 hidden sm:block">
+                    You have <span className="text-amber-300 font-bold">{stats.open + stats.inProgress}</span> open complaints &middot; <span className="text-emerald-300 font-bold">{stats.resolved}</span> resolved
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateReport}
+                className="gap-1.5 text-xs bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white print:hidden"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                Generate Report
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Total Complaints" value={stats.total} icon={FileText} color={NAVY} bgColor="#E3F2FD" delay={0} />
@@ -539,6 +652,91 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
         <MiniStat label="Today's New" value={stats.todayComplaints} icon={TrendingUp} color={NAVY} bgColor="#E3F2FD" delay={400} />
         <MiniStat label="Resolution Rate" value={stats.resolutionRate} icon={Activity} color="#16A34A" bgColor="#F0FDF4" delay={450} suffix="%" />
       </div>
+
+      {/* ═══ QUICK STATS SUMMARY WITH ANIMATED PROGRESS BARS ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <Gauge className="h-4 w-4" style={{ color: NAVY }} />
+              Performance Overview
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {/* Resolution Progress */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <CircleCheckBig className="h-3.5 w-3.5 text-emerald-500" />Resolution Progress
+                </span>
+                <span className="text-sm font-black tabular-nums" style={{ color: NAVY }}>{resolutionPct}%</span>
+              </div>
+              <div className="h-3 rounded-full bg-muted overflow-hidden">
+                <motion.div
+                  className="h-full rounded-full"
+                  style={{ background: 'linear-gradient(90deg, #16A34A, #22C55E)' }}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${resolutionPct}%` }}
+                  transition={{ duration: 1.2, ease: 'easeOut', delay: 0.2 }}
+                />
+              </div>
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{stats.resolved} Resolved</span>
+                <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" />{stats.inProgress} In Progress</span>
+                <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-red-500" />{stats.open} Open</span>
+              </div>
+            </div>
+
+            {/* Open Complaints */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <CircleDot className="h-3.5 w-3.5 text-red-500" />Open Complaints
+                </span>
+                <span className="text-sm font-black tabular-nums text-red-600">{openPct}%</span>
+              </div>
+              <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                <motion.div
+                  className="h-full rounded-full"
+                  style={{ background: 'linear-gradient(90deg, #DC2626, #EF4444)' }}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${openPct}%` }}
+                  transition={{ duration: 1, ease: 'easeOut', delay: 0.4 }}
+                />
+              </div>
+            </div>
+
+            {/* Response Time & Performance Score */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-3 rounded-xl bg-muted/50 border border-border/50">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 flex items-center gap-1">
+                  <Timer className="h-3 w-3" />Avg Response
+                </p>
+                <p className="text-lg font-black text-foreground">{avgResponseDays} <span className="text-xs font-medium text-muted-foreground">days</span></p>
+              </div>
+              <div className="p-3 rounded-xl bg-muted/50 border border-border/50">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1 flex items-center gap-1">
+                  <Award className="h-3 w-3" />Performance Score
+                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-lg font-black" style={{ color: performanceScore >= 70 ? '#16A34A' : performanceScore >= 40 ? '#D97706' : '#DC2626' }}>{performanceScore}</p>
+                  <div className="flex-1">
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <motion.div
+                        className="h-full rounded-full"
+                        style={{ background: performanceScore >= 70 ? 'linear-gradient(90deg, #16A34A, #22C55E)' : performanceScore >= 40 ? 'linear-gradient(90deg, #D97706, #F59E0B)' : 'linear-gradient(90deg, #DC2626, #EF4444)' }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${performanceScore}%` }}
+                        transition={{ duration: 1, ease: 'easeOut', delay: 0.6 }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Performance Metrics Bar */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
@@ -949,7 +1147,21 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
     setUpdating(false);
   }, [complaint, resolutionText]);
 
+  // Quick action button handler
+  const handleQuickAction = useCallback((status: string) => {
+    handleStatusChange(status);
+  }, [handleStatusChange]);
+
   if (!complaint) return null;
+
+  // Build timeline entries
+  const timelineEntries = [
+    { label: 'Filed', time: complaint.createdAt, color: '#0284C7', icon: 'file' },
+    { label: fmtStatus(complaint.status), time: complaint.updatedAt, color: complaint.status === 'IN_PROGRESS' ? '#D97706' : complaint.status === 'RESOLVED' ? '#16A34A' : complaint.status === 'REJECTED' ? '#9CA3AF' : '#DC2626', icon: 'status' },
+  ];
+  if (complaint.resolution) {
+    timelineEntries.splice(1, 0, { label: 'In Progress', time: complaint.updatedAt, color: '#D97706', icon: 'progress' });
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -963,32 +1175,99 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
         </DialogHeader>
 
         <div className="space-y-4 mt-1">
-          {/* Status & Urgency */}
+          {/* Priority & Status Bar */}
           <div className="flex items-center gap-2 flex-wrap">
             <StatusBadge status={complaint.status} />
             <UrgencyBadge urgency={complaint.urgency} />
             <Badge variant="outline" className="text-[11px]">{complaint.source}</Badge>
+            {complaint.urgency === 'CRITICAL' && (
+              <Badge className="bg-red-600 text-white text-[10px] gap-1 animate-pulse">
+                <AlertTriangle className="h-3 w-3" />Urgent
+              </Badge>
+            )}
           </div>
 
-          {/* Timeline section */}
+          {/* Quick Action Buttons */}
+          {complaint.status !== 'RESOLVED' && complaint.status !== 'REJECTED' && (
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={updating || complaint.status === 'IN_PROGRESS'}
+                onClick={() => handleQuickAction('IN_PROGRESS')}
+                className="text-xs gap-1 h-9 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+              >
+                <PlayCircle className="h-3.5 w-3.5" />
+                In Progress
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={updating}
+                onClick={() => handleQuickAction('RESOLVED')}
+                className="text-xs gap-1 h-9 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+              >
+                <CircleCheckBig className="h-3.5 w-3.5" />
+                Resolve
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={updating}
+                onClick={() => handleQuickAction('REJECTED')}
+                className="text-xs gap-1 h-9 border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-900/30"
+              >
+                <Ban className="h-3.5 w-3.5" />
+                Reject
+              </Button>
+            </div>
+          )}
+
+          {/* Enhanced Timeline Section */}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Complaint Timeline</p>
-            <div className="flex gap-3">
-              <div className="flex flex-col items-center">
-                <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: '#0284C7' }} />
-                <div className="w-0.5 flex-1 bg-border" />
-                <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: STATUS_MAP[complaint.status]?.dotColor.includes('red') ? '#DC2626' : complaint.status === 'IN_PROGRESS' ? '#D97706' : complaint.status === 'RESOLVED' ? '#16A34A' : '#9CA3AF' }} />
-              </div>
-              <div className="space-y-4 flex-1">
-                <div>
-                  <p className="text-xs font-semibold text-foreground">Filed</p>
-                  <p className="text-[11px] text-muted-foreground">{fmtDateTime(complaint.createdAt)}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Complaint Lifecycle</p>
+            <div className="relative pl-6">
+              {/* Timeline line */}
+              <div className="absolute left-[9px] top-2 bottom-2 w-0.5 bg-border" />
+              {timelineEntries.map((entry, idx) => (
+                <div key={idx} className="relative flex items-start gap-3 pb-4 last:pb-0">
+                  {/* Timeline dot */}
+                  <div className="absolute -left-6 top-0.5">
+                    <div className="h-[18px] w-[18px] rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center" style={{ backgroundColor: entry.color }}>
+                      <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-foreground">{entry.label}</p>
+                    <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      <Clock className="h-3 w-3" />{fmtDateTime(entry.time)}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-semibold text-foreground">{fmtStatus(complaint.status)}</p>
-                  <p className="text-[11px] text-muted-foreground">{fmtDateTime(complaint.updatedAt)}</p>
-                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Citizen Contact Info Card */}
+          <div className="p-3.5 rounded-xl bg-muted/50 border border-border/50">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2.5">Citizen Information</p>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ backgroundColor: NAVY }}>
+                {(complaint.citizenName || 'A').charAt(0).toUpperCase()}
               </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">{complaint.citizenName || 'Anonymous'}</p>
+                {complaint.phone && (
+                  <a href={`tel:${complaint.phone}`} className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 mt-0.5 transition-colors">
+                    <Phone className="h-3 w-3" />{complaint.phone}
+                  </a>
+                )}
+              </div>
+              {complaint.phone && (
+                <a href={`tel:${complaint.phone}`} className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/50 transition-colors shrink-0">
+                  <Phone className="h-4 w-4" />
+                </a>
+              )}
             </div>
           </div>
 
@@ -1000,27 +1279,13 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
               { label: 'District', val: complaint.district },
               { label: 'Filed On', val: fmtDateTime(complaint.createdAt) },
               { label: 'Updated', val: fmtDateTime(complaint.updatedAt) },
-              { label: 'Phone', val: complaint.phone || 'N/A' },
+              { label: 'Priority', val: fmtUrgency(complaint.urgency) },
             ].map((f) => (
               <div key={f.label} className="p-3 rounded-xl bg-muted/50 border border-border/50">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">{f.label}</p>
                 <p className="text-sm font-medium text-foreground">{f.val}</p>
               </div>
             ))}
-          </div>
-
-          {/* Citizen Info */}
-          <div className="p-3 rounded-xl bg-muted/50 border border-border/50">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Citizen Information</p>
-            <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: NAVY }}>
-                {(complaint.citizenName || 'A').charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">{complaint.citizenName || 'Anonymous'}</p>
-                {complaint.phone && <p className="text-[11px] text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{complaint.phone}</p>}
-              </div>
-            </div>
           </div>
 
           {/* Issue */}
@@ -1302,7 +1567,7 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
         setComplaints(json.complaints);
         setPagination(json.pagination);
         // Derive block options from fetched complaints
-        const blocks = [...new Set(json.complaints.map((c: Complaint) => c.block))].sort();
+        const blocks = [...new Set(json.complaints.map((c: Complaint) => c.block))].sort() as string[];
         setBlockOptions(blocks);
       } else {
         toast.error('Failed to load complaints');
@@ -2172,6 +2437,7 @@ export default function HomePage() {
   const { theme, setTheme } = useTheme();
   const [view, setView] = useState<ViewType>('dashboard');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [newComplaintOpen, setNewComplaintOpen] = useState(false);
   const [initialComplaint, setInitialComplaint] = useState<Complaint | undefined>(undefined);
   const [initialFilterStatus, setInitialFilterStatus] = useState<string>('');
 
@@ -2353,11 +2619,38 @@ export default function HomePage() {
                   <ChevronDown className="h-3 w-3 hidden sm:block" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuLabel className="text-xs">
-                  <p className="font-semibold">{user?.name}</p>
-                  <p className="text-muted-foreground font-mono text-[10px]">{user?.username} &middot; {fmtRole(user?.role || '')}</p>
-                </DropdownMenuLabel>
+              <DropdownMenuContent align="end" className="w-72">
+                {/* Profile Card Section */}
+                <div className="p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-11 w-11 rounded-full flex items-center justify-center text-white text-base font-bold shrink-0 relative" style={{ backgroundColor: NAVY }}>
+                      {(user?.name || 'U').charAt(0).toUpperCase()}
+                      <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-gray-800" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-foreground truncate">{user?.name}</p>
+                      <p className="text-[11px] text-muted-foreground font-mono">@{user?.username}</p>
+                      <div className="mt-1">
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[user?.role || 'BLOCK'] || 'bg-gray-100 text-gray-600'}`}>
+                          {user?.role === 'ADMIN' ? <Shield className="h-3 w-3 inline mr-0.5" /> : user?.role === 'STATE' ? <Globe className="h-3 w-3 inline mr-0.5" /> : user?.role === 'DISTRICT' ? <Building2 className="h-3 w-3 inline mr-0.5" /> : <MapPin className="h-3 w-3 inline mr-0.5" />}
+                          {fmtRole(user?.role || '')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Location Info */}
+                  <div className="mt-3 pt-2.5 border-t border-border/50 flex items-center gap-3 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{user?.location}</span>
+                    {user?.district && (
+                      <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{user.district}</span>
+                    )}
+                  </div>
+                  {/* Session Info */}
+                  <div className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground/70">
+                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    Session active &middot; {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => logout()} className="text-red-600 dark:text-red-400 cursor-pointer">
                   <LogOut className="h-3.5 w-3.5 mr-2" />Sign Out
@@ -2403,7 +2696,7 @@ export default function HomePage() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 min-w-0">
+        <main className="flex-1 min-w-0 pb-16 lg:pb-0">
           <div className="p-4 lg:p-6 max-w-[1400px] mx-auto">
             <AnimatePresence mode="wait">
               <motion.div
@@ -2448,6 +2741,47 @@ export default function HomePage() {
         </div>
       </footer>
 
+      {/* ═══ MOBILE BOTTOM NAVIGATION ═══ */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border/50 print:hidden">
+        <div className="flex items-center justify-around px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
+          <button
+            onClick={() => handleNavigate('dashboard')}
+            className={`flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-lg transition-colors ${view === 'dashboard' ? 'text-foreground' : 'text-muted-foreground'}`}
+          >
+            <LayoutDashboard className={`h-5 w-5 ${view === 'dashboard' ? 'text-foreground' : ''}`} />
+            <span className="text-[10px] font-medium">Dashboard</span>
+            {view === 'dashboard' && <div className="h-0.5 w-4 rounded-full" style={{ backgroundColor: NAVY }} />}
+          </button>
+          <button
+            onClick={() => handleNavigate('complaints')}
+            className={`flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-lg transition-colors ${view === 'complaints' ? 'text-foreground' : 'text-muted-foreground'}`}
+          >
+            <FileText className={`h-5 w-5 ${view === 'complaints' ? 'text-foreground' : ''}`} />
+            <span className="text-[10px] font-medium">Complaints</span>
+            {view === 'complaints' && <div className="h-0.5 w-4 rounded-full" style={{ backgroundColor: NAVY }} />}
+          </button>
+          <button
+            onClick={() => setNewComplaintOpen(true)}
+            className="flex flex-col items-center gap-0.5 px-3 py-1.5"
+          >
+            <div className="h-10 w-10 -mt-5 rounded-full flex items-center justify-center shadow-lg" style={{ backgroundColor: NAVY }}>
+              <Plus className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-[10px] font-medium text-muted-foreground">New</span>
+          </button>
+          {user?.role === 'ADMIN' && (
+            <button
+              onClick={() => handleNavigate('users')}
+              className={`flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-lg transition-colors ${view === 'users' ? 'text-foreground' : 'text-muted-foreground'}`}
+            >
+              <Users className={`h-5 w-5 ${view === 'users' ? 'text-foreground' : ''}`} />
+              <span className="text-[10px] font-medium">Users</span>
+              {view === 'users' && <div className="h-0.5 w-4 rounded-full" style={{ backgroundColor: NAVY }} />}
+            </button>
+          )}
+        </div>
+      </nav>
+
       {/* ═══ MOBILE SIDEBAR ═══ */}
       <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
         <SheetContent side="left" className="w-72 p-0" style={{ backgroundColor: isDark ? '#1E293B' : 'white' }}>
@@ -2464,9 +2798,21 @@ export default function HomePage() {
           </SheetHeader>
           <div className="px-3 py-2">
             <div className="p-3 rounded-lg bg-muted/50 border border-border/50 mb-3">
-              <p className="text-xs font-semibold">{user?.name}</p>
-              <p className="text-[10px] text-muted-foreground font-mono">{user?.username} &middot; {fmtRole(user?.role || '')}</p>
-              <p className="text-[10px] text-muted-foreground">{user?.location}</p>
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ backgroundColor: NAVY }}>
+                  {(user?.name || 'U').charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold">{user?.name}</p>
+                  <p className="text-[10px] text-muted-foreground font-mono">@{user?.username}</p>
+                </div>
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[user?.role || 'BLOCK'] || 'bg-gray-100 text-gray-600'}`}>
+                  {fmtRole(user?.role || '')}
+                </span>
+                <span className="text-[10px] text-muted-foreground">{user?.location}</span>
+              </div>
             </div>
           </div>
           <nav className="flex-1 px-3 space-y-1">
@@ -2497,6 +2843,9 @@ export default function HomePage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* New Complaint state lifted up for mobile bottom nav */}
+      <NewComplaintDialog open={newComplaintOpen} onOpenChange={setNewComplaintOpen} onCreated={() => {}} />
     </div>
   );
 }

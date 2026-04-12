@@ -30,6 +30,17 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <style>{`
+          @media print {
+            header, footer, nav, .print\\:hidden, [class*="print:hidden"] { display: none !important; }
+            main { padding: 0 !important; max-width: 100% !important; }
+            .print\\:space-y-4 > * { margin-bottom: 1rem; page-break-inside: avoid; }
+            body { background: white !important; }
+            * { color-adjust: exact; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          }
+        `}</style>
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           {children}
