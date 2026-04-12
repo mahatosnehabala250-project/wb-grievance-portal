@@ -1538,6 +1538,10 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
   const [newNote, setNewNote] = useState('');
   const [addingNote, setAddingNote] = useState(false);
   const [escalating, setEscalating] = useState(false);
+  const [comments, setComments] = useState<{ id: string; content: string; actorName: string | null; createdAt: string }[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
 
   useEffect(() => {
     if (open && initialComplaint) {
@@ -1553,7 +1557,7 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
     }
   }, [open, initialComplaint]);
 
-  // Fetch assignable users and activity log when dialog opens
+  // Fetch assignable users, activity log and comments when dialog opens
   useEffect(() => {
     if (!open || !complaint) return;
     fetch('/api/users/list', { headers: authHeaders() })
@@ -1566,6 +1570,13 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
       .then((json) => { if (json) setActivities(json.activities || []); })
       .catch(() => {})
       .finally(() => setLoadingActivity(false));
+    // Fetch comments
+    setLoadingComments(true);
+    fetch(`/api/complaints/${complaint.id}/comments`, { headers: authHeaders() })
+      .then((res) => res.ok ? res.json() : null)
+      .then((json) => { if (json) setComments(json.comments || []); })
+      .catch(() => {})
+      .finally(() => setLoadingComments(false));
   }, [open, complaint?.id]);
 
   const refreshActivity = useCallback(async (cid: string) => {
@@ -1664,6 +1675,31 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
     setNewNote('');
     toast.success('Note added');
   }, [complaint, newNote, internalNotes]);
+
+  const handleAddComment = useCallback(async () => {
+    if (!complaint || !newComment.trim()) return;
+    setSubmittingComment(true);
+    try {
+      const res = await fetch(`/api/complaints/${complaint.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ content: newComment.trim() }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setComments((prev) => [...prev, json.comment]);
+        setNewComment('');
+        refreshActivity(complaint.id);
+        toast.success('Comment added');
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to add comment');
+      }
+    } catch {
+      toast.error('Network error');
+    }
+    setSubmittingComment(false);
+  }, [complaint, newComment, refreshActivity]);
 
   const handleEscalate = useCallback(async () => {
     if (!complaint) return;
@@ -1959,11 +1995,45 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
             </Button>
           </div>
 
-          {/* Internal Notes */}
+          {/* Official Comments */}
           <div className="space-y-2">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-              <MessageSquare className="h-3.5 w-3.5" />Internal Notes
-              <span className="text-muted-foreground/60">({internalNotes.length})</span>
+              <MessageSquare className="h-3.5 w-3.5" />Official Comments
+              <span className="text-muted-foreground/60">({comments.length})</span>
+            </p>
+            {loadingComments && <Skeleton className="h-12 w-full" />}
+            {comments.length > 0 && (
+              <div className="space-y-1.5 max-h-[150px] overflow-y-auto custom-scrollbar">
+                {comments.map((c) => (
+                  <div key={c.id} className="p-2.5 rounded-lg bg-sky-50 dark:bg-sky-950/20 border border-sky-200/50 dark:border-sky-800/30 text-xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-foreground">{c.actorName || 'System'}</span>
+                      <span className="text-[10px] text-muted-foreground">{fmtDateTime(c.createdAt)}</span>
+                    </div>
+                    <p className="text-foreground/80 leading-relaxed whitespace-pre-wrap">{c.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <Input
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Add a comment..."
+                className="text-sm h-8 flex-1"
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && newComment.trim()) { e.preventDefault(); handleAddComment(); } }}
+              />
+              <Button size="sm" variant="outline" onClick={handleAddComment} disabled={!newComment.trim() || submittingComment} className="text-xs h-8 px-3 shrink-0">
+                {submittingComment ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+              </Button>
+            </div>
+          </div>
+
+          {/* Internal Notes (localStorage) */}
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3" />Private Notes
+              <span className="text-muted-foreground/40">({internalNotes.length})</span>
             </p>
             {internalNotes.length > 0 && (
               <div className="space-y-1.5 max-h-[120px] overflow-y-auto custom-scrollbar">
@@ -3239,6 +3309,7 @@ function AnalyticsView() {
   const [loading, setLoading] = useState(true);
   const [sortField, setSortField] = useState<'name' | 'count' | 'resolved' | 'open'>('count');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'audit'>('analytics');
 
   useEffect(() => {
     async function load() {
@@ -3303,7 +3374,7 @@ function AnalyticsView() {
   });
   catResolution.sort((a, b) => b.rate - a.rate);
 
-  // Top performing areas
+  // Top/bottom performing areas
   const sortedGroups = [...byGroup].sort((a, b) => {
     const rateA = a.count > 0 ? a.resolved / a.count : 0;
     const rateB = b.count > 0 ? b.resolved / b.count : 0;
@@ -3338,6 +3409,18 @@ function AnalyticsView() {
 
   return (
     <div className="space-y-5">
+      {/* Tab Bar */}
+      <div className="flex items-center gap-1 p-1 rounded-xl bg-muted/50 w-fit">
+        <button onClick={() => setActiveTab('analytics')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'analytics' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+          <BarChart2 className="h-4 w-4 inline mr-1.5" />Analytics
+        </button>
+        <button onClick={() => setActiveTab('audit')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'audit' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+          <History className="h-4 w-4 inline mr-1.5" />Audit Trail
+        </button>
+      </div>
+
+      {activeTab === 'audit' ? <AuditTrailView /> : (
+      <>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">Analytics & Insights</h2>
@@ -3654,6 +3737,139 @@ function AnalyticsView() {
           </Card>
         </motion.div>
       </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   AUDIT TRAIL VIEW
+   ═══════════════════════════════════════════════════════════════════ */
+
+interface AuditEntry {
+  id: string; complaintId: string; ticketNo: string; action: string;
+  description: string; actorName: string | null; createdAt: string;
+}
+
+const ACTION_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+  CREATED: { bg: 'bg-sky-50 dark:bg-sky-950/40', text: 'text-sky-700 dark:text-sky-400', dot: 'bg-sky-500' },
+  STATUS_CHANGED: { bg: 'bg-amber-50 dark:bg-amber-950/40', text: 'text-amber-700 dark:text-amber-400', dot: 'bg-amber-500' },
+  ASSIGNED: { bg: 'bg-purple-50 dark:bg-purple-950/40', text: 'text-purple-700 dark:text-purple-400', dot: 'bg-purple-500' },
+  UNASSIGNED: { bg: 'bg-gray-50 dark:bg-gray-900/40', text: 'text-gray-600 dark:text-gray-400', dot: 'bg-gray-400' },
+  ESCALATED: { bg: 'bg-red-50 dark:bg-red-950/40', text: 'text-red-700 dark:text-red-400', dot: 'bg-red-500' },
+  RESOLVED: { bg: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-700 dark:text-emerald-400', dot: 'bg-emerald-500' },
+  REJECTED: { bg: 'bg-gray-50 dark:bg-gray-900/40', text: 'text-gray-600 dark:text-gray-400', dot: 'bg-gray-400' },
+  COMMENTED: { bg: 'bg-indigo-50 dark:bg-indigo-950/40', text: 'text-indigo-700 dark:text-indigo-400', dot: 'bg-indigo-500' },
+};
+
+function AuditTrailView() {
+  const [entries, setEntries] = useState<AuditEntry[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [actionFilter, setActionFilter] = useState('');
+
+  const fetchAudit = useCallback(async (offset = 0) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: '50', offset: String(offset) });
+      if (actionFilter) params.set('action', actionFilter);
+      const res = await fetch(`/api/audit-log?${params}`, { headers: authHeaders() });
+      if (res.ok) {
+        const json = await res.json();
+        if (offset === 0) {
+          setEntries(json.entries);
+          setTotal(json.total);
+        } else {
+          setEntries((prev) => [...prev, ...json.entries]);
+        }
+      } else {
+        setEntries([]); setTotal(0);
+      }
+    } catch { /* silent */ }
+    setLoading(false);
+  }, [actionFilter]);
+
+  useEffect(() => { fetchAudit(); }, [fetchAudit]);
+
+  const actionTypes = ['CREATED', 'STATUS_CHANGED', 'ASSIGNED', 'ESCALATED', 'RESOLVED', 'REJECTED', 'COMMENTED'];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-bold flex items-center gap-2">
+            <History className="h-4 w-4" style={{ color: NAVY }} />
+            Audit Trail
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">{total} activity entries</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={actionFilter || 'all'} onValueChange={(v) => setActionFilter(v === 'all' ? '' : v)}>
+            <SelectTrigger className="h-8 w-[160px] text-xs">
+              <SelectValue placeholder="All Actions" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Actions</SelectItem>
+              {actionTypes.map((a) => (
+                <SelectItem key={a} value={a}>{a.replace(/_/g, ' ')}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button size="sm" variant="outline" onClick={() => fetchAudit()} className="text-xs h-8 gap-1">
+            <RefreshCw className="h-3 w-3" /> Refresh
+          </Button>
+        </div>
+      </div>
+
+      {loading && entries.length === 0 ? (
+        <div className="space-y-2">{[0,1,2,3,4].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
+      ) : entries.length === 0 ? (
+        <EmptyState message="No activity entries found" icon={History} />
+      ) : (
+        <>
+          <div className="rounded-xl border border-border/50 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableHead className="text-[10px] font-bold uppercase w-[140px]">Timestamp</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase w-[120px]">Actor</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase w-[130px]">Action</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase w-[100px]">Ticket</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase">Description</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {entries.map((e, idx) => {
+                  const colors = ACTION_COLORS[e.action] || ACTION_COLORS.CREATED;
+                  return (
+                    <TableRow key={e.id} className={`table-row-hover ${idx % 2 === 1 ? 'bg-muted/15' : ''}`}>
+                      <TableCell className="text-xs font-mono text-muted-foreground py-2">{fmtDateTime(e.createdAt)}</TableCell>
+                      <TableCell className="text-xs font-medium py-2">{e.actorName || 'System'}</TableCell>
+                      <TableCell className="py-2">
+                        <Badge variant="outline" className={`text-[10px] font-semibold px-2 py-0.5 ${colors.bg} ${colors.text}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${colors.dot} mr-1`} />
+                          {e.action.replace(/_/g, ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs font-mono font-bold py-2">{e.ticketNo || '—'}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground py-2 max-w-[250px] truncate">{e.description}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+          {entries.length < total && (
+            <div className="text-center">
+              <Button variant="outline" size="sm" onClick={() => fetchAudit(entries.length)} disabled={loading} className="text-xs gap-1">
+                {loading ? <RefreshCw className="h-3 w-3 animate-spin" /> : null}
+                Load More ({total - entries.length} remaining)
+              </Button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -4217,7 +4433,7 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
                 </span>
               ))}
             </div>
-            <p className="text-[10px] text-muted-foreground/50 mt-1">v2.2.0</p>
+            <p className="text-[10px] text-muted-foreground/50 mt-1">v2.3.0</p>
           </div>
         </div>
       </div>
@@ -4634,15 +4850,26 @@ export default function HomePage() {
                 </div>
                 <div>
                   <p className="text-sm font-bold text-white/95">Government of West Bengal</p>
-                  <p className="text-[11px] text-white/50">AI Public Support System &middot; Grievance Management Portal</p>
+                  <p className="text-[11px] text-white/50">AI Public Support System &middot; Grievance Portal v2.3.0</p>
                 </div>
               </div>
 
-              {/* Quick Stats Row */}
-              <div className="flex items-center gap-6 text-center">
+              {/* Quick Links */}
+              <div className="hidden sm:flex items-center gap-4 text-[11px]">
+                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1"><LayoutDashboard className="h-3 w-3" />Dashboard</span>
+                <span className="text-white/30">|</span>
+                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1"><FileText className="h-3 w-3" />Track Status</span>
+                <span className="text-white/30">|</span>
+                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1"><BarChart2 className="h-3 w-3" />Analytics</span>
+                <span className="text-white/30">|</span>
+                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1"><CircleHelp className="h-3 w-3" />Help</span>
+              </div>
+
+              {/* Status Indicators */}
+              <div className="flex items-center gap-4 text-center">
                 <div className="hidden sm:block">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Portal</p>
-                  <p className="text-xs font-bold text-white/80 mt-0.5">v2.2.0</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Version</p>
+                  <p className="text-xs font-bold text-white/80 mt-0.5">v2.3.0</p>
                 </div>
                 <div className="hidden sm:block w-px h-8 bg-white/10" />
                 <div className="hidden sm:block">
@@ -4662,7 +4889,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Links & Copyright */}
+              {/* Copyright */}
               <div className="flex flex-col items-start md:items-end gap-2">
                 <div className="flex items-center gap-4 text-[11px]">
                   <span className="flex items-center gap-1 text-white/50 hover:text-white/80 transition-colors cursor-pointer"><Globe className="h-3 w-3" />wb.gov.in</span>

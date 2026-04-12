@@ -38,6 +38,7 @@ model Complaint {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   activities    ActivityLog[]
+  comments      Comment[]
 }
 
 model ActivityLog {
@@ -54,4 +55,16 @@ model ActivityLog {
 
   @@index([complaintId])
   @@index([createdAt])
+}
+
+model Comment {
+  id           String   @id @default(uuid())
+  complaintId  String
+  content      String
+  actorId      String?
+  actorName    String?
+  createdAt    DateTime @default(now())
+  complaint    Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  @@index([complaintId])
 }
