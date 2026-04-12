@@ -430,6 +430,30 @@ function LoginView() {
       <div className="absolute top-[-120px] left-[-120px] h-[400px] w-[400px] rounded-full opacity-10" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.3), transparent)' }} />
       <div className="absolute bottom-[-80px] right-[-80px] h-[300px] w-[300px] rounded-full opacity-10" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.2), transparent)' }} />
 
+      {/* Floating Particles */}
+      {[
+        { left: '10%', size: 4, duration: 12, delay: 0 },
+        { left: '25%', size: 3, duration: 18, delay: 2 },
+        { left: '45%', size: 5, duration: 15, delay: 4 },
+        { left: '65%', size: 3, duration: 20, delay: 1 },
+        { left: '80%', size: 4, duration: 14, delay: 3 },
+        { left: '90%', size: 2, duration: 22, delay: 5 },
+        { left: '35%', size: 2, duration: 16, delay: 7 },
+        { left: '55%', size: 3, duration: 19, delay: 6 },
+      ].map((p, i) => (
+        <div
+          key={i}
+          className="absolute bottom-0 rounded-full bg-white/40 float-particle"
+          style={{
+            left: p.left,
+            width: p.size,
+            height: p.size,
+            animationDuration: `${p.duration}s`,
+            animationDelay: `${p.delay}s`,
+          }}
+        />
+      ))}
+
       <div className="w-full max-w-md relative z-10">
         {/* Government branding header */}
         <div className="text-center mb-8">
@@ -586,11 +610,14 @@ function LoginView() {
           background-size: 40px 40px;
           animation: dotDrift 15s linear infinite;
         }
-        [data-sonner-toast][data-type="success"] {
-          border-left: 4px solid #16A34A !important;
+        @keyframes floatUp {
+          0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+          10% { opacity: 0.6; }
+          90% { opacity: 0.6; }
+          100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
         }
-        [data-sonner-toast][data-type="error"] {
-          border-left: 4px solid #DC2626 !important;
+        .float-particle {
+          animation: floatUp linear infinite;
         }
       `}</style>
     </div>
@@ -605,6 +632,8 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
   const user = useAuthStore((s) => s.user);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [assignedTasks, setAssignedTasks] = useState<Complaint[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
 
   // Live clock & session tracking
   const [now, setNow] = useState(new Date());
@@ -642,19 +671,28 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
+    setLoadingTasks(true);
     try {
-      const res = await fetch('/api/dashboard', { headers: authHeaders() });
-      if (res.ok) {
-        const json = await res.json();
+      const [dashRes, taskRes] = await Promise.all([
+        fetch('/api/dashboard', { headers: authHeaders() }),
+        fetch('/api/complaints?assigned=assigned&limit=5', { headers: authHeaders() }),
+      ]);
+      if (dashRes.ok) {
+        const json = await dashRes.json();
         setData(json);
         onDashboardData?.(json);
       } else {
         toast.error('Failed to load dashboard data');
       }
+      if (taskRes.ok) {
+        const taskJson = await taskRes.json();
+        setAssignedTasks(taskJson.complaints || []);
+      }
     } catch {
       toast.error('Network error loading dashboard');
     }
     setLoading(false);
+    setLoadingTasks(false);
   }, [onDashboardData]);
 
   useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
@@ -915,6 +953,79 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ═══ MY ASSIGNED TASKS ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}>
+        <Card className="border-0 shadow-sm overflow-hidden">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#F3E8FF' }}>
+                  <ClipboardList className="h-4 w-4" style={{ color: '#7C3AED' }} />
+                </div>
+                <div>
+                  <CardTitle className="text-sm font-bold">My Assigned Tasks</CardTitle>
+                  <CardDescription className="text-xs">Complaints assigned to you</CardDescription>
+                </div>
+              </div>
+              {assignedTasks.length > 0 && (
+                <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" onClick={() => onNavigate('complaints')}>
+                  View All <ArrowUpRight className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loadingTasks ? (
+              <div className="space-y-2">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-14 rounded-lg bg-muted overflow-hidden relative">
+                    <div className="absolute inset-0 shimmer-bg" style={{ animationDelay: `${i * 100}ms` }} />
+                  </div>
+                ))}
+              </div>
+            ) : assignedTasks.length > 0 ? (
+              <div className="space-y-2">
+                {assignedTasks.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => onNavigate('complaints', c)}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-all text-left group border border-border/30 hover:border-border/60"
+                  >
+                    <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0" style={{
+                      backgroundColor: c.status === 'OPEN' ? '#FEF2F2' : c.status === 'IN_PROGRESS' ? '#FFFBEB' : '#F0FDF4',
+                    }}>
+                      {c.status === 'OPEN' && <CircleDot className="h-4 w-4 text-red-500" />}
+                      {c.status === 'IN_PROGRESS' && <Clock className="h-4 w-4 text-amber-500" />}
+                      {(c.status === 'RESOLVED' || c.status === 'REJECTED') && <CheckCircle className="h-4 w-4 text-emerald-500" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono font-bold text-muted-foreground">{c.ticketNo}</span>
+                        <UrgencyBadge urgency={c.urgency} />
+                      </div>
+                      <p className="text-sm font-medium text-foreground truncate mt-0.5">{c.issue}</p>
+                      <p className="text-[11px] text-muted-foreground">{c.category} &middot; {c.block}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <StatusBadge status={c.status} />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="py-6 text-center">
+                <div className="h-12 w-12 rounded-full bg-muted mx-auto flex items-center justify-center mb-2">
+                  <CheckCircle className="h-6 w-6 text-emerald-500" />
+                </div>
+                <p className="text-sm font-medium text-foreground">All caught up!</p>
+                <p className="text-xs text-muted-foreground mt-0.5">No pending tasks assigned to you</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>
@@ -1228,6 +1339,9 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
   const [assigning, setAssigning] = useState(false);
   const [activities, setActivities] = useState<ActivityLogEntry[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
+  const [internalNotes, setInternalNotes] = useState<string[]>([]);
+  const [newNote, setNewNote] = useState('');
+  const [addingNote, setAddingNote] = useState(false);
 
   useEffect(() => {
     if (open && initialComplaint) {
@@ -1235,6 +1349,11 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
       setResolutionText(initialComplaint.resolution || '');
       setNewStatus('');
       setSelectedAssignee(initialComplaint.assignedToId || '');
+      setNewNote('');
+      // Load internal notes from localStorage
+      const notesKey = `wb_notes_${initialComplaint.id}`;
+      const saved = safeGetLocalStorage(notesKey);
+      setInternalNotes(saved ? JSON.parse(saved) : []);
     }
   }, [open, initialComplaint]);
 
@@ -1339,6 +1458,16 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
     }
     setAssigning(false);
   }, [complaint, selectedAssignee, assignableUsers, onUpdate, refreshActivity]);
+
+  const handleAddNote = useCallback(() => {
+    if (!complaint || !newNote.trim()) return;
+    const note = `${new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} — ${newNote.trim()}`;
+    const updated = [note, ...internalNotes];
+    setInternalNotes(updated);
+    safeSetLocalStorage(`wb_notes_${complaint.id}`, JSON.stringify(updated));
+    setNewNote('');
+    toast.success('Note added');
+  }, [complaint, newNote, internalNotes]);
 
   if (!complaint) return null;
 
@@ -1586,6 +1715,35 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
             <Button variant="outline" size="sm" disabled={updating} onClick={handleSaveResolution} className="text-xs w-full">
               <Send className="h-3 w-3 mr-1" />Save Resolution
             </Button>
+          </div>
+
+          {/* Internal Notes */}
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" />Internal Notes
+              <span className="text-muted-foreground/60">({internalNotes.length})</span>
+            </p>
+            {internalNotes.length > 0 && (
+              <div className="space-y-1.5 max-h-[120px] overflow-y-auto custom-scrollbar">
+                {internalNotes.map((note, idx) => (
+                  <div key={idx} className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30 text-xs">
+                    <p className="text-foreground leading-relaxed">{note}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <Input
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                placeholder="Add an internal note..."
+                className="text-sm h-8 flex-1"
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddNote(); } }}
+              />
+              <Button size="sm" variant="outline" onClick={handleAddNote} disabled={!newNote.trim()} className="text-xs h-8 px-3 shrink-0">
+                <Send className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
         </div>
         </motion.div>
@@ -3494,6 +3652,190 @@ function KeyboardShortcutHandler({ shortcutOpen, setShortcutOpen, setNewComplain
    ═══════════════════════════════════════════════════════════════════ */
 
 // ═══ Hydration-safe wrapper: renders nothing during SSR ═══
+/* ═══════════════════════════════════════════════════════════════════
+   COMMAND PALETTE (Ctrl+K)
+   ═══════════════════════════════════════════════════════════════════ */
+
+function CommandPalette({ open, onOpenChange, onNavigate, currentView }: {
+  open: boolean; onOpenChange: (v: boolean) => void;
+  onNavigate: (view: string, complaint?: Complaint) => void;
+  currentView: string;
+}) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<{ complaints: Complaint[]; users: AppUser[] }>({ complaints: [], users: [] });
+  const [loading, setLoading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      setQuery('');
+      setResults({ complaints: [], users: [] });
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!query.trim()) { setResults({ complaints: [], users: [] }); return; }
+    const t = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { headers: authHeaders() });
+        if (res.ok) {
+          const json = await res.json();
+          setResults(json);
+        }
+      } catch { /* silent */ }
+      setLoading(false);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const navCommands = [
+    { id: 'dashboard', label: 'Go to Dashboard', icon: LayoutDashboard, shortcut: 'D' },
+    { id: 'complaints', label: 'Go to Complaints', icon: FileText, shortcut: 'C' },
+    { id: 'analytics', label: 'Go to Analytics', icon: BarChart2, shortcut: 'A' },
+    { id: 'settings', label: 'Go to Settings', icon: Settings, shortcut: 'S' },
+  ].filter(c => c.id !== currentView);
+
+  const actionCommands = [
+    { label: 'File New Complaint', icon: Plus, action: 'newComplaint' },
+    { label: 'Refresh Dashboard', icon: RotateCcw, action: 'refresh' },
+  ];
+
+  const hasResults = results.complaints.length > 0 || results.users.length > 0;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-xl p-0 gap-0 border-0 shadow-2xl overflow-hidden" style={{ background: 'linear-gradient(180deg, white 0%, #f8fafc 100%)' }}>
+        {/* Search Input */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50">
+          <Search className="h-5 w-5 text-muted-foreground shrink-0" />
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search complaints, citizens, users..."
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+          <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 text-[10px] font-mono text-muted-foreground">ESC</kbd>
+        </div>
+
+        {/* Results */}
+        <div className="max-h-[360px] overflow-y-auto custom-scrollbar">
+          {/* Navigation Commands */}
+          {query.trim() === '' && (
+            <div>
+              <div className="px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Navigation</p>
+              </div>
+              {navCommands.map((cmd) => (
+                <button
+                  key={cmd.id}
+                  onClick={() => { onNavigate(cmd.id); onOpenChange(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/70 transition-colors text-left group"
+                >
+                  <cmd.icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  <span className="text-sm flex-1">{cmd.label}</span>
+                  <kbd className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{cmd.shortcut}</kbd>
+                </button>
+              ))}
+
+              {/* Action Commands */}
+              <div className="px-3 py-2 mt-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Actions</p>
+              </div>
+              {actionCommands.map((cmd) => (
+                <button
+                  key={cmd.label}
+                  onClick={() => { onOpenChange(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/70 transition-colors text-left group"
+                >
+                  <cmd.icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  <span className="text-sm">{cmd.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Search Results */}
+          {query.trim() !== '' && !loading && !hasResults && (
+            <div className="py-10 text-center">
+              <Search className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">No results found for &ldquo;{query}&rdquo;</p>
+            </div>
+          )}
+
+          {loading && (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          )}
+
+          {/* Complaint Results */}
+          {results.complaints.length > 0 && (
+            <div>
+              <div className="px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Complaints <span className="text-muted-foreground/60">({results.complaints.length})</span>
+                </p>
+              </div>
+              {results.complaints.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => { onNavigate('complaints', c as Complaint); onOpenChange(false); }}
+                  className="w-full flex items-start gap-3 px-4 py-2.5 hover:bg-muted/70 transition-colors text-left group"
+                >
+                  <div className="h-8 w-8 rounded-lg bg-red-50 dark:bg-red-950/30 flex items-center justify-center shrink-0 mt-0.5">
+                    <FileText className="h-4 w-4 text-red-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono font-bold">{c.ticketNo}</span>
+                      <StatusBadge status={c.status} />
+                    </div>
+                    <p className="text-sm font-medium text-foreground truncate">{c.issue}</p>
+                    <p className="text-[11px] text-muted-foreground">{c.citizenName || 'Anonymous'} &middot; {c.block}, {c.district}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* User Results */}
+          {results.users.length > 0 && (
+            <div>
+              <div className="px-3 py-2 mt-1 border-t border-border/30">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Users <span className="text-muted-foreground/60">({results.users.length})</span>
+                </p>
+              </div>
+              {results.users.map((u) => (
+                <div key={u.id} className="flex items-center gap-3 px-4 py-2.5 text-left">
+                  <div className="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ backgroundColor: NAVY }}>
+                    {(u.name || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">{u.name}</p>
+                    <p className="text-[11px] text-muted-foreground">@{u.username} &middot; {u.role}</p>
+                  </div>
+                  <RoleBadge role={u.role} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 py-2 border-t border-border/50 flex items-center gap-4 text-[10px] text-muted-foreground">
+          <span className="flex items-center gap-1"><kbd className="text-[9px] font-mono bg-muted px-1 py-0.5 rounded">↑↓</kbd> Navigate</span>
+          <span className="flex items-center gap-1"><kbd className="text-[9px] font-mono bg-muted px-1 py-0.5 rounded">↵</kbd> Open</span>
+          <span className="flex items-center gap-1"><kbd className="text-[9px] font-mono bg-muted px-1 py-0.5 rounded">ESC</kbd> Close</span>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function HydrationGate({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -3633,8 +3975,16 @@ export default function HomePage() {
         setTheme={setTheme}
         currentView={view}
       />
+      {/* ═══ COMMAND PALETTE ═══ */}
+      <CommandPalette
+        open={shortcutOpen}
+        onOpenChange={setShortcutOpen}
+        onNavigate={handleNavigate}
+        currentView={view}
+      />
+
       {/* ═══ HEADER ═══ */}
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
+      <header className="sticky top-0 z-50 glass-header border-b border-border/50">
         {/* Animated gradient border at bottom */}
         <div className="absolute bottom-0 left-0 right-0 h-px" style={{ background: 'linear-gradient(90deg, transparent, #0A2463, #16A34A, #D97706, #DC2626, transparent)' }} />
 
@@ -3644,7 +3994,7 @@ export default function HomePage() {
               <Menu className="h-5 w-5" />
             </button>
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: NAVY }}>
+              <div className="h-8 w-8 rounded-lg flex items-center justify-center shadow-sm" style={{ backgroundColor: NAVY }}>
                 <Shield className="h-4 w-4 text-white" />
               </div>
               <div className="hidden sm:block">
@@ -3652,12 +4002,38 @@ export default function HomePage() {
                 <p className="text-[10px] text-muted-foreground -mt-0.5">Government of West Bengal</p>
               </div>
             </div>
+            {/* Animated Page Title Breadcrumb */}
+            <div className="hidden md:flex items-center gap-1.5 ml-4">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={view}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex items-center gap-1.5"
+                >
+                  <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
+                  <span className="text-xs font-semibold gradient-text">{navItems.find(n => n.id === view)?.label || 'Dashboard'}</span>
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </div>
 
           <div className="flex items-center gap-1.5">
-            {/* Keyboard Shortcut Button */}
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setShortcutOpen(true)} title="Keyboard shortcuts">
-              <CircleHelp className="h-4 w-4" />
+            {/* Search / Command Palette Trigger */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden sm:flex h-8 gap-2 px-3 text-xs text-muted-foreground hover:text-foreground font-normal"
+              onClick={() => setShortcutOpen(true)}
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span>Search...</span>
+              <kbd className="text-[9px] font-mono bg-muted/80 px-1.5 py-0.5 rounded ml-4">Ctrl+K</kbd>
+            </Button>
+            <Button variant="ghost" size="sm" className="sm:hidden h-8 w-8 p-0" onClick={() => setShortcutOpen(true)}>
+              <Search className="h-4 w-4" />
             </Button>
 
             {/* Refresh Button */}
@@ -3773,13 +4149,13 @@ export default function HomePage() {
       {/* ═══ LAYOUT ═══ */}
       <div className="flex flex-1">
         {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex flex-col w-56 border-r border-border/50 bg-muted/30 min-h-0">
-          <nav className="flex-1 p-3 space-y-1">
+        <aside className="hidden lg:flex flex-col w-56 border-r border-border/50 glass-sidebar min-h-0">
+          <nav className="flex-1 p-3 space-y-1 custom-scrollbar overflow-y-auto">
             {navItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => handleNavigate(item.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border-l-[3px] ${
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border-l-[3px] btn-press ${
                   view === item.id
                     ? 'bg-white dark:bg-gray-800 shadow-sm text-foreground border-l-[#0A2463]'
                     : 'text-muted-foreground hover:bg-gradient-to-r hover:from-muted/80 hover:to-transparent hover:text-foreground border-l-transparent'
@@ -3838,19 +4214,53 @@ export default function HomePage() {
 
       {/* ═══ FOOTER ═══ */}
       <footer className="border-t border-border/50 mt-auto" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 100%)' }}>
-        <div className="px-4 py-4 sm:py-5">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 max-w-[1400px] mx-auto">
-            <div className="flex items-center gap-3">
-              <Shield className="h-5 w-5 text-white/70" />
-              <div>
-                <p className="text-xs font-bold text-white/90">Government of West Bengal</p>
-                <p className="text-[10px] text-white/50">AI Public Support System &middot; Grievance Management Portal</p>
+        <div className="px-4 py-5 sm:py-6">
+          <div className="max-w-[1400px] mx-auto">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              {/* Brand Section */}
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-white/10 border border-white/20">
+                  <Shield className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white/95">Government of West Bengal</p>
+                  <p className="text-[11px] text-white/50">AI Public Support System &middot; Grievance Management Portal</p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-4 text-[10px] text-white/50">
-              <span className="flex items-center gap-1"><Globe className="h-3 w-3" />wb.gov.in</span>
-              <span>&copy; 2025</span>
-              <span className="flex items-center gap-1"><ShieldCheck className="h-3 w-3" />Secure</span>
+
+              {/* Quick Stats Row */}
+              <div className="flex items-center gap-6 text-center">
+                <div className="hidden sm:block">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Portal</p>
+                  <p className="text-xs font-bold text-white/80 mt-0.5">v2.1.0</p>
+                </div>
+                <div className="hidden sm:block w-px h-8 bg-white/10" />
+                <div className="hidden sm:block">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Status</p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <p className="text-xs font-bold text-emerald-300">Online</p>
+                  </div>
+                </div>
+                <div className="hidden sm:block w-px h-8 bg-white/10" />
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Security</p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <ShieldCheck className="h-3 w-3 text-emerald-300" />
+                    <p className="text-xs font-bold text-white/80">Encrypted</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Links & Copyright */}
+              <div className="flex flex-col items-start md:items-end gap-2">
+                <div className="flex items-center gap-4 text-[11px]">
+                  <span className="flex items-center gap-1 text-white/50 hover:text-white/80 transition-colors cursor-pointer"><Globe className="h-3 w-3" />wb.gov.in</span>
+                  <span className="text-white/30">|</span>
+                  <span className="flex items-center gap-1 text-white/50 hover:text-white/80 transition-colors cursor-pointer"><Mail className="h-3 w-3" />Support</span>
+                </div>
+                <p className="text-[10px] text-white/30">&copy; 2025 Government of West Bengal &mdash; All Rights Reserved</p>
+              </div>
             </div>
           </div>
         </div>

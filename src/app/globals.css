@@ -120,3 +120,108 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ═══ Custom Scrollbar ═══ */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: oklch(0.7 0 0 / 25%);
+  border-radius: 999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.6 0 0 / 40%);
+}
+
+/* ═══ Glassmorphism Header ═══ */
+.glass-header {
+  background: oklch(1 0 0 / 75%);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+}
+.dark .glass-header {
+  background: oklch(0.145 0 0 / 75%);
+}
+
+/* ═══ Glassmorphism Sidebar ═══ */
+.glass-sidebar {
+  background: oklch(0.97 0 0 / 60%);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+}
+.dark .glass-sidebar {
+  background: oklch(0.17 0 0 / 60%);
+}
+
+/* ═══ Gradient Text ═══ */
+.gradient-text {
+  background: linear-gradient(135deg, #0A2463 0%, #16A34A 50%, #D97706 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ═══ Button Press Effect ═══ */
+.btn-press {
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.btn-press:active {
+  transform: scale(0.97);
+}
+
+/* ═══ Card Hover Lift ═══ */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -5px oklch(0.2 0 0 / 12%), 0 4px 10px -6px oklch(0.2 0 0 / 8%);
+}
+
+/* ═══ Toast Enhancements ═══ */
+[data-sonner-toast][data-type="success"] {
+  border-left: 4px solid #16A34A !important;
+}
+[data-sonner-toast][data-type="error"] {
+  border-left: 4px solid #DC2626 !important;
+}
+[data-sonner-toast][data-type="info"] {
+  border-left: 4px solid #0A2463 !important;
+}
+
+/* ═══ Pulse Glow for Critical Badges ═══ */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+}
+.pulse-glow {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+/* ═══ Smooth Focus Ring ═══ */
+*:focus-visible {
+  outline: 2px solid oklch(0.556 0 0);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ═══ Selection Color ═══ */
+::selection {
+  background: oklch(0.7 0.15 230 / 30%);
+}
+
+/* ═══ Animated Underline ═══ */
+@keyframes underlineSlide {
+  0% { width: 0; }
+  100% { width: 100%; }
+}
+
+/* ═══ Floating particles keyframe ═══ */
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.3; }
+  33% { transform: translateY(-12px) rotate(2deg); opacity: 0.6; }
+  66% { transform: translateY(-6px) rotate(-1deg); opacity: 0.4; }
+}
