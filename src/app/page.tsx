@@ -777,38 +777,35 @@ export default function HomePage() {
       <TicketTrackerDialog open={ticketTrackerOpen} onOpenChange={setTicketTrackerOpen} />
 
       {/* ═══ MOBILE BOTTOM NAVIGATION ═══ */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-lg border-t border-border/50 print:hidden">
-        <div className="flex items-center justify-around px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 mobile-bottom-nav-glass border-t border-border/50 print:hidden">
+        <div className="flex items-center justify-around px-2 py-1.5" style={{ paddingBottom: 'max(0.375rem, env(safe-area-inset-bottom))' }}>
           <button
             onClick={() => handleNavigate('dashboard')}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === 'dashboard' ? 'text-foreground' : 'text-muted-foreground'}`}
+            className={`mobile-nav-item flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === 'dashboard' ? 'mobile-nav-active text-foreground' : 'text-muted-foreground'}`}
           >
             <LayoutDashboard className={`h-5 w-5 transition-transform duration-200 ${view === 'dashboard' ? 'scale-110' : ''}`} />
             <span className="text-[10px] font-medium">Home</span>
-            {view === 'dashboard' && <motion.div className="h-0.5 w-4 rounded-full" layoutId="mobile-nav-indicator" style={{ backgroundColor: NAVY }} />}
           </button>
           <button
             onClick={() => setTicketTrackerOpen(true)}
-            className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 text-muted-foreground"
+            className="mobile-nav-item flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 text-muted-foreground"
           >
             <Search className="h-5 w-5" />
             <span className="text-[10px] font-medium">Track</span>
           </button>
           <button
             onClick={() => handleNavigate('complaints')}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === 'complaints' ? 'text-foreground' : 'text-muted-foreground'}`}
+            className={`mobile-nav-item flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === 'complaints' ? 'mobile-nav-active text-foreground' : 'text-muted-foreground'}`}
           >
             <FileText className={`h-5 w-5 transition-transform duration-200 ${view === 'complaints' ? 'scale-110' : ''}`} />
             <span className="text-[10px] font-medium">Cases</span>
-            {view === 'complaints' && <motion.div className="h-0.5 w-4 rounded-full" layoutId="mobile-nav-indicator" style={{ backgroundColor: NAVY }} />}
           </button>
           <button
             onClick={() => handleNavigate('analytics')}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === 'analytics' ? 'text-foreground' : 'text-muted-foreground'}`}
+            className={`mobile-nav-item flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === 'analytics' ? 'mobile-nav-active text-foreground' : 'text-muted-foreground'}`}
           >
             <BarChart2 className={`h-5 w-5 transition-transform duration-200 ${view === 'analytics' ? 'scale-110' : ''}`} />
             <span className="text-[10px] font-medium">Stats</span>
-            {view === 'analytics' && <motion.div className="h-0.5 w-4 rounded-full" layoutId="mobile-nav-indicator" style={{ backgroundColor: NAVY }} />}
           </button>
           <button
             onClick={() => setNewComplaintOpen(true)}
@@ -821,11 +818,10 @@ export default function HomePage() {
           </button>
           <button
             onClick={() => handleNavigate('settings')}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === 'settings' ? 'text-foreground' : 'text-muted-foreground'}`}
+            className={`mobile-nav-item flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === 'settings' ? 'mobile-nav-active text-foreground' : 'text-muted-foreground'}`}
           >
             <Settings className={`h-5 w-5 transition-transform duration-200 ${view === 'settings' ? 'scale-110' : ''}`} />
             <span className="text-[10px] font-medium">More</span>
-            {view === 'settings' && <motion.div className="h-0.5 w-4 rounded-full" layoutId="mobile-nav-indicator" style={{ backgroundColor: NAVY }} />}
           </button>
         </div>
       </nav>

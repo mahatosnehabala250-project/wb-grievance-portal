@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Shield, RefreshCw, X, AlertTriangle, FileText, User, Lock, ChevronRight, Loader2 } from 'lucide-react';
+import { Shield, RefreshCw, X, AlertTriangle, FileText, User, Lock, ChevronRight, Loader2, Globe, Building2, MapPin, UserCog } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -86,11 +86,42 @@ export function LoginView() {
         />
       </div>
 
-      {/* Floating Orbs */}
-      <div className="orb orb-1" />
-      <div className="orb orb-2" />
-      <div className="orb orb-3" />
-      <div className="orb orb-4" />
+      {/* Animated Background Orbs — navy, emerald, amber with low opacity */}
+      <div
+        className="absolute rounded-full pointer-events-none"
+        style={{
+          width: 350, height: 350, top: '-5%', left: '-8%',
+          background: 'radial-gradient(circle, rgba(10,36,99,0.18) 0%, transparent 70%)',
+          animation: 'float-orb 15s ease-in-out infinite',
+        }}
+      />
+      <div
+        className="absolute rounded-full pointer-events-none"
+        style={{
+          width: 280, height: 280, top: '60%', right: '-5%',
+          background: 'radial-gradient(circle, rgba(5,150,105,0.14) 0%, transparent 70%)',
+          animation: 'float-orb 20s ease-in-out infinite',
+          animationDelay: '-5s',
+        }}
+      />
+      <div
+        className="absolute rounded-full pointer-events-none"
+        style={{
+          width: 220, height: 220, bottom: '10%', left: '5%',
+          background: 'radial-gradient(circle, rgba(217,119,6,0.12) 0%, transparent 70%)',
+          animation: 'float-orb 25s ease-in-out infinite',
+          animationDelay: '-10s',
+        }}
+      />
+      <div
+        className="absolute rounded-full pointer-events-none"
+        style={{
+          width: 180, height: 180, top: '30%', right: '20%',
+          background: 'radial-gradient(circle, rgba(10,36,99,0.10) 0%, transparent 70%)',
+          animation: 'float-orb 18s ease-in-out infinite',
+          animationDelay: '-3s',
+        }}
+      />
 
       {/* Mesh/ Grid pattern overlay */}
       <div className="absolute inset-0 mesh-pattern" />
@@ -134,6 +165,8 @@ export function LoginView() {
       ))}
 
       <div className="w-full max-w-md relative z-10">
+        {/* Login Card Glow Effect */}
+        <div className="login-card-glow" />
         {/* Government branding header with emblem */}
         <div className="text-center mb-8">
           {/* Government of West Bengal Emblem Area */}
@@ -166,6 +199,13 @@ export function LoginView() {
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
               Government of West Bengal
             </h1>
+            {/* Government of India sub-line with emblem */}
+            <p className="text-blue-200/60 text-[11px] mt-1 font-medium flex items-center justify-center gap-1.5">
+              <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-white/10 border border-white/20">
+                <span className="text-[8px]">wheel</span>
+              </span>
+              Government of India
+            </p>
             <p className="text-blue-200/80 text-sm mt-1.5 font-medium">
               AI Public Support System
             </p>
@@ -185,6 +225,7 @@ export function LoginView() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
+          <div className="login-card-border-rotate">
           <Card className="login-card-glass shimmer-sweep border-0 relative overflow-hidden premium-login-card">
             {!mounted && (
               <div className="absolute inset-0 -translate-x-full z-10" style={{
@@ -284,27 +325,27 @@ export function LoginView() {
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { u: 'admin', p: 'admin123', r: 'ADMIN', icon: Shield, borderColor: '#0ea5e9' },
-                    { u: 'state_wb', p: 'state123', r: 'STATE', icon: Shield, borderColor: '#f43f5e' },
-                    { u: 'district_nadia', p: 'nadia123', r: 'DISTRICT', icon: Shield, borderColor: '#f59e0b' },
-                    { u: 'block_krishnanagar', p: 'krish123', r: 'BLOCK', icon: Shield, borderColor: '#10b981' },
+                    { u: 'admin', p: 'admin123', r: 'ADMIN', icon: Shield, borderColor: '#0A2463', iconBg: '#0A2463' },
+                    { u: 'state_wb', p: 'state123', r: 'STATE', icon: Globe, borderColor: '#059669', iconBg: '#059669' },
+                    { u: 'district_nadia', p: 'nadia123', r: 'DISTRICT', icon: Building2, borderColor: '#d97706', iconBg: '#d97706' },
+                    { u: 'block_krishnanagar', p: 'krish123', r: 'BLOCK', icon: MapPin, borderColor: '#dc2626', iconBg: '#dc2626' },
                   ].map((acc) => (
                     <motion.button
                       key={acc.u}
                       type="button"
                       onClick={() => { setUsername(acc.u); setPassword(acc.p); }}
-                      className="demo-btn text-left p-2.5 rounded-lg border bg-muted/50 hover:bg-muted hover:shadow-md transition-all group"
+                      className="demo-btn demo-btn-enhanced text-left p-2.5 rounded-lg border bg-muted/50 hover:bg-muted hover:shadow-md transition-all group"
                       style={{ borderLeftWidth: '3px', borderLeftColor: acc.borderColor }}
                       whileHover={{ scale: 1.03, filter: 'brightness(1.08)' }}
                       whileTap={{ scale: 0.97 }}
                       transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                     >
                       <div className="flex items-center gap-2">
-                        <div className="h-7 w-7 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: NAVY }}>
+                        <div className="h-7 w-7 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: acc.iconBg }}>
                           <acc.icon className="h-3.5 w-3.5 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <code className="text-[10px] font-mono text-foreground group-hover:text-sky-700 transition-colors truncate block">{acc.u}</code>
+                          <code className="text-[10px] font-mono text-foreground group-hover:text-foreground transition-colors truncate block">{acc.u}</code>
                           <RoleBadge role={acc.r} />
                         </div>
                         <ChevronRight className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -315,6 +356,7 @@ export function LoginView() {
               </div>
             </CardContent>
           </Card>
+          </div>
         </motion.div>
 
         {/* Animated decorative line above footer */}
@@ -337,6 +379,10 @@ export function LoginView() {
           <span className="text-blue-200/30 mx-1">&middot;</span>
           <span className="text-blue-200/30">&copy; 2025</span>
         </motion.p>
+        {/* National e-Governance Plan powered-by text */}
+        <p className="text-center text-[9px] mt-1 text-blue-300/30 tracking-wide">
+          Powered by National e-Governance Plan
+        </p>
       </div>
       {/* Global animation keyframes */}
       <style>{`
