@@ -364,6 +364,24 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
           <Card className="border-0 overflow-hidden relative" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 60%, #0d2d6b 100%)' }}>
             {/* Banner Pattern Overlay */}
             <div className="absolute inset-0 banner-pattern pointer-events-none" />
+            {/* Decorative radial-gradient dots (5% opacity) */}
+            <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+            {/* CSS-only floating particle dots */}
+            {[...Array(6)].map((_, i) => (
+              <span
+                key={`particle-${i}`}
+                className="absolute rounded-full bg-white pointer-events-none"
+                style={{
+                  width: `${2 + (i % 3)}px`,
+                  height: `${2 + (i % 3)}px`,
+                  top: `${15 + (i * 14) % 70}%`,
+                  left: `${10 + (i * 19) % 80}%`,
+                  opacity: 0.15 + (i % 4) * 0.08,
+                  animation: `subtleFloat ${8 + i * 2}s ease-in-out infinite`,
+                  animationDelay: `${i * 1.5}s`,
+                }}
+              />
+            ))}
           <CardContent className="p-5 sm:p-6 relative z-[1]">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex items-start gap-4 flex-1 min-w-0">
@@ -446,6 +464,16 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
                 </div>
               </div>
               <div className="flex sm:flex-col items-center sm:items-end gap-2 print:hidden shrink-0">
+                {/* Today's Summary pill */}
+                <motion.div
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/15 backdrop-blur-sm text-white/80 text-[11px] font-semibold"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.6 }}
+                >
+                  <CalendarDays className="h-3 w-3 text-blue-300" />
+                  Today: {now.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                </motion.div>
                 <Button
                   variant="outline"
                   size="sm"
@@ -564,9 +592,13 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
               onClick={() => {
                 onNavigate('complaints', chip.status ? undefined : undefined);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border border-border/50 bg-background hover:border-foreground/20 hover:shadow-sm transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] group"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border border-border/50 transition-all duration-200 hover:scale-[1.03] hover:-translate-y-[1px] hover:shadow-md active:scale-[0.98] group"
+              style={{
+                background: `linear-gradient(135deg, oklch(0.98 0 0), oklch(0.95 0.01 260))`,
+                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              }}
             >
-              <span className="h-2 w-2 rounded-full transition-transform group-hover:scale-125" style={{ backgroundColor: chip.color }} />
+              <span className="h-2 w-2 rounded-full transition-transform group-hover:scale-125" style={{ backgroundColor: chip.color, boxShadow: `0 0 6px ${chip.color}60` }} />
               {chip.label}
               <span className="ml-0.5 px-1.5 py-0.5 rounded-md bg-muted text-[10px] font-bold tabular-nums">{chip.count}</span>
             </button>
@@ -576,11 +608,12 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
 
       {/* ═══ QUICK STATS SUMMARY WITH ANIMATED PROGRESS BARS ═══ */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-        <Card className="border-0 shadow-sm">
+        <Card className="border-0 shadow-sm border-l-[3px]" style={{ borderLeftColor: NAVY }}>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <div className="w-1 h-4 rounded-full" style={{ background: `linear-gradient(180deg, ${NAVY}, ${NAVY}60)` }} />
               <Gauge className="h-4 w-4" style={{ color: NAVY }} />
-              {t('performanceOverview')}
+              <span className="section-gradient-text">{t('performanceOverview')}</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -659,7 +692,9 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
             {/* Resolution Rate Ring */}
             <div className="flex items-center gap-4 p-3 rounded-xl bg-muted/50 border border-border/50">
               <div className="relative h-16 w-16 shrink-0">
-                <svg className="h-16 w-16 -rotate-90" viewBox="0 0 64 64">
+                {/* Glow shadow behind the ring */}
+                <div className="absolute inset-0 rounded-full" style={{ boxShadow: `0 0 16px 4px ${(resolutionPct >= 50 ? '#16A34A' : resolutionPct >= 25 ? '#D97706' : '#DC2626')}30` }} />
+                <svg className="h-16 w-16 -rotate-90 relative z-[1]" viewBox="0 0 64 64">
                   <circle cx="32" cy="32" r="28" fill="none" stroke="oklch(0.92 0 0)" strokeWidth="5" />
                   <motion.circle
                     cx="32" cy="32" r="28" fill="none"
@@ -669,9 +704,10 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
                     initial={{ strokeDashoffset: 175.93 }}
                     animate={{ strokeDashoffset: 175.93 - (175.93 * resolutionPct / 100) }}
                     transition={{ duration: 1.5, ease: 'easeOut', delay: 0.4 }}
+                    style={{ filter: `drop-shadow(0 0 3px ${(resolutionPct >= 50 ? '#16A34A' : resolutionPct >= 25 ? '#D97706' : '#DC2626')}50)` }}
                   />
                 </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center justify-center z-[2]">
                   <span className="text-sm font-black tabular-nums" style={{ color: resolutionPct >= 50 ? '#16A34A' : resolutionPct >= 25 ? '#D97706' : '#DC2626' }}>{resolutionPct}%</span>
                 </div>
               </div>
@@ -702,7 +738,7 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
 
       {/* Performance Metrics Bar — Enhanced with Weekly Trend + Avg Response Time */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-        <Card className="border-0 shadow-sm overflow-hidden card-gradient-overlay" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 100%)' }}>
+        <Card className="border-0 shadow-sm overflow-hidden card-gradient-overlay border-l-[3px]" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 50%, #0d3068 100%)', borderLeftColor: '#0A2463' }}>
           <CardContent className="p-4">
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               {/* Avg Resolution */}
@@ -773,11 +809,12 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
 
       {/* ═══ 7-DAY TREND SPARKLINE ═══ */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.52 }}>
-        <Card className="border-0 shadow-sm">
+        <Card className="border-0 shadow-sm hover:shadow-lg transition-shadow duration-300 border-l-[3px]" style={{ borderLeftColor: NAVY }}>
           <CardHeader className="pb-1">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <div className="w-1 h-4 rounded-full" style={{ background: `linear-gradient(180deg, ${NAVY}, ${NAVY}60)` }} />
               <BarChart2 className="h-4 w-4" style={{ color: NAVY }} />
-              {t('dayTrend')}
+              <span className="section-gradient-text">{t('dayTrend')}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -813,11 +850,12 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
 
       {/* ═══ DISTRICT PERFORMANCE CARDS ═══ */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.54 }}>
-        <Card className="border-0 shadow-sm">
+        <Card className="border-0 shadow-sm hover:shadow-lg transition-shadow duration-300 border-l-[3px]" style={{ borderLeftColor: '#0284C7' }}>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <Building2 className="h-4 w-4" style={{ color: NAVY }} />
-              District Performance
+              <div className="w-1 h-4 rounded-full" style={{ background: 'linear-gradient(180deg, #0284C7, #0284C760)' }} />
+              <Building2 className="h-4 w-4" style={{ color: '#0284C7' }} />
+              <span className="section-gradient-text">District Performance</span>
             </CardTitle>
             <CardDescription className="text-xs">Top 5 districts by complaint volume</CardDescription>
           </CardHeader>
@@ -868,15 +906,16 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
       {/* ═══ PERFORMANCE LEADERBOARD (Admin Only) ═══ */}
       {user?.role === 'ADMIN' && (
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}>
-          <Card className="border-0 shadow-sm">
+          <Card className="border-0 shadow-sm hover:shadow-lg transition-shadow duration-300 border-l-[3px]" style={{ borderLeftColor: '#D97706' }}>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#FEF3C7' }}>
+                  <div className="w-1 h-4 rounded-full" style={{ background: 'linear-gradient(180deg, #D97706, #D9770660)' }} />
+                  <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FEF3C7, #FDE68A)' }}>
                     <Trophy className="h-4 w-4" style={{ color: '#D97706' }} />
                   </div>
                   <div>
-                    <CardTitle className="text-sm font-bold">Performance Leaderboard</CardTitle>
+                    <CardTitle className="text-sm font-bold"><span className="section-gradient-text">Performance Leaderboard</span></CardTitle>
                     <CardDescription className="text-xs">Top officers by resolution rate</CardDescription>
                   </div>
                 </div>
@@ -973,11 +1012,12 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
 
       {/* ═══ RECENT ACTIVITY FEED ═══ */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.56 }}>
-        <Card className="border-0 shadow-sm">
+        <Card className="border-0 shadow-sm hover:shadow-lg transition-shadow duration-300 border-l-[3px]" style={{ borderLeftColor: '#2563EB' }}>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <History className="h-4 w-4" style={{ color: NAVY }} />
-              Recent Activity
+              <div className="w-1 h-4 rounded-full" style={{ background: 'linear-gradient(180deg, #2563EB, #2563EB60)' }} />
+              <History className="h-4 w-4" style={{ color: '#2563EB' }} />
+              <span className="section-gradient-text">Recent Activity</span>
             </CardTitle>
             <CardDescription className="text-xs">Latest actions across all complaints</CardDescription>
           </CardHeader>
@@ -1021,15 +1061,16 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
 
       {/* ═══ MY ASSIGNED TASKS ═══ */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}>
-        <Card className="border-0 shadow-sm overflow-hidden">
+        <Card className="border-0 shadow-sm overflow-hidden border-l-[3px]" style={{ borderLeftColor: '#7C3AED' }}>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#F3E8FF' }}>
+                <div className="w-1 h-4 rounded-full" style={{ background: 'linear-gradient(180deg, #7C3AED, #7C3AED60)' }} />
+                <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F3E8FF, #EDE9FE)' }}>
                   <ClipboardList className="h-4 w-4" style={{ color: '#7C3AED' }} />
                 </div>
                 <div>
-                  <CardTitle className="text-sm font-bold">My Assigned Tasks</CardTitle>
+                  <CardTitle className="text-sm font-bold"><span className="section-gradient-text">My Assigned Tasks</span></CardTitle>
                   <CardDescription className="text-xs">Complaints assigned to you</CardDescription>
                 </div>
               </div>
@@ -1055,10 +1096,11 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
                   <button
                     key={c.id}
                     onClick={() => onNavigate('complaints', c)}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-all text-left group border border-border/30 hover:border-border/60"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 hover:-translate-y-[1px] hover:shadow-sm transition-all text-left group border border-border/30 hover:border-border/60 border-l-[3px]"
+                    style={{ borderLeftColor: c.status === 'OPEN' ? '#DC2626' : c.status === 'IN_PROGRESS' ? '#D97706' : '#16A34A' }}
                   >
                     <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0" style={{
-                      backgroundColor: c.status === 'OPEN' ? '#FEF2F2' : c.status === 'IN_PROGRESS' ? '#FFFBEB' : '#F0FDF4',
+                      background: c.status === 'OPEN' ? 'linear-gradient(135deg, #FEF2F2, #FEE2E2)' : c.status === 'IN_PROGRESS' ? 'linear-gradient(135deg, #FFFBEB, #FEF3C7)' : 'linear-gradient(135deg, #F0FDF4, #DCFCE7)',
                     }}>
                       {c.status === 'OPEN' && <CircleDot className="h-4 w-4 text-red-500" />}
                       {c.status === 'IN_PROGRESS' && <Clock className="h-4 w-4 text-amber-500" />}
@@ -1072,9 +1114,14 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
                       <p className="text-sm font-medium text-foreground truncate mt-0.5">{c.issue}</p>
                       <p className="text-[11px] text-muted-foreground">{c.category} &middot; {c.block}</p>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <StatusBadge status={c.status} />
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={c.status} />
+                        <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                        <Clock3 className="h-2.5 w-2.5" />{getDaysOld(c.createdAt) === 0 ? 'Today' : `${getDaysOld(c.createdAt)}d ago`}
+                      </span>
                     </div>
                   </button>
                 ))}
@@ -1095,10 +1142,20 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Bar Chart: Group complaints */}
-        <Card className="lg:col-span-2 border-0 shadow-sm">
+        <Card className="lg:col-span-2 border-0 shadow-sm hover:shadow-lg transition-shadow duration-300 border-l-[3px]" style={{ borderLeftColor: NAVY }}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold">Complaints by {groupByField === 'district' ? 'District' : 'Block'}</CardTitle>
-            <CardDescription className="text-xs">Status breakdown per location</CardDescription>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-4 rounded-full" style={{ background: `linear-gradient(180deg, ${NAVY}, ${NAVY}60)` }} />
+                <div>
+                  <CardTitle className="text-sm font-bold">Complaints by {groupByField === 'district' ? 'District' : 'Block'}</CardTitle>
+                  <CardDescription className="text-xs">Status breakdown per location</CardDescription>
+                </div>
+              </div>
+              <button onClick={() => onNavigate('analytics')} className="text-muted-foreground hover:text-foreground transition-colors" title="View Details">
+                <ArrowUpRight className="h-4 w-4" />
+              </button>
+            </div>
           </CardHeader>
           <CardContent>
             <ChartContainer config={barChartConfig} className="h-[280px] w-full">
@@ -1117,9 +1174,17 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
         </Card>
 
         {/* Donut Chart: Status Breakdown with center total */}
-        <Card className="border-0 shadow-sm">
+        <Card className="border-0 shadow-sm hover:shadow-lg transition-shadow duration-300 border-l-[3px]" style={{ borderLeftColor: '#16A34A' }}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold">Status Breakdown</CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-4 rounded-full" style={{ background: 'linear-gradient(180deg, #16A34A, #16A34A60)' }} />
+                <CardTitle className="text-sm font-bold">Status Breakdown</CardTitle>
+              </div>
+              <button onClick={() => onNavigate('analytics')} className="text-muted-foreground hover:text-foreground transition-colors" title="View Details">
+                <ArrowUpRight className="h-4 w-4" />
+              </button>
+            </div>
           </CardHeader>
           <CardContent className="flex items-center justify-center relative">
             {statusPieData.length > 0 ? (
@@ -1164,10 +1229,20 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
       {/* Monthly Trend + Category Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Area Chart: Monthly Trend */}
-        <Card className="border-0 shadow-sm">
+        <Card className="border-0 shadow-sm hover:shadow-lg transition-shadow duration-300 border-l-[3px]" style={{ borderLeftColor: '#7C3AED' }}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold">Monthly Trend</CardTitle>
-            <CardDescription className="text-xs">Last 6 months overview</CardDescription>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-4 rounded-full" style={{ background: 'linear-gradient(180deg, #7C3AED, #7C3AED60)' }} />
+                <div>
+                  <CardTitle className="text-sm font-bold">Monthly Trend</CardTitle>
+                  <CardDescription className="text-xs">Last 6 months overview</CardDescription>
+                </div>
+              </div>
+              <button onClick={() => onNavigate('analytics')} className="text-muted-foreground hover:text-foreground transition-colors" title="View Details">
+                <ArrowUpRight className="h-4 w-4" />
+              </button>
+            </div>
           </CardHeader>
           <CardContent>
             {monthlyTrend.length > 0 ? (
@@ -1199,9 +1274,17 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
         </Card>
 
         {/* Category Breakdown with colored bars */}
-        <Card className="border-0 shadow-sm">
+        <Card className="border-0 shadow-sm hover:shadow-lg transition-shadow duration-300 border-l-[3px]" style={{ borderLeftColor: '#D97706' }}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold">Category Breakdown</CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-4 rounded-full" style={{ background: 'linear-gradient(180deg, #D97706, #D9770660)' }} />
+                <CardTitle className="text-sm font-bold">Category Breakdown</CardTitle>
+              </div>
+              <button onClick={() => onNavigate('complaints')} className="text-muted-foreground hover:text-foreground transition-colors" title="View Details">
+                <ArrowUpRight className="h-4 w-4" />
+              </button>
+            </div>
           </CardHeader>
           <CardContent>
             {byCategory.length > 0 ? (
@@ -1239,9 +1322,17 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
       {/* Urgency Distribution + Recent Complaints */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Urgency Distribution */}
-        <Card className="border-0 shadow-sm">
+        <Card className="border-0 shadow-sm hover:shadow-lg transition-shadow duration-300 border-l-[3px]" style={{ borderLeftColor: '#DC2626' }}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold">Urgency Distribution</CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-4 rounded-full" style={{ background: 'linear-gradient(180deg, #DC2626, #DC262660)' }} />
+                <CardTitle className="text-sm font-bold">Urgency Distribution</CardTitle>
+              </div>
+              <button onClick={() => onNavigate('complaints')} className="text-muted-foreground hover:text-foreground transition-colors" title="View Details">
+                <ArrowUpRight className="h-4 w-4" />
+              </button>
+            </div>
           </CardHeader>
           <CardContent>
             {byUrgency.length > 0 ? (
@@ -1267,11 +1358,14 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
         </Card>
 
         {/* Recent Complaints */}
-        <Card className="lg:col-span-2 border-0 shadow-sm">
+        <Card className="lg:col-span-2 border-0 shadow-sm hover:shadow-lg transition-shadow duration-300 border-l-[3px]" style={{ borderLeftColor: NAVY }}>
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-sm font-bold">Recent Complaints</CardTitle>
-              <CardDescription className="text-xs">Latest filed grievances</CardDescription>
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-4 rounded-full" style={{ background: `linear-gradient(180deg, ${NAVY}, ${NAVY}60)` }} />
+              <div>
+                <CardTitle className="text-sm font-bold">Recent Complaints</CardTitle>
+                <CardDescription className="text-xs">Latest filed grievances</CardDescription>
+              </div>
             </div>
             <Button variant="outline" size="sm" className="text-xs h-8 gap-1" onClick={() => onNavigate('complaints')}>
               View All <ArrowUpRight className="h-3 w-3" />
@@ -1279,12 +1373,16 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
           </CardHeader>
           <CardContent>
             {recent.length > 0 ? (
-              <div className="space-y-2">
-                {recent.slice(0, 5).map((c) => (
+              <div className="space-y-1">
+                {recent.slice(0, 5).map((c, idx) => (
                   <button
                     key={c.id}
                     onClick={() => onNavigate('complaints', c)}
-                    className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors text-left group"
+                    className="w-full flex items-center gap-3 p-2.5 rounded-lg text-left group border-l-[3px] transition-all duration-200 hover:translate-x-[3px]"
+                    style={{
+                      borderLeftColor: URGENCY_BORDER_MAP[c.urgency] || '#6B7280',
+                      backgroundColor: idx % 2 === 0 ? 'transparent' : 'oklch(0.97 0 0)',
+                    }}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -1309,11 +1407,12 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
 
       {/* Activity Timeline */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
-        <Card className="border-0 shadow-sm">
+        <Card className="border-0 shadow-sm hover:shadow-lg transition-shadow duration-300 border-l-[3px]" style={{ borderLeftColor: NAVY }}>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <div className="w-1 h-4 rounded-full" style={{ background: `linear-gradient(180deg, ${NAVY}, ${NAVY}60)` }} />
               <Activity className="h-4 w-4" style={{ color: NAVY }} />
-              Activity Timeline
+              <span className="section-gradient-text">Activity Timeline</span>
             </CardTitle>
             <CardDescription className="text-xs">Recent status changes</CardDescription>
           </CardHeader>
@@ -1350,9 +1449,10 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
 
       {/* Critical Complaints Alerts */}
       {criticalComplaints.length > 0 && (
-        <Card className="border-0 shadow-sm border-l-4" style={{ borderLeftColor: '#DC2626' }}>
+        <Card className="border-0 shadow-sm border-l-[3px] hover:shadow-lg transition-shadow duration-300" style={{ borderLeftColor: '#DC2626' }}>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold text-red-700 dark:text-red-400 flex items-center gap-2">
+              <div className="w-1 h-4 rounded-full" style={{ background: 'linear-gradient(180deg, #DC2626, #DC262660)' }} />
               <AlertTriangle className="h-4 w-4" />
               Critical Complaints Alert ({criticalComplaints.length})
             </CardTitle>

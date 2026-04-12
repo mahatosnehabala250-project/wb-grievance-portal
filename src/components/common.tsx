@@ -45,9 +45,9 @@ export function StatCard({ title, value, icon: Icon, color, bgColor, delay = 0, 
   const display = useCountUp(value, 700, delay);
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: delay / 1000 }}>
-      <Card className="border-0 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-300 overflow-hidden group relative border-l-4" style={{ borderLeftColor: color, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
-        {/* Gradient accent bar at top */}
-        <div className="h-[3px] w-full" style={{ background: `linear-gradient(90deg, ${color}, ${color}88, transparent)` }} />
+      <Card className="border-0 shadow-sm hover:shadow-lg hover:-translate-y-[3px] hover:scale-[1.02] transition-all duration-300 overflow-hidden group relative border-l-4" style={{ borderLeftColor: color, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
+        {/* Colored accent line at top (2px) */}
+        <div className="h-[2px] w-full" style={{ background: `linear-gradient(90deg, ${color}, ${color}66, transparent)` }} />
         <CardContent className="p-5 pl-6 relative">
           {/* Watermark icon - large faded background */}
           <div className="absolute top-2 right-2 opacity-[0.04] pointer-events-none">
@@ -57,9 +57,14 @@ export function StatCard({ title, value, icon: Icon, color, bgColor, delay = 0, 
             <div className="space-y-1.5 flex-1 min-w-0">
               <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{title}</p>
               <div className="flex items-center gap-1.5">
-                <p className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                <motion.p
+                  className="text-2xl sm:text-3xl font-black tracking-tight text-foreground inline-block"
+                  initial={{ scale: 1 }}
+                  animate={{ scale: [1, 1.04, 1] }}
+                  transition={{ duration: 0.6, delay: delay / 1000 + 0.8, ease: 'easeInOut' }}
+                >
                   {display}{suffix}
-                </p>
+                </motion.p>
                 {trend !== 0 && (
                   <span className={`flex items-center text-xs font-bold ${trend > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                     {trend > 0 ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
@@ -68,7 +73,7 @@ export function StatCard({ title, value, icon: Icon, color, bgColor, delay = 0, 
                 )}
               </div>
             </div>
-            <div className="flex items-center justify-center rounded-xl p-3 group-hover:scale-110 transition-transform duration-300" style={{ backgroundColor: bgColor }}>
+            <div className="flex items-center justify-center rounded-xl p-3 group-hover:scale-110 transition-transform duration-300" style={{ background: `linear-gradient(135deg, ${bgColor}, ${color}15)` }}>
               <Icon className="h-5 w-5" style={{ color }} />
             </div>
           </div>

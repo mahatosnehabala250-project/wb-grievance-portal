@@ -1,0 +1,11 @@
+{
+  "name": "wb-notification-service",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "bun --hot index.ts",
+    "start": "bun index.ts"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}

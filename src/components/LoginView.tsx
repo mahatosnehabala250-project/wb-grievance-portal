@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Shield, RefreshCw, X, AlertTriangle, FileText, User, Lock, ChevronRight } from 'lucide-react';
+import { Shield, RefreshCw, X, AlertTriangle, FileText, User, Lock, ChevronRight, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +58,34 @@ export function LoginView() {
         transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
       />
 
+      {/* Animated Background Gradient Mesh Blobs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          className="absolute w-[500px] h-[500px] rounded-full opacity-30 blur-[100px]"
+          style={{ background: 'radial-gradient(circle, #0A2463 0%, transparent 70%)' }}
+          animate={{ x: [0, 120, -60, 0], y: [0, -80, 40, 0] }}
+          transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute w-[400px] h-[400px] rounded-full opacity-20 blur-[80px]"
+          style={{ background: 'radial-gradient(circle, #065F46 0%, transparent 70%)', top: '10%', right: '-10%' }}
+          animate={{ x: [0, -100, 60, 0], y: [0, 60, -30, 0] }}
+          transition={{ duration: 25, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+        />
+        <motion.div
+          className="absolute w-[350px] h-[350px] rounded-full opacity-[0.15] blur-[90px]"
+          style={{ background: 'radial-gradient(circle, #D97706 0%, transparent 70%)', bottom: '5%', left: '-5%' }}
+          animate={{ x: [0, 80, -40, 0], y: [0, -50, 80, 0] }}
+          transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut', delay: 4 }}
+        />
+        <motion.div
+          className="absolute w-[300px] h-[300px] rounded-full opacity-20 blur-[70px]"
+          style={{ background: 'radial-gradient(circle, #0A2463 0%, transparent 70%)', bottom: '20%', right: '10%' }}
+          animate={{ x: [0, -60, 90, 0], y: [0, 40, -60, 0] }}
+          transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+        />
+      </div>
+
       {/* Floating Orbs */}
       <div className="orb orb-1" />
       <div className="orb orb-2" />
@@ -72,6 +100,9 @@ export function LoginView() {
 
       {/* Subtle pattern texture */}
       <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }} />
+
+      {/* Noise texture overlay */}
+      <div className="noise-overlay" />
 
       {/* Floating Particles — enhanced with more particles and varying opacity */}
       {[
@@ -108,14 +139,20 @@ export function LoginView() {
           {/* Government of West Bengal Emblem Area */}
           <div className="flex justify-center mb-3">
             <motion.div
-              className="gov-emblem h-16 w-16 rounded-2xl bg-white/10 backdrop-blur-sm shadow-lg border border-white/15 flex items-center justify-center"
+              className="relative"
               animate={{ y: [0, -8, 0] }}
               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
             >
-              <div className="relative">
-                <Shield className="h-8 w-8 text-white" />
-                <div className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-amber-400/80 flex items-center justify-center">
-                  <span className="text-[7px] font-black text-amber-900">WB</span>
+              {/* Pulsing glow ring */}
+              <div className="absolute -inset-3 rounded-[28px] glow-ring" />
+              <div className="gov-emblem h-16 w-16 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15 flex items-center justify-center relative z-[2]"
+                style={{ boxShadow: '0 0 30px rgba(255,255,255,0.15), 0 0 60px rgba(10,36,99,0.4), 0 8px 32px rgba(0,0,0,0.3)' }}
+              >
+                <div className="relative">
+                  <Shield className="h-8 w-8 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
+                  <div className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-amber-400/80 flex items-center justify-center">
+                    <span className="text-[7px] font-black text-amber-900">WB</span>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -148,7 +185,7 @@ export function LoginView() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
-          <Card className="login-card-glass shimmer-sweep border-0 relative overflow-hidden">
+          <Card className="login-card-glass shimmer-sweep border-0 relative overflow-hidden premium-login-card">
             {!mounted && (
               <div className="absolute inset-0 -translate-x-full z-10" style={{
                 background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
@@ -184,7 +221,7 @@ export function LoginView() {
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder={t('enterUsername')}
-                      className="h-11 pl-10"
+                      className="h-11 pl-10 enhanced-input"
                       required
                     />
                   </div>
@@ -199,7 +236,7 @@ export function LoginView() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder={t('enterPassword')}
-                      className="h-11 pl-10"
+                      className="h-11 pl-10 enhanced-input"
                       required
                     />
                   </div>
@@ -207,12 +244,11 @@ export function LoginView() {
                 <Button
                   type="submit"
                   disabled={isLoading || !username || !password}
-                  className="w-full h-11 text-sm font-semibold text-white transition-all duration-200 hover:shadow-lg hover:scale-[1.01]"
-                  style={{ backgroundColor: NAVY }}
+                  className="w-full h-11 text-sm font-semibold text-white transition-all duration-200 hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] enhanced-login-btn"
                 >
                   {isLoading ? (
                     <span className="flex items-center gap-2">
-                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-5 w-5 animate-spin" style={{ filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.6))' }} />
                       {t('authenticating')}
                     </span>
                   ) : (
@@ -248,16 +284,20 @@ export function LoginView() {
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { u: 'admin', p: 'admin123', r: 'ADMIN', icon: Shield },
-                    { u: 'state_wb', p: 'state123', r: 'STATE', icon: Shield },
-                    { u: 'district_nadia', p: 'nadia123', r: 'DISTRICT', icon: Shield },
-                    { u: 'block_krishnanagar', p: 'krish123', r: 'BLOCK', icon: Shield },
+                    { u: 'admin', p: 'admin123', r: 'ADMIN', icon: Shield, borderColor: '#0ea5e9' },
+                    { u: 'state_wb', p: 'state123', r: 'STATE', icon: Shield, borderColor: '#f43f5e' },
+                    { u: 'district_nadia', p: 'nadia123', r: 'DISTRICT', icon: Shield, borderColor: '#f59e0b' },
+                    { u: 'block_krishnanagar', p: 'krish123', r: 'BLOCK', icon: Shield, borderColor: '#10b981' },
                   ].map((acc) => (
-                    <button
+                    <motion.button
                       key={acc.u}
                       type="button"
                       onClick={() => { setUsername(acc.u); setPassword(acc.p); }}
-                      className="demo-btn text-left p-2.5 rounded-lg border bg-muted/50 hover:bg-muted hover:shadow-md hover:scale-[1.02] transition-all group"
+                      className="demo-btn text-left p-2.5 rounded-lg border bg-muted/50 hover:bg-muted hover:shadow-md transition-all group"
+                      style={{ borderLeftWidth: '3px', borderLeftColor: acc.borderColor }}
+                      whileHover={{ scale: 1.03, filter: 'brightness(1.08)' }}
+                      whileTap={{ scale: 0.97 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                     >
                       <div className="flex items-center gap-2">
                         <div className="h-7 w-7 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: NAVY }}>
@@ -269,7 +309,7 @@ export function LoginView() {
                         </div>
                         <ChevronRight className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                    </button>
+                    </motion.button>
                   ))}
                 </div>
               </div>
@@ -277,14 +317,25 @@ export function LoginView() {
           </Card>
         </motion.div>
 
+        {/* Animated decorative line above footer */}
+        <motion.div
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ delay: 0.5, duration: 0.8, ease: 'easeOut' }}
+          className="w-32 h-[2px] mx-auto mt-6 rounded-full footer-shimmer-line"
+        />
+
         {/* Government Copyright */}
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
-          className="text-center text-blue-200/40 text-[11px] mt-6"
+          className="text-center text-[11px] mt-3"
         >
-          &copy; 2025 Government of West Bengal &mdash; All Rights Reserved
+          <span className="shimmer-text">Powered by</span>{' '}
+          <span className="text-blue-200/50">Government of West Bengal</span>
+          <span className="text-blue-200/30 mx-1">&middot;</span>
+          <span className="text-blue-200/30">&copy; 2025</span>
         </motion.p>
       </div>
       {/* Global animation keyframes */}
@@ -318,6 +369,133 @@ export function LoginView() {
         }
         .float-particle {
           animation: floatUp linear infinite;
+        }
+
+        /* 1. Pulsing glow ring around logo */
+        @keyframes glowPulse {
+          0%, 100% { box-shadow: 0 0 15px rgba(255,255,255,0.2), 0 0 30px rgba(10,36,99,0.3), 0 0 45px rgba(6,95,70,0.15); opacity: 0.6; }
+          50% { box-shadow: 0 0 25px rgba(255,255,255,0.35), 0 0 50px rgba(10,36,99,0.5), 0 0 75px rgba(6,95,70,0.25); opacity: 1; }
+        }
+        .glow-ring {
+          animation: glowPulse 3s ease-in-out infinite;
+          background: conic-gradient(from 0deg, rgba(10,36,99,0.3), rgba(6,95,70,0.2), rgba(217,119,6,0.2), rgba(10,36,99,0.3));
+          filter: blur(2px);
+          z-index: 1;
+        }
+
+        /* 3. Premium login card glassmorphism */
+        .premium-login-card {
+          background: rgba(255,255,255,0.08) !important;
+          backdrop-filter: blur(20px) saturate(180%);
+          -webkit-backdrop-filter: blur(20px) saturate(180%);
+          border: 1px solid rgba(255,255,255,0.12) !important;
+          box-shadow:
+            0 0 0 1px rgba(255,255,255,0.05),
+            0 4px 6px -1px rgba(0,0,0,0.15),
+            0 10px 20px -5px rgba(0,0,0,0.2),
+            0 25px 50px -12px rgba(0,0,0,0.3),
+            inset 0 1px 0 0 rgba(255,255,255,0.1) !important;
+          transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+          position: relative;
+        }
+        .premium-login-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          padding: 1px;
+          background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.02), rgba(255,255,255,0.08));
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          pointer-events: none;
+          z-index: 1;
+        }
+        .premium-login-card:hover {
+          transform: scale(1.005);
+          box-shadow:
+            0 0 0 1px rgba(255,255,255,0.08),
+            0 4px 6px -1px rgba(0,0,0,0.15),
+            0 10px 20px -5px rgba(0,0,0,0.2),
+            0 30px 60px -12px rgba(0,0,0,0.35),
+            0 0 40px rgba(10,36,99,0.15),
+            inset 0 1px 0 0 rgba(255,255,255,0.12) !important;
+        }
+
+        /* 4. Enhanced form inputs with navy left border on focus */
+        .enhanced-input {
+          border-left: 3px solid transparent;
+          transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.2s ease;
+          placeholder-color: rgba(100,116,139,0.4);
+        }
+        .enhanced-input:focus {
+          border-left-color: #0A2463 !important;
+          box-shadow: 0 0 0 1px rgba(10,36,99,0.15), 0 0 0 3px rgba(10,36,99,0.08);
+          background-color: rgba(255,255,255,0.06);
+        }
+        .enhanced-input::placeholder {
+          color: rgba(100,116,139,0.45);
+          font-style: italic;
+          font-size: 0.8rem;
+        }
+
+        /* 5. Enhanced login button with gradient */
+        .enhanced-login-btn {
+          background: linear-gradient(135deg, #0A2463 0%, #1a3a7a 50%, #0A2463 100%) !important;
+          background-size: 200% 200% !important;
+          transition: all 0.3s ease !important;
+          box-shadow: 0 4px 15px rgba(10,36,99,0.4);
+        }
+        .enhanced-login-btn:hover:not(:disabled) {
+          filter: brightness(1.25);
+          background-position: 100% 100% !important;
+          box-shadow: 0 6px 25px rgba(10,36,99,0.5), 0 0 15px rgba(10,36,99,0.15);
+        }
+        .enhanced-login-btn:active:not(:disabled) {
+          transform: scale(0.98);
+        }
+        .enhanced-login-btn:disabled {
+          opacity: 0.6;
+          filter: brightness(0.9);
+        }
+
+        /* 7. Shimmer text for "Powered by" */
+        @keyframes shimmerText {
+          0% { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        .shimmer-text {
+          background: linear-gradient(90deg, rgba(147,197,253,0.4) 0%, rgba(255,255,255,0.8) 50%, rgba(147,197,253,0.4) 100%);
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: shimmerText 4s linear infinite;
+          font-weight: 600;
+        }
+
+        /* 7. Animated decorative line above footer */
+        @keyframes footerLineGlow {
+          0%, 100% { background-position: 0% 50%; opacity: 0.4; }
+          50% { background-position: 100% 50%; opacity: 0.8; }
+        }
+        .footer-shimmer-line {
+          background: linear-gradient(90deg, transparent, rgba(147,197,253,0.5), rgba(255,255,255,0.7), rgba(147,197,253,0.5), transparent);
+          background-size: 200% 100%;
+          animation: footerLineGlow 3s ease-in-out infinite;
+        }
+
+        /* 8. Noise texture overlay */
+        .noise-overlay {
+          position: absolute;
+          inset: 0;
+          opacity: 0.02;
+          pointer-events: none;
+          z-index: 1;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+          background-repeat: repeat;
+          background-size: 128px 128px;
+          mix-blend-mode: overlay;
         }
       `}</style>
     </div>

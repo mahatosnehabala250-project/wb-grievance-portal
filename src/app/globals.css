@@ -164,6 +164,21 @@
   background-clip: text;
 }
 
+/* Section gradient text effect for section titles */
+.section-gradient-text {
+  background: linear-gradient(135deg, #0A2463 0%, #2563EB 50%, #0A2463 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-size: 200% 200%;
+  animation: sectionGradShift 8s ease-in-out infinite;
+}
+
+@keyframes sectionGradShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
 /* ═══ Button Press Effect ═══ */
 .btn-press {
   transition: transform 0.1s ease, box-shadow 0.1s ease;

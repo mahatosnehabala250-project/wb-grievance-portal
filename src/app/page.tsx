@@ -620,7 +620,7 @@ export default function HomePage() {
                 </div>
                 <div>
                   <p className="text-sm font-bold text-white/95">Government of West Bengal</p>
-                  <p className="text-[11px] text-white/50">AI Public Support System &middot; Grievance Portal v2.5.0</p>
+                  <p className="text-[11px] text-white/50">AI Public Support System &middot; Grievance Portal v2.7.0</p>
                 </div>
               </div>
 
@@ -639,7 +639,7 @@ export default function HomePage() {
               <div className="flex items-center gap-4 text-center">
                 <div className="hidden sm:block">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">{t('version')}</p>
-                  <p className="text-xs font-bold text-white/80 mt-0.5">v2.5.0</p>
+                  <p className="text-xs font-bold text-white/80 mt-0.5">v2.7.0</p>
                 </div>
                 <div className="hidden sm:block w-px h-8 bg-white/10" />
                 <div className="hidden sm:block">
