@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
 
 const geistSans = Geist({
@@ -15,11 +15,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WB Grievance Portal — GovTech Dashboard",
+  title: "WB AI Public Support System — Grievance Portal",
   description:
-    "West Bengal District Administration Grievance Management Dashboard. Monitor and manage citizen complaints across all blocks.",
+    "West Bengal AI Public Support System — Government grievance management dashboard. Monitor and manage citizen complaints across all blocks and districts.",
   keywords: [
-    "West Bengal", "GovTech", "Grievance Portal", "Complaints", "Dashboard", "Government",
+    "West Bengal", "GovTech", "Grievance Portal", "Complaints", "Dashboard", "Government", "AI Support",
   ],
   authors: [{ name: "District Administration, West Bengal" }],
   icons: { icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg" },
@@ -33,7 +33,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           {children}
-          <Toaster />
+          <Toaster position="top-right" richColors closeButton />
         </ThemeProvider>
       </body>
     </html>
