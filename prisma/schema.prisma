@@ -21,20 +21,37 @@ model User {
 }
 
 model Complaint {
-  id            String   @id @default(cuid())
-  ticketNo      String   @unique // e.g. WB-01001
+  id            String        @id @default(cuid())
+  ticketNo      String        @unique // e.g. WB-01001
   citizenName   String?
   phone         String?
   issue         String
-  category      String   // Water Supply, Road Damage, Electricity, etc.
+  category      String        // Water Supply, Road Damage, Electricity, etc.
   block         String
   district      String
-  urgency       String   @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
-  status        String   @default("OPEN")  // OPEN, IN_PROGRESS, RESOLVED, REJECTED
+  urgency       String        @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  status        String        @default("OPEN")  // OPEN, IN_PROGRESS, RESOLVED, REJECTED
   description   String?
   resolution    String?
   assignedToId  String?
-  source        String   @default("WHATSAPP") // WHATSAPP, MANUAL, WEB
+  source        String        @default("WHATSAPP") // WHATSAPP, MANUAL, WEB
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  activities    ActivityLog[]
+}
+
+model ActivityLog {
+  id            String   @id @default(cuid())
+  complaintId   String
+  action        String   // CREATED, STATUS_CHANGED, ASSIGNED, RESOLVED, REJECTED, UNASSIGNED
+  description   String
+  actorId       String?
+  actorName     String?
+  metadata      String?  // JSON string for extra data
   createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+
+  complaint     Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  @@index([complaintId])
+  @@index([createdAt])
 }

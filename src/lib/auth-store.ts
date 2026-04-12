@@ -21,6 +21,21 @@ interface AuthState {
   clearError: () => void;
 }
 
+function safeLSGet(key: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function safeLSSet(key: string, value: string): void {
+  if (typeof window === 'undefined') return;
+  try { localStorage.setItem(key, value); } catch { /* noop */ }
+}
+
+function safeLSRemove(key: string): void {
+  if (typeof window === 'undefined') return;
+  try { localStorage.removeItem(key); } catch { /* noop */ }
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   token: null,
@@ -52,10 +67,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
 
       // Store token in localStorage as backup
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('wb_token', data.token);
-        localStorage.setItem('wb_user', JSON.stringify(data.user));
-      }
+      safeLSSet('wb_token', data.token);
+      safeLSSet('wb_user', JSON.stringify(data.user));
 
       return true;
     } catch {
@@ -67,20 +80,20 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     fetch('/api/auth/me', { method: 'POST' }).catch(() => {});
     set({ user: null, token: null, error: null, isAuthenticated: false });
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('wb_token');
-      localStorage.removeItem('wb_user');
-    }
+    safeLSRemove('wb_token');
+    safeLSRemove('wb_user');
   },
 
   checkAuth: async () => {
     // Try to restore from localStorage first
-    if (typeof window !== 'undefined') {
-      const savedToken = localStorage.getItem('wb_token');
-      const savedUser = localStorage.getItem('wb_user');
+    const savedToken = safeLSGet('wb_token');
+    const savedUser = safeLSGet('wb_user');
 
-      if (savedToken && savedUser) {
+    if (savedToken && savedUser) {
+      try {
         set({ token: savedToken, user: JSON.parse(savedUser), isAuthenticated: true });
+      } catch {
+        // Invalid JSON, continue with server check
       }
     }
 
@@ -92,10 +105,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ user: data.user, token: 'authenticated', isAuthenticated: true, isLoading: false });
       } else {
         set({ user: null, token: null, isAuthenticated: false, isLoading: false });
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('wb_token');
-          localStorage.removeItem('wb_user');
-        }
+        safeLSRemove('wb_token');
+        safeLSRemove('wb_user');
       }
     } catch {
       set({ isLoading: false });

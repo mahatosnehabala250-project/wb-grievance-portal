@@ -35,6 +35,17 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Create initial activity log
+    await db.activityLog.create({
+      data: {
+        complaintId: complaint.id,
+        action: 'CREATED',
+        description: `Complaint filed${citizenName ? ` by ${citizenName}` : ''} (Source: WhatsApp)`,
+        actorId: null,
+        actorName: null,
+      },
+    });
+
     return NextResponse.json({
       success: true,
       ticketNo: complaint.ticketNo,

@@ -31,7 +31,7 @@ export async function GET(
   return NextResponse.json({ complaint });
 }
 
-// PATCH /api/complaints/[id] — update status/resolution
+// PATCH /api/complaints/[id] — update status/resolution/assignment
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -70,6 +70,67 @@ export async function PATCH(
       where: { id },
       data,
     });
+
+    // Log activities
+    const actorName = payload.username || 'System';
+    const actorId = payload.userId || null;
+
+    if (status && status !== complaint.status) {
+      const statusLabels: Record<string, string> = {
+        OPEN: 'Open', IN_PROGRESS: 'In Progress', RESOLVED: 'Resolved', REJECTED: 'Rejected',
+      };
+      await db.activityLog.create({
+        data: {
+          complaintId: id,
+          action: `STATUS_CHANGED`,
+          description: `Status changed from ${statusLabels[complaint.status] || complaint.status} to ${statusLabels[status] || status}`,
+          actorId,
+          actorName,
+          metadata: JSON.stringify({ from: complaint.status, to: status }),
+        },
+      });
+
+      // If resolved, create a RESOLVED activity too
+      if (status === 'RESOLVED') {
+        await db.activityLog.create({
+          data: {
+            complaintId: id,
+            action: 'RESOLVED',
+            description: resolution ? `Resolved with note: ${resolution}` : 'Complaint marked as resolved',
+            actorId,
+            actorName,
+          },
+        });
+      }
+    }
+
+    if (assignedToId !== undefined && assignedToId !== complaint.assignedToId) {
+      if (assignedToId) {
+        // Look up the assigned user's name
+        const assignedUser = await db.user.findUnique({ where: { id: assignedToId }, select: { name: true } });
+        const assignedName = assignedUser?.name || 'Unknown User';
+        await db.activityLog.create({
+          data: {
+            complaintId: id,
+            action: 'ASSIGNED',
+            description: `Assigned to ${assignedName}`,
+            actorId,
+            actorName,
+            metadata: JSON.stringify({ assignedToId }),
+          },
+        });
+      } else if (complaint.assignedToId) {
+        await db.activityLog.create({
+          data: {
+            complaintId: id,
+            action: 'UNASSIGNED',
+            description: 'Assignment removed',
+            actorId,
+            actorName,
+          },
+        });
+      }
+    }
 
     return NextResponse.json({ complaint: updated, success: true });
   } catch (error) {

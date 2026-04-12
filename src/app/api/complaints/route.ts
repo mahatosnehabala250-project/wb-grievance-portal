@@ -17,6 +17,10 @@ export async function GET(request: NextRequest) {
   const block = searchParams.get('block');
   const district = searchParams.get('district');
   const search = searchParams.get('search');
+  const source = searchParams.get('source');
+  const assigned = searchParams.get('assigned'); // 'assigned', 'unassigned', 'all'
+  const dateFrom = searchParams.get('dateFrom');
+  const dateTo = searchParams.get('dateTo');
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '20');
 
@@ -35,6 +39,29 @@ export async function GET(request: NextRequest) {
   if (category) where.category = category;
   if (block) where.block = block;
   if (district) where.district = district;
+  if (source) where.source = source;
+
+  // Assigned filter
+  if (assigned === 'assigned') {
+    where.assignedToId = { not: null };
+  } else if (assigned === 'unassigned') {
+    where.assignedToId = null;
+  }
+
+  // Date range filter
+  if (dateFrom || dateTo) {
+    const dateFilter: Record<string, unknown> = {};
+    if (dateFrom) {
+      dateFilter.gte = new Date(dateFrom);
+    }
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      dateFilter.lte = toDate;
+    }
+    where.createdAt = dateFilter;
+  }
+
   if (search) {
     where.OR = [
       { citizenName: { contains: search } },
@@ -110,6 +137,17 @@ export async function POST(request: NextRequest) {
         description: description || null,
         source: 'MANUAL',
         assignedToId: payload.userId,
+      },
+    });
+
+    // Create initial activity log
+    await db.activityLog.create({
+      data: {
+        complaintId: complaint.id,
+        action: 'CREATED',
+        description: `Complaint filed${citizenName ? ` by ${citizenName}` : ''} (Source: Manual)`,
+        actorId: payload.userId || null,
+        actorName: payload.username || null,
       },
     });
 

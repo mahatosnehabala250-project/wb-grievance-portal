@@ -12,6 +12,7 @@ import {
   ArrowLeft, MessageSquare, ShieldCheck, Globe, BarChart2,
   Printer, UserCircle, Hand, Gauge, Timer, Award, BadgeCheck, PlayCircle, Ban, CircleCheckBig,
   Settings, CircleHelp, Monitor, Mail, Volume2, LayoutGrid, Keyboard,
+  UserCheck, GitCompareArrows, CalendarClock, History, Tag, ClipboardList,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -73,6 +74,27 @@ interface Complaint {
   source: string;
   createdAt: string;
   updatedAt: string;
+  assignedUser?: { id: string; name: string; role: string } | null;
+}
+
+interface ActivityLogEntry {
+  id: string;
+  complaintId: string;
+  action: string;
+  description: string;
+  actorId: string | null;
+  actorName: string | null;
+  metadata: string | null;
+  createdAt: string;
+}
+
+interface AssignableUser {
+  id: string;
+  username: string;
+  name: string;
+  role: string;
+  location: string;
+  district: string | null;
 }
 
 interface AppUser {
@@ -185,8 +207,18 @@ function fmtRole(role: string) {
   return ROLE_MAP[role] || role;
 }
 
+function safeGetLocalStorage(key: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function safeSetLocalStorage(key: string, value: string): void {
+  if (typeof window === 'undefined') return;
+  try { localStorage.setItem(key, value); } catch { /* noop */ }
+}
+
 function authHeaders(): Record<string, string> {
-  const token = localStorage.getItem('wb_token');
+  const token = safeGetLocalStorage('wb_token');
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -574,6 +606,40 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Live clock & session tracking
+  const [now, setNow] = useState(new Date());
+  const [sessionStart] = useState(() => new Date());
+  const [lastLogin, setLastLogin] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Load last login from localStorage
+    const stored = safeGetLocalStorage('wb_last_login');
+    if (stored) setLastLogin(stored);
+    // Save current login time
+    safeSetLocalStorage('wb_last_login', new Date().toISOString());
+    // Tick clock every second
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const sessionDuration = useMemo(() => {
+    const diff = Math.floor((now.getTime() - sessionStart.getTime()) / 1000);
+    const h = Math.floor(diff / 3600);
+    const m = Math.floor((diff % 3600) / 60);
+    const s = diff % 60;
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  }, [now, sessionStart]);
+
+  const formattedDate = useMemo(() => {
+    return now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }, [now]);
+
+  const formattedTime = useMemo(() => {
+    return now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }, [now]);
+
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
     try {
@@ -647,7 +713,7 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
         <Card className="border-0 shadow-sm overflow-hidden" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 60%, #0d2d6b 100%)' }}>
           <CardContent className="p-5 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex items-start gap-4">
                 <motion.div
                   className="hidden sm:flex h-14 w-14 rounded-2xl bg-white/15 backdrop-blur-sm items-center justify-center shrink-0 border border-white/20"
@@ -658,7 +724,12 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
                   <Hand className="h-7 w-7 text-white" />
                 </motion.div>
                 <div>
-                  <p className="text-blue-200/70 text-xs font-medium">{getGreeting()} 👋</p>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <p className="text-blue-200/70 text-xs font-medium">{getGreeting()} 👋</p>
+                    <div className="flex items-center gap-1.5 text-blue-100/80 text-[11px] font-mono">
+                      <Clock3 className="h-3 w-3" />{formattedTime}
+                    </div>
+                  </div>
                   <h2 className="text-xl sm:text-2xl font-black text-white mt-0.5">
                     Welcome back, {user?.name?.split(' ')[0] || 'User'}!
                   </h2>
@@ -670,16 +741,29 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
                       <MapPin className="h-3 w-3" />{user?.location}{user?.district ? `, ${user.district}` : ''}
                     </span>
                   </div>
-                  <p className="text-blue-100/50 text-[11px] mt-2 hidden sm:block">
-                    You have <span className="text-amber-300 font-bold">{stats.open + stats.inProgress}</span> open complaints &middot; <span className="text-emerald-300 font-bold">{stats.resolved}</span> resolved
+                  <p className="text-blue-100/50 text-[11px] mt-2">
+                    {formattedDate}
+                    <span className="mx-2">·</span>
+                    You have <span className="text-amber-300 font-bold">{stats.open + stats.inProgress}</span> open complaints · <span className="text-emerald-300 font-bold">{stats.resolved}</span> resolved
                   </p>
+                  {/* Last Login & Session Duration */}
+                  <div className="flex items-center gap-4 mt-2 text-[10px] text-blue-200/40">
+                    {lastLogin && (
+                      <span className="flex items-center gap-1">
+                        <CalendarClock className="h-3 w-3" />Last login: {new Date(lastLogin).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <Timer className="h-3 w-3" />Session: {sessionDuration}
+                    </span>
+                  </div>
                 </div>
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleGenerateReport}
-                className="gap-1.5 text-xs bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white print:hidden"
+                className="gap-1.5 text-xs bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white print:hidden shrink-0"
               >
                 <Printer className="h-3.5 w-3.5" />
                 Generate Report
@@ -1139,14 +1223,42 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
   const [resolutionText, setResolutionText] = useState('');
   const [newStatus, setNewStatus] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
+  const [selectedAssignee, setSelectedAssignee] = useState('');
+  const [assigning, setAssigning] = useState(false);
+  const [activities, setActivities] = useState<ActivityLogEntry[]>([]);
+  const [loadingActivity, setLoadingActivity] = useState(false);
 
   useEffect(() => {
     if (open && initialComplaint) {
       setComplaint(initialComplaint);
       setResolutionText(initialComplaint.resolution || '');
       setNewStatus('');
+      setSelectedAssignee(initialComplaint.assignedToId || '');
     }
   }, [open, initialComplaint]);
+
+  // Fetch assignable users and activity log when dialog opens
+  useEffect(() => {
+    if (!open || !complaint) return;
+    fetch('/api/users/list', { headers: authHeaders() })
+      .then((res) => res.ok ? res.json() : null)
+      .then((json) => { if (json) setAssignableUsers(json.users || []); })
+      .catch(() => {});
+    setLoadingActivity(true);
+    fetch(`/api/complaints/${complaint.id}/activity`, { headers: authHeaders() })
+      .then((res) => res.ok ? res.json() : null)
+      .then((json) => { if (json) setActivities(json.activities || []); })
+      .catch(() => {})
+      .finally(() => setLoadingActivity(false));
+  }, [open, complaint?.id]);
+
+  const refreshActivity = useCallback(async (cid: string) => {
+    try {
+      const actRes = await fetch(`/api/complaints/${cid}/activity`, { headers: authHeaders() });
+      if (actRes.ok) { const actJson = await actRes.json(); setActivities(actJson.activities || []); }
+    } catch { /* silent */ }
+  }, []);
 
   const handleStatusChange = useCallback(async (status: string) => {
     if (!complaint) return;
@@ -1167,6 +1279,7 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
         setNewStatus('');
         toast.success('Status updated', { description: `Complaint marked as ${fmtStatus(status)}` });
         onUpdate?.(complaint.id, status, body.resolution);
+        refreshActivity(complaint.id);
       } else {
         toast.error('Failed to update status');
       }
@@ -1174,7 +1287,7 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
       toast.error('Network error');
     }
     setUpdating(false);
-  }, [complaint, resolutionText, onUpdate]);
+  }, [complaint, resolutionText, onUpdate, refreshActivity]);
 
   const handleSaveResolution = useCallback(async () => {
     if (!complaint) return;
@@ -1198,21 +1311,45 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
     setUpdating(false);
   }, [complaint, resolutionText]);
 
-  // Quick action button handler
   const handleQuickAction = useCallback((status: string) => {
     handleStatusChange(status);
   }, [handleStatusChange]);
 
+  const handleAssign = useCallback(async () => {
+    if (!complaint) return;
+    setAssigning(true);
+    try {
+      const res = await fetch(`/api/complaints/${complaint.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ assignedToId: selectedAssignee || null }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setComplaint(json.complaint);
+        const assignUser = assignableUsers.find((u) => u.id === selectedAssignee);
+        toast.success(selectedAssignee ? `Assigned to ${assignUser?.name || 'user'}` : 'Assignment removed');
+        onUpdate?.(complaint.id, complaint.status);
+        refreshActivity(complaint.id);
+      } else {
+        toast.error('Failed to update assignment');
+      }
+    } catch {
+      toast.error('Network error');
+    }
+    setAssigning(false);
+  }, [complaint, selectedAssignee, assignableUsers, onUpdate, refreshActivity]);
+
   if (!complaint) return null;
 
-  // Build timeline entries
-  const timelineEntries = [
-    { label: 'Filed', time: complaint.createdAt, color: '#0284C7', icon: 'file' },
-    { label: fmtStatus(complaint.status), time: complaint.updatedAt, color: complaint.status === 'IN_PROGRESS' ? '#D97706' : complaint.status === 'RESOLVED' ? '#16A34A' : complaint.status === 'REJECTED' ? '#9CA3AF' : '#DC2626', icon: 'status' },
-  ];
-  if (complaint.resolution) {
-    timelineEntries.splice(1, 0, { label: 'In Progress', time: complaint.updatedAt, color: '#D97706', icon: 'progress' });
-  }
+  const activityConfig: Record<string, { color: string }> = {
+    CREATED: { color: '#0284C7' },
+    STATUS_CHANGED: { color: '#D97706' },
+    ASSIGNED: { color: '#7C3AED' },
+    UNASSIGNED: { color: '#9CA3AF' },
+    RESOLVED: { color: '#16A34A' },
+    REJECTED: { color: '#DC2626' },
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1232,6 +1369,15 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
             <StatusBadge status={complaint.status} />
             <UrgencyBadge urgency={complaint.urgency} />
             <Badge variant="outline" className="text-[11px]">{complaint.source}</Badge>
+            {complaint.assignedToId ? (
+              <Badge variant="outline" className="text-[11px] gap-1 bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
+                <UserCheck className="h-3 w-3" />Assigned
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-[11px] gap-1 bg-gray-50 dark:bg-gray-900/30 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700">
+                <Users className="h-3 w-3" />Unassigned
+              </Badge>
+            )}
             {complaint.urgency === 'CRITICAL' && (
               <Badge className="bg-red-600 text-white text-[10px] gap-1 animate-pulse">
                 <AlertTriangle className="h-3 w-3" />Urgent
@@ -1242,61 +1388,96 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
           {/* Quick Action Buttons */}
           {complaint.status !== 'RESOLVED' && complaint.status !== 'REJECTED' && (
             <div className="grid grid-cols-3 gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={updating || complaint.status === 'IN_PROGRESS'}
+              <Button size="sm" variant="outline" disabled={updating || complaint.status === 'IN_PROGRESS'}
                 onClick={() => handleQuickAction('IN_PROGRESS')}
-                className="text-xs gap-1 h-9 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
-              >
-                <PlayCircle className="h-3.5 w-3.5" />
-                In Progress
+                className="text-xs gap-1 h-9 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30">
+                <PlayCircle className="h-3.5 w-3.5" />In Progress
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={updating}
+              <Button size="sm" variant="outline" disabled={updating}
                 onClick={() => handleQuickAction('RESOLVED')}
-                className="text-xs gap-1 h-9 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
-              >
-                <CircleCheckBig className="h-3.5 w-3.5" />
-                Resolve
+                className="text-xs gap-1 h-9 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/30">
+                <CircleCheckBig className="h-3.5 w-3.5" />Resolve
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={updating}
+              <Button size="sm" variant="outline" disabled={updating}
                 onClick={() => handleQuickAction('REJECTED')}
-                className="text-xs gap-1 h-9 border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-900/30"
-              >
-                <Ban className="h-3.5 w-3.5" />
-                Reject
+                className="text-xs gap-1 h-9 border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-900/30">
+                <Ban className="h-3 w-3" />Reject
               </Button>
             </div>
           )}
 
-          {/* Enhanced Timeline Section */}
+          {/* Assign To */}
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+              <UserCheck className="h-3.5 w-3.5" />Assign To
+            </p>
+            <div className="flex items-center gap-2">
+              <Select value={selectedAssignee} onValueChange={setSelectedAssignee} disabled={assigning}>
+                <SelectTrigger className="h-9 text-sm flex-1">
+                  <SelectValue placeholder="Select officer..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__unassign__">— Unassign —</SelectItem>
+                  {assignableUsers.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.name} <span className="text-[10px] text-muted-foreground">({fmtRole(u.role)})</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button size="sm" variant="outline"
+                disabled={assigning || (selectedAssignee === complaint.assignedToId && selectedAssignee !== '__unassign__')}
+                onClick={handleAssign}
+                className="text-xs gap-1 h-9 border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-400 dark:hover:bg-purple-950/30 whitespace-nowrap">
+                {assigning ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                {complaint.assignedToId ? 'Update' : 'Assign'}
+              </Button>
+            </div>
+          </div>
+
+          {/* Activity Timeline */}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Complaint Lifecycle</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
+              <History className="h-3.5 w-3.5" />Activity Timeline
+            </p>
             <div className="relative pl-6">
-              {/* Timeline line */}
               <div className="absolute left-[9px] top-2 bottom-2 w-0.5 bg-border" />
-              {timelineEntries.map((entry, idx) => (
-                <div key={idx} className="relative flex items-start gap-3 pb-4 last:pb-0">
-                  {/* Timeline dot */}
-                  <div className="absolute -left-6 top-0.5">
-                    <div className="h-[18px] w-[18px] rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center" style={{ backgroundColor: entry.color }}>
-                      <div className="h-1.5 w-1.5 rounded-full bg-white" />
+              {loadingActivity ? (
+                <div className="space-y-3">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="flex gap-3 items-start">
+                      <Skeleton className="h-4 w-4 rounded-full shrink-0" />
+                      <div className="space-y-1"><Skeleton className="h-3 w-32" /><Skeleton className="h-2 w-20" /></div>
                     </div>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs font-semibold text-foreground">{entry.label}</p>
-                    <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                      <Clock className="h-3 w-3" />{fmtDateTime(entry.time)}
-                    </p>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              ) : activities.length > 0 ? (
+                activities.map((entry, idx) => {
+                  const config = activityConfig[entry.action] || { color: '#6B7280' };
+                  return (
+                    <div key={entry.id || idx} className="relative flex items-start gap-3 pb-4 last:pb-0">
+                      <div className="absolute -left-6 top-0.5">
+                        <div className="h-[18px] w-[18px] rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center" style={{ backgroundColor: config.color }}>
+                          <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-foreground">{entry.description}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                            <Clock className="h-3 w-3" />{fmtDateTime(entry.createdAt)}
+                          </p>
+                          {entry.actorName && (
+                            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{entry.actorName}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-xs text-muted-foreground italic pl-2">No activity recorded</p>
+              )}
             </div>
           </div>
 
@@ -1366,7 +1547,6 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
             )}
           </div>
 
-          {/* Actions for authorized users */}
           <Separator />
 
           {/* Status Update */}
@@ -1390,32 +1570,21 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
               </SelectContent>
             </Select>
             {newStatus && (
-              <Button
-                size="sm"
-                disabled={updating}
-                onClick={() => handleStatusChange(newStatus)}
-                className="w-full text-xs"
-                style={{ backgroundColor: NAVY, color: 'white' }}
-              >
+              <Button size="sm" disabled={updating} onClick={() => handleStatusChange(newStatus)}
+                className="w-full text-xs" style={{ backgroundColor: NAVY, color: 'white' }}>
                 {updating ? <RefreshCw className="h-3 w-3 animate-spin mr-1" /> : <CheckCircle2 className="h-3 w-3 mr-1" />}
                 Apply: {fmtStatus(newStatus)}
               </Button>
             )}
           </div>
 
-          {/* Resolution Text Input */}
+          {/* Resolution Notes */}
           <div className="space-y-2">
             <Label className="text-[10px] font-bold uppercase tracking-widest">Resolution Notes</Label>
-            <Textarea
-              value={resolutionText}
-              onChange={(e) => setResolutionText(e.target.value)}
-              placeholder="Enter resolution details..."
-              rows={3}
-              className="text-sm"
-            />
+            <Textarea value={resolutionText} onChange={(e) => setResolutionText(e.target.value)}
+              placeholder="Enter resolution details..." rows={3} className="text-sm" />
             <Button variant="outline" size="sm" disabled={updating} onClick={handleSaveResolution} className="text-xs w-full">
-              <Send className="h-3 w-3 mr-1" />
-              Save Resolution
+              <Send className="h-3 w-3 mr-1" />Save Resolution
             </Button>
           </div>
         </div>
@@ -1424,6 +1593,7 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
     </Dialog>
   );
 }
+
 
 /* ═══════════════════════════════════════════════════════════════════
    NEW COMPLAINT DIALOG
@@ -1575,6 +1745,10 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
   const [filterUrgency, setFilterUrgency] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterBlock, setFilterBlock] = useState('');
+  const [filterSource, setFilterSource] = useState('');
+  const [filterAssigned, setFilterAssigned] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
   const [sortField, setSortField] = useState('createdAt');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
@@ -1613,6 +1787,10 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
       if (filterUrgency) params.set('urgency', filterUrgency);
       if (filterCategory) params.set('category', filterCategory);
       if (filterBlock) params.set('block', filterBlock);
+      if (filterSource) params.set('source', filterSource);
+      if (filterAssigned) params.set('assigned', filterAssigned);
+      if (filterDateFrom) params.set('dateFrom', filterDateFrom);
+      if (filterDateTo) params.set('dateTo', filterDateTo);
       params.set('page', String(page));
       params.set('limit', String(pagination.limit));
 
@@ -1631,7 +1809,7 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
       toast.error('Network error');
     }
     setLoading(false);
-  }, [debouncedSearch, filterStatus, filterUrgency, filterCategory, filterBlock, page, pagination.limit]);
+  }, [debouncedSearch, filterStatus, filterUrgency, filterCategory, filterBlock, filterSource, filterAssigned, filterDateFrom, filterDateTo, page, pagination.limit]);
 
   useEffect(() => { fetchComplaints(); }, [fetchComplaints]);
 
@@ -1652,10 +1830,54 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
     setSearch(''); setDebouncedSearch('');
     setFilterStatus(''); setFilterUrgency('');
     setFilterCategory(''); setFilterBlock('');
+    setFilterSource(''); setFilterAssigned('');
+    setFilterDateFrom(''); setFilterDateTo('');
     setPage(1);
   }, []);
 
-  const activeFilterCount = [debouncedSearch, filterStatus, filterUrgency, filterCategory, filterBlock].filter(Boolean).length;
+  const activeFilterCount = [debouncedSearch, filterStatus, filterUrgency, filterCategory, filterBlock, filterSource, filterAssigned, filterDateFrom, filterDateTo].filter(Boolean).length;
+
+  // Active filters for chips display
+  const activeFilterChips = useMemo(() => {
+    const chips: { key: string; label: string; clear: () => void }[] = [];
+    if (debouncedSearch) chips.push({ key: 'search', label: `Search: "${debouncedSearch}"`, clear: () => { setSearch(''); setDebouncedSearch(''); setPage(1); } });
+    if (filterStatus) chips.push({ key: 'status', label: `Status: ${fmtStatus(filterStatus)}`, clear: () => updateFilter(setFilterStatus, '') });
+    if (filterUrgency) chips.push({ key: 'urgency', label: `Urgency: ${fmtUrgency(filterUrgency)}`, clear: () => updateFilter(setFilterUrgency, '') });
+    if (filterCategory) chips.push({ key: 'category', label: `Category: ${filterCategory}`, clear: () => updateFilter(setFilterCategory, '') });
+    if (filterBlock) chips.push({ key: 'block', label: `Block: ${filterBlock}`, clear: () => updateFilter(setFilterBlock, '') });
+    if (filterSource) chips.push({ key: 'source', label: `Source: ${filterSource}`, clear: () => updateFilter(setFilterSource, '') });
+    if (filterAssigned) chips.push({ key: 'assigned', label: filterAssigned === 'assigned' ? 'Assigned' : 'Unassigned', clear: () => updateFilter(setFilterAssigned, '') });
+    if (filterDateFrom) chips.push({ key: 'dateFrom', label: `From: ${filterDateFrom}`, clear: () => { setFilterDateFrom(''); setPage(1); } });
+    if (filterDateTo) chips.push({ key: 'dateTo', label: `To: ${filterDateTo}`, clear: () => { setFilterDateTo(''); setPage(1); } });
+    return chips;
+  }, [debouncedSearch, filterStatus, filterUrgency, filterCategory, filterBlock, filterSource, filterAssigned, filterDateFrom, filterDateTo]);
+
+  // Select all toggle (defined before useEffect that uses it)
+  const toggleSelectAll = useCallback(() => {
+    if (selectedIds.size === complaints.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(complaints.map((c) => c.id)));
+    }
+  }, [selectedIds.size, complaints]);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // Ctrl+A support for select all
+  useEffect(() => {
+    function handleSelectAll(e: Event) {
+      toggleSelectAll();
+    }
+    document.addEventListener('wb:select-all', handleSelectAll);
+    return () => document.removeEventListener('wb:select-all', handleSelectAll);
+  }, [toggleSelectAll]);
 
   const handleSort = useCallback((field: string) => {
     if (sortField === field) setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
@@ -1699,22 +1921,6 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
     fetchComplaints();
   }, [fetchComplaints]);
 
-  const toggleSelect = useCallback((id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const toggleSelectAll = useCallback(() => {
-    if (selectedIds.size === complaints.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(complaints.map((c) => c.id)));
-    }
-  }, [selectedIds.size, complaints]);
-
   const handleBulkStatus = useCallback(async () => {
     if (!bulkStatus || selectedIds.size === 0) return;
     setBulkLoading(true);
@@ -1737,16 +1943,17 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
     setBulkLoading(false);
   }, [bulkStatus, selectedIds, fetchComplaints]);
 
-  const exportCSV = useCallback(() => {
-    const h = ['Ticket #', 'Citizen', 'Phone', 'Issue', 'Category', 'Block', 'District', 'Urgency', 'Status', 'Source', 'Created'];
-    const rows = complaints.map((c) => [c.ticketNo, c.citizenName || '', c.phone || '', c.issue, c.category, c.block, c.district, c.urgency, c.status, c.source, fmtDate(c.createdAt)]);
+  const exportCSV = useCallback((items?: Complaint[]) => {
+    const data = items || complaints;
+    const h = ['Ticket #', 'Citizen', 'Phone', 'Issue', 'Category', 'Block', 'District', 'Urgency', 'Status', 'Source', 'Created', 'Assigned'];
+    const rows = data.map((c) => [c.ticketNo, c.citizenName || '', c.phone || '', c.issue, c.category, c.block, c.district, c.urgency, c.status, c.source, fmtDate(c.createdAt), c.assignedToId ? 'Yes' : 'No']);
     const csv = [h, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `wb-complaints-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
-    toast.success('Export complete', { description: `${complaints.length} complaints exported` });
+    toast.success('Export complete', { description: `${data.length} complaints exported` });
   }, [complaints]);
 
   return (
@@ -1764,7 +1971,7 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
           <Button size="sm" onClick={() => setNewComplaintOpen(true)} className="text-xs gap-1 text-white" style={{ backgroundColor: NAVY }}>
             <Plus className="h-3.5 w-3.5" /> New Complaint
           </Button>
-          <Button variant="outline" size="sm" onClick={exportCSV} className="text-xs gap-1">
+          <Button variant="outline" size="sm" onClick={() => exportCSV()} className="text-xs gap-1">
             <Download className="h-3.5 w-3.5" /> Export CSV
           </Button>
         </div>
@@ -1780,24 +1987,22 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
                   <CheckCircle className="h-4 w-4" />
                   Selected {selectedIds.size} complaint{selectedIds.size > 1 ? 's' : ''}
                 </div>
-                <div className="flex items-center gap-2 flex-1">
-                  <Select value={bulkStatus} onValueChange={setBulkStatus}>
-                    <SelectTrigger className="h-8 w-[160px] text-xs">
-                      <SelectValue placeholder="Set status..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="OPEN">Open</SelectItem>
-                      <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                      <SelectItem value="RESOLVED">Resolved</SelectItem>
-                      <SelectItem value="REJECTED">Rejected</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex items-center gap-2 flex-1 flex-wrap">
                   <Button size="sm" disabled={!bulkStatus || bulkLoading} onClick={handleBulkStatus} className="text-xs h-8 gap-1 text-white" style={{ backgroundColor: NAVY }}>
                     {bulkLoading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
                     Apply
                   </Button>
+                  <Button size="sm" variant="outline" onClick={() => { setBulkStatus('IN_PROGRESS'); }} className="text-xs h-8 gap-1">
+                    <PlayCircle className="h-3 w-3" />In Progress
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => { setBulkStatus('RESOLVED'); }} className="text-xs h-8 gap-1">
+                    <CircleCheckBig className="h-3 w-3" />Resolve
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => exportCSV(complaints.filter((c) => selectedIds.has(c.id)))} className="text-xs h-8 gap-1">
+                    <Download className="h-3 w-3" />Export Selected
+                  </Button>
                   <Button variant="ghost" size="sm" className="text-xs h-8" onClick={() => setSelectedIds(new Set())}>
-                    Clear
+                    <X className="h-3 w-3 mr-0.5" />Deselect All
                   </Button>
                 </div>
               </CardContent>
@@ -1829,7 +2034,7 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
             {/* Filter Count + Clear */}
             {activeFilterCount > 0 && (
               <Button variant="outline" size="sm" onClick={clearFilters} className="text-xs gap-1 h-9">
-                <X className="h-3 w-3" /> Clear ({activeFilterCount})
+                <X className="h-3 w-3" /> Clear All ({activeFilterCount})
               </Button>
             )}
           </div>
@@ -1885,7 +2090,45 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
                 </SelectContent>
               </Select>
             )}
+
+            <Select value={filterSource} onValueChange={(v) => updateFilter(setFilterSource, v === '_all' ? '' : v)}>
+              <SelectTrigger className="h-8 w-[120px] text-xs">
+                <SelectValue placeholder="All Sources" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">All Sources</SelectItem>
+                <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
+                <SelectItem value="MANUAL">Manual</SelectItem>
+                <SelectItem value="WEB">Web</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={filterAssigned} onValueChange={(v) => updateFilter(setFilterAssigned, v === '_all' ? '' : v)}>
+              <SelectTrigger className="h-8 w-[120px] text-xs">
+                <SelectValue placeholder="Assigned" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">All</SelectItem>
+                <SelectItem value="assigned">Assigned</SelectItem>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Input type="date" value={filterDateFrom} onChange={(e) => { setFilterDateFrom(e.target.value); setPage(1); }} className="h-8 w-[130px] text-xs" placeholder="From" />
+            <Input type="date" value={filterDateTo} onChange={(e) => { setFilterDateTo(e.target.value); setPage(1); }} className="h-8 w-[130px] text-xs" placeholder="To" />
           </div>
+
+          {/* Filter Chips */}
+          {activeFilterChips.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {activeFilterChips.map((chip) => (
+                <span key={chip.key} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted border border-border text-[11px] text-muted-foreground">
+                  <span className="truncate max-w-[120px]">{chip.label}</span>
+                  <button onClick={chip.clear} className="hover:text-foreground transition-colors"><X className="h-3 w-3" /></button>
+                </span>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -2926,16 +3169,24 @@ function SettingsView() {
   const user = useAuthStore((s) => s.user);
   const { theme, setTheme } = useTheme();
 
-  // Notification preferences (localStorage)
-  const [emailNotifs, setEmailNotifs] = useState(() => localStorage.getItem('wb_email_notifs') === 'true');
-  const [soundAlerts, setSoundAlerts] = useState(() => localStorage.getItem('wb_sound_alerts') === 'true');
-  const [autoRefresh, setAutoRefresh] = useState(() => localStorage.getItem('wb_auto_refresh') === 'true');
-  const [compactView, setCompactView] = useState(() => localStorage.getItem('wb_compact_view') === 'true');
+  // Notification preferences (localStorage) — safely initialized after mount
+  const [emailNotifs, setEmailNotifs] = useState(false);
+  const [soundAlerts, setSoundAlerts] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [compactView, setCompactView] = useState(false);
 
-  useEffect(() => { localStorage.setItem('wb_email_notifs', String(emailNotifs)); }, [emailNotifs]);
-  useEffect(() => { localStorage.setItem('wb_sound_alerts', String(soundAlerts)); }, [soundAlerts]);
-  useEffect(() => { localStorage.setItem('wb_auto_refresh', String(autoRefresh)); }, [autoRefresh]);
-  useEffect(() => { localStorage.setItem('wb_compact_view', String(compactView)); }, [compactView]);
+  // Initialize from localStorage after mount to avoid hydration mismatch
+  useEffect(() => {
+    setEmailNotifs(safeGetLocalStorage('wb_email_notifs') === 'true');
+    setSoundAlerts(safeGetLocalStorage('wb_sound_alerts') === 'true');
+    setAutoRefresh(safeGetLocalStorage('wb_auto_refresh') === 'true');
+    setCompactView(safeGetLocalStorage('wb_compact_view') === 'true');
+  }, []);
+
+  useEffect(() => { safeSetLocalStorage('wb_email_notifs', String(emailNotifs)); }, [emailNotifs]);
+  useEffect(() => { safeSetLocalStorage('wb_sound_alerts', String(soundAlerts)); }, [soundAlerts]);
+  useEffect(() => { safeSetLocalStorage('wb_auto_refresh', String(autoRefresh)); }, [autoRefresh]);
+  useEffect(() => { safeSetLocalStorage('wb_compact_view', String(compactView)); }, [compactView]);
 
   const themeOptions = [
     { value: 'light' as const, label: 'Light', icon: Sun, description: 'Clean, bright appearance', bg: 'bg-white border-2', ring: 'ring-sky-500' },
@@ -3178,10 +3429,11 @@ function KeyboardShortcutsDialog({ open, onOpenChange, onNavigate, onNewComplain
    KEYBOARD SHORTCUT HANDLER (internal hook component)
    ═══════════════════════════════════════════════════════════════════ */
 
-function KeyboardShortcutHandler({ shortcutOpen, setShortcutOpen, setNewComplaintOpen, setMobileSidebarOpen, handleNavigate, handleRefresh, isDark, setTheme }: {
+function KeyboardShortcutHandler({ shortcutOpen, setShortcutOpen, setNewComplaintOpen, setMobileSidebarOpen, handleNavigate, handleRefresh, isDark, setTheme, currentView }: {
   shortcutOpen: boolean;
   setShortcutOpen: (v: boolean | ((prev: boolean) => boolean)) => void;
   setNewComplaintOpen: (v: boolean) => void;
+  currentView: string;
   setMobileSidebarOpen: (v: boolean) => void;
   handleNavigate: (view: ViewType) => void;
   handleRefresh: () => void;
@@ -3203,6 +3455,13 @@ function KeyboardShortcutHandler({ shortcutOpen, setShortcutOpen, setNewComplain
         setShortcutOpen(false);
         setNewComplaintOpen(false);
         setMobileSidebarOpen(false);
+      } else if (key === 'a' && e.ctrlKey) {
+        // Ctrl+A: Select all visible complaints (when in complaints view)
+        if (currentView === 'complaints') {
+          e.preventDefault();
+          // Dispatch a custom event that ComplaintsView listens to
+          document.dispatchEvent(new CustomEvent('wb:select-all'));
+        }
       } else if (key === 'd' && !shortcutOpen) {
         e.preventDefault();
         handleNavigate('dashboard');
@@ -3233,6 +3492,25 @@ function KeyboardShortcutHandler({ shortcutOpen, setShortcutOpen, setNewComplain
 /* ═══════════════════════════════════════════════════════════════════
    MAIN APP (HomePage)
    ═══════════════════════════════════════════════════════════════════ */
+
+// ═══ Hydration-safe wrapper: renders nothing during SSR ═══
+function HydrationGate({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: NAVY }}>
+            <Shield className="h-6 w-6 text-white animate-pulse" />
+          </div>
+          <p className="text-sm text-muted-foreground font-medium">Loading WB Grievance Portal...</p>
+        </div>
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
 
 export default function HomePage() {
   const { user, isAuthenticated, logout } = useAuthStore();
@@ -3329,12 +3607,19 @@ export default function HomePage() {
     { id: 'settings' as ViewType, label: 'Settings', icon: Settings },
   ];
 
-  // Not logged in
-  if (!isAuthenticated) return <LoginView />;
+  // Not logged in (wrap in hydration gate)
+  if (!isAuthenticated) {
+    return (
+      <HydrationGate>
+        <LoginView />
+      </HydrationGate>
+    );
+  }
 
   const isDark = theme === 'dark';
 
   return (
+    <HydrationGate>
     <div className="min-h-screen flex flex-col bg-background">
       {/* Keyboard shortcut listener - placed after all variable declarations */}
       <KeyboardShortcutHandler
@@ -3346,6 +3631,7 @@ export default function HomePage() {
         handleRefresh={handleRefresh}
         isDark={isDark}
         setTheme={setTheme}
+        currentView={view}
       />
       {/* ═══ HEADER ═══ */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
@@ -3692,5 +3978,6 @@ export default function HomePage() {
         onToggleTheme={() => setTheme(isDark ? 'light' : 'dark')}
       />
     </div>
+    </HydrationGate>
   );
 }
