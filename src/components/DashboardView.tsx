@@ -322,7 +322,7 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
   if (loading && !data) return <LoadingSkeleton />;
   if (!data) return <EmptyState message="Unable to load dashboard data" />;
 
-  const { stats, byCategory, byGroup, groupByField, monthlyTrend, byUrgency, recent, criticalComplaints } = data;
+  const { stats, byCategory, byGroup, groupByField, monthlyTrend, byUrgency, recent, criticalComplaints, satisfactionDistribution } = data;
 
   // Avg response time from recent complaints (created -> IN_PROGRESS first activity)
   const avgResponseDays = stats.total > 0 ? (2.3).toFixed(1) : '0.0';
@@ -570,10 +570,34 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
       </div>
 
       {/* Mini Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <MiniStat label={t('critical')} value={stats.critical} icon={AlertTriangle} color="#DC2626" bgColor="#FEF2F2" delay={350} />
         <MiniStat label={t('todayNew')} value={stats.todayComplaints} icon={TrendingUp} color={NAVY} bgColor="#E3F2FD" delay={400} />
         <MiniStat label={t('resolutionRate')} value={stats.resolutionRate} icon={Activity} color="#16A34A" bgColor="#F0FDF4" delay={450} suffix="%" />
+        {/* Satisfaction Mini Card */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.48 }}>
+          <Card className="border-0 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-300 overflow-hidden">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                    <Star className="h-3.5 w-3.5 text-amber-500" />Satisfaction
+                  </p>
+                  <p className="text-2xl sm:text-3xl font-black tracking-tight text-amber-600 dark:text-amber-400 tabular-nums">
+                    {stats.avgSatisfaction != null ? stats.avgSatisfaction : '—'}
+                    <span className="text-sm font-medium text-muted-foreground">/5</span>
+                  </p>
+                </div>
+                <div className="flex items-center justify-center rounded-xl p-3 bg-amber-50 dark:bg-amber-950/40">
+                  <Star className="h-5 w-5 text-amber-500" />
+                </div>
+              </div>
+              <p className="text-[9px] text-muted-foreground font-medium mt-1">
+                {stats.ratedCount} rated complaint{stats.ratedCount !== 1 ? 's' : ''} out of {stats.resolved} resolved
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
 
       {/* ═══ QUICK STATUS FILTER CHIPS ═══ */}
@@ -799,8 +823,103 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-blue-200/70">Satisfaction</p>
-                  <p className="text-lg font-black text-white">4.2<span className="text-xs font-normal text-blue-200/60">/5</span></p>
+                  <p className="text-lg font-black text-white">{stats.avgSatisfaction != null ? stats.avgSatisfaction : '—'}<span className="text-xs font-normal text-blue-200/60">/5</span></p>
                 </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ═══ SATISFACTION OVERVIEW WIDGET ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.51 }}>
+        <Card className="border-0 shadow-sm hover:shadow-lg transition-shadow duration-300 border-l-[3px]" style={{ borderLeftColor: '#F59E0B' }}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <div className="w-1 h-4 rounded-full bg-amber-400" />
+              <Star className="h-4 w-4 text-amber-500" />
+              <span>Satisfaction Overview</span>
+            </CardTitle>
+            <CardDescription className="text-[11px]">Citizen satisfaction ratings on resolved complaints</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-5">
+              {/* Left: Average Rating */}
+              <div className="flex items-center gap-4 sm:min-w-[180px]">
+                <div className="relative h-16 w-16 shrink-0">
+                  <div className="absolute inset-0 rounded-full" style={{ boxShadow: `0 0 16px 4px ${stats.avgSatisfaction != null && stats.avgSatisfaction >= 3.5 ? '#F59E0B30' : '#DC262630'}` }} />
+                  <svg className="h-16 w-16 -rotate-90 relative z-[1]" viewBox="0 0 64 64">
+                    <circle cx="32" cy="32" r="28" fill="none" stroke="oklch(0.92 0 0)" strokeWidth="5" />
+                    <motion.circle
+                      cx="32" cy="32" r="28" fill="none"
+                      stroke={stats.avgSatisfaction != null && stats.avgSatisfaction >= 3.5 ? '#F59E0B' : stats.avgSatisfaction != null ? '#DC2626' : '#9CA3AF'}
+                      strokeWidth="5" strokeLinecap="round"
+                      strokeDasharray={175.93}
+                      initial={{ strokeDashoffset: 175.93 }}
+                      animate={{ strokeDashoffset: 175.93 - (175.93 * (stats.avgSatisfaction || 0) / 5) }}
+                      transition={{ duration: 1.5, ease: 'easeOut', delay: 0.4 }}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center z-[2]">
+                    <span className="text-sm font-black tabular-nums" style={{ color: stats.avgSatisfaction != null && stats.avgSatisfaction >= 3.5 ? '#D97706' : stats.avgSatisfaction != null ? '#DC2626' : '#9CA3AF' }}>
+                      {stats.avgSatisfaction != null ? stats.avgSatisfaction.toFixed(1) : '—'}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-foreground">Avg. Rating</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {stats.ratedCount} rated out of {stats.resolved} resolved
+                  </p>
+                  <div className="flex items-center gap-0.5 mt-1.5">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        className={`h-3.5 w-3.5 ${s <= Math.round(stats.avgSatisfaction || 0) ? 'text-amber-400 fill-amber-400' : 'text-gray-300 dark:text-gray-600'}`}
+                      />
+                    ))}
+                    <span className="text-[10px] text-muted-foreground ml-1 font-medium">{stats.avgSatisfaction != null ? stats.avgSatisfaction.toFixed(1) : '—'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: Distribution Bars */}
+              <div className="flex-1 space-y-2">
+                {stats.ratedCount > 0 ? (
+                  [5, 4, 3, 2, 1].map((star) => {
+                    const count = satisfactionDistribution?.[String(star)] || 0;
+                    const pct = stats.ratedCount > 0 ? Math.round((count / stats.ratedCount) * 100) : 0;
+                    const barColor = star >= 4 ? '#F59E0B' : star === 3 ? '#D97706' : '#DC2626';
+                    return (
+                      <div key={star} className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 w-10 shrink-0">
+                          <span className="text-[10px] font-bold text-muted-foreground w-3 text-right">{star}</span>
+                          <Star className="h-2.5 w-2.5 text-amber-400 fill-amber-400" />
+                        </div>
+                        <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                          <motion.div
+                            className="h-full rounded-full"
+                            style={{ background: barColor }}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${pct}%` }}
+                            transition={{ duration: 0.8, ease: 'easeOut', delay: 0.3 + (5 - star) * 0.1 }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground font-medium w-16 text-right tabular-nums">
+                          {count} ({pct}%)
+                        </span>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="text-center">
+                      <Star className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-xs text-muted-foreground">No ratings yet</p>
+                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">Resolved complaints can be rated by users</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>

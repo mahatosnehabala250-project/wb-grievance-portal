@@ -1719,3 +1719,711 @@ input:focus, textarea:focus, select:focus {
   background-image: radial-gradient(circle, oklch(0.7 0 0 / 30%) 1px, transparent 1px);
   background-size: 8px 1px;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   L. Comprehensive CSS Styling Polish
+   Added: 20 new utility/component classes with dark mode,
+   reduced-motion, and oklch color support.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── L1. Glow Card ─────────────────────────────────────────────
+   Card with subtle colored glow on hover that shifts based on
+   card content theme. Uses data-glow attribute for theme color.
+   ─────────────────────────────────────────────────────────────── */
+.glow-card {
+  position: relative;
+  border-radius: 0.75rem;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px oklch(0.2 0 0 / 6%);
+}
+.glow-card:hover {
+  transform: translateY(-3px);
+  /* Default navy glow — overridden by data-glow variants */
+  box-shadow: 0 0 16px oklch(0.40 0.12 250 / 15%),
+              0 0 40px oklch(0.40 0.12 250 / 8%),
+              0 8px 24px oklch(0.2 0 0 / 10%);
+}
+/* Green theme glow */
+.glow-card[data-glow="green"]:hover {
+  box-shadow: 0 0 16px oklch(0.55 0.18 145 / 18%),
+              0 0 40px oklch(0.55 0.18 145 / 8%),
+              0 8px 24px oklch(0.2 0 0 / 10%);
+}
+/* Red/critical theme glow */
+.glow-card[data-glow="red"]:hover {
+  box-shadow: 0 0 16px oklch(0.58 0.22 25 / 18%),
+              0 0 40px oklch(0.58 0.22 25 / 8%),
+              0 8px 24px oklch(0.2 0 0 / 10%);
+}
+/* Amber/warning theme glow */
+.glow-card[data-glow="amber"]:hover {
+  box-shadow: 0 0 16px oklch(0.75 0.16 75 / 18%),
+              0 0 40px oklch(0.75 0.16 75 / 8%),
+              0 8px 24px oklch(0.2 0 0 / 10%);
+}
+/* Blue/info theme glow */
+.glow-card[data-glow="blue"]:hover {
+  box-shadow: 0 0 16px oklch(0.55 0.18 250 / 18%),
+              0 0 40px oklch(0.55 0.18 250 / 8%),
+              0 8px 24px oklch(0.2 0 0 / 10%);
+}
+.dark .glow-card {
+  box-shadow: 0 1px 3px oklch(0 0 0 / 20%);
+}
+.dark .glow-card:hover {
+  box-shadow: 0 0 20px oklch(0.55 0.15 250 / 20%),
+              0 0 50px oklch(0.55 0.15 250 / 10%),
+              0 8px 24px oklch(0 0 0 / 30%);
+}
+.dark .glow-card[data-glow="green"]:hover {
+  box-shadow: 0 0 20px oklch(0.55 0.18 145 / 22%),
+              0 0 50px oklch(0.55 0.18 145 / 10%),
+              0 8px 24px oklch(0 0 0 / 30%);
+}
+.dark .glow-card[data-glow="red"]:hover {
+  box-shadow: 0 0 20px oklch(0.58 0.22 25 / 22%),
+              0 0 50px oklch(0.58 0.22 25 / 10%),
+              0 8px 24px oklch(0 0 0 / 30%);
+}
+.dark .glow-card[data-glow="amber"]:hover {
+  box-shadow: 0 0 20px oklch(0.75 0.16 75 / 22%),
+              0 0 50px oklch(0.75 0.16 75 / 10%),
+              0 8px 24px oklch(0 0 0 / 30%);
+}
+.dark .glow-card[data-glow="blue"]:hover {
+  box-shadow: 0 0 20px oklch(0.55 0.18 250 / 22%),
+              0 0 50px oklch(0.55 0.18 250 / 10%),
+              0 8px 24px oklch(0 0 0 / 30%);
+}
+
+/* ── L2. Stat Number (Enhanced) ────────────────────────────────
+   Animated number display with tabular-nums, letter-spacing,
+   and subtle text-shadow for emphasis. Enhances existing .stat-number.
+   ─────────────────────────────────────────────────────────────── */
+.stat-number-enhanced {
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
+  text-shadow: 0 1px 2px oklch(0.2 0 0 / 8%);
+  line-height: 1.1;
+}
+.dark .stat-number-enhanced {
+  text-shadow: 0 1px 2px oklch(0 0 0 / 30%);
+}
+
+/* ── L3. Status Dot Pulse ──────────────────────────────────────
+   Dual-ring pulse animation for online/active status indicators.
+   Inner solid ring + outer fading ring using ::before & ::after.
+   ─────────────────────────────────────────────────────────────── */
+@keyframes statusDotPulseRing {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+.status-dot-pulse {
+  position: relative;
+  display: inline-flex;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+/* Inner solid ring */
+.status-dot-pulse::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: oklch(0.55 0.2 145);
+  z-index: 2;
+}
+/* Outer fading ring */
+.status-dot-pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: oklch(0.55 0.2 145);
+  animation: statusDotPulseRing 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  z-index: 1;
+}
+/* Variant: red/away status */
+.status-dot-pulse[data-color="red"]::before,
+.status-dot-pulse[data-color="red"]::after {
+  background: oklch(0.58 0.22 25);
+}
+/* Variant: amber/busy status */
+.status-dot-pulse[data-color="amber"]::before,
+.status-dot-pulse[data-color="amber"]::after {
+  background: oklch(0.75 0.16 75);
+}
+
+/* ── L4. Shimmer Text ──────────────────────────────────────────
+   Shimmer effect on text using background-clip with a moving
+   gradient highlight that sweeps across the text.
+   ─────────────────────────────────────────────────────────────── */
+@keyframes shimmerTextMove {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    oklch(0.25 0 0) 0%,
+    oklch(0.25 0 0) 35%,
+    oklch(0.55 0.15 250) 50%,
+    oklch(0.25 0 0) 65%,
+    oklch(0.25 0 0) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmerTextMove 3s linear infinite;
+}
+.dark .shimmer-text {
+  background: linear-gradient(
+    90deg,
+    oklch(0.80 0 0) 0%,
+    oklch(0.80 0 0) 35%,
+    oklch(0.95 0.05 250) 50%,
+    oklch(0.80 0 0) 65%,
+    oklch(0.80 0 0) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmerTextMove 3s linear infinite;
+}
+
+/* ── L5. Magnetic Button ───────────────────────────────────────
+   Button with slight scale-up + enhanced shadow on hover with
+   a smooth, satisfying transition. Inspired by magnetic UI.
+   ─────────────────────────────────────────────────────────────── */
+.magnetic-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 0.2s ease;
+  box-shadow: 0 1px 3px oklch(0.2 0 0 / 10%),
+              0 1px 2px oklch(0.2 0 0 / 6%);
+  cursor: pointer;
+}
+.magnetic-button:hover {
+  transform: scale(1.04);
+  box-shadow: 0 6px 20px oklch(0.2 0 0 / 15%),
+              0 3px 8px oklch(0.2 0 0 / 10%);
+}
+.magnetic-button:active {
+  transform: scale(0.97);
+  box-shadow: 0 1px 2px oklch(0.2 0 0 / 8%);
+}
+.dark .magnetic-button {
+  box-shadow: 0 1px 3px oklch(0 0 0 / 25%),
+              0 1px 2px oklch(0 0 0 / 15%);
+}
+.dark .magnetic-button:hover {
+  box-shadow: 0 6px 20px oklch(0 0 0 / 40%),
+              0 3px 8px oklch(0 0 0 / 25%);
+}
+
+/* ── L6. Data Table Header ─────────────────────────────────────
+   Table header styling with subtle gradient background,
+   uppercase micro-text, and bottom border emphasis.
+   ─────────────────────────────────────────────────────────────── */
+.data-table-header th {
+  background: linear-gradient(
+    180deg,
+    oklch(0.965 0.005 250) 0%,
+    oklch(0.955 0.008 250) 100%
+  );
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: oklch(0.35 0.05 250);
+  padding: 10px 14px;
+  border-bottom: 2px solid oklch(0.82 0.02 250);
+  white-space: nowrap;
+  user-select: none;
+}
+.dark .data-table-header th {
+  background: linear-gradient(
+    180deg,
+    oklch(0.22 0.01 250) 0%,
+    oklch(0.20 0.015 250) 100%
+  );
+  color: oklch(0.70 0.05 250);
+  border-bottom-color: oklch(0.35 0.03 250);
+}
+
+/* ── L7. Card Entrance ─────────────────────────────────────────
+   Staggered entrance animation (fade-in + slide-up) for cards
+   in grid layouts. Use nth-child delays for cascade effect.
+   ─────────────────────────────────────────────────────────────── */
+@keyframes cardEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.card-entrance {
+  opacity: 0;
+  animation: cardEntrance 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+/* Stagger delays for grid children */
+.card-entrance:nth-child(1) { animation-delay: 0ms; }
+.card-entrance:nth-child(2) { animation-delay: 60ms; }
+.card-entrance:nth-child(3) { animation-delay: 120ms; }
+.card-entrance:nth-child(4) { animation-delay: 180ms; }
+.card-entrance:nth-child(5) { animation-delay: 240ms; }
+.card-entrance:nth-child(6) { animation-delay: 300ms; }
+.card-entrance:nth-child(7) { animation-delay: 360ms; }
+.card-entrance:nth-child(8) { animation-delay: 420ms; }
+.card-entrance:nth-child(9) { animation-delay: 480ms; }
+.card-entrance:nth-child(10) { animation-delay: 540ms; }
+.card-entrance:nth-child(11) { animation-delay: 600ms; }
+.card-entrance:nth-child(12) { animation-delay: 660ms; }
+
+/* ── L8. Badge Glow Variants (Enhanced) ────────────────────────
+   Enhanced colored glowing badges with matching box-shadow and
+   subtle background tint. Complements existing badge-glow-* classes.
+   ─────────────────────────────────────────────────────────────── */
+.badge-glow-green {
+  background: oklch(0.92 0.04 145 / 40%);
+  color: oklch(0.35 0.15 145);
+  box-shadow: 0 0 8px oklch(0.55 0.2 145 / 20%),
+              0 0 16px oklch(0.55 0.2 145 / 8%);
+  border: 1px solid oklch(0.55 0.2 145 / 20%);
+}
+.badge-glow-red {
+  background: oklch(0.92 0.04 25 / 40%);
+  color: oklch(0.40 0.18 25);
+  box-shadow: 0 0 8px oklch(0.58 0.22 25 / 20%),
+              0 0 16px oklch(0.58 0.22 25 / 8%);
+  border: 1px solid oklch(0.58 0.22 25 / 20%);
+}
+.badge-glow-amber {
+  background: oklch(0.94 0.04 75 / 40%);
+  color: oklch(0.45 0.15 75);
+  box-shadow: 0 0 8px oklch(0.75 0.16 75 / 20%),
+              0 0 16px oklch(0.75 0.16 75 / 8%);
+  border: 1px solid oklch(0.75 0.16 75 / 20%);
+}
+.dark .badge-glow-green {
+  background: oklch(0.30 0.06 145 / 40%);
+  color: oklch(0.70 0.18 145);
+  box-shadow: 0 0 10px oklch(0.55 0.2 145 / 25%),
+              0 0 20px oklch(0.55 0.2 145 / 10%);
+  border-color: oklch(0.55 0.2 145 / 25%);
+}
+.dark .badge-glow-red {
+  background: oklch(0.30 0.06 25 / 40%);
+  color: oklch(0.72 0.20 25);
+  box-shadow: 0 0 10px oklch(0.58 0.22 25 / 25%),
+              0 0 20px oklch(0.58 0.22 25 / 10%);
+  border-color: oklch(0.58 0.22 25 / 25%);
+}
+.dark .badge-glow-amber {
+  background: oklch(0.30 0.05 75 / 40%);
+  color: oklch(0.80 0.16 75);
+  box-shadow: 0 0 10px oklch(0.75 0.16 75 / 25%),
+              0 0 20px oklch(0.75 0.16 75 / 10%);
+  border-color: oklch(0.75 0.16 75 / 25%);
+}
+
+/* ── L9. Sidebar Link Active ───────────────────────────────────
+   Active sidebar link with left accent bar, slight bg tint,
+   and font-bold. Works within sidebar navigation contexts.
+   ─────────────────────────────────────────────────────────────── */
+.sidebar-link-active {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  color: oklch(0.25 0.05 250);
+  background: oklch(0.45 0.15 250 / 8%);
+}
+/* Left accent bar */
+.sidebar-link-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: oklch(0.40 0.20 250);
+}
+.dark .sidebar-link-active {
+  color: oklch(0.85 0.08 250);
+  background: oklch(0.55 0.15 250 / 12%);
+}
+.dark .sidebar-link-active::before {
+  background: oklch(0.60 0.20 250);
+}
+
+/* ── L10. Scroll Indicator ─────────────────────────────────────
+   Animated down-arrow bounce indicator for "scroll to explore"
+   sections. Uses chevron shape via CSS borders.
+   ─────────────────────────────────────────────────────────────── */
+@keyframes scrollBounce {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(8px);
+    opacity: 1;
+  }
+}
+.scroll-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  animation: scrollBounce 2s ease-in-out infinite;
+  color: oklch(0.55 0 0);
+}
+.scroll-indicator .scroll-chevron {
+  width: 20px;
+  height: 20px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+.scroll-indicator .scroll-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: inherit;
+}
+.dark .scroll-indicator {
+  color: oklch(0.60 0 0);
+}
+
+/* ── L11. Glass Badge ──────────────────────────────────────────
+   Frosted glass badge with backdrop-blur and semi-transparent bg.
+   Ideal for overlaying on images or gradient backgrounds.
+   ─────────────────────────────────────────────────────────────── */
+.glass-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  background: oklch(1 0 0 / 55%);
+  backdrop-filter: blur(10px) saturate(130%);
+  -webkit-backdrop-filter: blur(10px) saturate(130%);
+  border: 1px solid oklch(1 0 0 / 30%);
+  color: oklch(0.30 0 0);
+  box-shadow: 0 1px 3px oklch(0.2 0 0 / 8%);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.glass-badge:hover {
+  background: oklch(1 0 0 / 70%);
+  border-color: oklch(1 0 0 / 45%);
+}
+.dark .glass-badge {
+  background: oklch(0.20 0 0 / 55%);
+  backdrop-filter: blur(10px) saturate(130%);
+  -webkit-backdrop-filter: blur(10px) saturate(130%);
+  border-color: oklch(1 0 0 / 10%);
+  color: oklch(0.85 0 0);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 20%);
+}
+.dark .glass-badge:hover {
+  background: oklch(0.25 0 0 / 65%);
+  border-color: oklch(1 0 0 / 18%);
+}
+
+/* ── L12. Text Gradient Navy (Enhanced) ─────────────────────────
+   Navy-to-blue gradient text for headings using background-clip.
+   Enhanced with smoother gradient and larger color range.
+   ─────────────────────────────────────────────────────────────── */
+.text-gradient-navy-heading {
+  background: linear-gradient(135deg, #0A2463 0%, #1e40af 40%, #2563EB 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1.2;
+}
+.dark .text-gradient-navy-heading {
+  background: linear-gradient(135deg, #60a5fa 0%, #93bbfd 40%, #bfdbfe 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── L13. Hover Lift ───────────────────────────────────────────
+   Reusable utility: smooth translateY(-2px) + shadow enhancement
+   on hover. Works on any element (cards, buttons, links, etc.).
+   ─────────────────────────────────────────────────────────────── */
+.hover-lift {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px oklch(0.2 0 0 / 10%),
+              0 2px 4px oklch(0.2 0 0 / 6%);
+}
+.dark .hover-lift:hover {
+  box-shadow: 0 4px 12px oklch(0 0 0 / 30%),
+              0 2px 4px oklch(0 0 0 / 18%);
+}
+
+/* ── L14. Focus Ring ───────────────────────────────────────────
+   Custom focus-visible ring with navy color and offset for
+   accessibility. Applies only on keyboard focus (focus-visible).
+   ─────────────────────────────────────────────────────────────── */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px oklch(0.985 0 0),
+              0 0 0 5px oklch(0.40 0.18 250);
+  border-radius: inherit;
+}
+.dark .focus-ring:focus-visible {
+  box-shadow: 0 0 0 3px oklch(0.18 0 0),
+              0 0 0 5px oklch(0.55 0.18 250);
+}
+
+/* ── L15. Mobile Safe Bottom ───────────────────────────────────
+   Padding utility that accounts for iOS safe area insets on
+   fixed/sticky bottom bars. Uses env(safe-area-inset-bottom).
+   ─────────────────────────────────────────────────────────────── */
+.mobile-safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem));
+}
+
+/* ── L16. Animate Count Up ─────────────────────────────────────
+   Scale bounce animation for when numbers update (1.05 scale
+   then back). Trigger by toggling the class on value change.
+   ─────────────────────────────────────────────────────────────── */
+@keyframes countUpBounce {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.06); }
+  60% { transform: scale(0.98); }
+  100% { transform: scale(1); }
+}
+.animate-count-up {
+  animation: countUpBounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ── L17. Tooltip Arrow ────────────────────────────────────────
+   CSS triangle arrow for tooltip components pointing up.
+   Place on a child element inside the tooltip container.
+   ─────────────────────────────────────────────────────────────── */
+.tooltip-arrow {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid oklch(0.15 0 0);
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.dark .tooltip-arrow {
+  border-top-color: oklch(0.95 0 0);
+}
+
+/* ── L18. Divider Gradient ─────────────────────────────────────
+   Horizontal divider with gradient fade on edges (transparent
+   → border → transparent). Clean separator for sections.
+   ─────────────────────────────────────────────────────────────── */
+.divider-gradient {
+  border: none;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    oklch(0.82 0 0) 20%,
+    oklch(0.82 0 0) 80%,
+    transparent 100%
+  );
+}
+.dark .divider-gradient {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    oklch(1 0 0 / 12%) 20%,
+    oklch(1 0 0 / 12%) 80%,
+    transparent 100%
+  );
+}
+
+/* ── L19. Tag Chip ─────────────────────────────────────────────
+   Small rounded chip/pill styling for category/department tags
+   with hover effect. Compact alternative to badges.
+   ─────────────────────────────────────────────────────────────── */
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  background: oklch(0.96 0.01 250 / 50%);
+  color: oklch(0.40 0.10 250);
+  border: 1px solid oklch(0.85 0.01 250);
+  cursor: default;
+  transition: background-color 0.2s ease,
+              border-color 0.2s ease,
+              transform 0.15s ease;
+}
+.tag-chip:hover {
+  background: oklch(0.92 0.02 250 / 60%);
+  border-color: oklch(0.70 0.02 250);
+  transform: translateY(-1px);
+}
+.dark .tag-chip {
+  background: oklch(0.28 0.02 250 / 50%);
+  color: oklch(0.75 0.08 250);
+  border-color: oklch(1 0 0 / 10%);
+}
+.dark .tag-chip:hover {
+  background: oklch(0.32 0.03 250 / 60%);
+  border-color: oklch(1 0 0 / 18%);
+}
+
+/* ── L20. Skeleton Wave ────────────────────────────────────────
+   Wave-shaped shimmer animation alternative to skeleton-shimmer.
+   Uses a sinusoidal gradient for a softer loading feel.
+   ─────────────────────────────────────────────────────────────── */
+@keyframes skeletonWave {
+  0% { background-position: -400% 0; }
+  100% { background-position: 400% 0; }
+}
+.skeleton-wave {
+  background: linear-gradient(
+    90deg,
+    oklch(0.95 0 0) 0%,
+    oklch(0.90 0 0 / 40%) 15%,
+    oklch(0.95 0 0) 30%,
+    oklch(0.90 0 0 / 40%) 45%,
+    oklch(0.95 0 0) 60%,
+    oklch(0.90 0 0 / 40%) 75%,
+    oklch(0.95 0 0) 90%,
+    oklch(0.90 0 0 / 40%) 100%
+  );
+  background-size: 300% 100%;
+  animation: skeletonWave 2.5s ease-in-out infinite;
+  border-radius: 0.375rem;
+}
+.dark .skeleton-wave {
+  background: linear-gradient(
+    90deg,
+    oklch(0.24 0 0) 0%,
+    oklch(0.28 0 0) 15%,
+    oklch(0.24 0 0) 30%,
+    oklch(0.28 0 0) 45%,
+    oklch(0.24 0 0) 60%,
+    oklch(0.28 0 0) 75%,
+    oklch(0.24 0 0) 90%,
+    oklch(0.28 0 0) 100%
+  );
+  background-size: 300% 100%;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   M. Reduced Motion Support
+   Disables all custom animations when user prefers reduced motion.
+   ═══════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  /* Disable card and list entrance animations */
+  .card-entrance,
+  .list-stagger > li,
+  .list-stagger > [role="listitem"],
+  .scroll-reveal,
+  .animate-fade-in-up,
+  .animate-slide-in-up,
+  .animate-slide-in-right,
+  .animate-badge-in {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+
+  /* Disable pulse / glow / shimmer animations */
+  .status-dot-pulse::after,
+  .notif-pulse,
+  .pulse-glow,
+  .pulse-dot::before,
+  .animate-glow,
+  .shimmer-text,
+  .skeleton-shimmer,
+  .skeleton-wave,
+  .shimmer-sweep::after,
+  .shimmer-bar::after,
+  .orb,
+  .scroll-indicator {
+    animation: none;
+  }
+
+  /* Disable number bounce */
+  .animate-count-up,
+  .count-pulse {
+    animation: none;
+    transform: none;
+  }
+
+  /* Disable transitions for hover effects — keep states instant */
+  .hover-lift,
+  .magnetic-button,
+  .glow-card,
+  .card-hover,
+  .card-elevated,
+  .premium-card,
+  .wb-card,
+  .touch-card {
+    transition: none;
+  }
+
+  /* Disable gradient background animations */
+  .hero-gradient,
+  .gradient-border-wrap,
+  .section-gradient-text {
+    animation: none;
+  }
+
+  /* Keep hover states accessible but remove transforms */
+  .hover-lift:hover {
+    transform: none;
+  }
+  .magnetic-button:hover {
+    transform: none;
+  }
+  .glow-card:hover {
+    transform: none;
+  }
+  .card-hover:hover {
+    transform: none;
+  }
+  .card-elevated:hover {
+    transform: none;
+  }
+}

@@ -60,28 +60,35 @@ import { fmtDate, fmtDateTime, fmtStatus, fmtUrgency, fmtRole, safeGetLocalStora
 import { StatusBadge, UrgencyBadge, RoleBadge, StatCard, MiniStat, PieLabel, LoadingSkeleton, EmptyState } from '@/components/common';
 import { FeedbackDialog } from '@/components/FeedbackDialog';
 
-// ─── Inline Satisfaction Rating Widget ───
-function SatisfactionRating({ complaintId }: { complaintId: string }) {
-  const [rating, setRating] = useState(0);
+// ─── Inline Satisfaction Rating Widget (API-backed) ───
+function SatisfactionRating({ complaintId, currentRating }: { complaintId: string; currentRating: number | null }) {
+  const [rating, setRating] = useState(currentRating || 0);
   const [hoveredRating, setHoveredRating] = useState(0);
-  const [hasRated, setHasRated] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    const stored = safeGetLocalStorage(`wb_rating_${complaintId}`);
-    if (stored) {
-      setRating(parseInt(stored, 10));
-      setHasRated(true);
+  const handleRate = useCallback(async (star: number) => {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/complaints/${complaintId}/rate`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ rating: star }),
+      });
+      if (res.ok) {
+        setRating(star);
+        toast.success('Thank you for your feedback!', { description: `You rated this resolution ${star}/5 stars.` });
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to submit rating');
+      }
+    } catch {
+      toast.error('Network error');
     }
-  }, [complaintId]);
-
-  const handleRate = useCallback((star: number) => {
-    setRating(star);
-    safeSetLocalStorage(`wb_rating_${complaintId}`, String(star));
-    setHasRated(true);
-    toast.success('Thank you for your feedback!', { description: `You rated this resolution ${star}/5 stars.` });
+    setSubmitting(false);
   }, [complaintId]);
 
   const activeRating = hoveredRating || rating;
+  const hasRated = rating > 0;
 
   return (
     <div className="mt-3 pt-3 border-t border-emerald-200/40 dark:border-emerald-800/30">
@@ -101,7 +108,13 @@ function SatisfactionRating({ complaintId }: { complaintId: string }) {
             </motion.span>
           )}
         </div>
-        {hasRated && (
+        {submitting && (
+          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <RefreshCw className="h-3 w-3 animate-spin" />
+            Submitting...
+          </span>
+        )}
+        {hasRated && !submitting && (
           <span className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
             <CheckCircle2 className="h-3 w-3" />
             Thank you for your feedback!
@@ -113,10 +126,11 @@ function SatisfactionRating({ complaintId }: { complaintId: string }) {
           <button
             key={star}
             type="button"
-            onClick={() => handleRate(star)}
+            onClick={() => !submitting && handleRate(star)}
             onMouseEnter={() => setHoveredRating(star)}
             onMouseLeave={() => setHoveredRating(0)}
-            className="p-0.5 hover:scale-110 transition-transform focus:outline-none"
+            disabled={submitting}
+            className="p-0.5 hover:scale-110 transition-transform focus:outline-none disabled:opacity-50"
           >
             <Star
               className={`h-5 w-5 transition-colors duration-150 ${
@@ -154,6 +168,7 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [reopening, setReopening] = useState(false);
 
   useEffect(() => {
     if (open && initialComplaint) {
@@ -313,6 +328,30 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
     setSubmittingComment(false);
   }, [complaint, newComment, refreshActivity]);
 
+  const handleReopen = useCallback(async () => {
+    if (!complaint) return;
+    setReopening(true);
+    try {
+      const res = await fetch(`/api/complaints/${complaint.id}/reopen`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setComplaint(json.complaint);
+        toast.success('Complaint reopened', { description: `Status changed from ${fmtStatus(json.previousStatus)} to Open` });
+        onUpdate?.(complaint.id, 'OPEN');
+        refreshActivity(complaint.id);
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to reopen complaint');
+      }
+    } catch {
+      toast.error('Network error');
+    }
+    setReopening(false);
+  }, [complaint, onUpdate, refreshActivity]);
+
   const handleEscalate = useCallback(async () => {
     if (!complaint) return;
     setEscalating(true);
@@ -347,6 +386,8 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
     RESOLVED: { color: '#16A34A', icon: CheckCircle2 },
     REJECTED: { color: '#DC2626', icon: XCircle },
     ESCALATED: { color: '#EA580C', icon: ArrowUp },
+    REOPENED: { color: '#D97706', icon: RotateCcw },
+    RATED: { color: '#F59E0B', icon: Star },
   };
 
   const slaInfo = getSLAInfo(complaint.createdAt, complaint.status);
@@ -424,7 +465,18 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
             </div>
           )}
 
-          {/* Rate Resolution Button (only for resolved complaints) */}
+          {/* Reopen Button (for RESOLVED or REJECTED complaints) */}
+          {(complaint.status === 'RESOLVED' || complaint.status === 'REJECTED') && (
+            <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+              <Button size="sm" variant="outline" disabled={reopening} onClick={handleReopen}
+                className="w-full text-xs gap-2 h-9 border-amber-400 text-amber-700 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-400 dark:hover:bg-amber-950/30">
+                {reopening ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                Reopen Complaint
+              </Button>
+            </motion.div>
+          )}
+
+          {/* Rate Resolution (only for resolved complaints) */}
           {complaint.status === 'RESOLVED' && (
             <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
               <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50">
@@ -447,8 +499,8 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
                     Rate Resolution
                   </Button>
                 </div>
-                {/* Inline Satisfaction Rating Widget */}
-                <SatisfactionRating complaintId={complaint.id} />
+                {/* API-backed Satisfaction Rating Widget */}
+                <SatisfactionRating complaintId={complaint.id} currentRating={complaint.satisfactionRating} />
               </div>
             </motion.div>
           )}

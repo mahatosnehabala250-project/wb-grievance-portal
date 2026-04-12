@@ -33,10 +33,11 @@ model Complaint {
   status        String        @default("OPEN")  // OPEN, IN_PROGRESS, RESOLVED, REJECTED
   description   String?
   resolution    String?
-  assignedToId  String?
-  source        String        @default("WHATSAPP") // WHATSAPP, MANUAL, WEB
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  assignedToId       String?
+  source             String        @default("WHATSAPP") // WHATSAPP, MANUAL, WEB
+  satisfactionRating Int?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
   activities    ActivityLog[]
   comments      Comment[]
 }

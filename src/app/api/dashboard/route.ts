@@ -87,9 +87,33 @@ export async function GET(request: NextRequest) {
 
   const resolutionRate = total > 0 ? Math.round((resolved / total) * 100) : 0;
 
+  // ─── Satisfaction Metrics ───
+  const ratedComplaints = await db.complaint.findMany({
+    where: {
+      ...where,
+      satisfactionRating: { not: null },
+    },
+    select: { satisfactionRating: true },
+  });
+
+  const ratedCount = ratedComplaints.length;
+  const avgSatisfaction = ratedCount > 0
+    ? Math.round((ratedComplaints.reduce((sum, c) => sum + (c.satisfactionRating || 0), 0) / ratedCount) * 10) / 10
+    : null;
+
+  // Satisfaction distribution (1-5)
+  const satisfactionDistribution: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+  for (const c of ratedComplaints) {
+    const key = String(c.satisfactionRating);
+    if (satisfactionDistribution[key] !== undefined) {
+      satisfactionDistribution[key]++;
+    }
+  }
+
   const stats = {
     total, open, inProgress, resolved, rejected, critical,
     todayComplaints, todayResolved, resolutionRate, slaBreaches,
+    avgSatisfaction, ratedCount,
   };
 
   // ─── Complaints by Category ───
@@ -210,6 +234,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     stats,
+    satisfactionDistribution,
     byCategory,
     byGroup: byGroupWithStatus,
     groupByField,

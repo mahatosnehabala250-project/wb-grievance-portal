@@ -13,6 +13,7 @@ export interface Complaint {
   resolution: string | null;
   assignedToId: string | null;
   source: string;
+  satisfactionRating: number | null;
   createdAt: string;
   updatedAt: string;
   assignedUser?: { id: string; name: string; role: string } | null;
@@ -54,7 +55,9 @@ export interface DashboardData {
     total: number; open: number; inProgress: number; resolved: number;
     rejected: number; critical: number; todayComplaints: number;
     todayResolved: number; resolutionRate: number; slaBreaches: number;
+    avgSatisfaction: number | null; ratedCount: number;
   };
+  satisfactionDistribution: Record<string, number>;
   byCategory: { category: string; count: number }[];
   byGroup: { name: string; count: number; open: number; inProgress: number; resolved: number; rejected: number }[];
   groupByField: string;
