@@ -419,3 +419,92 @@ textarea {
   resize: vertical;
   min-height: 80px;
 }
+
+/* ═══ Ripple Effect on Buttons ═══ */
+.ripple-btn {
+  position: relative;
+  overflow: hidden;
+}
+.ripple-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--ripple-x, 50%) var(--ripple-y, 50%), rgba(255,255,255,0.2) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+.ripple-btn:active::after {
+  opacity: 1;
+  transition: opacity 0s;
+}
+
+/* ═══ Glow Text Effect ═══ */
+.glow-text {
+  text-shadow: 0 0 10px rgba(10, 36, 99, 0.3), 0 0 20px rgba(10, 36, 99, 0.15);
+}
+
+/* ═══ Animated Underline Link ═══ */
+.animated-link {
+  position: relative;
+  text-decoration: none;
+}
+.animated-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #0A2463, #16A34A);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.animated-link:hover::after {
+  width: 100%;
+}
+
+/* ═══ Card Gradient Overlay ═══ */
+.card-gradient-overlay {
+  position: relative;
+  overflow: hidden;
+}
+.card-gradient-overlay::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0A2463, #16A34A, #D97706, #DC2626);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.card-gradient-overlay:hover::before {
+  opacity: 1;
+}
+
+/* ═══ Smooth Number Transition ═══ */
+@keyframes countPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+.count-pulse {
+  animation: countPulse 0.4s ease;
+}
+
+/* ═══ Input Focus Glow ═══ */
+input:focus, textarea:focus, select:focus {
+  box-shadow: 0 0 0 3px oklch(0.6 0.15 230 / 15%);
+  border-color: oklch(0.556 0 0);
+}
+
+/* ═══ Badge Glow Variants ═══ */
+.badge-glow-green {
+  box-shadow: 0 0 8px rgba(22, 163, 74, 0.3);
+}
+.badge-glow-red {
+  box-shadow: 0 0 8px rgba(220, 38, 38, 0.3);
+}
+.badge-glow-amber {
+  box-shadow: 0 0 8px rgba(217, 119, 6, 0.3);
+}

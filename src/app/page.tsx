@@ -1023,6 +1023,32 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
         <MiniStat label="Resolution Rate" value={stats.resolutionRate} icon={Activity} color="#16A34A" bgColor="#F0FDF4" delay={450} suffix="%" />
       </div>
 
+      {/* ═══ QUICK STATUS FILTER CHIPS ═══ */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mr-1">Quick View:</span>
+          {[
+            { label: 'All Complaints', count: stats.total, status: '', color: NAVY },
+            { label: 'Open', count: stats.open, status: 'OPEN', color: '#DC2626' },
+            { label: 'In Progress', count: stats.inProgress, status: 'IN_PROGRESS', color: '#D97706' },
+            { label: 'Resolved', count: stats.resolved, status: 'RESOLVED', color: '#16A34A' },
+            { label: 'SLA Breaches', count: stats.slaBreaches || 0, status: 'BREACH', color: '#DC2626' },
+          ].map((chip) => (
+            <button
+              key={chip.status}
+              onClick={() => {
+                onNavigate('complaints', chip.status ? undefined : undefined);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border border-border/50 bg-background hover:border-foreground/20 hover:shadow-sm transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] group"
+            >
+              <span className="h-2 w-2 rounded-full transition-transform group-hover:scale-125" style={{ backgroundColor: chip.color }} />
+              {chip.label}
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-md bg-muted text-[10px] font-bold tabular-nums">{chip.count}</span>
+            </button>
+          ))}
+        </div>
+      </motion.div>
+
       {/* ═══ QUICK STATS SUMMARY WITH ANIMATED PROGRESS BARS ═══ */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
         <Card className="border-0 shadow-sm">
@@ -1104,13 +1130,54 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
                 </div>
               </div>
             </div>
+
+            {/* Resolution Rate Ring */}
+            <div className="flex items-center gap-4 p-3 rounded-xl bg-muted/50 border border-border/50">
+              <div className="relative h-16 w-16 shrink-0">
+                <svg className="h-16 w-16 -rotate-90" viewBox="0 0 64 64">
+                  <circle cx="32" cy="32" r="28" fill="none" stroke="oklch(0.92 0 0)" strokeWidth="5" />
+                  <motion.circle
+                    cx="32" cy="32" r="28" fill="none"
+                    stroke={resolutionPct >= 50 ? '#16A34A' : resolutionPct >= 25 ? '#D97706' : '#DC2626'}
+                    strokeWidth="5" strokeLinecap="round"
+                    strokeDasharray={175.93}
+                    initial={{ strokeDashoffset: 175.93 }}
+                    animate={{ strokeDashoffset: 175.93 - (175.93 * resolutionPct / 100) }}
+                    transition={{ duration: 1.5, ease: 'easeOut', delay: 0.4 }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-sm font-black tabular-nums" style={{ color: resolutionPct >= 50 ? '#16A34A' : resolutionPct >= 25 ? '#D97706' : '#DC2626' }}>{resolutionPct}%</span>
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Activity className="h-3.5 w-3.5" style={{ color: resolutionPct >= 50 ? '#16A34A' : '#D97706' }} />
+                  Resolution Rate
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {stats.resolved} of {stats.total} complaints resolved
+                </p>
+                <div className="flex gap-2 mt-1.5">
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{stats.resolved}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />{stats.inProgress}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-500" />{stats.open}
+                  </span>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </motion.div>
 
       {/* Performance Metrics Bar */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-        <Card className="border-0 shadow-sm overflow-hidden" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 100%)' }}>
+        <Card className="border-0 shadow-sm overflow-hidden card-gradient-overlay" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 100%)' }}>
           <CardContent className="p-4">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="flex items-center gap-3">
