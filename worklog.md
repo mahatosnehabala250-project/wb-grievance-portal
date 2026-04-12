@@ -539,3 +539,79 @@ Stage Summary:
 6. Add map visualization for complaint distribution across blocks/districts
 7. Fix React hydration in sandbox — investigate disabling Turbopack or reducing page chunk size
 8. Add audit log view for admins to track all system actions
+
+---
+Task ID: 10
+Agent: Main Agent
+Task: Fix black screen bug, add session timeout, enhance styling
+
+Work Log:
+- **BLACK SCREEN BUG FIX (Critical)**:
+  - Root cause: HydrationGate used `bg-background` CSS class which is BLACK in dark mode (`oklch(0.145 0 0)`)
+  - ThemeProvider had `enableSystem` which auto-detected OS dark mode, causing the loading screen to appear as a black screen for 1.4 seconds
+  - Fix 1: Replaced HydrationGate background with branded navy gradient (`linear-gradient(135deg, #061539, #0A2463, #1a3a7a)`) - never black regardless of theme
+  - Fix 2: Reduced loading time from 1.4s to 0.6s (200ms/400ms/600ms steps)
+  - Fix 3: Made all loading text white on dark background instead of theme-dependent foreground colors
+  - Fix 4: Added animated gradient overlay to loading screen for visual polish
+  - Fix 5: Removed `enableSystem` from ThemeProvider - now always defaults to light mode (appropriate for government system)
+  - Fix 6: Added `checkAuth()` call on mount in HomePage to restore auth session properly
+- **Session Timeout Feature**:
+  - Added activity tracking (mousemove, keydown, click, scroll)
+  - Warning toast at 25 minutes of inactivity
+  - Auto-logout at 30 minutes of inactivity
+  - Activity resets the warning flag
+- **Footer Enhancement**:
+  - Added live uptime counter (starts from 0, counts up in real-time)
+  - Replaced simple pulsing dot with layered ping animation (outer ring animates, inner ring solid)
+  - Added Uptime column between Status and Security
+- **Sidebar Enhancement**:
+  - Added notification count badge on "Complaints" nav item (shows critical complaint count)
+  - Badge uses animate-badge-in animation and shows "99+" if count exceeds 99
+  - Added hover:scale-[1.02] micro-animation on inactive nav items
+  - Added group-hover:scale-110 on nav icons for hover feedback
+- **Welcome Banner Enhancement**:
+  - Wrapped in gradient-border-wrap CSS class (animated gradient border that shifts colors)
+  - Removed shadow-sm, replaced with shadow-lg via wrapper
+- **CSS Additions (globals.css)**:
+  - gradient-border-wrap: Animated gradient border wrapper (6s cycle, navy→green→amber→red)
+  - glass-card: Glassmorphism card effect with backdrop blur
+  - shimmer-bar: Shimmer loading bar overlay animation
+  - nav-active-indicator: Active nav item bottom indicator line
+  - table-sticky-first: Sticky first column for tables
+  - Resizable textarea: vertical resize with min-height
+
+Stage Summary:
+- Critical black screen bug fixed (HydrationGate dark mode + enableSystem)
+- Session timeout: 25 min warning, 30 min auto-logout
+- Footer: Live uptime counter, enhanced ping animation
+- Sidebar: Notification badges, hover scale animations
+- Welcome Banner: Animated gradient border
+- 6 new CSS classes in globals.css
+- ESLint: 0 errors
+- Dev server: Running on port 3000, GET / 200
+
+## Current Project Status
+- Application: Next.js 16 + Turbopack on port 3000, Caddy proxy on port 81
+- Database: SQLite with 12 users, 174 complaints
+- Auth: JWT-based with bcrypt password hashing, 4 roles (ADMIN, STATE, DISTRICT, BLOCK)
+- Frontend: ~5140 lines in page.tsx with 7 views: Login, Dashboard, Complaints, Users, Analytics, Settings, Command Palette
+- Features: Keyboard shortcuts, print/export, mobile bottom nav, theme toggle (light only), notifications, command palette, assigned tasks, internal notes, SLA monitoring, escalation, date range filter, auto-refresh, session timeout
+- All views functional with role-based data filtering
+- Webhook endpoint at POST /api/webhook/complaint for n8n integration
+- API endpoints: /api/auth/login, /api/auth/me, /api/dashboard (date range), /api/complaints, /api/complaints/[id], /api/complaints/[id]/activity, /api/complaints/[id]/escalate, /api/complaints/bulk, /api/search, /api/users, /api/users/list, /api/webhook/complaint
+- Test credentials: admin/admin123, state_wb/state123, district_nadia/nadia123, block_krishnanagar/krish123
+- Version: 2.3.0
+
+## Known Issues / Risks
+- Sandbox kills Next.js process when external browser connects (agent-browser limitation, not code bug)
+- Large single-file architecture (~5140 lines) should be split into modules for maintainability
+- Dark mode disabled by default (removed enableSystem) - can be re-enabled via Settings
+
+## Priority Recommendations for Next Phase
+1. Split page.tsx into modules (components/views) - HIGHEST priority
+2. Add real-time WebSocket notifications for new complaints (mini-service)
+3. Add citizen notification system (SMS/email via webhook)
+4. Add data export API (Excel/CSV with proper formatting)
+5. Add multi-language support (English + Bengali)
+6. Add map visualization for complaint distribution
+7. Add audit log view for admins

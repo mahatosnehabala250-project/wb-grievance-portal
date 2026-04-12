@@ -877,7 +877,8 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
     <div className="space-y-5 print-space-y-4">
       {/* ═══ WELCOME BANNER ═══ */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-        <Card className="border-0 shadow-sm overflow-hidden" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 60%, #0d2d6b 100%)' }}>
+        <div className="gradient-border-wrap shadow-lg">
+          <Card className="border-0 overflow-hidden" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 60%, #0d2d6b 100%)' }}>
           <CardContent className="p-5 sm:p-6">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex items-start gap-4">
@@ -937,6 +938,7 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
             </div>
           </CardContent>
         </Card>
+        </div>
       </motion.div>
 
       {/* ═══ DATE RANGE FILTER + AUTO-REFRESH INDICATOR ═══ */}
@@ -4396,44 +4398,45 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
   const [loadStep, setLoadStep] = useState(0);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setLoadStep(1), 400);
-    const t2 = setTimeout(() => setLoadStep(2), 900);
-    const t3 = setTimeout(() => { setLoadStep(3); setMounted(true); }, 1400);
+    const t1 = setTimeout(() => setLoadStep(1), 200);
+    const t2 = setTimeout(() => setLoadStep(2), 400);
+    const t3 = setTimeout(() => { setLoadStep(3); setMounted(true); }, 600);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, []);
 
   if (!mounted) {
     const steps = ['Initializing...', 'Authenticating...', 'Ready'];
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-6">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #061539 0%, #0A2463 40%, #1a3a7a 100%)' }}>
+        {/* Subtle animated gradient overlay */}
+        <div className="absolute inset-0 opacity-15" style={{ background: 'radial-gradient(ellipse at 30% 50%, rgba(99,102,241,0.4) 0%, transparent 50%), radial-gradient(ellipse at 70% 30%, rgba(16,185,129,0.3) 0%, transparent 50%)' }} />
+        <div className="relative z-10 flex flex-col items-center gap-6">
           <motion.div
-            className="h-16 w-16 rounded-2xl flex items-center justify-center shadow-lg"
-            style={{ backgroundColor: NAVY }}
-            animate={{ scale: [1, 1.05, 1] }}
-            transition={{ duration: 2, repeat: Infinity }}
+            className="h-16 w-16 rounded-2xl flex items-center justify-center shadow-lg bg-white/15 backdrop-blur-sm border border-white/20"
+            animate={{ scale: [1, 1.05, 1], y: [0, -4, 0] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
           >
             <Shield className="h-8 w-8 text-white" />
           </motion.div>
-          <div className="text-center space-y-2">
-            <p className="text-sm font-semibold text-foreground">Loading WB Grievance Portal</p>
+          <div className="text-center space-y-3">
+            <p className="text-sm font-semibold text-white">Loading WB Grievance Portal</p>
             {/* 3-step animated progress bar */}
-            <div className="w-64 h-1.5 rounded-full bg-muted overflow-hidden flex gap-0.5">
+            <div className="w-64 h-1.5 rounded-full bg-white/10 overflow-hidden">
               <motion.div
                 className="h-full rounded-full"
-                style={{ background: 'linear-gradient(90deg, #0A2463, #16A34A)' }}
-                animate={{ width: loadStep >= 1 ? '100%' : '0%' }}
-                transition={{ duration: 0.5 }}
+                style={{ background: 'linear-gradient(90deg, #16A34A, #22D3EE)' }}
+                animate={{ width: `${((loadStep + 1) / 3) * 100}%` }}
+                transition={{ duration: 0.3 }}
               />
             </div>
             <div className="flex items-center justify-center gap-4 mt-1">
               {steps.map((step, i) => (
-                <span key={i} className={`text-[10px] font-medium transition-colors duration-300 ${i <= loadStep ? 'text-foreground' : 'text-muted-foreground/40'}`}>
+                <span key={i} className={`text-[10px] font-medium transition-all duration-300 ${i <= loadStep ? 'text-white' : 'text-white/30'}`}>
                   {step}
                 </span>
               ))}
             </div>
-            <p className="text-[10px] text-muted-foreground/50 mt-1">v2.3.0</p>
+            <p className="text-[10px] text-white/40 mt-1">v2.3.0</p>
           </div>
         </div>
       </div>
@@ -4443,7 +4446,7 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function HomePage() {
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { user, isAuthenticated, logout, checkAuth } = useAuthStore();
   const { theme, setTheme } = useTheme();
   const [view, setView] = useState<ViewType>('dashboard');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -4470,10 +4473,67 @@ export default function HomePage() {
   // Sound notification setting
   const [soundEnabled, setSoundEnabled] = useState(false);
 
+  // Session timeout (30 min warning, 35 min auto-logout)
+  const [lastActivity, setLastActivity] = useState(Date.now());
+  const [sessionWarningShown, setSessionWarningShown] = useState(false);
+
   useEffect(() => {
     const stored = safeGetLocalStorage('wb_sound_alerts');
     setSoundEnabled(stored === 'true');
+    // Restore auth session on mount
+    checkAuth();
   }, []);
+
+  // Track user activity for session timeout
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const activityHandler = () => {
+      setLastActivity(Date.now());
+      setSessionWarningShown(false);
+    };
+    window.addEventListener('mousemove', activityHandler);
+    window.addEventListener('keydown', activityHandler);
+    window.addEventListener('click', activityHandler);
+    window.addEventListener('scroll', activityHandler);
+    return () => {
+      window.removeEventListener('mousemove', activityHandler);
+      window.removeEventListener('keydown', activityHandler);
+      window.removeEventListener('click', activityHandler);
+      window.removeEventListener('scroll', activityHandler);
+    };
+  }, [isAuthenticated]);
+
+  // Session timeout check (every 30s)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(() => {
+      const idle = Date.now() - lastActivity;
+      if (idle >= 25 * 60 * 1000 && !sessionWarningShown) {
+        toast.warning('Session Expiring Soon', { description: 'You have been inactive for 25 minutes. You will be signed out in 5 minutes.', duration: 8000 });
+        setSessionWarningShown(true);
+      }
+      if (idle >= 30 * 60 * 1000) {
+        toast.error('Session Expired', { description: 'You have been signed out due to inactivity.' });
+        logout();
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, lastActivity, sessionWarningShown, logout]);
+
+  // Footer uptime counter
+  const [uptimeSeconds, setUptimeSeconds] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setUptimeSeconds((p) => p + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+  const uptimeDisplay = useMemo(() => {
+    const h = Math.floor(uptimeSeconds / 3600);
+    const m = Math.floor((uptimeSeconds % 3600) / 60);
+    const s = uptimeSeconds % 60;
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  }, [uptimeSeconds]);
 
   // Scroll to top when view changes
   useEffect(() => {
@@ -4781,14 +4841,19 @@ export default function HomePage() {
               <button
                 key={item.id}
                 onClick={() => handleNavigate(item.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border-l-[3px] btn-press ${
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border-l-[3px] btn-press group ${
                   view === item.id
                     ? 'bg-white dark:bg-gray-800 shadow-sm text-foreground border-l-[#0A2463]'
-                    : 'text-muted-foreground hover:bg-gradient-to-r hover:from-muted/80 hover:to-transparent hover:text-foreground border-l-transparent'
+                    : 'text-muted-foreground hover:bg-gradient-to-r hover:from-muted/80 hover:to-transparent hover:text-foreground hover:scale-[1.02] border-l-transparent'
                 }`}
               >
-                <item.icon className="h-4 w-4" />
-                {item.label}
+                <item.icon className={`h-4 w-4 transition-transform duration-200 ${view === item.id ? '' : 'group-hover:scale-110'}`} />
+                <span className="flex-1 text-left">{item.label}</span>
+                {item.id === 'complaints' && criticalCount > 0 && (
+                  <span className="min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold animate-badge-in">
+                    {criticalCount > 99 ? '99+' : criticalCount}
+                  </span>
+                )}
               </button>
             ))}
           </nav>
@@ -4874,10 +4939,18 @@ export default function HomePage() {
                 <div className="hidden sm:block w-px h-8 bg-white/10" />
                 <div className="hidden sm:block">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Status</p>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                    </span>
                     <p className="text-xs font-bold text-emerald-300">Online</p>
                   </div>
+                </div>
+                <div className="hidden sm:block w-px h-8 bg-white/10" />
+                <div className="hidden sm:block">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Uptime</p>
+                  <p className="text-xs font-bold text-white/80 mt-0.5 font-mono">{uptimeDisplay}</p>
                 </div>
                 <div className="hidden sm:block w-px h-8 bg-white/10" />
                 <div>
