@@ -1138,3 +1138,58 @@ Stage Summary:
 5. Implement full Bengali translation (partial i18n already exists)
 6. Set up CI/CD pipeline (GitHub Actions)
 7. Deploy to production with PostgreSQL
+
+---
+Task ID: 12
+Agent: Main Agent
+Task: Add Live Data Monitor, answer n8n/Airtable/deployment questions, enhance features
+
+Work Log:
+- **Security Warning**: User shared GitHub Personal Access Token publicly — warned to revoke immediately
+- **New Feature: Live Data Monitor View**:
+  - Created `/src/app/api/activity-feed/route.ts` — GET endpoint returning latest activity logs, webhook stats, source breakdown, complaints per hour, webhooks per minute
+  - Role-based filtering (BLOCK/DISTRICT see only their jurisdiction)
+  - Created `/src/components/LiveDataMonitor.tsx` (~1000 lines) with 5 sections:
+    1. Data Pipeline Visualization: Animated flow diagram (WhatsApp → n8n → Webhook → Database → Dashboard) with glow/pulse animations
+    2. Live Activity Feed: 10-second polling, new entry detection with slide-in animations, relative timestamps, source badges
+    3. Data Source Breakdown: Donut chart (Recharts PieChart) with percentage labels and legend
+    4. Webhook Status Monitor: Connected/Idle/Disconnected status, total webhooks, last webhook time, rate/min, recent 5 webhook payloads
+    5. Real-Time Stats Cards: Complaints This Hour, Avg Response Time, Webhooks/min, Data Sync Health (with animated progress bar)
+  - Live/Paused polling toggle, manual refresh button
+  - Responsive: horizontal pipeline on desktop, vertical on mobile
+  - Added 'liveData' to ViewType in types.ts
+  - Added LiveDataMonitor import and nav item (Radio icon) in page.tsx — visible to ALL roles
+  - Added view rendering for 'liveData' in AnimatePresence
+- **TypeScript Fix**: Fixed Set<string> type issue in LiveDataMonitor.tsx (unknown → string)
+- **Version Update**: Bumped version from 2.7.0 to 2.8.0 in footer
+- **Cron Job**: Created automated QA cron job (every 15 minutes, webDevReview type)
+
+Stage Summary:
+- 1 new API endpoint: GET /api/activity-feed (real-time activity feed with webhook stats)
+- 1 new component: LiveDataMonitor (5-section real-time data monitoring dashboard)
+- 1 new navigation view: Live Data (accessible to all roles)
+- TypeScript: 0 errors in src/
+- ESLint: 0 errors
+- Version: 2.8.0
+
+## Current Project Status
+- Application: Next.js 16 + Turbopack on port 3000
+- Database: SQLite with 12 users, 174 complaints
+- Auth: JWT-based with bcrypt password hashing, 4 roles (ADMIN, STATE, DISTRICT, BLOCK)
+- Frontend: Modular components architecture with 20+ view/utility components
+- Features: 40+ features including Live Data Monitor, Command Palette, SLA monitoring, escalation, auto-refresh, session timeout
+- Webhook endpoint at POST /api/webhook/complaint for n8n integration
+- Airtable sync at POST /api/integrations/airtable-sync
+- n8n workflow JSON template in IntegrationsView
+- Cron job: Automated QA every 15 minutes
+
+## Known Issues / Risks
+- Sandbox kills Next.js process when external browser connects (agent-browser limitation)
+- Large page.tsx still contains shell/navigation code (~800 lines)
+
+## Priority Recommendations for Next Phase
+1. WebSocket mini-service for real-time notifications
+2. Citizen notification system (SMS/email)
+3. Data export to Excel/CSV
+4. Multi-language support (Bengali)
+5. Map visualization for complaint distribution

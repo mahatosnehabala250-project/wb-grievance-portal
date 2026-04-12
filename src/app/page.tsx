@@ -14,7 +14,7 @@ import {
   Settings, CircleHelp, Monitor, Mail, Volume2, LayoutGrid, Keyboard,
   UserCheck, GitCompareArrows, CalendarClock, History, Tag, ClipboardList,
   AlertCircle, Info, CheckCircle2 as CheckCircleFill, Sparkles, Megaphone,
-  ArrowUp, Flame, CalendarRange, TimerReset, Server,
+  ArrowUp, Flame, CalendarRange, TimerReset, Server, Radio,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -71,6 +71,7 @@ import { AuditLogView } from '@/components/AuditLogView';
 import { PublicStatusPage } from '@/components/PublicStatusPage';
 import IntegrationsView from '@/components/IntegrationsView';
 import DeploymentGuideView from '@/components/DeploymentGuideView';
+import LiveDataMonitor from '@/components/LiveDataMonitor';
 export default function HomePage() {
   const { user, isAuthenticated, logout, checkAuth } = useAuthStore();
   const { theme, setTheme } = useTheme();
@@ -245,6 +246,7 @@ export default function HomePage() {
     { id: 'dashboard' as ViewType, label: t('dashboard'), icon: LayoutDashboard },
     { id: 'complaints' as ViewType, label: t('complaints'), icon: FileText },
     { id: 'analytics' as ViewType, label: t('analytics'), icon: BarChart2 },
+    { id: 'liveData' as ViewType, label: 'Live Data', icon: Radio },
     ...(user?.role === 'ADMIN' ? [{ id: 'systemStatus' as ViewType, label: t('systemStatus'), icon: Activity }] : []),
     ...(user?.role === 'ADMIN' ? [{ id: 'integrations' as ViewType, label: 'Integrations', icon: Zap }] : []),
     ...(user?.role === 'ADMIN' ? [{ id: 'audit' as ViewType, label: t('auditLog'), icon: History }] : []),
@@ -602,6 +604,9 @@ export default function HomePage() {
                 {view === 'deployment' && (
                   <DeploymentGuideView />
                 )}
+                {view === 'liveData' && (
+                  <LiveDataMonitor />
+                )}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -620,7 +625,7 @@ export default function HomePage() {
                 </div>
                 <div>
                   <p className="text-sm font-bold text-white/95">Government of West Bengal</p>
-                  <p className="text-[11px] text-white/50">AI Public Support System &middot; Grievance Portal v2.7.0</p>
+                  <p className="text-[11px] text-white/50">AI Public Support System &middot; Grievance Portal v2.8.0</p>
                 </div>
               </div>
 
@@ -639,7 +644,7 @@ export default function HomePage() {
               <div className="flex items-center gap-4 text-center">
                 <div className="hidden sm:block">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">{t('version')}</p>
-                  <p className="text-xs font-bold text-white/80 mt-0.5">v2.7.0</p>
+                  <p className="text-xs font-bold text-white/80 mt-0.5">v2.8.0</p>
                 </div>
                 <div className="hidden sm:block w-px h-8 bg-white/10" />
                 <div className="hidden sm:block">
