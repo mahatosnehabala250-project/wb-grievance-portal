@@ -183,10 +183,14 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
       if (dateParams.from) params.set('from', dateParams.from);
       if (dateParams.to) params.set('to', dateParams.to);
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
       const [dashRes, taskRes] = await Promise.all([
-        fetch(`/api/dashboard${params.toString() ? '?' + params.toString() : ''}`, { headers: authHeaders() }),
-        fetch('/api/complaints?assigned=assigned&limit=5', { headers: authHeaders() }),
+        fetch(`/api/dashboard${params.toString() ? '?' + params.toString() : ''}`, { headers: authHeaders(), signal: controller.signal }),
+        fetch('/api/complaints?assigned=assigned&limit=5', { headers: authHeaders(), signal: controller.signal }),
       ]);
+      clearTimeout(timeoutId);
       if (dashRes.ok) {
         const json = await dashRes.json();
         setData(json);

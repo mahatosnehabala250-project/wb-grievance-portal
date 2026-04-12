@@ -10,15 +10,23 @@ function createPrismaClient() {
   // Supabase Connection Pooler (PgBouncer) requires pgbouncer=true
   // to disable prepared statements and avoid "prepared statement already exists" error
   const poolerUrl = databaseUrl.includes('pooler.supabase.com')
-    ? databaseUrl + (databaseUrl.includes('?') ? '&' : '?') + 'pgbouncer=true'
+    ? databaseUrl + (databaseUrl.includes('?') ? '&' : '?') + 'pgbouncer=true&connect_timeout=15&connection_limit=5'
     : databaseUrl
 
-  return new PrismaClient({
+  const client = new PrismaClient({
     datasourceUrl: poolerUrl,
     log: process.env.NODE_ENV === 'development' ? ['query'] : ['error'],
   })
+
+  // Pre-warm connection on first query (reduces cold start latency)
+  client.$connect().catch(() => {})
+
+  return client
 }
 
 export const db = globalForPrisma.prisma ?? createPrismaClient()
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+// Cache Prisma client globally (critical for Vercel serverless - reuses connections across invocations)
+if (!globalForPrisma.prisma) {
+  globalForPrisma.prisma = db
+}
