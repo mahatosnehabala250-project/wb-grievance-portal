@@ -147,7 +147,7 @@ export async function GET(request: NextRequest) {
     }).length;
 
     // 8. Daily trend (7 days)
-    const dailyTrend = [];
+    const dailyTrend: { day: string; date: string; newCount: number; resolvedCount: number }[] = [];
     for (let i = 0; i < 7; i++) {
       const dayStart = new Date(start);
       dayStart.setDate(start.getDate() + i);

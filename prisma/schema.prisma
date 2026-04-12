@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") // For migrations (bypasses Supabase pooler)
 }
 
 model User {
@@ -18,56 +19,69 @@ model User {
   isActive     Boolean     @default(true)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+
+  @@map("users")
 }
 
 model Complaint {
-  id            String        @id @default(cuid())
-  ticketNo      String        @unique // e.g. WB-01001
-  citizenName   String?
-  phone         String?
-  issue         String
-  category      String        // Water Supply, Road Damage, Electricity, etc.
-  block         String
-  district      String
-  urgency       String        @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
-  status        String        @default("OPEN")  // OPEN, IN_PROGRESS, RESOLVED, REJECTED
-  description   String?
-  resolution    String?
-  assignedToId       String?
-  source             String        @default("WHATSAPP") // WHATSAPP, MANUAL, WEB
+  id                String        @id @default(cuid())
+  ticketNo          String        @unique // e.g. WB-01001
+  citizenName       String?
+  phone             String?
+  issue             String
+  category          String        // Water Supply, Road Damage, Electricity, etc.
+  block             String
+  district          String
+  urgency           String        @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  status            String        @default("OPEN")  // OPEN, IN_PROGRESS, RESOLVED, REJECTED
+  description       String?
+  resolution        String?
+  assignedToId      String?
+  source            String        @default("WHATSAPP") // WHATSAPP, MANUAL, WEB
   satisfactionRating Int?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  activities    ActivityLog[]
-  comments      Comment[]
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  activities        ActivityLog[]
+  comments          Comment[]
+
+  @@index([district])
+  @@index([block])
+  @@index([status])
+  @@index([urgency])
+  @@index([category])
+  @@index([createdAt])
+  @@map("complaints")
 }
 
 model ActivityLog {
-  id            String   @id @default(cuid())
-  complaintId   String
-  action        String   // CREATED, STATUS_CHANGED, ASSIGNED, RESOLVED, REJECTED, UNASSIGNED
-  description   String
-  actorId       String?
-  actorName     String?
-  metadata      String?  // JSON string for extra data
-  createdAt     DateTime @default(now())
+  id          String    @id @default(cuid())
+  complaintId String
+  action      String    // CREATED, STATUS_CHANGED, ASSIGNED, RESOLVED, REJECTED, UNASSIGNED, ESCALATED
+  description String
+  actorId     String?
+  actorName   String?
+  metadata    String?   // JSON string for extra data
+  createdAt   DateTime  @default(now())
 
-  complaint     Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
 
   @@index([complaintId])
   @@index([createdAt])
+  @@map("activity_logs")
 }
 
 model Comment {
-  id           String   @id @default(uuid())
-  complaintId  String
-  content      String
-  actorId      String?
-  actorName    String?
-  createdAt    DateTime @default(now())
-  complaint    Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  id          String   @id @default(uuid())
+  complaintId String
+  content     String
+  actorId     String?
+  actorName   String?
+  createdAt   DateTime @default(now())
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
 
   @@index([complaintId])
+  @@map("comments")
 }
 
 model Feedback {
@@ -78,4 +92,6 @@ model Feedback {
   category  String   @default("General")
   rating    Int      @default(5)
   createdAt DateTime @default(now())
+
+  @@map("feedback")
 }
