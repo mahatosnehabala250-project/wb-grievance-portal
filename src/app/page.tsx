@@ -200,10 +200,10 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [isAuthenticated, fetchNotifications]);
 
-  const handleNavigate = useCallback((targetView: string, complaint?: Complaint) => {
+  const handleNavigate = useCallback((targetView: string, complaint?: Complaint, filterStatus?: string) => {
     setView(targetView as ViewType);
     setInitialComplaint(complaint);
-    setInitialFilterStatus('');
+    setInitialFilterStatus(filterStatus || '');
     setMobileSidebarOpen(false);
   }, []);
 

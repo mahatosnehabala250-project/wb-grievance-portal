@@ -66,7 +66,7 @@ interface LeaderboardEntry {
   assigned: number; resolved: number; resolutionRate: number;
 }
 
-export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: string, complaint?: Complaint) => void; onDashboardData?: (data: DashboardData) => void }) {
+export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: string, complaint?: Complaint, filterStatus?: string) => void; onDashboardData?: (data: DashboardData) => void }) {
   const user = useAuthStore((s) => s.user);
   const { lang, t } = useI18nStore();
   const [data, setData] = useState<DashboardData | null>(null);
@@ -545,12 +545,12 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="border-t-navy rounded-t-xl"><StatCard title={t('totalComplaints')} value={stats.total} icon={FileText} color={NAVY} bgColor="#E3F2FD" delay={0} trend={weeklyTrend ? (weeklyTrend.direction === 'up' ? Math.abs(weeklyTrend.change) : -Math.abs(weeklyTrend.change)) : 0} /></div>
-        <div className="border-t-red rounded-t-xl"><StatCard title={t('open')} value={stats.open} icon={CircleDot} color="#DC2626" bgColor="#FEF2F2" delay={100} trend={stats.total > 0 ? -Math.round((stats.open / stats.total) * 10) : 0} /></div>
-        <div className="border-t-amber rounded-t-xl"><StatCard title={t('inProgress')} value={stats.inProgress} icon={Clock} color="#D97706" bgColor="#FFFBEB" delay={200} trend={5} /></div>
-        <div className="border-t-green rounded-t-xl"><StatCard title={t('resolved')} value={stats.resolved} icon={CheckCircle2} color="#16A34A" bgColor="#F0FDF4" delay={300} trend={stats.total > 0 ? Math.round((stats.resolved / stats.total) * 8) : 0} /></div>
+        <div className="border-t-navy rounded-t-xl"><StatCard title={t('totalComplaints')} value={stats.total} icon={FileText} color={NAVY} bgColor="#E3F2FD" delay={0} trend={weeklyTrend ? (weeklyTrend.direction === 'up' ? Math.abs(weeklyTrend.change) : -Math.abs(weeklyTrend.change)) : 0} onClick={() => onNavigate('complaints')} /></div>
+        <div className="border-t-red rounded-t-xl"><StatCard title={t('open')} value={stats.open} icon={CircleDot} color="#DC2626" bgColor="#FEF2F2" delay={100} trend={stats.total > 0 ? -Math.round((stats.open / stats.total) * 10) : 0} onClick={() => onNavigate('complaints', undefined, 'OPEN')} /></div>
+        <div className="border-t-amber rounded-t-xl"><StatCard title={t('inProgress')} value={stats.inProgress} icon={Clock} color="#D97706" bgColor="#FFFBEB" delay={200} trend={5} onClick={() => onNavigate('complaints', undefined, 'IN_PROGRESS')} /></div>
+        <div className="border-t-green rounded-t-xl"><StatCard title={t('resolved')} value={stats.resolved} icon={CheckCircle2} color="#16A34A" bgColor="#F0FDF4" delay={300} trend={stats.total > 0 ? Math.round((stats.resolved / stats.total) * 8) : 0} onClick={() => onNavigate('complaints', undefined, 'RESOLVED')} /></div>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}>
-          <Card className={`border-t-red rounded-t-xl border-0 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-300 overflow-hidden group relative border-l-4 ${(stats.slaBreaches || 0) > 0 ? 'pulse-glow' : ''}`} style={{ borderLeftColor: '#DC2626', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
+          <Card className={`border-t-red rounded-t-xl border-0 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-300 overflow-hidden group relative border-l-4 cursor-pointer active:scale-[0.98] ${(stats.slaBreaches || 0) > 0 ? 'pulse-glow' : ''}`} style={{ borderLeftColor: '#DC2626', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }} onClick={() => onNavigate('complaints', undefined, 'BREACH')}>
             <CardContent className="p-5 pl-6 relative">
               {/* Watermark icon */}
               <div className="stat-watermark">
@@ -568,6 +568,10 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
                   <Flame className="h-5 w-5 text-red-500 status-breathe" />
                 </div>
               </div>
+              {/* Clickable hint */}
+              <div className="absolute bottom-2 right-3 opacity-0 group-hover:opacity-60 transition-opacity">
+                <ArrowUpRight className="h-3.5 w-3.5 rotate-45 text-muted-foreground" />
+              </div>
             </CardContent>
           </Card>
         </motion.div>
@@ -575,9 +579,9 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
 
       {/* Mini Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <MiniStat label={t('critical')} value={stats.critical} icon={AlertTriangle} color="#DC2626" bgColor="#FEF2F2" delay={350} />
-        <MiniStat label={t('todayNew')} value={stats.todayComplaints} icon={TrendingUp} color={NAVY} bgColor="#E3F2FD" delay={400} />
-        <MiniStat label={t('resolutionRate')} value={stats.resolutionRate} icon={Activity} color="#16A34A" bgColor="#F0FDF4" delay={450} suffix="%" />
+        <MiniStat label={t('critical')} value={stats.critical} icon={AlertTriangle} color="#DC2626" bgColor="#FEF2F2" delay={350} onClick={() => onNavigate('complaints', undefined, 'CRITICAL')} />
+        <MiniStat label={t('todayNew')} value={stats.todayComplaints} icon={TrendingUp} color={NAVY} bgColor="#E3F2FD" delay={400} onClick={() => onNavigate('complaints', undefined, 'TODAY')} />
+        <MiniStat label={t('resolutionRate')} value={stats.resolutionRate} icon={Activity} color="#16A34A" bgColor="#F0FDF4" delay={450} suffix="%" onClick={() => onNavigate('complaints', undefined, 'RESOLVED')} />
         {/* Satisfaction Mini Card */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.48 }}>
           <Card className="border-0 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-300 overflow-hidden">
@@ -618,7 +622,7 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
             <button
               key={chip.status}
               onClick={() => {
-                onNavigate('complaints', chip.status ? undefined : undefined);
+                onNavigate('complaints', undefined, chip.status || undefined);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border border-border/50 transition-all duration-200 hover:scale-[1.03] hover:-translate-y-[1px] hover:shadow-md active:scale-[0.98] group"
               style={{

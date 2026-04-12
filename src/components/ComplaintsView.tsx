@@ -77,9 +77,11 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
   const [filterAssigned, setFilterAssigned] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterSlaBreach, setFilterSlaBreach] = useState(false);
   const [sortField, setSortField] = useState('createdAt');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
+  const [specialFilterLabel, setSpecialFilterLabel] = useState('');
 
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -98,11 +100,48 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
   // Block filter options (dynamic)
   const [blockOptions, setBlockOptions] = useState<string[]>([]);
 
+  // Handle special initialFilterStatus values (BREACH, CRITICAL, TODAY)
+  const initialProcessed = useRef(false);
+  useEffect(() => {
+    if (initialProcessed.current) return;
+    initialProcessed.current = true;
+    if (!initialFilterStatus) return;
+    switch (initialFilterStatus) {
+      case 'CRITICAL':
+        setFilterUrgency('CRITICAL');
+        setSpecialFilterLabel('Showing Critical Urgency Complaints');
+        break;
+      case 'TODAY': {
+        const today = new Date().toISOString().split('T')[0];
+        setFilterDateFrom(today);
+        setFilterDateTo(today);
+        setSpecialFilterLabel('Showing Today\'s Complaints');
+        break;
+      }
+      case 'BREACH':
+        setFilterSlaBreach(true);
+        setSpecialFilterLabel('Showing SLA Breach Complaints (Open > 7 days)');
+        break;
+      default:
+        // Standard status filter (OPEN, IN_PROGRESS, RESOLVED, REJECTED)
+        if (['OPEN', 'IN_PROGRESS', 'RESOLVED', 'REJECTED'].includes(initialFilterStatus)) {
+          setFilterStatus(initialFilterStatus);
+          setSpecialFilterLabel(`Showing ${fmtStatus(initialFilterStatus)} Complaints`);
+        }
+        break;
+    }
+  }, [initialFilterStatus]);
+
   // Debounce search
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
     return () => clearTimeout(t);
   }, [search]);
+
+  // Clear special filter label when user manually changes filters
+  useEffect(() => {
+    if (specialFilterLabel && !initialFilterStatus) setSpecialFilterLabel('');
+  }, [filterStatus, filterUrgency, filterDateFrom, filterDateTo, filterSlaBreach, specialFilterLabel, initialFilterStatus]);
 
   // Fetch complaints
   const fetchComplaints = useCallback(async () => {
@@ -118,6 +157,7 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
       if (filterAssigned) params.set('assigned', filterAssigned);
       if (filterDateFrom) params.set('dateFrom', filterDateFrom);
       if (filterDateTo) params.set('dateTo', filterDateTo);
+      if (filterSlaBreach) params.set('slaBreach', 'true');
       params.set('page', String(page));
       params.set('limit', String(pagination.limit));
 
@@ -136,7 +176,7 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
       toast.error('Network error');
     }
     setLoading(false);
-  }, [debouncedSearch, filterStatus, filterUrgency, filterCategory, filterBlock, filterSource, filterAssigned, filterDateFrom, filterDateTo, page, pagination.limit]);
+  }, [debouncedSearch, filterStatus, filterUrgency, filterCategory, filterBlock, filterSource, filterAssigned, filterDateFrom, filterDateTo, filterSlaBreach, page, pagination.limit]);
 
   useEffect(() => { fetchComplaints(); }, [fetchComplaints]);
 
@@ -159,6 +199,7 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
     setFilterCategory(''); setFilterBlock('');
     setFilterSource(''); setFilterAssigned('');
     setFilterDateFrom(''); setFilterDateTo('');
+    setFilterSlaBreach(false); setSpecialFilterLabel('');
     setPage(1);
   }, []);
 
@@ -316,6 +357,20 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
           </Button>
         </div>
       </div>
+
+      {!loading && specialFilterLabel && (
+        <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-50 to-indigo-50 dark:from-sky-950/30 dark:to-indigo-950/30 border border-sky-200/50 dark:border-sky-800/30">
+            <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: NAVY }}>
+              <Filter className="h-3.5 w-3.5 text-white" />
+            </div>
+            <p className="text-xs font-semibold text-foreground flex-1">{specialFilterLabel}</p>
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-[11px] gap-1 text-muted-foreground hover:text-foreground">
+              <X className="h-3 w-3" />Clear Filter
+            </Button>
+          </div>
+        </motion.div>
+      )}
 
       {/* ═══ STATISTICS SUMMARY BAR (Compact Inline Pills) ═══ */}
       {!loading && pagination.total > 0 && (

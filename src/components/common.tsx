@@ -39,13 +39,13 @@ export function RoleBadge({ role }: { role: string }) {
   );
 }
 
-export function StatCard({ title, value, icon: Icon, color, bgColor, delay = 0, suffix = '', trend = 0 }: {
-  title: string; value: number; icon: React.ElementType; color: string; bgColor: string; delay?: number; suffix?: string; trend?: number;
+export function StatCard({ title, value, icon: Icon, color, bgColor, delay = 0, suffix = '', trend = 0, onClick }: {
+  title: string; value: number; icon: React.ElementType; color: string; bgColor: string; delay?: number; suffix?: string; trend?: number; onClick?: () => void;
 }) {
   const display = useCountUp(value, 700, delay);
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: delay / 1000 }}>
-      <Card className="border-0 shadow-sm hover:shadow-lg hover:-translate-y-[3px] hover:scale-[1.02] transition-all duration-300 overflow-hidden group relative border-l-4" style={{ borderLeftColor: color, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
+      <Card className={`border-0 shadow-sm transition-all duration-300 overflow-hidden group relative border-l-4 ${onClick ? 'hover:shadow-lg hover:-translate-y-[3px] hover:scale-[1.02] cursor-pointer active:scale-[0.98]' : ''}`} style={{ borderLeftColor: color, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }} onClick={onClick}>
         {/* Colored accent line at top (2px) */}
         <div className="h-[2px] w-full" style={{ background: `linear-gradient(90deg, ${color}, ${color}66, transparent)` }} />
         <CardContent className="p-5 pl-6 relative">
@@ -73,30 +73,39 @@ export function StatCard({ title, value, icon: Icon, color, bgColor, delay = 0, 
                 )}
               </div>
             </div>
-            <div className="flex items-center justify-center rounded-xl p-3 group-hover:scale-110 transition-transform duration-300" style={{ background: `linear-gradient(135deg, ${bgColor}, ${color}15)` }}>
+            <div className={`flex items-center justify-center rounded-xl p-3 transition-transform duration-300 ${onClick ? 'group-hover:scale-110' : ''}`} style={{ background: `linear-gradient(135deg, ${bgColor}, ${color}15)` }}>
               <Icon className="h-5 w-5" style={{ color }} />
             </div>
           </div>
+          {/* Clickable hint arrow */}
+          {onClick && (
+            <div className="absolute bottom-2 right-3 opacity-0 group-hover:opacity-60 transition-opacity">
+              <ArrowUpRight className="h-3.5 w-3.5 rotate-45 text-muted-foreground" />
+            </div>
+          )}
         </CardContent>
       </Card>
     </motion.div>
   );
 }
 
-export function MiniStat({ label, value, icon: Icon, color, bgColor, delay, suffix = '' }: {
-  label: string; value: number; icon: React.ElementType; color: string; bgColor: string; delay: number; suffix?: string;
+export function MiniStat({ label, value, icon: Icon, color, bgColor, delay, suffix = '', onClick }: {
+  label: string; value: number; icon: React.ElementType; color: string; bgColor: string; delay: number; suffix?: string; onClick?: () => void;
 }) {
   const display = useCountUp(value, 600, delay);
   return (
-    <Card className="border-0 shadow-sm hover:shadow-md transition-all">
+    <Card className={`border-0 transition-all ${onClick ? 'hover:shadow-md hover:scale-[1.02] cursor-pointer active:scale-[0.98]' : 'hover:shadow-md'}`} onClick={onClick}>
       <CardContent className="p-3 sm:p-4 flex items-center gap-3">
         <div className="flex items-center justify-center rounded-lg p-2 shrink-0" style={{ backgroundColor: bgColor }}>
           <Icon className="h-4 w-4" style={{ color }} />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
           <p className="text-lg sm:text-xl font-black tabular-nums text-foreground">{display}{suffix}</p>
         </div>
+        {onClick && (
+          <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground shrink-0" />
+        )}
       </CardContent>
     </Card>
   );

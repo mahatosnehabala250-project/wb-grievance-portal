@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
   const assigned = searchParams.get('assigned'); // 'assigned', 'unassigned', 'all'
   const dateFrom = searchParams.get('dateFrom');
   const dateTo = searchParams.get('dateTo');
+  const slaBreach = searchParams.get('slaBreach'); // 'true' for open/in-progress >7 days old
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '20');
 
@@ -61,6 +62,17 @@ export async function GET(request: NextRequest) {
       dateFilter.lte = toDate;
     }
     where.createdAt = dateFilter;
+  }
+
+  // SLA Breach filter: open/in-progress complaints older than 7 days
+  if (slaBreach === 'true') {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+    where.status = { in: ['OPEN', 'IN_PROGRESS'] };
+    const existingDateFilter = (where.createdAt && typeof where.createdAt === 'object' ? where.createdAt : {}) as Record<string, unknown>;
+    existingDateFilter.lte = sevenDaysAgo;
+    where.createdAt = existingDateFilter;
   }
 
   if (search) {
