@@ -65,6 +65,7 @@ import { SettingsView } from '@/components/SettingsView';
 import { HydrationGate } from '@/components/HydrationGate';
 import { CommandPalette, KeyboardShortcutsDialog, KeyboardShortcutHandler } from '@/components/CommandPalette';
 import { AnnouncementBanner } from '@/components/AnnouncementBanner';
+import { TicketTrackerDialog } from '@/components/TicketTrackerDialog';
 import { AuditLogView } from '@/components/AuditLogView';
 export default function HomePage() {
   const { user, isAuthenticated, logout, checkAuth } = useAuthStore();
@@ -86,6 +87,9 @@ export default function HomePage() {
 
   // Notification Center
   const [notifCenterOpen, setNotifCenterOpen] = useState(false);
+
+  // Ticket Tracker Dialog
+  const [ticketTrackerOpen, setTicketTrackerOpen] = useState(false);
 
   // Dashboard refresh
   const dashboardRef = useRef<{ fetchDashboard: () => void } | null>(null);
@@ -463,7 +467,19 @@ export default function HomePage() {
       {/* ═══ LAYOUT ═══ */}
       <div className="flex flex-1">
         {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex flex-col w-56 border-r border-border/50 glass-sidebar min-h-0">
+        <aside className="hidden lg:flex flex-col w-56 border-r border-border/50 glass-sidebar min-h-0 sidebar-accent">
+          {/* User Avatar Section */}
+          <div className="p-4 pb-3 border-b border-border/30">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm" style={{ backgroundColor: NAVY }}>
+                {(user?.name || 'U').charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-foreground truncate">{user?.name}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{user?.username}</p>
+              </div>
+            </div>
+          </div>
           <nav className="flex-1 p-3 space-y-1 custom-scrollbar overflow-y-auto">
             {navItems.map((item) => (
               <button
@@ -471,11 +487,11 @@ export default function HomePage() {
                 onClick={() => handleNavigate(item.id)}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border-l-[3px] btn-press group ${
                   view === item.id
-                    ? 'bg-white dark:bg-gray-800 shadow-sm text-foreground border-l-[#0A2463]'
+                    ? 'nav-active-gradient shadow-sm text-foreground border-l-[#0A2463]'
                     : 'text-muted-foreground hover:bg-gradient-to-r hover:from-muted/80 hover:to-transparent hover:text-foreground hover:scale-[1.02] border-l-transparent'
                 }`}
               >
-                <item.icon className={`h-4 w-4 transition-transform duration-200 ${view === item.id ? '' : 'group-hover:scale-110'}`} />
+                <item.icon className={`h-4 w-4 transition-transform duration-200 ${view === item.id ? 'text-[#0A2463]' : 'group-hover:scale-110'}`} />
                 <span className="flex-1 text-left">{item.label}</span>
                 {item.id === 'complaints' && criticalCount > 0 && (
                   <span className="min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold animate-badge-in">
@@ -485,7 +501,23 @@ export default function HomePage() {
               </button>
             ))}
           </nav>
+          {/* Quick Stats Mini Section + Sign Out */}
           <div className="p-3 border-t border-border/50">
+            {/* Quick Stats Pills */}
+            <div className="flex items-center gap-1.5 mb-3">
+              <div className="stat-pill flex-1 justify-center">
+                <span className="stat-pill-dot bg-red-500" />
+                <span className="text-red-600 dark:text-red-400">{criticalCount}</span>
+              </div>
+              <div className="stat-pill flex-1 justify-center">
+                <span className="stat-pill-dot bg-amber-500" />
+                <span className="text-amber-600 dark:text-amber-400">3</span>
+              </div>
+              <div className="stat-pill flex-1 justify-center">
+                <span className="stat-pill-dot bg-sky-500" />
+                <span className="text-sky-600 dark:text-sky-400">5</span>
+              </div>
+            </div>
             <div className="p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-border/50">
               <div className="flex items-center gap-2 mb-2">
                 <ShieldCheck className="h-4 w-4" style={{ color: NAVY }} />
@@ -554,7 +586,7 @@ export default function HomePage() {
               <div className="hidden sm:flex items-center gap-4 text-[11px]">
                 <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1"><LayoutDashboard className="h-3 w-3" />Dashboard</span>
                 <span className="text-white/30">|</span>
-                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1"><FileText className="h-3 w-3" />Track Status</span>
+                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1" onClick={() => setTicketTrackerOpen(true)}><FileText className="h-3 w-3" />Track Status</span>
                 <span className="text-white/30">|</span>
                 <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1"><BarChart2 className="h-3 w-3" />Analytics</span>
                 <span className="text-white/30">|</span>
@@ -694,6 +726,9 @@ export default function HomePage() {
         </SheetContent>
       </Sheet>
 
+      {/* ═══ TICKET TRACKER DIALOG ═══ */}
+      <TicketTrackerDialog open={ticketTrackerOpen} onOpenChange={setTicketTrackerOpen} />
+
       {/* ═══ MOBILE BOTTOM NAVIGATION ═══ */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-lg border-t border-border/50 print:hidden">
         <div className="flex items-center justify-around px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
@@ -704,6 +739,13 @@ export default function HomePage() {
             <LayoutDashboard className={`h-5 w-5 transition-transform duration-200 ${view === 'dashboard' ? 'scale-110' : ''}`} />
             <span className="text-[10px] font-medium">Home</span>
             {view === 'dashboard' && <motion.div className="h-0.5 w-4 rounded-full" layoutId="mobile-nav-indicator" style={{ backgroundColor: NAVY }} />}
+          </button>
+          <button
+            onClick={() => setTicketTrackerOpen(true)}
+            className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 text-muted-foreground"
+          >
+            <Search className="h-5 w-5" />
+            <span className="text-[10px] font-medium">Track</span>
           </button>
           <button
             onClick={() => handleNavigate('complaints')}

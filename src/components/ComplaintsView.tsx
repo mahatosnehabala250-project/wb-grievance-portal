@@ -639,33 +639,41 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
             ) : (
               complaints.map((c) => {
                 const daysOld = getDaysOld(c.createdAt);
+                const urgencyColor = URGENCY_BORDER_MAP[c.urgency] || '#6B7280';
                 return (
-                  <Card key={c.id} className="border-0 shadow-sm border-l-4 overflow-hidden" style={{ borderLeftColor: URGENCY_BORDER_MAP[c.urgency] || '#6B7280' }}>
+                  <Card key={c.id} className="border-0 shadow-sm border-l-4 overflow-hidden hover:shadow-md transition-shadow" style={{ borderLeftColor: urgencyColor }}>
                     <CardContent className="p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs font-bold">{c.ticketNo}</span>
-                        <div className="flex items-center gap-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-xs font-bold text-foreground">{c.ticketNo}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <UrgencyBadge urgency={c.urgency} />
+                          <StatusBadge status={c.status} />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <p className="text-[15px] font-semibold leading-relaxed text-foreground">{c.issue}</p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[11px] text-muted-foreground">{c.citizenName || 'Anonymous'}</span>
+                          <span className="text-muted-foreground/40 text-[10px]">&middot;</span>
+                          <span className="text-[11px] text-muted-foreground">{c.block}, {c.district}</span>
+                          <span className="text-muted-foreground/40 text-[10px]">&middot;</span>
+                          <span className="text-[11px] text-muted-foreground">{c.category}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between pt-2.5 border-t border-border/40">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <CalendarDays className="h-3 w-3" />{fmtDate(c.createdAt)}
+                          </span>
                           <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
                             daysOld > 7 ? 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400'
                             : daysOld >= 3 ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400'
                             : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400'
                           }`}>
-                            {daysOld === 0 ? 'Today' : daysOld === 1 ? '1 day ago' : `${daysOld} days ago`}
+                            {daysOld > 7 && <Flame className="h-2.5 w-2.5" />}
+                            {daysOld === 0 ? 'Today' : daysOld === 1 ? '1d' : `${daysOld}d`}
                           </span>
-                          <StatusBadge status={c.status} />
-                          <UrgencyBadge urgency={c.urgency} />
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-[15px] font-semibold leading-snug text-foreground">{c.issue}</p>
-                        <p className="text-[11px] text-muted-foreground mt-1">
-                          {c.citizenName || 'Anonymous'} &middot; {c.block}, {c.district}
-                        </p>
-                      </div>
-                      <div className="flex items-center justify-between pt-1 border-t border-border/50">
-                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                          <CalendarDays className="h-3 w-3" />{fmtDate(c.createdAt)}
-                        </span>
                         <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => { setSelectedComplaint(c); setDetailOpen(true); }}>
                           <Eye className="h-3.5 w-3.5" /> Details
                         </Button>

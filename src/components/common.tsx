@@ -48,7 +48,11 @@ export function StatCard({ title, value, icon: Icon, color, bgColor, delay = 0, 
       <Card className="border-0 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-300 overflow-hidden group relative border-l-4" style={{ borderLeftColor: color, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
         {/* Gradient accent bar at top */}
         <div className="h-[3px] w-full" style={{ background: `linear-gradient(90deg, ${color}, ${color}88, transparent)` }} />
-        <CardContent className="p-5 pl-6">
+        <CardContent className="p-5 pl-6 relative">
+          {/* Watermark icon - large faded background */}
+          <div className="absolute top-2 right-2 opacity-[0.04] pointer-events-none">
+            <Icon className="h-16 w-16" style={{ color }} />
+          </div>
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1.5 flex-1 min-w-0">
               <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{title}</p>
@@ -65,7 +69,7 @@ export function StatCard({ title, value, icon: Icon, color, bgColor, delay = 0, 
               </div>
             </div>
             <div className="flex items-center justify-center rounded-xl p-3 group-hover:scale-110 transition-transform duration-300" style={{ backgroundColor: bgColor }}>
-              <Icon className="h-5 w-5 animate-pulse" style={{ color }} />
+              <Icon className="h-5 w-5" style={{ color }} />
             </div>
           </div>
         </CardContent>
@@ -134,7 +138,7 @@ export function EmptyState({ message, icon: Icon, action, onAction }: { message:
     <div className="flex flex-col items-center justify-center py-12 text-center">
       <motion.div
         animate={{ y: [0, -6, 0] }}
-        transition={{ duration: 3, ease: 'ease-in-out', repeat: Infinity }}
+        transition={{ duration: 3, ease: 'easeInOut', repeat: Infinity }}
         className="mb-4"
       >
         <div className="h-16 w-16 rounded-full flex items-center justify-center border-2 border-dashed border-muted-foreground/20" style={{ background: 'linear-gradient(135deg, #E3F2FD, #F3E8FF, #FEF3C7)' }}>

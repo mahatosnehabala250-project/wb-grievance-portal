@@ -54,7 +54,7 @@ import { toast } from 'sonner';
 import { useTheme } from 'next-themes';
 import { useAuthStore } from '@/lib/auth-store';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Complaint, ActivityLogEntry, AssignableUser, AppUser, DashboardData, ViewType, AuditEntry } from '@/lib/types';
+import type { Complaint, ActivityLogEntry, AssignableUser, AppUser, DashboardData, ViewType } from '@/lib/types';
 import { NAVY, NAVY_DARK, STATUS_MAP, URGENCY_MAP, URGENCY_BORDER_MAP, ROLE_MAP, ROLE_COLORS, CATEGORIES, CATEGORY_COLORS } from '@/lib/constants';
 import { fmtDate, fmtDateTime, fmtStatus, fmtUrgency, fmtRole, safeGetLocalStorage, safeSetLocalStorage, authHeaders, getDaysOld, getSLAInfo, playNotificationSound } from '@/lib/helpers';
 import { StatusBadge, UrgencyBadge, RoleBadge, StatCard, MiniStat, PieLabel, LoadingSkeleton, EmptyState } from '@/components/common';
@@ -736,7 +736,7 @@ export function AnalyticsView() {
   );
 }
 
-interface AuditEntry {
+interface LocalAuditEntry {
   id: string; complaintId: string; ticketNo: string; action: string;
   description: string; actorName: string | null; createdAt: string;
 }
@@ -753,7 +753,7 @@ const ACTION_COLORS: Record<string, { bg: string; text: string; dot: string }> =
 };
 
 function AuditTrailView() {
-  const [entries, setEntries] = useState<AuditEntry[]>([]);
+  const [entries, setEntries] = useState<LocalAuditEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [actionFilter, setActionFilter] = useState('');

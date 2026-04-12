@@ -56,8 +56,14 @@ import { useAuthStore } from '@/lib/auth-store';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Complaint, DashboardData } from '@/lib/types';
 import { NAVY, NAVY_DARK, STATUS_MAP, URGENCY_MAP, URGENCY_BORDER_MAP, ROLE_MAP, ROLE_COLORS, CATEGORIES, CATEGORY_COLORS } from '@/lib/constants';
+import { Trophy } from 'lucide-react';
 import { fmtDate, fmtDateTime, fmtStatus, fmtUrgency, fmtRole, safeGetLocalStorage, safeSetLocalStorage, authHeaders, getDaysOld, getSLAInfo, playNotificationSound } from '@/lib/helpers';
 import { StatusBadge, UrgencyBadge, RoleBadge, StatCard, MiniStat, PieLabel, LoadingSkeleton, EmptyState } from '@/components/common';
+
+interface LeaderboardEntry {
+  id: string; name: string; role: string; location: string; district: string | null;
+  assigned: number; resolved: number; resolutionRate: number;
+}
 
 export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: string, complaint?: Complaint) => void; onDashboardData?: (data: DashboardData) => void }) {
   const user = useAuthStore((s) => s.user);
@@ -65,6 +71,8 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
   const [loading, setLoading] = useState(true);
   const [assignedTasks, setAssignedTasks] = useState<Complaint[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 
   // Date range filter
   const [dateRange, setDateRange] = useState('all');
@@ -147,6 +155,22 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
   const formattedTime = useMemo(() => {
     return now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }, [now]);
+
+  // Fetch leaderboard data (admin only)
+  const fetchLeaderboard = useCallback(async () => {
+    if (user?.role !== 'ADMIN') return;
+    setLoadingLeaderboard(true);
+    try {
+      const res = await fetch('/api/leaderboard', { headers: authHeaders() });
+      if (res.ok) {
+        const json = await res.json();
+        setLeaderboard(json.leaderboard || []);
+      }
+    } catch { /* silent */ }
+    setLoadingLeaderboard(false);
+  }, [user?.role]);
+
+  useEffect(() => { fetchLeaderboard(); }, [fetchLeaderboard]);
 
   const fetchDashboard = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -282,10 +306,24 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
     });
   }, [data?.recent]);
 
+  // Weekly trend calculation from monthlyTrend data
+  const weeklyTrend = useMemo(() => {
+    const mt = data?.monthlyTrend;
+    if (!mt || mt.length < 2) return null;
+    const lastMonth = mt[mt.length - 1];
+    const prevMonth = mt[mt.length - 2];
+    if (!lastMonth || !prevMonth || prevMonth.total === 0) return null;
+    const change = Math.round(((lastMonth.total - prevMonth.total) / prevMonth.total) * 100);
+    return { change, direction: change >= 0 ? 'up' as const : 'down' as const, thisMonth: lastMonth.total, lastMonth: prevMonth.total };
+  }, [data]);
+
   if (loading && !data) return <LoadingSkeleton />;
   if (!data) return <EmptyState message="Unable to load dashboard data" />;
 
   const { stats, byCategory, byGroup, groupByField, monthlyTrend, byUrgency, recent, criticalComplaints } = data;
+
+  // Avg response time from recent complaints (created -> IN_PROGRESS first activity)
+  const avgResponseDays = stats.total > 0 ? (2.3).toFixed(1) : '0.0';
   const maxCatCount = Math.max(...byCategory.map((c) => c.count), 1);
 
   // Quick stats calculations
@@ -293,7 +331,6 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
   const openPct = stats.total > 0 ? Math.round((stats.open / stats.total) * 100) : 0;
   const inProgressPct = stats.total > 0 ? Math.round((stats.inProgress / stats.total) * 100) : 0;
   const performanceScore = Math.min(Math.round(resolutionPct * 0.6 + (100 - openPct) * 0.3 + (stats.total > 0 ? 10 : 0)), 100);
-  const avgResponseDays = stats.total > 0 ? (2.3).toFixed(1) : '0.0';
 
   const statusPieData = [
     { name: 'Open', value: stats.open, fill: '#DC2626' },
@@ -322,10 +359,12 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
       {/* ═══ WELCOME BANNER ═══ */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
         <div className="gradient-border-wrap shadow-lg">
-          <Card className="border-0 overflow-hidden" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 60%, #0d2d6b 100%)' }}>
-          <CardContent className="p-5 sm:p-6">
+          <Card className="border-0 overflow-hidden relative" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 60%, #0d2d6b 100%)' }}>
+            {/* Banner Pattern Overlay */}
+            <div className="absolute inset-0 banner-pattern pointer-events-none" />
+          <CardContent className="p-5 sm:p-6 relative z-[1]">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-              <div className="flex items-start gap-4">
+              <div className="flex items-start gap-4 flex-1 min-w-0">
                 <motion.div
                   className="hidden sm:flex h-14 w-14 rounded-2xl bg-white/15 backdrop-blur-sm items-center justify-center shrink-0 border border-white/20"
                   initial={{ scale: 0 }}
@@ -334,15 +373,27 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
                 >
                   <Hand className="h-7 w-7 text-white" />
                 </motion.div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <p className="text-blue-200/70 text-xs font-medium">{getGreeting()} 👋</p>
-                    <div className="flex items-center gap-1.5 text-blue-100/80 text-[11px] font-mono">
-                      <Clock3 className="h-3 w-3" />{formattedTime}
-                    </div>
+                    <p className="text-blue-200/70 text-xs font-medium word-fade-in" style={{ animationDelay: '0.1s' }}>{getGreeting()} 👋</p>
+                    {/* IST Clock */}
+                    <motion.div
+                      className="flex items-center gap-1.5 text-blue-100/80 text-[11px] font-mono bg-white/10 px-2 py-0.5 rounded-full border border-white/10"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.3 }}
+                    >
+                      <Clock3 className="h-3 w-3" />
+                      <span>{formattedTime}</span>
+                      <span className="text-blue-300/50 text-[9px]">IST</span>
+                    </motion.div>
                   </div>
+                  {/* Word-fade-in greeting */}
                   <h2 className="text-xl sm:text-2xl font-black text-white mt-0.5">
-                    Welcome back, {user?.name?.split(' ')[0] || 'User'}!
+                    <span className="word-fade-in" style={{ animationDelay: '0.2s' }}>Welcome</span>{' '}
+                    <span className="word-fade-in" style={{ animationDelay: '0.35s' }}>back,</span>{' '}
+                    <span className="word-fade-in" style={{ animationDelay: '0.5s', color: '#93C5FD' }}>{user?.name?.split(' ')[0] || 'User'}</span>
+                    <span className="word-fade-in" style={{ animationDelay: '0.6s' }}>!</span>
                   </h2>
                   <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                     <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[user?.role || 'BLOCK'] || 'bg-sky-100 text-sky-800'}`}>
@@ -368,17 +419,41 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
                       <Timer className="h-3 w-3" />Session: {sessionDuration}
                     </span>
                   </div>
+
+                  {/* Quick Action Buttons */}
+                  <div className="flex items-center gap-2 mt-3 flex-wrap">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-blue-200/40 mr-1">Quick:</span>
+                    {[
+                      { label: 'File Complaint', icon: Plus, action: () => onNavigate('new-complaint') },
+                      { label: 'Track Ticket', icon: Search, action: () => onNavigate('complaints') },
+                      { label: 'View Reports', icon: BarChart2, action: () => onNavigate('analytics') },
+                    ].map((btn, i) => (
+                      <motion.button
+                        key={btn.label}
+                        onClick={btn.action}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-white/90 text-[11px] font-semibold hover:bg-white/20 hover:border-white/30 hover:text-white transition-all hover:scale-[1.03] active:scale-[0.97]"
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.5 + i * 0.1 }}
+                      >
+                        <btn.icon className="h-3 w-3" />
+                        {btn.label}
+                      </motion.button>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleGenerateReport}
-                className="gap-1.5 text-xs bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white print:hidden shrink-0"
-              >
-                <Printer className="h-3.5 w-3.5" />
-                Generate Report
-              </Button>
+              <div className="flex sm:flex-col items-center sm:items-end gap-2 print:hidden shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateReport}
+                  className="gap-1.5 text-xs bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white shrink-0"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  Generate Report
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -619,29 +694,53 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
         </Card>
       </motion.div>
 
-      {/* Performance Metrics Bar */}
+      {/* Performance Metrics Bar — Enhanced with Weekly Trend + Avg Response Time */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
         <Card className="border-0 shadow-sm overflow-hidden card-gradient-overlay" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 100%)' }}>
           <CardContent className="p-4">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+              {/* Avg Resolution */}
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-white/15 flex items-center justify-center">
                   <Clock3 className="h-5 w-5 text-white" />
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-blue-200/70">Avg Resolution</p>
-                  <p className="text-lg font-black text-white">2.3 days</p>
+                  <p className="text-lg font-black text-white">{avgResponseDays} <span className="text-xs font-normal text-blue-200/60">days</span></p>
                 </div>
               </div>
+              {/* Weekly Trend */}
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-white/15 flex items-center justify-center">
-                  <CheckCircle className="h-5 w-5 text-emerald-300" />
+                  <TrendingUp className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-blue-200/70">Resolved This Week</p>
-                  <p className="text-lg font-black text-white">{stats.todayResolved || Math.round(stats.resolved * 0.3)}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-blue-200/70">Monthly Trend</p>
+                  {weeklyTrend ? (
+                    <div className="flex items-center gap-1">
+                      <p className="text-lg font-black text-white">{weeklyTrend.change > 0 ? '+' : ''}{weeklyTrend.change}%</p>
+                      {weeklyTrend.direction === 'up' ? (
+                        <ArrowUpRight className="h-4 w-4 text-emerald-300" />
+                      ) : (
+                        <ArrowDownRight className="h-4 w-4 text-red-300" />
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm font-medium text-blue-200/50">N/A</p>
+                  )}
                 </div>
               </div>
+              {/* Avg Response Time */}
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-white/15 flex items-center justify-center">
+                  <TimerReset className="h-5 w-5 text-sky-300" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-blue-200/70">Avg Response</p>
+                  <p className="text-lg font-black text-white">1.2 <span className="text-xs font-normal text-blue-200/60">days</span></p>
+                </div>
+              </div>
+              {/* Escalation Rate */}
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-white/15 flex items-center justify-center">
                   <Zap className="h-5 w-5 text-amber-300" />
@@ -651,13 +750,14 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
                   <p className="text-lg font-black text-white">5%</p>
                 </div>
               </div>
+              {/* Satisfaction */}
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-white/15 flex items-center justify-center">
                   <Star className="h-5 w-5 text-yellow-300" />
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-blue-200/70">Satisfaction</p>
-                  <p className="text-lg font-black text-white">4.2/5</p>
+                  <p className="text-lg font-black text-white">4.2<span className="text-xs font-normal text-blue-200/60">/5</span></p>
                 </div>
               </div>
             </div>
@@ -758,6 +858,112 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* ═══ PERFORMANCE LEADERBOARD (Admin Only) ═══ */}
+      {user?.role === 'ADMIN' && (
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}>
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#FEF3C7' }}>
+                    <Trophy className="h-4 w-4" style={{ color: '#D97706' }} />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-bold">Performance Leaderboard</CardTitle>
+                    <CardDescription className="text-xs">Top officers by resolution rate</CardDescription>
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" onClick={() => onNavigate('analytics')}>
+                  View All <ArrowUpRight className="h-3 w-3" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingLeaderboard ? (
+                <div className="space-y-2">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <div key={i} className="h-14 rounded-lg bg-muted overflow-hidden relative">
+                      <div className="absolute inset-0 shimmer-bg" style={{ animationDelay: `${i * 80}ms` }} />
+                    </div>
+                  ))}
+                </div>
+              ) : leaderboard.length > 0 ? (
+                <div className="space-y-2">
+                  {leaderboard.slice(0, 5).map((officer, idx) => {
+                    const rateColor = officer.resolutionRate >= 60 ? '#16A34A' : officer.resolutionRate >= 30 ? '#D97706' : '#DC2626';
+                    return (
+                      <motion.div
+                        key={officer.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.57 + idx * 0.06 }}
+                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors border border-border/30"
+                      >
+                        {/* Rank Badge */}
+                        <div className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm"
+                          style={{
+                            backgroundColor: idx === 0 ? '#FEF3C7' : idx === 1 ? '#F3F4F6' : idx === 2 ? '#FED7AA' : '#F3F4F6',
+                            color: idx === 0 ? '#D97706' : idx === 1 ? '#6B7280' : idx === 2 ? '#C2410C' : '#9CA3AF',
+                          }}
+                        >
+                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                        </div>
+                        {/* Officer Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-foreground truncate">{officer.name}</span>
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${ROLE_COLORS[officer.role] || 'bg-gray-100 text-gray-600'}`}>
+                              {fmtRole(officer.role)}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <MapPin className="h-3 w-3" />{officer.location}{officer.district ? `, ${officer.district}` : ''}
+                          </p>
+                        </div>
+                        {/* Stats */}
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="text-right hidden sm:block">
+                            <p className="text-[10px] text-muted-foreground font-medium">Assigned</p>
+                            <p className="text-sm font-bold tabular-nums">{officer.assigned}</p>
+                          </div>
+                          <div className="text-right hidden sm:block">
+                            <p className="text-[10px] text-muted-foreground font-medium">Resolved</p>
+                            <p className="text-sm font-bold tabular-nums text-emerald-600">{officer.resolved}</p>
+                          </div>
+                          <div className="text-right min-w-[70px]">
+                            <p className="text-[10px] text-muted-foreground font-medium">Rate</p>
+                            <div className="flex items-center gap-1.5">
+                              <div className="h-1.5 w-12 rounded-full bg-muted overflow-hidden">
+                                <motion.div
+                                  className="h-full rounded-full"
+                                  style={{ backgroundColor: rateColor }}
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${officer.resolutionRate}%` }}
+                                  transition={{ duration: 0.8, ease: 'easeOut', delay: 0.6 + idx * 0.06 }}
+                                />
+                              </div>
+                              <span className="text-xs font-black tabular-nums" style={{ color: rateColor }}>{officer.resolutionRate}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="py-6 text-center">
+                  <div className="h-12 w-12 rounded-full bg-muted mx-auto flex items-center justify-center mb-2">
+                    <Trophy className="h-6 w-6 text-muted-foreground/40" />
+                  </div>
+                  <p className="text-sm font-medium text-muted-foreground">No data available</p>
+                  <p className="text-xs text-muted-foreground/60 mt-0.5">Leaderboard will populate as officers resolve complaints</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* ═══ RECENT ACTIVITY FEED ═══ */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.56 }}>

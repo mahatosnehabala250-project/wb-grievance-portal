@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Shield, RefreshCw, X, AlertTriangle, FileText } from 'lucide-react';
+import { Shield, RefreshCw, X, AlertTriangle, FileText, User, Lock, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -55,193 +55,235 @@ export function LoginView() {
         }}
         transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
       />
+
+      {/* Floating Orbs */}
+      <div className="orb orb-1" />
+      <div className="orb orb-2" />
+      <div className="orb orb-3" />
+      <div className="orb orb-4" />
+
+      {/* Mesh/ Grid pattern overlay */}
+      <div className="absolute inset-0 mesh-pattern" />
+
       {/* CSS dot grid background animation */}
       <div className="absolute inset-0 dot-grid-bg opacity-30" />
+
       {/* Subtle pattern texture */}
       <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }} />
-      {/* Decorative circles */}
-      <div className="absolute top-[-120px] left-[-120px] h-[400px] w-[400px] rounded-full opacity-10" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.3), transparent)' }} />
-      <div className="absolute bottom-[-80px] right-[-80px] h-[300px] w-[300px] rounded-full opacity-10" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.2), transparent)' }} />
 
-      {/* Floating Particles */}
+      {/* Floating Particles — enhanced with more particles and varying opacity */}
       {[
-        { left: '10%', size: 4, duration: 12, delay: 0 },
-        { left: '25%', size: 3, duration: 18, delay: 2 },
-        { left: '45%', size: 5, duration: 15, delay: 4 },
-        { left: '65%', size: 3, duration: 20, delay: 1 },
-        { left: '80%', size: 4, duration: 14, delay: 3 },
-        { left: '90%', size: 2, duration: 22, delay: 5 },
-        { left: '35%', size: 2, duration: 16, delay: 7 },
-        { left: '55%', size: 3, duration: 19, delay: 6 },
+        { left: '5%', size: 3, duration: 14, delay: 0, opacity: 0.5 },
+        { left: '15%', size: 4, duration: 12, delay: 2, opacity: 0.3 },
+        { left: '25%', size: 2, duration: 18, delay: 4, opacity: 0.4 },
+        { left: '35%', size: 3, duration: 15, delay: 1, opacity: 0.6 },
+        { left: '45%', size: 5, duration: 16, delay: 6, opacity: 0.3 },
+        { left: '55%', size: 2, duration: 20, delay: 3, opacity: 0.5 },
+        { left: '65%', size: 4, duration: 14, delay: 7, opacity: 0.4 },
+        { left: '75%', size: 3, duration: 19, delay: 5, opacity: 0.3 },
+        { left: '85%', size: 2, duration: 22, delay: 1, opacity: 0.6 },
+        { left: '95%', size: 4, duration: 17, delay: 8, opacity: 0.35 },
+        { left: '10%', size: 2, duration: 13, delay: 10, opacity: 0.45 },
+        { left: '50%', size: 3, duration: 16, delay: 9, opacity: 0.5 },
       ].map((p, i) => (
         <div
           key={i}
-          className="absolute bottom-0 rounded-full bg-white/40 float-particle"
+          className="absolute bottom-0 rounded-full bg-white float-particle"
           style={{
             left: p.left,
             width: p.size,
             height: p.size,
             animationDuration: `${p.duration}s`,
             animationDelay: `${p.delay}s`,
+            opacity: p.opacity,
           }}
         />
       ))}
 
       <div className="w-full max-w-md relative z-10">
-        {/* Government branding header */}
+        {/* Government branding header with emblem */}
         <div className="text-center mb-8">
-          {/* Ashoka Chakra-like Emblem */}
-          <div className="flex justify-center mb-2">
-            <div className="relative h-8 w-8">
-              <div className="absolute inset-0 rounded-full border-2 border-white/60 animate-[spin_20s_linear_infinite]" />
-              <div className="absolute inset-1.5 rounded-full border border-white/40" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="h-2 w-2 rounded-full bg-white/80" />
+          {/* Government of West Bengal Emblem Area */}
+          <div className="flex justify-center mb-3">
+            <motion.div
+              className="gov-emblem h-16 w-16 rounded-2xl bg-white/10 backdrop-blur-sm shadow-lg border border-white/15 flex items-center justify-center"
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <div className="relative">
+                <Shield className="h-8 w-8 text-white" />
+                <div className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-amber-400/80 flex items-center justify-center">
+                  <span className="text-[7px] font-black text-amber-900">WB</span>
+                </div>
               </div>
-            </div>
+            </motion.div>
           </div>
+
           <motion.div
-            className="inline-flex items-center justify-center h-20 w-20 rounded-2xl bg-white/15 backdrop-blur-sm shadow-lg mb-4 border border-white/20"
-            animate={{ y: [0, -8, 0] }}
-            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
           >
-            <Shield className="h-10 w-10 text-white" />
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+              Government of West Bengal
+            </h1>
+            <p className="text-blue-200/80 text-sm mt-1.5 font-medium">
+              AI Public Support System
+            </p>
+            <p className="text-blue-300/40 text-xs mt-0.5 font-medium tracking-wider">
+              e-Governance Initiative
+            </p>
+            <p className="text-blue-300/50 text-base mt-1 font-medium tracking-wide">
+              পশ্চিমবঙ্গ সরকার
+            </p>
           </motion.div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Government of West Bengal
-          </h1>
-          <p className="text-blue-200/80 text-sm mt-1.5 font-medium">
-            AI Public Support System
-          </p>
-          <p className="text-blue-300/40 text-xs mt-0.5 font-medium tracking-wider">
-            e-Governance Initiative
-          </p>
-          <p className="text-blue-300/50 text-base mt-1 font-medium tracking-wide">
-            পশ্চিমবঙ্গ সরকার
-          </p>
-          <div className="h-0.5 w-24 bg-white/30 mx-auto mt-4 rounded-full" />
+          <div className="h-0.5 w-24 bg-gradient-to-r from-transparent via-white/30 to-transparent mx-auto mt-4 rounded-full" />
         </div>
 
-        {/* Login Card with shimmer effect */}
-        <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-sm relative overflow-hidden">
-          {!mounted && (
-            <div className="absolute inset-0 -translate-x-full z-10" style={{
-              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
-              animation: 'shimmer 1.5s infinite',
-            }} />
-          )}
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-center gap-2 mb-1">
-            <CardTitle className="text-lg font-bold text-center">Sign In to Portal</CardTitle>
-            <Badge className="bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300 border-0 text-[10px] px-1.5 py-0 font-bold">v2.0</Badge>
-          </div>
-            <CardDescription className="text-center text-xs">
-              Access the grievance management dashboard
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                  <span>{error}</span>
-                  <button type="button" onClick={clearError} className="ml-auto shrink-0">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="username" className="text-xs font-semibold uppercase tracking-wider">Username</Label>
-                <Input
-                  id="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter your username"
-                  className="h-11"
-                  required
-                />
+        {/* Login Card with enhanced glass-morphism + shimmer sweep */}
+        <motion.div
+          initial={{ opacity: 0, y: 20, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+        >
+          <Card className="login-card-glass shimmer-sweep border-0 relative overflow-hidden">
+            {!mounted && (
+              <div className="absolute inset-0 -translate-x-full z-10" style={{
+                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
+                animation: 'shimmer 1.5s infinite',
+              }} />
+            )}
+            <CardHeader className="pb-4 relative z-[2]">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <CardTitle className="text-lg font-bold text-center">Sign In to Portal</CardTitle>
+                <Badge className="bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300 border-0 text-[10px] px-1.5 py-0 font-bold">v2.0</Badge>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  className="h-11"
-                  required
-                />
-              </div>
-              <Button
-                type="submit"
-                disabled={isLoading || !username || !password}
-                className="w-full h-11 text-sm font-semibold text-white transition-all duration-200 hover:shadow-lg"
-                style={{ backgroundColor: NAVY }}
-              >
-                {isLoading ? (
-                  <span className="flex items-center gap-2">
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    Authenticating...
-                  </span>
-                ) : (
-                  'Sign In'
+              <CardDescription className="text-center text-xs">
+                Access the grievance management dashboard
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="relative z-[2]">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                  <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>{error}</span>
+                    <button type="button" onClick={clearError} className="ml-auto shrink-0">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 )}
-              </Button>
-              {/* Forgot Password link */}
-              <div className="text-center pt-1 space-y-1.5">
-                <button
-                  type="button"
-                  onClick={handleForgotPassword}
-                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+                <div className="space-y-2">
+                  <Label htmlFor="username" className="text-xs font-semibold uppercase tracking-wider">Username</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+                    <Input
+                      id="username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Enter your username"
+                      className="h-11 pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider">Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+                    <Input
+                      id="password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      className="h-11 pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="submit"
+                  disabled={isLoading || !username || !password}
+                  className="w-full h-11 text-sm font-semibold text-white transition-all duration-200 hover:shadow-lg hover:scale-[1.01]"
+                  style={{ backgroundColor: NAVY }}
                 >
-                  Forgot Password?
-                </button>
-                <div>
+                  {isLoading ? (
+                    <span className="flex items-center gap-2">
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Authenticating...
+                    </span>
+                  ) : (
+                    'Sign In'
+                  )}
+                </Button>
+                {/* Forgot Password link */}
+                <div className="text-center pt-1 space-y-1.5">
                   <button
                     type="button"
-                    onClick={handleTermsOfService}
-                    className="text-xs text-muted-foreground/60 hover:text-foreground/80 underline underline-offset-2 transition-colors flex items-center justify-center gap-1 mx-auto"
+                    onClick={handleForgotPassword}
+                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
                   >
-                    <FileText className="h-3 w-3" />
-                    Terms of Service
+                    Forgot Password?
                   </button>
+                  <div>
+                    <button
+                      type="button"
+                      onClick={handleTermsOfService}
+                      className="text-xs text-muted-foreground/60 hover:text-foreground/80 underline underline-offset-2 transition-colors flex items-center justify-center gap-1 mx-auto"
+                    >
+                      <FileText className="h-3 w-3" />
+                      Terms of Service
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              {/* Enhanced Demo Accounts with icon accents and better hover states */}
+              <div className="mt-6 pt-4 border-t">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3 text-center">
+                  Demo Accounts
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { u: 'admin', p: 'admin123', r: 'ADMIN', icon: Shield },
+                    { u: 'state_wb', p: 'state123', r: 'STATE', icon: Shield },
+                    { u: 'district_nadia', p: 'nadia123', r: 'DISTRICT', icon: Shield },
+                    { u: 'block_krishnanagar', p: 'krish123', r: 'BLOCK', icon: Shield },
+                  ].map((acc) => (
+                    <button
+                      key={acc.u}
+                      type="button"
+                      onClick={() => { setUsername(acc.u); setPassword(acc.p); }}
+                      className="demo-btn text-left p-2.5 rounded-lg border bg-muted/50 hover:bg-muted hover:shadow-md hover:scale-[1.02] transition-all group"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: NAVY }}>
+                          <acc.icon className="h-3.5 w-3.5 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <code className="text-[10px] font-mono text-foreground group-hover:text-sky-700 transition-colors truncate block">{acc.u}</code>
+                          <RoleBadge role={acc.r} />
+                        </div>
+                        <ChevronRight className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
-            </form>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-            {/* Test accounts hint */}
-            <div className="mt-6 pt-4 border-t">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3 text-center">
-                Demo Accounts
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { u: 'admin', p: 'admin123', r: 'ADMIN' },
-                  { u: 'state_wb', p: 'state123', r: 'STATE' },
-                  { u: 'district_nadia', p: 'nadia123', r: 'DISTRICT' },
-                  { u: 'block_krishnanagar', p: 'krish123', r: 'BLOCK' },
-                ].map((acc) => (
-                  <button
-                    key={acc.u}
-                    type="button"
-                    onClick={() => { setUsername(acc.u); setPassword(acc.p); }}
-                    className="text-left p-2 rounded-lg border bg-muted/50 hover:bg-muted transition-colors group"
-                  >
-                    <div className="flex items-center justify-between gap-1">
-                      <code className="text-[10px] font-mono text-foreground group-hover:text-sky-700 transition-colors truncate">{acc.u}</code>
-                      <RoleBadge role={acc.r} />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <p className="text-center text-blue-200/50 text-[11px] mt-6">
+        {/* Government Copyright */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="text-center text-blue-200/40 text-[11px] mt-6"
+        >
           &copy; 2025 Government of West Bengal &mdash; All Rights Reserved
-        </p>
+        </motion.p>
       </div>
       {/* Global animation keyframes */}
       <style>{`
