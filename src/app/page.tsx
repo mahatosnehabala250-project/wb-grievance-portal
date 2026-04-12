@@ -13,6 +13,7 @@ import {
   Printer, UserCircle, Hand, Gauge, Timer, Award, BadgeCheck, PlayCircle, Ban, CircleCheckBig,
   Settings, CircleHelp, Monitor, Mail, Volume2, LayoutGrid, Keyboard,
   UserCheck, GitCompareArrows, CalendarClock, History, Tag, ClipboardList,
+  AlertCircle, Info, CheckCircle2 as CheckCircleFill, Sparkles, Megaphone,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -2135,41 +2136,51 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
         </div>
       </div>
 
-      {/* Bulk Actions Bar */}
-      <AnimatePresence>
-        {selectedIds.size > 0 && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
-            <Card className="border-2 border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/30">
-              <CardContent className="p-3 flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-sky-700 dark:text-sky-300">
-                  <CheckCircle className="h-4 w-4" />
-                  Selected {selectedIds.size} complaint{selectedIds.size > 1 ? 's' : ''}
+      {/* ═══ QUICK STATUS BAR ═══ */}
+      {!loading && pagination.total > 0 && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <div className="grid grid-cols-4 gap-3">
+            <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/30 card-hover">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center"><FileText className="h-3.5 w-3.5 text-blue-600" /></div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Total</p>
+                  <p className="text-lg font-black text-blue-700 dark:text-blue-400">{pagination.total}</p>
                 </div>
-                <div className="flex items-center gap-2 flex-1 flex-wrap">
-                  <Button size="sm" disabled={!bulkStatus || bulkLoading} onClick={handleBulkStatus} className="text-xs h-8 gap-1 text-white" style={{ backgroundColor: NAVY }}>
-                    {bulkLoading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                    Apply
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => { setBulkStatus('IN_PROGRESS'); }} className="text-xs h-8 gap-1">
-                    <PlayCircle className="h-3 w-3" />In Progress
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => { setBulkStatus('RESOLVED'); }} className="text-xs h-8 gap-1">
-                    <CircleCheckBig className="h-3 w-3" />Resolve
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => exportCSV(complaints.filter((c) => selectedIds.has(c.id)))} className="text-xs h-8 gap-1">
-                    <Download className="h-3 w-3" />Export Selected
-                  </Button>
-                  <Button variant="ghost" size="sm" className="text-xs h-8" onClick={() => setSelectedIds(new Set())}>
-                    <X className="h-3 w-3 mr-0.5" />Deselect All
-                  </Button>
+              </div>
+            </div>
+            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-800/30 card-hover">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-red-100 dark:bg-red-900/50 flex items-center justify-center"><CircleDot className="h-3.5 w-3.5 text-red-600" /></div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Open</p>
+                  <p className="text-lg font-black text-red-700 dark:text-red-400">{complaints.filter(c => c.status === 'OPEN').length}</p>
                 </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </div>
+            </div>
+            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30 card-hover">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center"><Clock className="h-3.5 w-3.5 text-amber-600" /></div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">In Progress</p>
+                  <p className="text-lg font-black text-amber-700 dark:text-amber-400">{complaints.filter(c => c.status === 'IN_PROGRESS').length}</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30 card-hover">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center"><CheckCircle className="h-3.5 w-3.5 text-emerald-600" /></div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Resolved</p>
+                  <p className="text-lg font-black text-emerald-700 dark:text-emerald-400">{complaints.filter(c => c.status === 'RESOLVED').length}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
-      {/* Search + Filters */}
+      {/* ═══ BULK ACTIONS TOOLBAR ═══ */}
       <Card className="border-0 shadow-sm">
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-3">
@@ -2289,6 +2300,72 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
           )}
         </CardContent>
       </Card>
+
+      {/* ═══ BULK ACTIONS TOOLBAR ═══ */}
+      <AnimatePresence>
+        {selectedIds.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: -10, height: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Card className="border-0 shadow-lg overflow-hidden" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 100%)' }}>
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-white/15 flex items-center justify-center">
+                      <ClipboardList className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-white/90">{selectedIds.size} selected</p>
+                      <p className="text-[10px] text-white/50">Choose an action below</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Select value={bulkStatus} onValueChange={setBulkStatus}>
+                      <SelectTrigger className="h-8 w-[140px] text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue placeholder="Set Status..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                        <SelectItem value="RESOLVED">Resolved</SelectItem>
+                        <SelectItem value="OPEN">Reopen</SelectItem>
+                        <SelectItem value="REJECTED">Reject</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      disabled={!bulkStatus || bulkLoading}
+                      onClick={() => handleBulkStatus()}
+                      className="h-8 gap-1 text-xs bg-emerald-500 hover:bg-emerald-600 text-white"
+                    >
+                      {bulkLoading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                      Apply
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => exportCSV()}
+                      className="h-8 gap-1 text-xs text-white/80 hover:text-white hover:bg-white/10"
+                    >
+                      <Download className="h-3 w-3" /> Export
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedIds(new Set())}
+                      className="h-8 gap-1 text-xs text-white/80 hover:text-white hover:bg-white/10"
+                    >
+                      <X className="h-3 w-3" /> Clear
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Table (Desktop) */}
       {!loading && complaints.length === 0 ? (
@@ -3871,6 +3948,9 @@ export default function HomePage() {
   // Keyboard shortcut dialog
   const [shortcutOpen, setShortcutOpen] = useState(false);
 
+  // Notification Center
+  const [notifCenterOpen, setNotifCenterOpen] = useState(false);
+
   // Dashboard refresh
   const dashboardRef = useRef<{ fetchDashboard: () => void } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -4086,6 +4166,9 @@ export default function HomePage() {
                     <DropdownMenuItem onClick={handleViewAllNotifications} className="text-xs font-semibold justify-center text-sky-600 dark:text-sky-400 cursor-pointer">
                       View All Open Complaints
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setNotificationOpen(false); setNotifCenterOpen(true); }} className="text-xs font-semibold justify-center text-foreground cursor-pointer">
+                      <Megaphone className="h-3 w-3.5 mr-1" /> Open Notification Center
+                    </DropdownMenuItem>
                   </>
                 ) : (
                   <div className="py-6 text-center text-xs text-muted-foreground">No critical notifications</div>
@@ -4265,6 +4348,93 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+
+      {/* ═══ NOTIFICATION CENTER ═══ */}
+      <Sheet open={notifCenterOpen} onOpenChange={setNotifCenterOpen}>
+        <SheetContent side="right" className="w-full sm:w-[420px] p-0 overflow-hidden">
+          <SheetHeader className="p-4 pb-3 border-b border-border/50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: NAVY }}>
+                  <Megaphone className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <SheetTitle className="text-sm font-bold">Notification Center</SheetTitle>
+                  <SheetDescription className="text-[11px]">Stay updated on complaint activities</SheetDescription>
+                </div>
+              </div>
+              {criticalCount > 0 && (
+                <Badge className="bg-red-500 text-white text-[10px] px-2 py-0.5 pulse-glow">{criticalCount}</Badge>
+              )}
+            </div>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            {/* Summary Stats */}
+            <div className="p-4 border-b border-border/30">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-800/30 text-center">
+                  <AlertCircle className="h-5 w-5 text-red-500 mx-auto mb-1" />
+                  <p className="text-lg font-black text-red-600">{notificationData.filter(c => c.urgency === 'CRITICAL').length}</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">Critical</p>
+                </div>
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30 text-center">
+                  <Clock className="h-5 w-5 text-amber-500 mx-auto mb-1" />
+                  <p className="text-lg font-black text-amber-600">{notificationData.filter(c => c.status === 'OPEN').length}</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">Open</p>
+                </div>
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30 text-center">
+                  <CheckCircleFill className="h-5 w-5 text-emerald-500 mx-auto mb-1" />
+                  <p className="text-lg font-black text-emerald-600">{notificationData.filter(c => c.status === 'RESOLVED').length}</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">Resolved</p>
+                </div>
+              </div>
+            </div>
+            {/* Notification List */}
+            <div className="p-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-2 py-2">Recent Activity</p>
+              {notificationData.length > 0 ? (
+                <div className="space-y-1">
+                  {notificationData.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => { setNotifCenterOpen(false); handleNotificationClick(c); }}
+                      className="w-full text-left p-3 rounded-xl hover:bg-muted/50 transition-colors group"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5" style={{
+                          backgroundColor: c.urgency === 'CRITICAL' ? '#FEE2E2' : c.urgency === 'HIGH' ? '#FFF7ED' : '#F0FDF4',
+                        }}>
+                          {c.urgency === 'CRITICAL' ? <AlertTriangle className="h-4 w-4 text-red-500" /> : <Info className="h-4 w-4 text-muted-foreground" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] font-mono font-bold text-muted-foreground">{c.ticketNo}</span>
+                            <StatusBadge status={c.status} />
+                            <UrgencyBadge urgency={c.urgency} />
+                          </div>
+                          <p className="text-xs font-medium text-foreground truncate mt-0.5">{c.issue}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">{c.citizenName || 'Anonymous'} &middot; {c.block}, {c.district}</p>
+                          <p className="text-[10px] text-muted-foreground/60 mt-0.5 flex items-center gap-1">
+                            <Clock className="h-3 w-3" />{fmtDateTime(c.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-12 text-center">
+                  <div className="h-14 w-14 rounded-full bg-muted mx-auto flex items-center justify-center mb-3">
+                    <Bell className="h-7 w-7 text-muted-foreground/40" />
+                  </div>
+                  <p className="text-sm font-medium text-muted-foreground">All caught up!</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">No new notifications</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* ═══ MOBILE BOTTOM NAVIGATION ═══ */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border/50 print:hidden">
