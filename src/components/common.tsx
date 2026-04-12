@@ -46,6 +46,8 @@ export function StatCard({ title, value, icon: Icon, color, bgColor, delay = 0, 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: delay / 1000 }}>
       <Card className="border-0 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-300 overflow-hidden group relative border-l-4" style={{ borderLeftColor: color, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
+        {/* Gradient accent bar at top */}
+        <div className="h-[3px] w-full" style={{ background: `linear-gradient(90deg, ${color}, ${color}88, transparent)` }} />
         <CardContent className="p-5 pl-6">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1.5 flex-1 min-w-0">
@@ -130,9 +132,15 @@ export function EmptyState({ message, icon: Icon, action, onAction }: { message:
   const Ic = Icon || FileText;
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="h-16 w-16 rounded-full flex items-center justify-center mb-4" style={{ background: 'linear-gradient(135deg, #E3F2FD, #F3E8FF, #FEF3C7)' }}>
-        <Ic className="h-8 w-8" style={{ color: NAVY }} />
-      </div>
+      <motion.div
+        animate={{ y: [0, -6, 0] }}
+        transition={{ duration: 3, ease: 'ease-in-out', repeat: Infinity }}
+        className="mb-4"
+      >
+        <div className="h-16 w-16 rounded-full flex items-center justify-center border-2 border-dashed border-muted-foreground/20" style={{ background: 'linear-gradient(135deg, #E3F2FD, #F3E8FF, #FEF3C7)' }}>
+          <Ic className="h-8 w-8" style={{ color: NAVY }} />
+        </div>
+      </motion.div>
       <p className="text-muted-foreground text-sm font-medium max-w-xs">{message}</p>
       {action && onAction && (
         <Button variant="outline" size="sm" className="mt-4 text-xs gap-1.5" onClick={onAction}>

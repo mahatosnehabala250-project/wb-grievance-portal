@@ -68,3 +68,13 @@ model Comment {
 
   @@index([complaintId])
 }
+
+model Feedback {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  message   String
+  category  String   @default("General")
+  rating    Int      @default(5)
+  createdAt DateTime @default(now())
+}

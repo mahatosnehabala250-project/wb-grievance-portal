@@ -68,6 +68,45 @@ export function SettingsView() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [compactView, setCompactView] = useState(false);
 
+  // Feedback form state
+  const [feedbackName, setFeedbackName] = useState('');
+  const [feedbackEmail, setFeedbackEmail] = useState('');
+  const [feedbackCategory, setFeedbackCategory] = useState('General');
+  const [feedbackRating, setFeedbackRating] = useState(5);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+
+  const handleFeedbackSubmit = useCallback(async () => {
+    if (!feedbackName.trim() || !feedbackMessage.trim()) return;
+    setFeedbackLoading(true);
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: feedbackName,
+          email: feedbackEmail,
+          message: feedbackMessage,
+          category: feedbackCategory,
+          rating: feedbackRating,
+        }),
+      });
+      if (res.ok) {
+        toast.success('Feedback submitted', { description: 'Thank you for helping us improve!' });
+        setFeedbackName('');
+        setFeedbackEmail('');
+        setFeedbackCategory('General');
+        setFeedbackRating(5);
+        setFeedbackMessage('');
+      } else {
+        toast.error('Failed to submit feedback', { description: 'Please try again later' });
+      }
+    } catch {
+      toast.error('Network error', { description: 'Please check your connection' });
+    }
+    setFeedbackLoading(false);
+  }, [feedbackName, feedbackEmail, feedbackCategory, feedbackRating, feedbackMessage]);
+
   // Initialize from localStorage after mount to avoid hydration mismatch
   useEffect(() => {
     setEmailNotifs(safeGetLocalStorage('wb_email_notifs') === 'true');
@@ -215,8 +254,108 @@ export function SettingsView() {
         </Card>
       </motion.div>
 
+      {/* ═══ Citizen Feedback Section ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" style={{ color: NAVY }} />
+              💬 Citizen Feedback
+            </CardTitle>
+            <CardDescription className="text-xs">Help us improve this portal with your suggestions</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="feedback-name" className="text-xs font-semibold">Name <span className="text-red-500">*</span></Label>
+              <Input
+                id="feedback-name"
+                placeholder="Your name"
+                value={feedbackName}
+                onChange={(e) => setFeedbackName(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="feedback-email" className="text-xs font-semibold">Email <span className="text-muted-foreground">(optional)</span></Label>
+              <Input
+                id="feedback-email"
+                type="email"
+                placeholder="your@email.com"
+                value={feedbackEmail}
+                onChange={(e) => setFeedbackEmail(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="feedback-category" className="text-xs font-semibold">Category</Label>
+              <Select value={feedbackCategory} onValueChange={setFeedbackCategory}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="General">General</SelectItem>
+                  <SelectItem value="Bug Report">Bug Report</SelectItem>
+                  <SelectItem value="Feature Request">Feature Request</SelectItem>
+                  <SelectItem value="Performance">Performance</SelectItem>
+                  <SelectItem value="UI/UX">UI/UX</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Rating</Label>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setFeedbackRating(star)}
+                    className="p-0.5 hover:scale-110 transition-transform"
+                  >
+                    <Star
+                      className={`h-6 w-6 transition-colors ${
+                        star <= feedbackRating
+                          ? 'text-amber-400 fill-amber-400'
+                          : 'text-muted-foreground/40'
+                      }`}
+                    />
+                  </button>
+                ))}
+                <span className="text-xs text-muted-foreground ml-2">{feedbackRating}/5</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="feedback-message" className="text-xs font-semibold">Feedback</Label>
+              <Textarea
+                id="feedback-message"
+                placeholder="Share your suggestions for improving this portal..."
+                value={feedbackMessage}
+                onChange={(e) => setFeedbackMessage(e.target.value)}
+                rows={4}
+                className="text-sm resize-y min-h-[80px]"
+              />
+            </div>
+            <Button
+              onClick={handleFeedbackSubmit}
+              disabled={feedbackLoading || !feedbackName.trim() || !feedbackMessage.trim()}
+              className="w-full gap-2 text-sm"
+              style={{ backgroundColor: NAVY, color: 'white' }}
+            >
+              {feedbackLoading ? (
+                <><RefreshCw className="h-4 w-4 animate-spin" /> Submitting...</>
+              ) : (
+                <><Send className="h-4 w-4" /> Submit Feedback</>
+              )}
+            </Button>
+            <p className="text-[11px] text-center text-muted-foreground">
+              Your feedback helps us improve this portal for all citizens of West Bengal.
+            </p>
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* ═══ About Section ═══ */}
-      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-bold flex items-center gap-2">

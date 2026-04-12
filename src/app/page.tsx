@@ -64,6 +64,7 @@ import { AnalyticsView } from '@/components/AnalyticsView';
 import { SettingsView } from '@/components/SettingsView';
 import { HydrationGate } from '@/components/HydrationGate';
 import { CommandPalette, KeyboardShortcutsDialog, KeyboardShortcutHandler } from '@/components/CommandPalette';
+import { AnnouncementBanner } from '@/components/AnnouncementBanner';
 export default function HomePage() {
   const { user, isAuthenticated, logout, checkAuth } = useAuthStore();
   const { theme, setTheme } = useTheme();
@@ -450,6 +451,12 @@ export default function HomePage() {
           </div>
         </div>
       </header>
+
+      {/* ═══ ANNOUNCEMENT BANNER ═══ */}
+      <AnnouncementBanner
+        message="Portal maintenance scheduled for June 15, 2025 (Saturday) from 2:00 AM to 6:00 AM IST. Please save your work before then."
+        type="warning"
+      />
 
       {/* ═══ LAYOUT ═══ */}
       <div className="flex flex-1">

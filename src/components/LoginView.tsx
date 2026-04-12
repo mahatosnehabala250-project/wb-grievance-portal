@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Shield, RefreshCw, X, AlertTriangle } from 'lucide-react';
+import { Shield, RefreshCw, X, AlertTriangle, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +31,13 @@ export function LoginView() {
 
   const handleForgotPassword = useCallback(() => {
     toast.info('Forgot Password', { description: 'Please contact your system administrator to reset your password.' });
+  }, []);
+
+  const handleTermsOfService = useCallback(() => {
+    toast.info('Terms of Service', {
+      description: 'By using this portal, you agree to the Government of West Bengal e-Governance terms of service, data usage policy, and acceptable use guidelines.',
+      duration: 8000,
+    });
   }, []);
 
   return (
@@ -83,6 +90,16 @@ export function LoginView() {
       <div className="w-full max-w-md relative z-10">
         {/* Government branding header */}
         <div className="text-center mb-8">
+          {/* Ashoka Chakra-like Emblem */}
+          <div className="flex justify-center mb-2">
+            <div className="relative h-8 w-8">
+              <div className="absolute inset-0 rounded-full border-2 border-white/60 animate-[spin_20s_linear_infinite]" />
+              <div className="absolute inset-1.5 rounded-full border border-white/40" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="h-2 w-2 rounded-full bg-white/80" />
+              </div>
+            </div>
+          </div>
           <motion.div
             className="inline-flex items-center justify-center h-20 w-20 rounded-2xl bg-white/15 backdrop-blur-sm shadow-lg mb-4 border border-white/20"
             animate={{ y: [0, -8, 0] }}
@@ -95,6 +112,9 @@ export function LoginView() {
           </h1>
           <p className="text-blue-200/80 text-sm mt-1.5 font-medium">
             AI Public Support System
+          </p>
+          <p className="text-blue-300/40 text-xs mt-0.5 font-medium tracking-wider">
+            e-Governance Initiative
           </p>
           <p className="text-blue-300/50 text-base mt-1 font-medium tracking-wide">
             পশ্চিমবঙ্গ সরকার
@@ -169,7 +189,7 @@ export function LoginView() {
                 )}
               </Button>
               {/* Forgot Password link */}
-              <div className="text-center pt-1">
+              <div className="text-center pt-1 space-y-1.5">
                 <button
                   type="button"
                   onClick={handleForgotPassword}
@@ -177,6 +197,16 @@ export function LoginView() {
                 >
                   Forgot Password?
                 </button>
+                <div>
+                  <button
+                    type="button"
+                    onClick={handleTermsOfService}
+                    className="text-xs text-muted-foreground/60 hover:text-foreground/80 underline underline-offset-2 transition-colors flex items-center justify-center gap-1 mx-auto"
+                  >
+                    <FileText className="h-3 w-3" />
+                    Terms of Service
+                  </button>
+                </div>
               </div>
             </form>
 

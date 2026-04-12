@@ -284,6 +284,18 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
     toast.success('Export complete', { description: `${data.length} complaints exported` });
   }, [complaints]);
 
+  // Server-side CSV export via /api/export API
+  const handleServerExport = useCallback(() => {
+    const params = new URLSearchParams();
+    params.set('format', 'csv');
+    if (filterStatus) params.set('status', filterStatus);
+    const token = safeGetLocalStorage('wb_token');
+    if (token) params.set('token', token);
+    const url = `/api/export?${params.toString()}`;
+    window.open(url, '_blank');
+    toast.success('Export started', { description: 'Your CSV file is being downloaded' });
+  }, [filterStatus]);
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -299,7 +311,7 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
           <Button size="sm" onClick={() => setNewComplaintOpen(true)} className="text-xs gap-1 text-white" style={{ backgroundColor: NAVY }}>
             <Plus className="h-3.5 w-3.5" /> New Complaint
           </Button>
-          <Button variant="outline" size="sm" onClick={() => exportCSV()} className="text-xs gap-1">
+          <Button variant="outline" size="sm" onClick={handleServerExport} className="text-xs gap-1">
             <Download className="h-3.5 w-3.5" /> Export CSV
           </Button>
         </div>
