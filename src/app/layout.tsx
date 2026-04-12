@@ -15,21 +15,31 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "WB Grievance Portal — GovTech Dashboard",
-  description: "West Bengal District Administration Grievance Management Dashboard. Monitor and manage citizen complaints across all blocks.",
-  keywords: ["West Bengal", "GovTech", "Grievance Portal", "Complaints", "Dashboard", "Government"],
+  description:
+    "West Bengal District Administration Grievance Management Dashboard. Monitor and manage citizen complaints across all blocks.",
+  keywords: [
+    "West Bengal",
+    "GovTech",
+    "Grievance Portal",
+    "Complaints",
+    "Dashboard",
+    "Government",
+  ],
   authors: [{ name: "District Administration, West Bengal" }],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },
   openGraph: {
     title: "WB Grievance Portal — GovTech Dashboard",
-    description: "West Bengal District Administration Grievance Management Dashboard",
+    description:
+      "West Bengal District Administration Grievance Management Dashboard",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "WB Grievance Portal — GovTech Dashboard",
-    description: "West Bengal District Administration Grievance Management Dashboard",
+    description:
+      "West Bengal District Administration Grievance Management Dashboard",
   },
 };
 
