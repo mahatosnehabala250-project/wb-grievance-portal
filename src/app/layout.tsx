@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { ThemeProvider } from "next-themes";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,43 +19,22 @@ export const metadata: Metadata = {
   description:
     "West Bengal District Administration Grievance Management Dashboard. Monitor and manage citizen complaints across all blocks.",
   keywords: [
-    "West Bengal",
-    "GovTech",
-    "Grievance Portal",
-    "Complaints",
-    "Dashboard",
-    "Government",
+    "West Bengal", "GovTech", "Grievance Portal", "Complaints", "Dashboard", "Government",
   ],
   authors: [{ name: "District Administration, West Bengal" }],
-  icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
-  },
-  openGraph: {
-    title: "WB Grievance Portal — GovTech Dashboard",
-    description:
-      "West Bengal District Administration Grievance Management Dashboard",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "WB Grievance Portal — GovTech Dashboard",
-    description:
-      "West Bengal District Administration Grievance Management Dashboard",
-  },
+  icons: { icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg" },
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
-      >
-        {children}
-        <Toaster />
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+          {children}
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );
