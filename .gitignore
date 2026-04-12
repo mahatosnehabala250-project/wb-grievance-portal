@@ -79,3 +79,6 @@ Caddyfile
 # Worklog (development notes)
 worklog.md
 worklog.md.bak
+
+# Supabase SQL scripts (contain sensitive info)
+supabase-*.sql
