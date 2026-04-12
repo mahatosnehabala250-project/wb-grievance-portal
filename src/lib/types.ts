@@ -67,7 +67,7 @@ export interface DashboardData {
   userLocation: string;
 }
 
-export type ViewType = 'dashboard' | 'complaints' | 'users' | 'analytics' | 'settings' | 'audit' | 'systemStatus';
+export type ViewType = 'dashboard' | 'complaints' | 'users' | 'analytics' | 'settings' | 'audit' | 'systemStatus' | 'integrations' | 'deployment';
 
 export interface AuditEntry {
   id: string; complaintId: string; ticketNo: string; action: string;

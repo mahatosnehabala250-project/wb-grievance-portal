@@ -14,7 +14,7 @@ import {
   Settings, CircleHelp, Monitor, Mail, Volume2, LayoutGrid, Keyboard,
   UserCheck, GitCompareArrows, CalendarClock, History, Tag, ClipboardList,
   AlertCircle, Info, CheckCircle2 as CheckCircleFill, Sparkles, Megaphone,
-  ArrowUp, Flame, CalendarRange, TimerReset,
+  ArrowUp, Flame, CalendarRange, TimerReset, Server,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -69,6 +69,8 @@ import { AnnouncementBanner } from '@/components/AnnouncementBanner';
 import { TicketTrackerDialog } from '@/components/TicketTrackerDialog';
 import { AuditLogView } from '@/components/AuditLogView';
 import { PublicStatusPage } from '@/components/PublicStatusPage';
+import IntegrationsView from '@/components/IntegrationsView';
+import DeploymentGuideView from '@/components/DeploymentGuideView';
 export default function HomePage() {
   const { user, isAuthenticated, logout, checkAuth } = useAuthStore();
   const { theme, setTheme } = useTheme();
@@ -244,7 +246,9 @@ export default function HomePage() {
     { id: 'complaints' as ViewType, label: t('complaints'), icon: FileText },
     { id: 'analytics' as ViewType, label: t('analytics'), icon: BarChart2 },
     ...(user?.role === 'ADMIN' ? [{ id: 'systemStatus' as ViewType, label: t('systemStatus'), icon: Activity }] : []),
+    ...(user?.role === 'ADMIN' ? [{ id: 'integrations' as ViewType, label: 'Integrations', icon: Zap }] : []),
     ...(user?.role === 'ADMIN' ? [{ id: 'audit' as ViewType, label: t('auditLog'), icon: History }] : []),
+    ...(user?.role === 'ADMIN' ? [{ id: 'deployment' as ViewType, label: 'Deployment', icon: Server }] : []),
     ...(user?.role === 'ADMIN' ? [{ id: 'users' as ViewType, label: t('users'), icon: Users }] : []),
     { id: 'settings' as ViewType, label: t('settings'), icon: Settings },
   ];
@@ -591,6 +595,12 @@ export default function HomePage() {
                 )}
                 {view === 'settings' && (
                   <SettingsView />
+                )}
+                {view === 'integrations' && (
+                  <IntegrationsView />
+                )}
+                {view === 'deployment' && (
+                  <DeploymentGuideView />
                 )}
               </motion.div>
             </AnimatePresence>

@@ -890,3 +890,145 @@ Stage Summary:
 6. Add bulk complaint import (from CSV/Excel)
 7. Add scheduled performance report generation (PDF reports)
 8. Add mobile PWA support (service worker, offline mode, install prompt)
+---
+Task ID: 2
+Agent: Integrations Agent
+Task: Create IntegrationsView.tsx component
+
+Work Log:
+- Created `/home/z/my-project/src/components/IntegrationsView.tsx` (~1280 lines)
+- Comprehensive Integrations Hub page with 4 tabbed sections:
+  1. **n8n Integration Tab**:
+     - CSS-based architecture flow diagram (WhatsApp/Phone → n8n → Portal API → Database → Dashboard)
+     - How n8n works explanation (4-step process cards)
+     - Webhook URL display with copy-to-clipboard
+     - Connection status indicator (emerald/red/amber dots)
+     - Required JSON payload format with syntax-highlighted code block
+     - Example response with code block
+     - Webhook Test Panel: admin-only button to POST mock data to /api/integrations/test-webhook, shows response in styled code block
+     - Complete n8n Workflow JSON template (5 nodes: WhatsApp Trigger → Format Data → HTTP POST → Build Reply → WhatsApp Reply)
+  2. **Airtable Integration Tab**:
+     - Why Airtable explanation (3 benefit cards: Reporting, Cross-Dept, Sync)
+     - Complete field mapping table (12 fields with portal field, Airtable field, and type)
+     - Sync Configuration Panel:
+       - Personal Access Token input (password field with show/hide toggle, stored in localStorage)
+       - Base ID input (stored in localStorage)
+       - Table Name input (default: "Complaints", stored in localStorage)
+       - Test Connection button → POST /api/integrations/airtable-test
+       - Sync Data button → POST /api/integrations/airtable-sync (disabled until connected)
+       - Last sync timestamp display
+     - Step-by-step Airtable base creation guide (8 detailed steps)
+     - Link to Airtable API documentation
+  3. **API Documentation Tab**:
+     - Authentication info (JWT Bearer + Cookie-based)
+     - Public vs protected endpoints explanation
+     - Role-based access control explanation
+     - Full API endpoints table (14 endpoints) with method badges, paths, descriptions, auth requirements
+     - Sticky table header with scroll
+     - Complete cURL example for webhook endpoint
+     - Example success and error responses
+  4. **Quick Setup Guide Tab**:
+     - 3-step card flow with timeline connector:
+       - Step 1: Set up n8n (7 checklist items, ~15 min)
+       - Step 2: Set up Airtable (7 checklist items, ~10 min)
+       - Step 3: Connect everything (6 checklist items, ~5 min)
+     - External documentation links
+     - Success banner at bottom
+- Styling features:
+  - Navy gradient page header with pattern overlay
+  - Status indicator pills in header
+  - Framer Motion staggered entrance animations
+  - Dark background code blocks with emerald text
+  - Copy-to-clipboard functionality with check mark feedback
+  - Colored status dots (emerald/red/amber/gray) with ping animation for connected
+  - Admin-only controls (webhook test, Airtable config) with read-only fallback for other roles
+  - Responsive design (mobile-friendly tabs, tables, flow diagram)
+  - Uses NAVY constant from @/lib/constants for branded elements
+  - Uses authHeaders() from @/lib/helpers for authenticated API requests
+  - Uses useAuthStore from @/lib/auth-store for role check
+
+Stage Summary:
+- Component created at /home/z/my-project/src/components/IntegrationsView.tsx
+- TypeScript: 0 errors
+- ESLint: 0 errors
+- Default export named IntegrationsView
+- 'use client' component ready to be imported into page.tsx
+- Dev server confirmed running (GET /api/health 200)
+
+---
+Task ID: 12
+Agent: Main Agent
+Task: Add n8n + Airtable Integration Hub, Production Deployment Guide, and supporting APIs
+
+Work Log:
+- **User Request**: "How will n8n and Airtable work with this system? What's needed for production deployment?"
+- **Solution**: Built comprehensive Integrations view, Deployment Guide, and backend APIs
+
+**New Frontend Components:**
+1. IntegrationsView.tsx (1,283 lines) — Full integration hub with 4 tabs:
+   - n8n Workflow Tab: CSS architecture flow diagram (WhatsApp → n8n → Portal API → DB → Dashboard), webhook URL display with copy button, connection status indicator, JSON payload format, Webhook Test Panel (admin-only), complete n8n workflow JSON template for import
+   - Airtable Tab: Field mapping table (12 fields), sync configuration panel with localStorage persistence, Test Connection & Sync Data buttons, 8-step Airtable base creation guide
+   - API Docs Tab: 14-endpoint reference table with method badges, cURL examples for webhook endpoint
+   - Quick Setup Tab: 3-step timeline with checklists and time estimates
+   - Role-aware: ADMIN gets full access, other roles see read-only guide
+
+2. DeploymentGuideView.tsx (962 lines) — Production deployment guide with 7 sections:
+   - Production Readiness Checklist (12 items with color-coded status)
+   - Infrastructure Requirements (8-card grid: Server, Database, Runtime, Web Server, n8n, Domain, CDN, Storage)
+   - Environment Variables Reference (complete .env.production template with all required vars)
+   - Deployment Methods (3 tabs: Docker Compose, Vercel+Supabase, Traditional VPS with full configs)
+   - n8n Setup Guide (9 numbered step cards with Docker install commands)
+   - Security Hardening Checklist (10 items: rate limiting, CORS, CSP, Helmet.js, etc.)
+   - Monitoring & Maintenance (7 items: health checks, Grafana, Sentry, backups, SSL auto-renewal)
+
+**New API Endpoints:**
+3. POST /api/integrations/test-webhook — Creates mock complaint to verify webhook integration
+4. POST /api/integrations/airtable-test — Tests Airtable API connectivity with provided credentials
+5. POST /api/integrations/airtable-sync — Syncs all local complaints to Airtable (batches of 10)
+6. GET /api/integrations/deployment-check — Returns production readiness report (5 checks)
+
+**Navigation Updates:**
+- Added 'integrations' and 'deployment' to ViewType union type
+- Added "Integrations" nav item with Zap icon (ADMIN only)
+- Added "Deployment" nav item with Server icon (ADMIN only)
+- Added Server icon import to page.tsx
+
+**Code Quality:**
+- TypeScript: 0 errors
+- ESLint: 0 errors
+- Dev server: GET / 200 (compiles successfully)
+- POST /api/auth/login: 200 (auth working)
+
+Stage Summary:
+- 2 new frontend components: IntegrationsView (1,283 lines), DeploymentGuideView (962 lines)
+- 4 new API endpoints for integrations and deployment
+- Updated ViewType to include 'integrations' | 'deployment'
+- Updated navigation with 2 new admin-only sidebar items
+- All existing functionality preserved
+- Files created: src/components/IntegrationsView.tsx, src/components/DeploymentGuideView.tsx, src/app/api/integrations/test-webhook/route.ts, src/app/api/integrations/airtable-test/route.ts, src/app/api/integrations/airtable-sync/route.ts, src/app/api/integrations/deployment-check/route.ts
+- Files modified: src/lib/types.ts, src/app/page.tsx
+
+## Current Project Status
+- Application: Next.js 16 + Turbopack on port 3000, Caddy proxy on port 81
+- Database: SQLite with 12 users, 174 complaints
+- Auth: JWT-based with bcrypt password hashing, 4 roles (ADMIN, STATE, DISTRICT, BLOCK)
+- Frontend: Modular components with 9 views: Login, Dashboard, Complaints, Users, Analytics, Settings, Integrations, Deployment, Audit, System Status
+- Features: Keyboard shortcuts, print/export, mobile bottom nav, theme toggle, notifications, command palette, assigned tasks, internal notes, SLA monitoring, escalation, date range filter, auto-refresh, session timeout, i18n (EN/BN), ticket tracker, feedback, announcement banner, performance leaderboard, n8n integration hub, Airtable sync, deployment guide
+- API endpoints: 18 endpoints including auth, dashboard, complaints, search, users, audit, feedback, health, webhook, integrations
+- Test credentials: admin/admin123, state_wb/state123, district_nadia/nadia123, block_krishnanagar/krish123
+- Version: 2.6.0
+
+## Known Issues / Risks
+- Sandbox kills Next.js process when external browser connects (agent-browser limitation, not code bug)
+- Server needs restart after idle periods in sandbox
+- SQLite is for development only — PostgreSQL required for production
+
+## Priority Recommendations for Next Phase
+1. Deploy to production with PostgreSQL database
+2. Set up self-hosted n8n instance with WhatsApp Business API
+3. Create Airtable base and test full data sync pipeline
+4. Add real-time WebSocket notifications for new complaints (mini-service)
+5. Add citizen notification system (SMS/email via Twilio/WhatsApp webhook)
+6. Add multi-language support (full Bengali translation)
+7. Add map visualization for complaint distribution across blocks/districts
+8. Implement proper CI/CD pipeline (GitHub Actions)
