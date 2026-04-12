@@ -14,6 +14,7 @@ interface AuthState {
   token: string | null;
   isLoading: boolean;
   error: string | null;
+  isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   checkAuth: () => Promise<void>;
@@ -25,6 +26,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   isLoading: false,
   error: null,
+  isAuthenticated: false,
 
   login: async (username: string, password: string) => {
     set({ isLoading: true, error: null });
@@ -45,6 +47,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({
         user: data.user,
         token: data.token,
+        isAuthenticated: true,
         isLoading: false,
       });
 
@@ -63,7 +66,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     fetch('/api/auth/me', { method: 'POST' }).catch(() => {});
-    set({ user: null, token: null, error: null });
+    set({ user: null, token: null, error: null, isAuthenticated: false });
     if (typeof window !== 'undefined') {
       localStorage.removeItem('wb_token');
       localStorage.removeItem('wb_user');
@@ -77,7 +80,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const savedUser = localStorage.getItem('wb_user');
 
       if (savedToken && savedUser) {
-        set({ token: savedToken, user: JSON.parse(savedUser) });
+        set({ token: savedToken, user: JSON.parse(savedUser), isAuthenticated: true });
       }
     }
 
@@ -86,9 +89,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       const res = await fetch('/api/auth/me');
       if (res.ok) {
         const data = await res.json();
-        set({ user: data.user, token: 'authenticated', isLoading: false });
+        set({ user: data.user, token: 'authenticated', isAuthenticated: true, isLoading: false });
       } else {
-        set({ user: null, token: null, isLoading: false });
+        set({ user: null, token: null, isAuthenticated: false, isLoading: false });
         if (typeof window !== 'undefined') {
           localStorage.removeItem('wb_token');
           localStorage.removeItem('wb_user');
