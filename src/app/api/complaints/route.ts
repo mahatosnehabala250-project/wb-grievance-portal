@@ -4,6 +4,7 @@ import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
 
 // GET /api/complaints — list complaints (filtered by role)
 export async function GET(request: NextRequest) {
+  try {
   const token = getTokenFromRequest(request);
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -91,6 +92,10 @@ export async function GET(request: NextRequest) {
       totalPages: Math.ceil(total / limit),
     },
   });
+  } catch (error) {
+    console.error('Complaints list error:', error);
+    return NextResponse.json({ error: 'Failed to load complaints' }, { status: 500 });
+  }
 }
 
 // POST /api/complaints — create manual complaint
