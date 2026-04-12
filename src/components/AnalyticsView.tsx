@@ -162,6 +162,50 @@ export function AnalyticsView() {
     rate: { label: 'Resolution Rate %', color: '#16A34A' },
   };
 
+  // ── Response Time Distribution ──
+  const responseTimeBuckets = [
+    { label: '< 1 day', min: 0, max: 1, color: '#16A34A' },
+    { label: '1-3 days', min: 1, max: 3, color: '#65A30D' },
+    { label: '3-7 days', min: 3, max: 7, color: '#D97706' },
+    { label: '7-14 days', min: 7, max: 14, color: '#EA580C' },
+    { label: '> 14 days', min: 14, max: Infinity, color: '#DC2626' },
+  ];
+  const responseTimeData = responseTimeBuckets.map(bucket => {
+    const count = resolvedComplaints.filter(c => {
+      const days = (new Date(c.updatedAt).getTime() - new Date(c.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+      return days >= bucket.min && days < bucket.max;
+    }).length;
+    const pct = resolvedComplaints.length > 0 ? Math.round((count / resolvedComplaints.length) * 100) : 0;
+    return { ...bucket, count, pct };
+  });
+  const maxRtCount = Math.max(...responseTimeData.map(b => b.count), 1);
+
+  // ── Monthly Comparison ──
+  const now = new Date();
+  const thisMonthIdx = now.getMonth();
+  const thisYear = now.getFullYear();
+  const lastMonthIdx = thisMonthIdx === 0 ? 11 : thisMonthIdx - 1;
+  const lastMonthYear = thisMonthIdx === 0 ? thisYear - 1 : thisYear;
+  const thisMonthComplaints = complaints.filter(c => { const d = new Date(c.createdAt); return d.getMonth() === thisMonthIdx && d.getFullYear() === thisYear; });
+  const lastMonthComplaints = complaints.filter(c => { const d = new Date(c.createdAt); return d.getMonth() === lastMonthIdx && d.getFullYear() === lastMonthYear; });
+  const thisMonthTotal = thisMonthComplaints.length;
+  const lastMonthTotal = lastMonthComplaints.length;
+  const thisMonthResolved = thisMonthComplaints.filter(c => c.status === 'RESOLVED').length;
+  const lastMonthResolved = lastMonthComplaints.filter(c => c.status === 'RESOLVED').length;
+  const thisMonthResRate = thisMonthTotal > 0 ? Math.round((thisMonthResolved / thisMonthTotal) * 100) : 0;
+  const lastMonthResRate = lastMonthTotal > 0 ? Math.round((lastMonthResolved / lastMonthTotal) * 100) : 0;
+  const thisMonthResolvedList = thisMonthComplaints.filter(c => c.status === 'RESOLVED' && c.updatedAt);
+  const lastMonthResolvedList = lastMonthComplaints.filter(c => c.status === 'RESOLVED' && c.updatedAt);
+  const avgTimeThisMonth = thisMonthResolvedList.length > 0 ? Math.round(thisMonthResolvedList.reduce((s, c) => s + (new Date(c.updatedAt).getTime() - new Date(c.createdAt).getTime()), 0) / thisMonthResolvedList.length / (1000 * 60 * 60 * 24) * 10) / 10 : 0;
+  const avgTimeLastMonth = lastMonthResolvedList.length > 0 ? Math.round(lastMonthResolvedList.reduce((s, c) => s + (new Date(c.updatedAt).getTime() - new Date(c.createdAt).getTime()), 0) / lastMonthResolvedList.length / (1000 * 60 * 60 * 24) * 10) / 10 : 0;
+
+  // ── Performance Scorecard ──
+  const resolutionRate = stats.total > 0 ? Math.round((stats.resolved / stats.total) * 100) : 0;
+  const responseTimeScore = avgResolutionDays > 0 ? Math.max(0, Math.min(100, Math.round((14 - Math.min(avgResolutionDays, 14)) / 14 * 100))) : 0;
+  const performanceScore = Math.round(resolutionRate * 0.4 + slaCompliance * 0.3 + responseTimeScore * 0.3);
+  const scoreColor = performanceScore >= 70 ? '#16A34A' : performanceScore >= 40 ? '#D97706' : '#DC2626';
+  const scoreRingOffset = 251.33 - (251.33 * performanceScore / 100);
+
   return (
     <div className="space-y-5">
       {/* Tab Bar */}
@@ -492,6 +536,200 @@ export function AnalyticsView() {
           </Card>
         </motion.div>
       </div>
+
+      {/* ═══ PERFORMANCE SCORECARD ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}>
+        <Card className="border-0 shadow-sm overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <Gauge className="h-4 w-4" style={{ color: NAVY }} />
+              System Performance Scorecard
+            </CardTitle>
+            <CardDescription className="text-xs">Overall system health based on key metrics</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center py-4">
+              <div className="relative">
+                <svg width="140" height="140" viewBox="0 0 140 140">
+                  <circle cx="70" cy="70" r="60" fill="none" stroke="currentColor" strokeWidth="10" className="text-muted/20" />
+                  <motion.circle
+                    cx="70" cy="70" r="60" fill="none"
+                    stroke={scoreColor}
+                    strokeWidth="10"
+                    strokeLinecap="round"
+                    strokeDasharray="251.33"
+                    initial={{ strokeDashoffset: 251.33 }}
+                    animate={{ strokeDashoffset: scoreRingOffset }}
+                    transition={{ duration: 1.5, ease: 'easeOut' }}
+                    transform="rotate(-90 70 70)"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-3xl font-black" style={{ color: scoreColor }}>{performanceScore}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">/ 100</span>
+                </div>
+              </div>
+              <p className="text-xs font-semibold mt-3" style={{ color: scoreColor }}>
+                {performanceScore >= 70 ? 'Excellent Performance' : performanceScore >= 40 ? 'Needs Improvement' : 'Critical Attention Required'}
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-4 mt-2">
+              <div className="text-center p-3 rounded-xl bg-muted/50 border border-border/50">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Resolution Rate</p>
+                <p className="text-lg font-black text-foreground mt-1">{resolutionRate}%</p>
+                <p className="text-[10px] text-muted-foreground">Weight: 40%</p>
+              </div>
+              <div className="text-center p-3 rounded-xl bg-muted/50 border border-border/50">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">SLA Compliance</p>
+                <p className="text-lg font-black text-foreground mt-1">{slaCompliance}%</p>
+                <p className="text-[10px] text-muted-foreground">Weight: 30%</p>
+              </div>
+              <div className="text-center p-3 rounded-xl bg-muted/50 border border-border/50">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Response Speed</p>
+                <p className="text-lg font-black text-foreground mt-1">{responseTimeScore}%</p>
+                <p className="text-[10px] text-muted-foreground">Weight: 30%</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ═══ RESPONSE TIME DISTRIBUTION ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }}>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <TimerReset className="h-4 w-4" style={{ color: NAVY }} />
+              Response Time Distribution
+            </CardTitle>
+            <CardDescription className="text-xs">How quickly complaints are being resolved ({resolvedComplaints.length} resolved)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {responseTimeData.map((bucket, idx) => (
+                <div key={bucket.label}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-foreground">{bucket.label}</span>
+                    <span className="text-xs tabular-nums text-muted-foreground">{bucket.count} ({bucket.pct}%)</span>
+                  </div>
+                  <div className="h-6 rounded-full bg-muted/50 overflow-hidden">
+                    <motion.div
+                      className="h-full rounded-full"
+                      style={{ backgroundColor: bucket.color }}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${maxRtCount > 0 ? (bucket.count / maxRtCount) * 100 : 0}%` }}
+                      transition={{ duration: 0.6, delay: idx * 0.08 }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ═══ MONTHLY COMPARISON ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.0 }}>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <GitCompareArrows className="h-4 w-4" style={{ color: NAVY }} />
+              Monthly Comparison
+            </CardTitle>
+            <CardDescription className="text-xs">This month vs last month performance</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Total Complaints */}
+              <div className="p-4 rounded-xl border border-border/50 bg-muted/30">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Total Complaints</p>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-2xl font-black text-foreground">{thisMonthTotal}</p>
+                    <p className="text-[10px] text-muted-foreground">this month</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-muted-foreground">{lastMonthTotal}</p>
+                    <p className="text-[10px] text-muted-foreground">last month</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 mt-2">
+                  {thisMonthTotal > lastMonthTotal ? (
+                    <span className="flex items-center text-xs font-bold text-red-600 dark:text-red-400">
+                      <ArrowUpRight className="h-3 w-3" />+{thisMonthTotal - lastMonthTotal}
+                    </span>
+                  ) : thisMonthTotal < lastMonthTotal ? (
+                    <span className="flex items-center text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      <ArrowDownRight className="h-3 w-3" />{thisMonthTotal - lastMonthTotal}
+                    </span>
+                  ) : (
+                    <span className="text-xs font-bold text-muted-foreground">No change</span>
+                  )}
+                  <span className="text-[10px] text-muted-foreground">vs last month</span>
+                </div>
+              </div>
+
+              {/* Resolution Rate */}
+              <div className="p-4 rounded-xl border border-border/50 bg-muted/30">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Resolution Rate</p>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-2xl font-black text-foreground">{thisMonthResRate}%</p>
+                    <p className="text-[10px] text-muted-foreground">this month</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-muted-foreground">{lastMonthResRate}%</p>
+                    <p className="text-[10px] text-muted-foreground">last month</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 mt-2">
+                  {thisMonthResRate > lastMonthResRate ? (
+                    <span className="flex items-center text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      <ArrowUpRight className="h-3 w-3" />+{thisMonthResRate - lastMonthResRate}pp
+                    </span>
+                  ) : thisMonthResRate < lastMonthResRate ? (
+                    <span className="flex items-center text-xs font-bold text-red-600 dark:text-red-400">
+                      <ArrowDownRight className="h-3 w-3" />{thisMonthResRate - lastMonthResRate}pp
+                    </span>
+                  ) : (
+                    <span className="text-xs font-bold text-muted-foreground">No change</span>
+                  )}
+                  <span className="text-[10px] text-muted-foreground">vs last month</span>
+                </div>
+              </div>
+
+              {/* Avg Response Time */}
+              <div className="p-4 rounded-xl border border-border/50 bg-muted/30">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Avg Response Time</p>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-2xl font-black text-foreground">{avgTimeThisMonth}<span className="text-sm font-medium text-muted-foreground ml-0.5">d</span></p>
+                    <p className="text-[10px] text-muted-foreground">this month</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-muted-foreground">{avgTimeLastMonth}d</p>
+                    <p className="text-[10px] text-muted-foreground">last month</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 mt-2">
+                  {avgTimeLastMonth > 0 && avgTimeThisMonth < avgTimeLastMonth ? (
+                    <span className="flex items-center text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      <ArrowDownRight className="h-3 w-3" />Faster
+                    </span>
+                  ) : avgTimeLastMonth > 0 && avgTimeThisMonth > avgTimeLastMonth ? (
+                    <span className="flex items-center text-xs font-bold text-red-600 dark:text-red-400">
+                      <ArrowUpRight className="h-3 w-3" />Slower
+                    </span>
+                  ) : (
+                    <span className="text-xs font-bold text-muted-foreground">No change</span>
+                  )}
+                  <span className="text-[10px] text-muted-foreground">vs last month</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
         </>
       )}
     </div>

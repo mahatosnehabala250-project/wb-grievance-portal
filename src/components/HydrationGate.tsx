@@ -101,7 +101,7 @@ export function HydrationGate({ children }: { children: React.ReactNode }) {
                 </span>
               ))}
             </div>
-            <p className="text-[10px] text-white/40 mt-1">v2.3.0</p>
+            <p className="text-[10px] text-white/40 mt-1">v2.5.0</p>
           </div>
         </div>
       </div>

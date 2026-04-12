@@ -65,6 +65,7 @@ import { SettingsView } from '@/components/SettingsView';
 import { HydrationGate } from '@/components/HydrationGate';
 import { CommandPalette, KeyboardShortcutsDialog, KeyboardShortcutHandler } from '@/components/CommandPalette';
 import { AnnouncementBanner } from '@/components/AnnouncementBanner';
+import { AuditLogView } from '@/components/AuditLogView';
 export default function HomePage() {
   const { user, isAuthenticated, logout, checkAuth } = useAuthStore();
   const { theme, setTheme } = useTheme();
@@ -235,6 +236,7 @@ export default function HomePage() {
     { id: 'dashboard' as ViewType, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'complaints' as ViewType, label: 'Complaints', icon: FileText },
     { id: 'analytics' as ViewType, label: 'Analytics', icon: BarChart2 },
+    ...(user?.role === 'ADMIN' ? [{ id: 'audit' as ViewType, label: 'Audit Log', icon: History }] : []),
     ...(user?.role === 'ADMIN' ? [{ id: 'users' as ViewType, label: 'Users', icon: Users }] : []),
     { id: 'settings' as ViewType, label: 'Settings', icon: Settings },
   ];
@@ -520,6 +522,9 @@ export default function HomePage() {
                 {view === 'analytics' && (
                   <AnalyticsView />
                 )}
+                {view === 'audit' && (
+                  <AuditLogView />
+                )}
                 {view === 'settings' && (
                   <SettingsView />
                 )}
@@ -541,7 +546,7 @@ export default function HomePage() {
                 </div>
                 <div>
                   <p className="text-sm font-bold text-white/95">Government of West Bengal</p>
-                  <p className="text-[11px] text-white/50">AI Public Support System &middot; Grievance Portal v2.3.0</p>
+                  <p className="text-[11px] text-white/50">AI Public Support System &middot; Grievance Portal v2.5.0</p>
                 </div>
               </div>
 
@@ -560,7 +565,7 @@ export default function HomePage() {
               <div className="flex items-center gap-4 text-center">
                 <div className="hidden sm:block">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Version</p>
-                  <p className="text-xs font-bold text-white/80 mt-0.5">v2.3.0</p>
+                  <p className="text-xs font-bold text-white/80 mt-0.5">v2.5.0</p>
                 </div>
                 <div className="hidden sm:block w-px h-8 bg-white/10" />
                 <div className="hidden sm:block">

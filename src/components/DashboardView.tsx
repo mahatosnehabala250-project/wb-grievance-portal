@@ -215,6 +215,73 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
     window.print();
   }, []);
 
+  // 7-Day Trend data derived from recent complaints
+  const sevenDayTrend = useMemo(() => {
+    const complaints = data?.recent || [];
+    const days: { label: string; total: number; resolved: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - i);
+      const nextD = new Date(d);
+      nextD.setDate(nextD.getDate() + 1);
+      const dayLabel = d.toLocaleDateString('en-IN', { weekday: 'short' });
+      const dayTotal = complaints.filter((c) => {
+        const created = new Date(c.createdAt);
+        return created >= d && created < nextD;
+      }).length;
+      const dayResolved = complaints.filter((c) => {
+        const updated = new Date(c.updatedAt);
+        return c.status === 'RESOLVED' && updated >= d && updated < nextD;
+      }).length;
+      days.push({ label: dayLabel, total: dayTotal, resolved: dayResolved });
+    }
+    return days;
+  }, [data?.recent]);
+
+  // District performance: top 5 by total complaints
+  const districtPerformance = useMemo(() => {
+    const groups = data?.byGroup || [];
+    return [...groups]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
+      .map((d) => ({
+        ...d,
+        resolutionRate: d.count > 0 ? Math.round((d.resolved / d.count) * 100) : 0,
+      }));
+  }, [data?.byGroup]);
+
+  // Activity feed from recent complaints
+  const activityFeed = useMemo(() => {
+    const complaints = data?.recent || [];
+    return complaints.slice(0, 5).map((c) => {
+      const daysOld = getDaysOld(c.createdAt);
+      let action: string;
+      let actionColor: string;
+      if (c.status === 'RESOLVED') {
+        action = 'Resolved';
+        actionColor = '#16A34A';
+      } else if (c.status === 'IN_PROGRESS') {
+        action = 'In Progress';
+        actionColor = '#D97706';
+      } else if (c.urgency === 'CRITICAL') {
+        action = 'Escalated';
+        actionColor = '#DC2626';
+      } else {
+        action = 'Created';
+        actionColor = NAVY;
+      }
+      return {
+        id: c.id,
+        ticketNo: c.ticketNo,
+        issue: c.issue,
+        action,
+        actionColor,
+        timeAgo: daysOld === 0 ? 'Today' : daysOld === 1 ? 'Yesterday' : `${daysOld}d ago`,
+      };
+    });
+  }, [data?.recent]);
+
   if (loading && !data) return <LoadingSkeleton />;
   if (!data) return <EmptyState message="Unable to load dashboard data" />;
 
@@ -594,6 +661,148 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ═══ 7-DAY TREND SPARKLINE ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.52 }}>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <BarChart2 className="h-4 w-4" style={{ color: NAVY }} />
+              7-Day Trend
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={trendChartConfig} className="h-[80px] w-full">
+              <AreaChart data={sevenDayTrend} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="sparkTotal" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={NAVY} stopOpacity={0.25} />
+                    <stop offset="95%" stopColor={NAVY} stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="sparkResolved" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#16A34A" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#16A34A" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Area type="monotone" dataKey="total" stroke={NAVY} fill="url(#sparkTotal)" strokeWidth={2} />
+                <Area type="monotone" dataKey="resolved" stroke="#16A34A" fill="url(#sparkResolved)" strokeWidth={2} />
+              </AreaChart>
+            </ChartContainer>
+            <div className="flex items-center gap-4 mt-1">
+              <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: NAVY }} />Total
+              </span>
+              <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />Resolved
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ═══ DISTRICT PERFORMANCE CARDS ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.54 }}>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <Building2 className="h-4 w-4" style={{ color: NAVY }} />
+              District Performance
+            </CardTitle>
+            <CardDescription className="text-xs">Top 5 districts by complaint volume</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              {districtPerformance.map((dist, idx) => {
+                const rateColor = dist.resolutionRate > 60 ? '#16A34A' : dist.resolutionRate >= 30 ? '#D97706' : '#DC2626';
+                const rateBg = dist.resolutionRate > 60 ? 'bg-emerald-50 dark:bg-emerald-950/30' : dist.resolutionRate >= 30 ? 'bg-amber-50 dark:bg-amber-950/30' : 'bg-red-50 dark:bg-red-950/30';
+                return (
+                  <motion.div
+                    key={dist.name}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.56 + idx * 0.06 }}
+                    className={`wb-card p-3 rounded-xl ${rateBg} border border-border/40`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-[10px] font-black text-muted-foreground tabular-nums">#{idx + 1}</span>
+                      <span className="text-xs font-bold text-foreground truncate">{dist.name}</span>
+                    </div>
+                    <p className="text-lg font-black tabular-nums text-foreground">{dist.count}</p>
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-semibold">Complaints</p>
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-semibold" style={{ color: rateColor }}>
+                          {dist.resolutionRate}%
+                        </span>
+                        <span className="text-[9px] text-muted-foreground">resolved</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <motion.div
+                          className="h-full rounded-full"
+                          style={{ backgroundColor: rateColor }}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${dist.resolutionRate}%` }}
+                          transition={{ duration: 0.8, ease: 'easeOut', delay: 0.6 + idx * 0.06 }}
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ═══ RECENT ACTIVITY FEED ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.56 }}>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <History className="h-4 w-4" style={{ color: NAVY }} />
+              Recent Activity
+            </CardTitle>
+            <CardDescription className="text-xs">Latest actions across all complaints</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {activityFeed.length > 0 ? (
+              <div className="space-y-0">
+                {activityFeed.map((item, idx) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-3 py-2.5 border-b border-border/30 last:border-b-0 group"
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full shrink-0"
+                      style={{ backgroundColor: item.actionColor }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono font-bold text-muted-foreground">{item.ticketNo}</span>
+                        <span
+                          className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
+                          style={{
+                            backgroundColor: `${item.actionColor}15`,
+                            color: item.actionColor,
+                          }}
+                        >
+                          {item.action}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground truncate">{item.issue}</p>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">{item.timeAgo}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState message="No recent activity" />
+            )}
           </CardContent>
         </Card>
       </motion.div>

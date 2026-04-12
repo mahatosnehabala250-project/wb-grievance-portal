@@ -87,7 +87,6 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkStatus, setBulkStatus] = useState('');
   const [bulkLoading, setBulkLoading] = useState(false);
 
   // Status update loading per row
@@ -249,27 +248,28 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
     fetchComplaints();
   }, [fetchComplaints]);
 
-  const handleBulkStatus = useCallback(async () => {
-    if (!bulkStatus || selectedIds.size === 0) return;
+  const handleBulkAction = useCallback(async (status: string, actionLabel: string) => {
+    if (selectedIds.size === 0) return;
     setBulkLoading(true);
     try {
       const ids = Array.from(selectedIds);
-      await Promise.all(ids.map((id) =>
-        fetch(`/api/complaints/${id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', ...authHeaders() },
-          body: JSON.stringify({ status: bulkStatus }),
-        })
-      ));
-      toast.success(`Updated ${ids.length} complaints to ${fmtStatus(bulkStatus)}`);
-      setSelectedIds(new Set());
-      setBulkStatus('');
-      fetchComplaints();
+      const res = await fetch('/api/complaints/bulk', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ ids, status }),
+      });
+      if (res.ok) {
+        toast.success(`${actionLabel} ${ids.length} complaint${ids.length > 1 ? 's' : ''}`);
+        setSelectedIds(new Set());
+        fetchComplaints();
+      } else {
+        toast.error('Bulk action failed');
+      }
     } catch {
-      toast.error('Bulk update failed');
+      toast.error('Network error');
     }
     setBulkLoading(false);
-  }, [bulkStatus, selectedIds, fetchComplaints]);
+  }, [selectedIds, fetchComplaints]);
 
   const exportCSV = useCallback((items?: Complaint[]) => {
     const data = items || complaints;
@@ -317,46 +317,26 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
         </div>
       </div>
 
-      {/* ═══ QUICK STATUS BAR ═══ */}
+      {/* ═══ STATISTICS SUMMARY BAR (Compact Inline Pills) ═══ */}
       {!loading && pagination.total > 0 && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <div className="grid grid-cols-4 gap-3">
-            <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/30 card-hover">
-              <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center"><FileText className="h-3.5 w-3.5 text-blue-600" /></div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Total</p>
-                  <p className="text-lg font-black text-blue-700 dark:text-blue-400">{pagination.total}</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-800/30 card-hover">
-              <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-red-100 dark:bg-red-900/50 flex items-center justify-center"><CircleDot className="h-3.5 w-3.5 text-red-600" /></div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Open</p>
-                  <p className="text-lg font-black text-red-700 dark:text-red-400">{complaints.filter(c => c.status === 'OPEN').length}</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30 card-hover">
-              <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center"><Clock className="h-3.5 w-3.5 text-amber-600" /></div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">In Progress</p>
-                  <p className="text-lg font-black text-amber-700 dark:text-amber-400">{complaints.filter(c => c.status === 'IN_PROGRESS').length}</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30 card-hover">
-              <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center"><CheckCircle className="h-3.5 w-3.5 text-emerald-600" /></div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Resolved</p>
-                  <p className="text-lg font-black text-emerald-700 dark:text-emerald-400">{complaints.filter(c => c.status === 'RESOLVED').length}</p>
-                </div>
-              </div>
-            </div>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/30 text-xs font-semibold">
+              <span className="h-2 w-2 rounded-full bg-blue-500" />
+              Total <span className="font-black text-blue-700 dark:text-blue-400">{pagination.total}</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-800/30 text-xs font-semibold">
+              <span className="h-2 w-2 rounded-full bg-red-500" />
+              Open <span className="font-black text-red-700 dark:text-red-400">{complaints.filter(c => c.status === 'OPEN').length}</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30 text-xs font-semibold">
+              <span className="h-2 w-2 rounded-full bg-amber-500" />
+              In Progress <span className="font-black text-amber-700 dark:text-amber-400">{complaints.filter(c => c.status === 'IN_PROGRESS').length}</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30 text-xs font-semibold">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              Resolved <span className="font-black text-emerald-700 dark:text-emerald-400">{complaints.filter(c => c.status === 'RESOLVED').length}</span>
+            </span>
           </div>
         </motion.div>
       )}
@@ -482,68 +462,69 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
         </CardContent>
       </Card>
 
-      {/* ═══ BULK ACTIONS TOOLBAR ═══ */}
+      {/* ═══ FLOATING BULK ACTION TOOLBAR ═══ */}
       <AnimatePresence>
         {selectedIds.size > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: -10, height: 0 }}
-            animate={{ opacity: 1, y: 0, height: 'auto' }}
-            exit={{ opacity: 0, y: -10, height: 0 }}
-            transition={{ duration: 0.2 }}
+            initial={{ opacity: 0, y: 80 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 80 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-50"
           >
-            <Card className="border-0 shadow-lg overflow-hidden" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 100%)' }}>
-              <CardContent className="p-3">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-lg bg-white/15 flex items-center justify-center">
-                      <ClipboardList className="h-4 w-4 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-white/90">{selectedIds.size} selected</p>
-                      <p className="text-[10px] text-white/50">Choose an action below</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Select value={bulkStatus} onValueChange={setBulkStatus}>
-                      <SelectTrigger className="h-8 w-[140px] text-xs bg-white/10 border-white/20 text-white">
-                        <SelectValue placeholder="Set Status..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                        <SelectItem value="RESOLVED">Resolved</SelectItem>
-                        <SelectItem value="OPEN">Reopen</SelectItem>
-                        <SelectItem value="REJECTED">Reject</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      size="sm"
-                      disabled={!bulkStatus || bulkLoading}
-                      onClick={() => handleBulkStatus()}
-                      className="h-8 gap-1 text-xs bg-emerald-500 hover:bg-emerald-600 text-white"
-                    >
-                      {bulkLoading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                      Apply
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => exportCSV()}
-                      className="h-8 gap-1 text-xs text-white/80 hover:text-white hover:bg-white/10"
-                    >
-                      <Download className="h-3 w-3" /> Export
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedIds(new Set())}
-                      className="h-8 gap-1 text-xs text-white/80 hover:text-white hover:bg-white/10"
-                    >
-                      <X className="h-3 w-3" /> Clear
-                    </Button>
-                  </div>
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-2xl border border-white/10" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 100%)' }}>
+              <div className="flex items-center gap-2 mr-2">
+                <div className="h-8 w-8 rounded-lg bg-white/15 flex items-center justify-center">
+                  <ClipboardList className="h-4 w-4 text-white" />
                 </div>
-              </CardContent>
-            </Card>
+                <span className="text-sm font-black text-white">{selectedIds.size} selected</span>
+              </div>
+              <div className="w-px h-6 bg-white/20" />
+              <Button
+                size="sm"
+                disabled={bulkLoading}
+                onClick={() => handleBulkAction('IN_PROGRESS', 'Marked In Progress')}
+                className="h-8 gap-1.5 text-xs bg-amber-500 hover:bg-amber-600 text-white rounded-lg"
+              >
+                {bulkLoading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Clock className="h-3 w-3" />}
+                Mark In Progress
+              </Button>
+              <Button
+                size="sm"
+                disabled={bulkLoading}
+                onClick={() => handleBulkAction('RESOLVED', 'Resolved')}
+                className="h-8 gap-1.5 text-xs bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg"
+              >
+                <CheckCircle2 className="h-3 w-3" />
+                Resolve
+              </Button>
+              <Button
+                size="sm"
+                disabled={bulkLoading}
+                onClick={() => handleBulkAction('OPEN', 'Escalated')}
+                className="h-8 gap-1.5 text-xs bg-red-500 hover:bg-red-600 text-white rounded-lg"
+              >
+                <ArrowUp className="h-3 w-3" />
+                Escalate
+              </Button>
+              <div className="w-px h-6 bg-white/20" />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => exportCSV()}
+                className="h-8 gap-1.5 text-xs text-white/80 hover:text-white hover:bg-white/10 rounded-lg"
+              >
+                <Download className="h-3 w-3" /> Export
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedIds(new Set())}
+                className="h-8 gap-1.5 text-xs text-white/80 hover:text-white hover:bg-white/10 rounded-lg"
+              >
+                <X className="h-3 w-3" /> Clear
+              </Button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -651,47 +632,48 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
             </Card>
           </div>
 
-          {/* Cards (Mobile) */}
+          {/* Cards (Mobile) — Enhanced with urgency borders, days ago badge, larger issue text */}
           <div className="md:hidden space-y-3">
             {loading ? (
-              Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)
+              Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-44 rounded-xl" />)
             ) : (
-              complaints.map((c) => (
-                <Card key={c.id} className="border-0 shadow-sm border-l-4" style={{ borderLeftColor: URGENCY_BORDER_MAP[c.urgency] || '#6B7280' }}>
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-bold">{c.ticketNo}</span>
-                      <div className="flex items-center gap-1.5">
-                        {(() => {
-                          const sla = getSLAInfo(c.createdAt, c.status);
-                          return (
-                            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${sla.bg} ${sla.text}`}>
-                              {sla.level === 'breached' && <Flame className="h-2.5 w-2.5" />}
-                              {sla.days}d
-                            </span>
-                          );
-                        })()}
-                        <StatusBadge status={c.status} />
-                        <UrgencyBadge urgency={c.urgency} />
+              complaints.map((c) => {
+                const daysOld = getDaysOld(c.createdAt);
+                return (
+                  <Card key={c.id} className="border-0 shadow-sm border-l-4 overflow-hidden" style={{ borderLeftColor: URGENCY_BORDER_MAP[c.urgency] || '#6B7280' }}>
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs font-bold">{c.ticketNo}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
+                            daysOld > 7 ? 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400'
+                            : daysOld >= 3 ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400'
+                            : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400'
+                          }`}>
+                            {daysOld === 0 ? 'Today' : daysOld === 1 ? '1 day ago' : `${daysOld} days ago`}
+                          </span>
+                          <StatusBadge status={c.status} />
+                          <UrgencyBadge urgency={c.urgency} />
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{c.issue}</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {c.citizenName || 'Anonymous'} &middot; {c.block}, {c.district}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between pt-1 border-t border-border/50">
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <CalendarDays className="h-3 w-3" />{fmtDate(c.createdAt)}
-                      </span>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => { setSelectedComplaint(c); setDetailOpen(true); }}>
-                        <Eye className="h-3.5 w-3.5" /> Details
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+                      <div>
+                        <p className="text-[15px] font-semibold leading-snug text-foreground">{c.issue}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          {c.citizenName || 'Anonymous'} &middot; {c.block}, {c.district}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <CalendarDays className="h-3 w-3" />{fmtDate(c.createdAt)}
+                        </span>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => { setSelectedComplaint(c); setDetailOpen(true); }}>
+                          <Eye className="h-3.5 w-3.5" /> Details
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
             )}
           </div>
 

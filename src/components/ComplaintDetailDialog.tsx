@@ -14,7 +14,7 @@ import {
   Settings, CircleHelp, Monitor, Mail, Volume2, LayoutGrid, Keyboard,
   UserCheck, GitCompareArrows, CalendarClock, History, Tag, ClipboardList,
   AlertCircle, Info, CheckCircle2 as CheckCircleFill, Sparkles, Megaphone,
-  ArrowUp, Flame, CalendarRange, TimerReset,
+  ArrowUp, Flame, CalendarRange, TimerReset, ThumbsUp,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +58,7 @@ import type { Complaint, ActivityLogEntry, AssignableUser, AppUser, DashboardDat
 import { NAVY, NAVY_DARK, STATUS_MAP, URGENCY_MAP, URGENCY_BORDER_MAP, ROLE_MAP, ROLE_COLORS, CATEGORIES, CATEGORY_COLORS } from '@/lib/constants';
 import { fmtDate, fmtDateTime, fmtStatus, fmtUrgency, fmtRole, safeGetLocalStorage, safeSetLocalStorage, authHeaders, getDaysOld, getSLAInfo, playNotificationSound } from '@/lib/helpers';
 import { StatusBadge, UrgencyBadge, RoleBadge, StatCard, MiniStat, PieLabel, LoadingSkeleton, EmptyState } from '@/components/common';
+import { FeedbackDialog } from '@/components/FeedbackDialog';
 
 export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange, onUpdate }: {
   complaint: Complaint | null; open: boolean; onOpenChange: (v: boolean) => void;
@@ -80,6 +81,7 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
   const [loadingComments, setLoadingComments] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     if (open && initialComplaint) {
@@ -350,6 +352,33 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
             </div>
           )}
 
+          {/* Rate Resolution Button (only for resolved complaints) */}
+          {complaint.status === 'RESOLVED' && (
+            <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+              <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                      <ThumbsUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">Resolution Completed</p>
+                      <p className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70">Help us improve by rating this resolution</p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => setFeedbackOpen(true)}
+                    className="text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
+                  >
+                    <Star className="h-3 w-3" />
+                    Rate Resolution
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {/* Assign To */}
           <div className="space-y-2">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
@@ -597,6 +626,13 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
           </div>
         </div>
         </motion.div>
+
+        {/* Feedback Dialog */}
+        <FeedbackDialog
+          complaint={complaint}
+          open={feedbackOpen}
+          onOpenChange={setFeedbackOpen}
+        />
       </DialogContent>
     </Dialog>
   );

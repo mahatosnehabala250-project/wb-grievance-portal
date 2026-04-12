@@ -1046,3 +1046,129 @@ input:focus, textarea:focus, select:focus {
     oklch(0.145 0 0) 0%,
     oklch(0.145 0 0 / 0%) 100%);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   H. Task 4 Styling Enhancements
+   ═══════════════════════════════════════════════════════════════ */
+
+/* H1. Enhanced WB Card — government-styled card with hover */
+.wb-card {
+  border-radius: 0.75rem;
+  border: 1px solid oklch(0.88 0 0 / 60%);
+  background: oklch(1 0 0);
+  box-shadow: 0 1px 3px oklch(0.2 0 0 / 6%);
+  transition: all 0.2s ease;
+}
+.wb-card:hover {
+  box-shadow: 0 4px 12px oklch(0.2 0 0 / 10%);
+  border-color: oklch(0.7 0 0 / 30%);
+}
+.dark .wb-card {
+  background: oklch(0.18 0 0);
+  border-color: oklch(1 0 0 / 8%);
+}
+.dark .wb-card:hover {
+  box-shadow: 0 4px 12px oklch(0 0 0 / 30%);
+  border-color: oklch(1 0 0 / 15%);
+}
+
+/* H2. Animated Gradient Background for Headers */
+.hero-gradient {
+  background: linear-gradient(-45deg, #0A2463, #1a3a7a, #065f46, #0A2463);
+  background-size: 400% 400%;
+  animation: heroShift 8s ease infinite;
+}
+@keyframes heroShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* H3. Stat Number Animation */
+.stat-number {
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* H4. Micro-interaction Button Glow */
+.btn-glow {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+.btn-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.3) 0%, transparent 70%);
+}
+.btn-glow:hover::after {
+  opacity: 1;
+}
+
+/* H5. Animated Underline for Navigation */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  transition: all 0.3s ease;
+  background: linear-gradient(90deg, #0A2463, #16A34A);
+}
+.nav-link:hover::after,
+.nav-link.active::after {
+  width: 100%;
+}
+
+/* H6. Glass Card Effect (Enhanced) */
+.glass-card-enhanced {
+  background: oklch(1 0 0 / 80%);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid oklch(1 0 0 / 20%);
+}
+.dark .glass-card-enhanced {
+  background: oklch(0.145 0 0 / 80%);
+  border-color: oklch(1 0 0 / 10%);
+}
+
+/* H7. Scroll Reveal Animation */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: scrollReveal 0.6s ease forwards;
+}
+@keyframes scrollReveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* H8. Pulse Dot Indicator */
+.pulse-dot {
+  position: relative;
+}
+.pulse-dot::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #EF4444;
+  animation: pulseDot 2s ease-in-out infinite;
+}
+@keyframes pulseDot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+}

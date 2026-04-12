@@ -67,6 +67,7 @@ export function SettingsView() {
   const [soundAlerts, setSoundAlerts] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [compactView, setCompactView] = useState(false);
+  const [desktopNotifs, setDesktopNotifs] = useState(false);
 
   // Feedback form state
   const [feedbackName, setFeedbackName] = useState('');
@@ -113,12 +114,40 @@ export function SettingsView() {
     setSoundAlerts(safeGetLocalStorage('wb_sound_alerts') === 'true');
     setAutoRefresh(safeGetLocalStorage('wb_auto_refresh') === 'true');
     setCompactView(safeGetLocalStorage('wb_compact_view') === 'true');
+    setDesktopNotifs(safeGetLocalStorage('wb_desktop_notifs') === 'true');
+    if (typeof Notification !== 'undefined') {
+      setDesktopNotifs(Notification.permission === 'granted');
+    }
   }, []);
 
   useEffect(() => { safeSetLocalStorage('wb_email_notifs', String(emailNotifs)); }, [emailNotifs]);
   useEffect(() => { safeSetLocalStorage('wb_sound_alerts', String(soundAlerts)); }, [soundAlerts]);
   useEffect(() => { safeSetLocalStorage('wb_auto_refresh', String(autoRefresh)); }, [autoRefresh]);
   useEffect(() => { safeSetLocalStorage('wb_compact_view', String(compactView)); }, [compactView]);
+
+  const handleDesktopNotifToggle = useCallback(async (checked: boolean) => {
+    if (checked) {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        const perm = await Notification.requestPermission();
+        if (perm === 'granted') {
+          setDesktopNotifs(true);
+          safeSetLocalStorage('wb_desktop_notifs', 'true');
+          toast.success('Desktop notifications enabled');
+        } else {
+          toast.error('Notification permission denied', { description: 'Please allow notifications in your browser settings' });
+          setDesktopNotifs(false);
+        }
+      } else if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        setDesktopNotifs(true);
+        safeSetLocalStorage('wb_desktop_notifs', 'true');
+      } else {
+        toast.error('Notifications blocked', { description: 'Please reset notification permissions in browser settings' });
+      }
+    } else {
+      setDesktopNotifs(false);
+      safeSetLocalStorage('wb_desktop_notifs', 'false');
+    }
+  }, []);
 
   const themeOptions = [
     { value: 'light' as const, label: 'Light', icon: Sun, description: 'Clean, bright appearance', bg: 'bg-white border-2', ring: 'ring-sky-500' },
@@ -236,6 +265,7 @@ export function SettingsView() {
               { label: 'Sound alerts', description: 'Play a sound for new notifications', icon: Volume2, checked: soundAlerts, onChange: setSoundAlerts },
               { label: 'Auto-refresh dashboard', description: 'Automatically refresh data every 60 seconds', icon: RefreshCw, checked: autoRefresh, onChange: setAutoRefresh },
               { label: 'Compact view', description: 'Reduce spacing for denser information display', icon: LayoutGrid, checked: compactView, onChange: setCompactView },
+              { label: 'Desktop notifications', description: 'Receive browser push notifications for critical updates', icon: Monitor, checked: desktopNotifs, onChange: (v: boolean) => handleDesktopNotifToggle(v) },
             ].map((pref) => (
               <div key={pref.label} className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
@@ -350,6 +380,107 @@ export function SettingsView() {
             <p className="text-[11px] text-center text-muted-foreground">
               Your feedback helps us improve this portal for all citizens of West Bengal.
             </p>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ═══ DANGER ZONE (Admin Only) ═══ */}
+      {user?.role === 'ADMIN' && (
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}>
+          <Card className="border-0 shadow-sm border border-red-200 dark:border-red-800/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-red-700 dark:text-red-400">
+                <AlertTriangle className="h-4 w-4" />
+                Danger Zone
+              </CardTitle>
+              <CardDescription className="text-xs">Irreversible actions — proceed with caution</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-800/30">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Clear All Local Data</p>
+                  <p className="text-[11px] text-muted-foreground">Remove all locally stored preferences, tokens, and cached data</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (typeof window !== 'undefined') {
+                      localStorage.clear();
+                      toast.success('Local data cleared', { description: 'All preferences and cache have been removed. Please reload the page.' });
+                    }
+                  }}
+                  className="h-8 gap-1.5 text-xs border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/40"
+                >
+                  <Trash2 className="h-3 w-3" /> Clear Data
+                </Button>
+              </div>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-800/30">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Reset Settings to Default</p>
+                  <p className="text-[11px] text-muted-foreground">Restore all notification and display settings to their defaults</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEmailNotifs(false); setSoundAlerts(false); setAutoRefresh(false); setCompactView(false); setDesktopNotifs(false);
+                    safeSetLocalStorage('wb_email_notifs', 'false');
+                    safeSetLocalStorage('wb_sound_alerts', 'false');
+                    safeSetLocalStorage('wb_auto_refresh', 'false');
+                    safeSetLocalStorage('wb_compact_view', 'false');
+                    safeSetLocalStorage('wb_desktop_notifs', 'false');
+                    toast.success('Settings reset', { description: 'All preferences restored to defaults' });
+                  }}
+                  className="h-8 gap-1.5 text-xs border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/40"
+                >
+                  <RotateCcw className="h-3 w-3" /> Reset
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* ═══ KEYBOARD SHORTCUTS REFERENCE ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <Keyboard className="h-4 w-4" style={{ color: NAVY }} />
+              Keyboard Shortcuts
+            </CardTitle>
+            <CardDescription className="text-xs">Quick navigation and actions</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {[
+                { keys: ['D'], action: 'Go to Dashboard' },
+                { keys: ['C'], action: 'Go to Complaints' },
+                { keys: ['A'], action: 'Go to Analytics' },
+                { keys: ['N'], action: 'New Complaint' },
+                { keys: ['R'], action: 'Refresh Data' },
+                { keys: ['T'], action: 'Toggle Theme' },
+                { keys: ['Esc'], action: 'Close Dialog' },
+                { keys: ['Ctrl', 'K'], action: 'Command Palette' },
+                { keys: ['?'], action: 'Show Shortcuts' },
+                { keys: ['Ctrl', 'A'], action: 'Select All' },
+              ].map((shortcut) => (
+                <div key={shortcut.action} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-muted/50 border border-border/50 hover:bg-muted/80 transition-colors">
+                  <span className="text-xs font-medium text-foreground">{shortcut.action}</span>
+                  <div className="flex items-center gap-1">
+                    {shortcut.keys.map((key, i) => (
+                      <span key={i}>
+                        <kbd className="inline-flex items-center justify-center h-6 min-w-[24px] px-1.5 rounded-md bg-background border border-border text-[11px] font-mono font-semibold text-muted-foreground shadow-sm">
+                          {key}
+                        </kbd>
+                        {i < shortcut.keys.length - 1 && <span className="text-[10px] text-muted-foreground mx-0.5">+</span>}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </motion.div>
