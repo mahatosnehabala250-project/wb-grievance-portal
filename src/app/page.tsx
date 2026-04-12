@@ -14,6 +14,7 @@ import {
   Settings, CircleHelp, Monitor, Mail, Volume2, LayoutGrid, Keyboard,
   UserCheck, GitCompareArrows, CalendarClock, History, Tag, ClipboardList,
   AlertCircle, Info, CheckCircle2 as CheckCircleFill, Sparkles, Megaphone,
+  ArrowUp, Flame, CalendarRange, TimerReset,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -113,7 +114,7 @@ interface DashboardData {
   stats: {
     total: number; open: number; inProgress: number; resolved: number;
     rejected: number; critical: number; todayComplaints: number;
-    todayResolved: number; resolutionRate: number;
+    todayResolved: number; resolutionRate: number; slaBreaches: number;
   };
   byCategory: { category: string; count: number }[];
   byGroup: { name: string; count: number; open: number; inProgress: number; resolved: number; rejected: number }[];
@@ -122,6 +123,7 @@ interface DashboardData {
   byUrgency: { urgency: string; count: number }[];
   recent: Complaint[];
   criticalComplaints: Complaint[];
+  openComplaints: Complaint[];
   userRole: string;
   userLocation: string;
 }
@@ -223,6 +225,55 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+function getDaysOld(createdAt: string): number {
+  const now = new Date();
+  const created = new Date(createdAt);
+  const diffMs = now.getTime() - created.getTime();
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
+function getSLAInfo(createdAt: string, status: string): { days: number; level: 'ok' | 'warning' | 'breached'; color: string; bg: string; text: string } {
+  const days = getDaysOld(createdAt);
+  if (status === 'RESOLVED' || status === 'REJECTED') {
+    return { days, level: 'ok', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-700 dark:text-emerald-400' };
+  }
+  if (days > 7) {
+    return { days, level: 'breached', color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950/40', text: 'text-red-700 dark:text-red-400' };
+  }
+  if (days >= 3) {
+    return { days, level: 'warning', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/40', text: 'text-amber-700 dark:text-amber-400' };
+  }
+  return { days, level: 'ok', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-700 dark:text-emerald-400' };
+}
+
+function playNotificationSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = 'sine';
+    gain.gain.value = 0.15;
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.3);
+    setTimeout(() => {
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.frequency.value = 1108;
+      osc2.type = 'sine';
+      gain2.gain.value = 0.15;
+      gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      osc2.start(ctx.currentTime);
+      osc2.stop(ctx.currentTime + 0.25);
+    }, 120);
+  } catch { /* audio not available */ }
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    ANIMATED COUNTER
    ═══════════════════════════════════════════════════════════════════ */
@@ -255,10 +306,12 @@ function useCountUp(target: number, duration = 700, delay = 0) {
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_MAP[status] || STATUS_MAP.OPEN;
   return (
-    <Badge variant="outline" className={`text-[11px] font-semibold px-2 py-0.5 gap-1 ${s.bg} ${s.text} ${s.border}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${s.dotColor}`} />
-      {s.label}
-    </Badge>
+    <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.2 }}>
+      <Badge variant="outline" className={`text-[11px] font-semibold px-2 py-0.5 gap-1 ${s.bg} ${s.text} ${s.border}`}>
+        <span className={`h-1.5 w-1.5 rounded-full ${s.dotColor}`} />
+        {s.label}
+      </Badge>
+    </motion.div>
   );
 }
 
@@ -636,6 +689,54 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
   const [assignedTasks, setAssignedTasks] = useState<Complaint[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
 
+  // Date range filter
+  const [dateRange, setDateRange] = useState('all');
+  const dateRangePresets = [
+    { value: 'today', label: 'Today' },
+    { value: 'week', label: 'This Week' },
+    { value: 'month', label: 'This Month' },
+    { value: '30d', label: 'Last 30 Days' },
+    { value: '90d', label: 'Last 90 Days' },
+    { value: 'all', label: 'All Time' },
+  ];
+
+  function getDateRangeParams(range: string): { from?: string; to?: string } {
+    const now = new Date();
+    switch (range) {
+      case 'today': {
+        const start = new Date(now); start.setHours(0, 0, 0, 0);
+        return { from: start.toISOString(), to: now.toISOString() };
+      }
+      case 'week': {
+        const start = new Date(now); start.setDate(start.getDate() - start.getDay()); start.setHours(0, 0, 0, 0);
+        return { from: start.toISOString(), to: now.toISOString() };
+      }
+      case 'month': {
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        return { from: start.toISOString(), to: now.toISOString() };
+      }
+      case '30d': {
+        const start = new Date(now); start.setDate(start.getDate() - 30); start.setHours(0, 0, 0, 0);
+        return { from: start.toISOString(), to: now.toISOString() };
+      }
+      case '90d': {
+        const start = new Date(now); start.setDate(start.getDate() - 90); start.setHours(0, 0, 0, 0);
+        return { from: start.toISOString(), to: now.toISOString() };
+      }
+      default: return {};
+    }
+  }
+
+  // Auto-refresh
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
+  const [refreshSeconds, setRefreshSeconds] = useState(0);
+
+  useEffect(() => {
+    const stored = safeGetLocalStorage('wb_auto_refresh');
+    setAutoRefreshEnabled(stored === 'true');
+  }, []);
+
   // Live clock & session tracking
   const [now, setNow] = useState(new Date());
   const [sessionStart] = useState(() => new Date());
@@ -670,19 +771,29 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
     return now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }, [now]);
 
-  const fetchDashboard = useCallback(async () => {
-    setLoading(true);
+  const fetchDashboard = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setLoadingTasks(true);
     try {
+      const dateParams = getDateRangeParams(dateRange);
+      const params = new URLSearchParams();
+      if (dateParams.from) params.set('from', dateParams.from);
+      if (dateParams.to) params.set('to', dateParams.to);
+
       const [dashRes, taskRes] = await Promise.all([
-        fetch('/api/dashboard', { headers: authHeaders() }),
+        fetch(`/api/dashboard${params.toString() ? '?' + params.toString() : ''}`, { headers: authHeaders() }),
         fetch('/api/complaints?assigned=assigned&limit=5', { headers: authHeaders() }),
       ]);
       if (dashRes.ok) {
         const json = await dashRes.json();
         setData(json);
         onDashboardData?.(json);
-      } else {
+        if (silent) {
+          setLastRefresh(new Date());
+          setRefreshSeconds(0);
+          toast.info('Dashboard updated', { description: 'Data refreshed automatically' });
+        }
+      } else if (!silent) {
         toast.error('Failed to load dashboard data');
       }
       if (taskRes.ok) {
@@ -690,13 +801,29 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
         setAssignedTasks(taskJson.complaints || []);
       }
     } catch {
-      toast.error('Network error loading dashboard');
+      if (!silent) toast.error('Network error loading dashboard');
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
     setLoadingTasks(false);
-  }, [onDashboardData]);
+  }, [dateRange, onDashboardData]);
 
   useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
+
+  // Auto-refresh timer (60s)
+  useEffect(() => {
+    if (!autoRefreshEnabled) return;
+    const interval = setInterval(() => {
+      setRefreshSeconds((prev) => {
+        const next = prev + 5;
+        if (next >= 60) {
+          fetchDashboard(true);
+          return 0;
+        }
+        return next;
+      });
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [autoRefreshEnabled, fetchDashboard]);
 
   // Greeting based on time of day
   const getGreeting = useCallback(() => {
@@ -812,12 +939,79 @@ function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: strin
         </Card>
       </motion.div>
 
+      {/* ═══ DATE RANGE FILTER + AUTO-REFRESH INDICATOR ═══ */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <CalendarRange className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Period:</span>
+            {dateRangePresets.map((preset) => (
+              <button
+                key={preset.value}
+                onClick={() => setDateRange(preset.value)}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all ${
+                  dateRange === preset.value
+                    ? 'bg-foreground text-background shadow-sm'
+                    : 'bg-muted/80 text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+          {/* Auto-refresh indicator */}
+          <div className="flex items-center gap-2">
+            {autoRefreshEnabled && (
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Updated {refreshSeconds === 0 ? 'just now' : `${60 - refreshSeconds}s ago`}
+              </div>
+            )}
+            <button
+              onClick={() => {
+                const next = !autoRefreshEnabled;
+                setAutoRefreshEnabled(next);
+                safeSetLocalStorage('wb_auto_refresh', String(next));
+                if (next) setRefreshSeconds(0);
+                toast.success(next ? 'Auto-refresh enabled' : 'Auto-refresh disabled');
+              }}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all ${
+                autoRefreshEnabled
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
+                  : 'bg-muted/80 text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <RotateCcw className={`h-3 w-3 ${autoRefreshEnabled ? 'animate-spin' : ''}`} style={autoRefreshEnabled ? { animationDuration: '3s' } : {}} />
+              Auto-refresh
+            </button>
+          </div>
+        </div>
+      </motion.div>
+
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard title="Total Complaints" value={stats.total} icon={FileText} color={NAVY} bgColor="#E3F2FD" delay={0} />
         <StatCard title="Open" value={stats.open} icon={CircleDot} color="#DC2626" bgColor="#FEF2F2" delay={100} />
         <StatCard title="In Progress" value={stats.inProgress} icon={Clock} color="#D97706" bgColor="#FFFBEB" delay={200} />
         <StatCard title="Resolved" value={stats.resolved} icon={CheckCircle2} color="#16A34A" bgColor="#F0FDF4" delay={300} />
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}>
+          <Card className={`border-0 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-300 overflow-hidden group relative border-l-4 ${(stats.slaBreaches || 0) > 0 ? 'pulse-glow' : ''}`} style={{ borderLeftColor: '#DC2626', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
+            <CardContent className="p-5 pl-6">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1.5 flex-1 min-w-0">
+                  <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-muted-foreground">SLA Breaches</p>
+                  <p className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums text-red-600 dark:text-red-400">
+                    {stats.slaBreaches || 0}
+                  </p>
+                  <p className="text-[9px] text-muted-foreground font-medium">{stats.slaBreaches || 0} open &gt;7 days</p>
+                </div>
+                <div className="flex items-center justify-center rounded-xl p-3 group-hover:scale-110 transition-transform duration-300 bg-red-50 dark:bg-red-950/40">
+                  <Flame className="h-5 w-5 text-red-500 status-breathe" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
 
       {/* Mini Stats */}
@@ -1343,6 +1537,7 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
   const [internalNotes, setInternalNotes] = useState<string[]>([]);
   const [newNote, setNewNote] = useState('');
   const [addingNote, setAddingNote] = useState(false);
+  const [escalating, setEscalating] = useState(false);
 
   useEffect(() => {
     if (open && initialComplaint) {
@@ -1470,21 +1665,52 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
     toast.success('Note added');
   }, [complaint, newNote, internalNotes]);
 
+  const handleEscalate = useCallback(async () => {
+    if (!complaint) return;
+    setEscalating(true);
+    try {
+      const res = await fetch(`/api/complaints/${complaint.id}/escalate`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setComplaint(json.complaint);
+        toast.success(`Escalated to ${json.newUrgency}`, { description: `Previous: ${json.previousUrgency}` });
+        onUpdate?.(complaint.id, complaint.status);
+        refreshActivity(complaint.id);
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to escalate');
+      }
+    } catch {
+      toast.error('Network error');
+    }
+    setEscalating(false);
+  }, [complaint, onUpdate, refreshActivity]);
+
   if (!complaint) return null;
 
-  const activityConfig: Record<string, { color: string }> = {
-    CREATED: { color: '#0284C7' },
-    STATUS_CHANGED: { color: '#D97706' },
-    ASSIGNED: { color: '#7C3AED' },
-    UNASSIGNED: { color: '#9CA3AF' },
-    RESOLVED: { color: '#16A34A' },
-    REJECTED: { color: '#DC2626' },
+  const activityConfig: Record<string, { color: string; icon: React.ElementType }> = {
+    CREATED: { color: '#0284C7', icon: Plus },
+    STATUS_CHANGED: { color: '#D97706', icon: ArrowUpDown },
+    ASSIGNED: { color: '#7C3AED', icon: UserCheck },
+    UNASSIGNED: { color: '#9CA3AF', icon: Users },
+    RESOLVED: { color: '#16A34A', icon: CheckCircle2 },
+    REJECTED: { color: '#DC2626', icon: XCircle },
+    ESCALATED: { color: '#EA580C', icon: ArrowUp },
   };
+
+  const slaInfo = getSLAInfo(complaint.createdAt, complaint.status);
+  const canEscalate = (complaint.status === 'OPEN' || complaint.status === 'IN_PROGRESS') && complaint.urgency !== 'CRITICAL';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto border-0 shadow-2xl">
         <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.15 }}>
+        {/* Glassmorphism Header */}
+        <div className="relative -mx-6 -mt-6 mb-4 px-6 py-5 overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(10,36,99,0.08) 0%, rgba(26,58,122,0.04) 100%)', backdropFilter: 'blur(12px)' }}>
+          <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-10" style={{ background: 'radial-gradient(circle, #0A2463, transparent)', transform: 'translate(30%, -30%)' }} />
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base font-bold">
             <Hash className="h-4 w-4" style={{ color: NAVY }} />
@@ -1492,6 +1718,7 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
           </DialogTitle>
           <DialogDescription>Complete details of this citizen grievance</DialogDescription>
         </DialogHeader>
+        </div>
 
         <div className="space-y-4 mt-1">
           {/* Priority & Status Bar */}
@@ -1499,6 +1726,13 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
             <StatusBadge status={complaint.status} />
             <UrgencyBadge urgency={complaint.urgency} />
             <Badge variant="outline" className="text-[11px]">{complaint.source}</Badge>
+            {/* SLA Age Badge */}
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${slaInfo.bg} ${slaInfo.text}`}>
+              {slaInfo.level === 'breached' && <Flame className="h-3 w-3" />}
+              {slaInfo.days === 0 ? 'Today' : `${slaInfo.days}d old`}
+              {slaInfo.level === 'breached' && ' · SLA BREACH'}
+              {slaInfo.level === 'warning' && ' · Warning'}
+            </span>
             {complaint.assignedToId ? (
               <Badge variant="outline" className="text-[11px] gap-1 bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
                 <UserCheck className="h-3 w-3" />Assigned
@@ -1517,21 +1751,27 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
 
           {/* Quick Action Buttons */}
           {complaint.status !== 'RESOLVED' && complaint.status !== 'REJECTED' && (
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               <Button size="sm" variant="outline" disabled={updating || complaint.status === 'IN_PROGRESS'}
                 onClick={() => handleQuickAction('IN_PROGRESS')}
                 className="text-xs gap-1 h-9 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30">
-                <PlayCircle className="h-3.5 w-3.5" />In Progress
+                <PlayCircle className="h-3.5 w-3.5" /><span className="hidden sm:inline">In Progress</span>
               </Button>
               <Button size="sm" variant="outline" disabled={updating}
                 onClick={() => handleQuickAction('RESOLVED')}
                 className="text-xs gap-1 h-9 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/30">
-                <CircleCheckBig className="h-3.5 w-3.5" />Resolve
+                <CircleCheckBig className="h-3.5 w-3.5" /><span className="hidden sm:inline">Resolve</span>
               </Button>
               <Button size="sm" variant="outline" disabled={updating}
                 onClick={() => handleQuickAction('REJECTED')}
                 className="text-xs gap-1 h-9 border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-900/30">
-                <Ban className="h-3 w-3" />Reject
+                <Ban className="h-3 w-3" /><span className="hidden sm:inline">Reject</span>
+              </Button>
+              <Button size="sm" variant="outline" disabled={escalating || !canEscalate}
+                onClick={handleEscalate}
+                className="text-xs gap-1 h-9 border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950/30" title={canEscalate ? 'Escalate urgency level' : 'Already at maximum'}>
+                {escalating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <ArrowUp className="h-3.5 w-3.5" />}
+                <span className="hidden sm:inline">{escalating ? '...' : 'Escalate'}</span>
               </Button>
             </div>
           )}
@@ -1583,12 +1823,13 @@ function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange
                 </div>
               ) : activities.length > 0 ? (
                 activities.map((entry, idx) => {
-                  const config = activityConfig[entry.action] || { color: '#6B7280' };
+                  const config = activityConfig[entry.action] || { color: '#6B7280', icon: CircleDot };
+                  const ActionIcon = config.icon;
                   return (
                     <div key={entry.id || idx} className="relative flex items-start gap-3 pb-4 last:pb-0">
                       <div className="absolute -left-6 top-0.5">
                         <div className="h-[18px] w-[18px] rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center" style={{ backgroundColor: config.color }}>
-                          <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                          <ActionIcon className="h-2.5 w-2.5 text-white" strokeWidth={3} />
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
@@ -2393,6 +2634,7 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
                     <TableHead className="text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:bg-muted" onClick={() => handleSort('createdAt')}>
                       <span className="flex items-center gap-1">Date <ArrowUpDown className="h-3 w-3" /></span>
                     </TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-wider">Age</TableHead>
                     <TableHead className="text-[10px] font-bold uppercase tracking-wider text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -2400,14 +2642,14 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
                   {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={i}>
-                        {Array.from({ length: 9 }).map((_, j) => (
+                        {Array.from({ length: 10 }).map((_, j) => (
                           <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
                         ))}
                       </TableRow>
                     ))
                   ) : (
                     complaints.map((c, idx) => (
-                      <TableRow key={c.id} className={`hover:bg-muted/30 hover:border-l-2 hover:border-l-sky-400 transition-all border-l-2 border-l-transparent ${idx % 2 === 1 ? 'bg-muted/20' : ''} ${flashIds.has(c.id) ? 'bg-emerald-100 dark:bg-emerald-900/30' : ''}`}>
+                      <TableRow key={c.id} className={`table-row-hover hover:border-l-2 hover:border-l-sky-400 border-l-2 border-l-transparent ${idx % 2 === 1 ? 'bg-muted/20' : ''} ${flashIds.has(c.id) ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''}`}>
                         <TableCell>
                           <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="cursor-pointer rounded" />
                         </TableCell>
@@ -2445,6 +2687,17 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
                           </DropdownMenu>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{fmtDate(c.createdAt)}</TableCell>
+                        <TableCell>
+                          {(() => {
+                            const sla = getSLAInfo(c.createdAt, c.status);
+                            return (
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${sla.bg} ${sla.text}`}>
+                                {sla.level === 'breached' && <Flame className="h-3 w-3" />}
+                                {sla.days}d
+                              </span>
+                            );
+                          })()}
+                        </TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setSelectedComplaint(c); setDetailOpen(true); }}>
                             <Eye className="h-4 w-4" />
@@ -2469,6 +2722,15 @@ function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComp
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-xs font-bold">{c.ticketNo}</span>
                       <div className="flex items-center gap-1.5">
+                        {(() => {
+                          const sla = getSLAInfo(c.createdAt, c.status);
+                          return (
+                            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${sla.bg} ${sla.text}`}>
+                              {sla.level === 'breached' && <Flame className="h-2.5 w-2.5" />}
+                              {sla.days}d
+                            </span>
+                          );
+                        })()}
                         <StatusBadge status={c.status} />
                         <UrgencyBadge urgency={c.urgency} />
                       </div>
@@ -3574,7 +3836,7 @@ function SettingsView() {
               </div>
               <div className="p-3 rounded-xl bg-muted/50 border border-border/50">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Version</p>
-                <p className="text-sm font-semibold text-foreground">2.0.0</p>
+                <p className="text-sm font-semibold text-foreground">2.2.0</p>
               </div>
               <div className="p-3 rounded-xl bg-muted/50 border border-border/50">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Framework</p>
@@ -3915,15 +4177,48 @@ function CommandPalette({ open, onOpenChange, onNavigate, currentView }: {
 
 function HydrationGate({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  const [loadStep, setLoadStep] = useState(0);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setLoadStep(1), 400);
+    const t2 = setTimeout(() => setLoadStep(2), 900);
+    const t3 = setTimeout(() => { setLoadStep(3); setMounted(true); }, 1400);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, []);
+
   if (!mounted) {
+    const steps = ['Initializing...', 'Authenticating...', 'Ready'];
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: NAVY }}>
-            <Shield className="h-6 w-6 text-white animate-pulse" />
+        <div className="flex flex-col items-center gap-6">
+          <motion.div
+            className="h-16 w-16 rounded-2xl flex items-center justify-center shadow-lg"
+            style={{ backgroundColor: NAVY }}
+            animate={{ scale: [1, 1.05, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          >
+            <Shield className="h-8 w-8 text-white" />
+          </motion.div>
+          <div className="text-center space-y-2">
+            <p className="text-sm font-semibold text-foreground">Loading WB Grievance Portal</p>
+            {/* 3-step animated progress bar */}
+            <div className="w-64 h-1.5 rounded-full bg-muted overflow-hidden flex gap-0.5">
+              <motion.div
+                className="h-full rounded-full"
+                style={{ background: 'linear-gradient(90deg, #0A2463, #16A34A)' }}
+                animate={{ width: loadStep >= 1 ? '100%' : '0%' }}
+                transition={{ duration: 0.5 }}
+              />
+            </div>
+            <div className="flex items-center justify-center gap-4 mt-1">
+              {steps.map((step, i) => (
+                <span key={i} className={`text-[10px] font-medium transition-colors duration-300 ${i <= loadStep ? 'text-foreground' : 'text-muted-foreground/40'}`}>
+                  {step}
+                </span>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground/50 mt-1">v2.2.0</p>
           </div>
-          <p className="text-sm text-muted-foreground font-medium">Loading WB Grievance Portal...</p>
         </div>
       </div>
     );
@@ -3944,6 +4239,7 @@ export default function HomePage() {
   const [notificationData, setNotificationData] = useState<Complaint[]>([]);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const criticalCount = notificationData.length;
+  const [lastNotifCheck, setLastNotifCheck] = useState<string>('');
 
   // Keyboard shortcut dialog
   const [shortcutOpen, setShortcutOpen] = useState(false);
@@ -3954,6 +4250,14 @@ export default function HomePage() {
   // Dashboard refresh
   const dashboardRef = useRef<{ fetchDashboard: () => void } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Sound notification setting
+  const [soundEnabled, setSoundEnabled] = useState(false);
+
+  useEffect(() => {
+    const stored = safeGetLocalStorage('wb_sound_alerts');
+    setSoundEnabled(stored === 'true');
+  }, []);
 
   // Scroll to top when view changes
   useEffect(() => {
@@ -3977,6 +4281,16 @@ export default function HomePage() {
 
   useEffect(() => {
     if (isAuthenticated) fetchNotifications();
+  }, [isAuthenticated, fetchNotifications]);
+
+  // Poll notifications every 30s
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(() => {
+      fetchNotifications();
+      setLastNotifCheck(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
+    }, 30000);
+    return () => clearInterval(interval);
   }, [isAuthenticated, fetchNotifications]);
 
   const handleNavigate = useCallback((targetView: string, complaint?: Complaint) => {
@@ -4127,12 +4441,20 @@ export default function HomePage() {
             </Button>
 
             {/* Notifications Bell */}
-            <DropdownMenu open={notificationOpen} onOpenChange={setNotificationOpen}>
+            <DropdownMenu open={notificationOpen} onOpenChange={(open) => {
+              setNotificationOpen(open);
+              if (open && soundEnabled) {
+                // don't play sound when opening dropdown
+              }
+              if (open) {
+                setLastNotifCheck(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
+              }
+            }}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0 relative">
-                  <Bell className="h-4 w-4" />
+                  <Bell className={`h-4 w-4 ${criticalCount > 0 ? 'text-red-500' : ''}`} />
                   {criticalCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                    <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center notif-pulse">
                       {criticalCount > 9 ? '9+' : criticalCount}
                     </span>
                   )}
@@ -4146,6 +4468,11 @@ export default function HomePage() {
                     <Badge className="ml-auto bg-red-500 text-white text-[10px] px-1.5 py-0">{criticalCount} critical</Badge>
                   )}
                 </DropdownMenuLabel>
+                {lastNotifCheck && (
+                  <div className="px-3 py-1 text-[10px] text-muted-foreground">
+                    Last checked: {lastNotifCheck}
+                  </div>
+                )}
                 <DropdownMenuSeparator />
                 {criticalCount > 0 ? (
                   <>
@@ -4315,7 +4642,7 @@ export default function HomePage() {
               <div className="flex items-center gap-6 text-center">
                 <div className="hidden sm:block">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Portal</p>
-                  <p className="text-xs font-bold text-white/80 mt-0.5">v2.1.0</p>
+                  <p className="text-xs font-bold text-white/80 mt-0.5">v2.2.0</p>
                 </div>
                 <div className="hidden sm:block w-px h-8 bg-white/10" />
                 <div className="hidden sm:block">
@@ -4437,31 +4764,31 @@ export default function HomePage() {
       </Sheet>
 
       {/* ═══ MOBILE BOTTOM NAVIGATION ═══ */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border/50 print:hidden">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-lg border-t border-border/50 print:hidden">
         <div className="flex items-center justify-around px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
           <button
             onClick={() => handleNavigate('dashboard')}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${view === 'dashboard' ? 'text-foreground' : 'text-muted-foreground'}`}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === 'dashboard' ? 'text-foreground' : 'text-muted-foreground'}`}
           >
-            <LayoutDashboard className={`h-5 w-5 ${view === 'dashboard' ? 'text-foreground' : ''}`} />
+            <LayoutDashboard className={`h-5 w-5 transition-transform duration-200 ${view === 'dashboard' ? 'scale-110' : ''}`} />
             <span className="text-[10px] font-medium">Home</span>
-            {view === 'dashboard' && <div className="h-0.5 w-4 rounded-full" style={{ backgroundColor: NAVY }} />}
+            {view === 'dashboard' && <motion.div className="h-0.5 w-4 rounded-full" layoutId="mobile-nav-indicator" style={{ backgroundColor: NAVY }} />}
           </button>
           <button
             onClick={() => handleNavigate('complaints')}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${view === 'complaints' ? 'text-foreground' : 'text-muted-foreground'}`}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === 'complaints' ? 'text-foreground' : 'text-muted-foreground'}`}
           >
-            <FileText className={`h-5 w-5 ${view === 'complaints' ? 'text-foreground' : ''}`} />
+            <FileText className={`h-5 w-5 transition-transform duration-200 ${view === 'complaints' ? 'scale-110' : ''}`} />
             <span className="text-[10px] font-medium">Cases</span>
-            {view === 'complaints' && <div className="h-0.5 w-4 rounded-full" style={{ backgroundColor: NAVY }} />}
+            {view === 'complaints' && <motion.div className="h-0.5 w-4 rounded-full" layoutId="mobile-nav-indicator" style={{ backgroundColor: NAVY }} />}
           </button>
           <button
             onClick={() => handleNavigate('analytics')}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${view === 'analytics' ? 'text-foreground' : 'text-muted-foreground'}`}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === 'analytics' ? 'text-foreground' : 'text-muted-foreground'}`}
           >
-            <BarChart2 className={`h-5 w-5 ${view === 'analytics' ? 'text-foreground' : ''}`} />
+            <BarChart2 className={`h-5 w-5 transition-transform duration-200 ${view === 'analytics' ? 'scale-110' : ''}`} />
             <span className="text-[10px] font-medium">Stats</span>
-            {view === 'analytics' && <div className="h-0.5 w-4 rounded-full" style={{ backgroundColor: NAVY }} />}
+            {view === 'analytics' && <motion.div className="h-0.5 w-4 rounded-full" layoutId="mobile-nav-indicator" style={{ backgroundColor: NAVY }} />}
           </button>
           <button
             onClick={() => setNewComplaintOpen(true)}
@@ -4474,11 +4801,11 @@ export default function HomePage() {
           </button>
           <button
             onClick={() => handleNavigate('settings')}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${view === 'settings' ? 'text-foreground' : 'text-muted-foreground'}`}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === 'settings' ? 'text-foreground' : 'text-muted-foreground'}`}
           >
-            <Settings className={`h-5 w-5 ${view === 'settings' ? 'text-foreground' : ''}`} />
+            <Settings className={`h-5 w-5 transition-transform duration-200 ${view === 'settings' ? 'scale-110' : ''}`} />
             <span className="text-[10px] font-medium">More</span>
-            {view === 'settings' && <div className="h-0.5 w-4 rounded-full" style={{ backgroundColor: NAVY }} />}
+            {view === 'settings' && <motion.div className="h-0.5 w-4 rounded-full" layoutId="mobile-nav-indicator" style={{ backgroundColor: NAVY }} />}
           </button>
         </div>
       </nav>

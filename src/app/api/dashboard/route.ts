@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
 
-// GET /api/dashboard — role-based dashboard statistics
+// GET /api/dashboard — role-based dashboard statistics (supports date range filtering)
 export async function GET(request: NextRequest) {
   const token = getTokenFromRequest(request);
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -14,6 +14,26 @@ export async function GET(request: NextRequest) {
   const where: Record<string, unknown> = {};
   if (payload.role === 'BLOCK') where.block = payload.location;
   else if (payload.role === 'DISTRICT') where.district = payload.location;
+
+  // ─── Date Range Filter ───
+  const { searchParams } = new URL(request.url);
+  const fromParam = searchParams.get('from');
+  const toParam = searchParams.get('to');
+
+  const dateFilter: Record<string, unknown> = {};
+  if (fromParam) {
+    const fromDate = new Date(fromParam);
+    fromDate.setHours(0, 0, 0, 0);
+    dateFilter.gte = fromDate;
+  }
+  if (toParam) {
+    const toDate = new Date(toParam);
+    toDate.setHours(23, 59, 59, 999);
+    dateFilter.lte = toDate;
+  }
+  if (Object.keys(dateFilter).length > 0) {
+    where.createdAt = dateFilter;
+  }
 
   // ─── KPI Stats ───
   const [
@@ -47,11 +67,29 @@ export async function GET(request: NextRequest) {
     }),
   ]);
 
+  // ─── SLA Breaches (open complaints > 7 days old) ───
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  sevenDaysAgo.setHours(0, 0, 0, 0);
+
+  // Build a where clause without the date filter for SLA breaches (always count current state)
+  const slaWhere: Record<string, unknown> = {};
+  if (payload.role === 'BLOCK') slaWhere.block = payload.location;
+  else if (payload.role === 'DISTRICT') slaWhere.district = payload.location;
+
+  const slaBreaches = await db.complaint.count({
+    where: {
+      ...slaWhere,
+      status: { in: ['OPEN', 'IN_PROGRESS'] },
+      createdAt: { lt: sevenDaysAgo },
+    },
+  });
+
   const resolutionRate = total > 0 ? Math.round((resolved / total) * 100) : 0;
 
   const stats = {
     total, open, inProgress, resolved, rejected, critical,
-    todayComplaints, todayResolved, resolutionRate,
+    todayComplaints, todayResolved, resolutionRate, slaBreaches,
   };
 
   // ─── Complaints by Category ───
@@ -156,10 +194,17 @@ export async function GET(request: NextRequest) {
     take: 10,
   });
 
-  // ─── Critical Complaints ───
+  // ─── Critical Complaints (sorted by oldest first = most urgent) ───
   const criticalComplaints = await db.complaint.findMany({
-    where: { ...where, urgency: 'CRITICAL', status: { in: ['OPEN', 'IN_PROGRESS'] } },
-    orderBy: { createdAt: 'desc' },
+    where: { ...slaWhere, urgency: 'CRITICAL', status: { in: ['OPEN', 'IN_PROGRESS'] } },
+    orderBy: { createdAt: 'asc' },
+    take: 5,
+  });
+
+  // ─── Open Complaints sorted by oldest first (for SLA view) ───
+  const openComplaints = await db.complaint.findMany({
+    where: { ...slaWhere, status: 'OPEN' },
+    orderBy: { createdAt: 'asc' },
     take: 5,
   });
 
@@ -172,6 +217,7 @@ export async function GET(request: NextRequest) {
     byUrgency,
     recent,
     criticalComplaints,
+    openComplaints,
     userRole: payload.role,
     userLocation: payload.location,
   });
