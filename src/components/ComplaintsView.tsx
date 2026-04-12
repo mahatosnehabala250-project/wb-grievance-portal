@@ -14,7 +14,7 @@ import {
   Settings, CircleHelp, Monitor, Mail, Volume2, LayoutGrid, Keyboard,
   UserCheck, GitCompareArrows, CalendarClock, History, Tag, ClipboardList,
   AlertCircle, Info, CheckCircle2 as CheckCircleFill, Sparkles, Megaphone,
-  ArrowUp, Flame, CalendarRange, TimerReset,
+  ArrowUp, Flame, CalendarRange, TimerReset, GraduationCap, Droplets, Bus, Sprout,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -632,7 +632,7 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
             </Card>
           </div>
 
-          {/* Cards (Mobile) — Enhanced with urgency borders, days ago badge, larger issue text */}
+          {/* Cards (Mobile) — Enhanced with urgency borders, category icon, days ago badge, hover lift */}
           <div className="md:hidden space-y-3">
             {loading ? (
               Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-44 rounded-xl" />)
@@ -640,18 +640,25 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
               complaints.map((c) => {
                 const daysOld = getDaysOld(c.createdAt);
                 const urgencyColor = URGENCY_BORDER_MAP[c.urgency] || '#6B7280';
+                const urgencyBorderClass = c.urgency === 'CRITICAL' ? 'border-l-critical' : c.urgency === 'HIGH' ? 'border-l-high' : c.urgency === 'MEDIUM' ? 'border-l-medium' : 'border-l-low';
+                const CategoryIcon = c.category === 'Roads & Infrastructure' ? Building2 : c.category === 'Water Supply' ? Droplets : c.category === 'Electricity' ? Zap : c.category === 'Healthcare' ? Activity : c.category === 'Education' ? GraduationCap : c.category === 'Public Transport' ? Bus : c.category === 'Sanitation' ? Trash2 : c.category === 'Law & Order' ? Shield : c.category === 'Agriculture' ? Sprout : FileText;
                 return (
-                  <Card key={c.id} className="border-0 shadow-sm border-l-4 overflow-hidden hover:shadow-md transition-shadow" style={{ borderLeftColor: urgencyColor }}>
+                  <Card key={c.id} className={`border-0 shadow-sm ${urgencyBorderClass} overflow-hidden hover:shadow-md hover:translate-y-[-1px] transition-all duration-200 active:scale-[0.99]`} style={{ borderLeftColor: urgencyColor }}>
                     <CardContent className="p-4 space-y-3">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-xs font-bold text-foreground">{c.ticketNo}</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-mono text-xs font-bold text-foreground shrink-0">{c.ticketNo}</span>
+                          <span className="h-4 w-4 rounded-md bg-muted/80 flex items-center justify-center shrink-0">
+                            <CategoryIcon className="h-2.5 w-2.5 text-muted-foreground" />
+                          </span>
+                        </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <UrgencyBadge urgency={c.urgency} />
                           <StatusBadge status={c.status} />
                         </div>
                       </div>
                       <div className="space-y-1.5">
-                        <p className="text-[15px] font-semibold leading-relaxed text-foreground">{c.issue}</p>
+                        <p className="text-base font-semibold leading-relaxed text-foreground">{c.issue}</p>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-[11px] text-muted-foreground">{c.citizenName || 'Anonymous'}</span>
                           <span className="text-muted-foreground/40 text-[10px]">&middot;</span>
@@ -674,9 +681,12 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
                             {daysOld === 0 ? 'Today' : daysOld === 1 ? '1d' : `${daysOld}d`}
                           </span>
                         </div>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => { setSelectedComplaint(c); setDetailOpen(true); }}>
-                          <Eye className="h-3.5 w-3.5" /> Details
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-muted-foreground/50 lg:hidden">Tap to view</span>
+                          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => { setSelectedComplaint(c); setDetailOpen(true); }}>
+                            <Eye className="h-3.5 w-3.5" /> Details
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

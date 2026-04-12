@@ -49,6 +49,7 @@ import {
 import { toast } from 'sonner';
 import { useTheme } from 'next-themes';
 import { useAuthStore } from '@/lib/auth-store';
+import { useI18nStore } from '@/lib/i18n-store';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Complaint, DashboardData, ViewType } from '@/lib/types';
 import { NAVY, NAVY_DARK, ROLE_COLORS } from '@/lib/constants';
@@ -67,9 +68,11 @@ import { CommandPalette, KeyboardShortcutsDialog, KeyboardShortcutHandler } from
 import { AnnouncementBanner } from '@/components/AnnouncementBanner';
 import { TicketTrackerDialog } from '@/components/TicketTrackerDialog';
 import { AuditLogView } from '@/components/AuditLogView';
+import { PublicStatusPage } from '@/components/PublicStatusPage';
 export default function HomePage() {
   const { user, isAuthenticated, logout, checkAuth } = useAuthStore();
   const { theme, setTheme } = useTheme();
+  const { lang, setLang, t } = useI18nStore();
   const [view, setView] = useState<ViewType>('dashboard');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [newComplaintOpen, setNewComplaintOpen] = useState(false);
@@ -237,12 +240,13 @@ export default function HomePage() {
   }, [fetchNotifications]);
 
   const navItems = [
-    { id: 'dashboard' as ViewType, label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'complaints' as ViewType, label: 'Complaints', icon: FileText },
-    { id: 'analytics' as ViewType, label: 'Analytics', icon: BarChart2 },
-    ...(user?.role === 'ADMIN' ? [{ id: 'audit' as ViewType, label: 'Audit Log', icon: History }] : []),
-    ...(user?.role === 'ADMIN' ? [{ id: 'users' as ViewType, label: 'Users', icon: Users }] : []),
-    { id: 'settings' as ViewType, label: 'Settings', icon: Settings },
+    { id: 'dashboard' as ViewType, label: t('dashboard'), icon: LayoutDashboard },
+    { id: 'complaints' as ViewType, label: t('complaints'), icon: FileText },
+    { id: 'analytics' as ViewType, label: t('analytics'), icon: BarChart2 },
+    ...(user?.role === 'ADMIN' ? [{ id: 'systemStatus' as ViewType, label: t('systemStatus'), icon: Activity }] : []),
+    ...(user?.role === 'ADMIN' ? [{ id: 'audit' as ViewType, label: t('auditLog'), icon: History }] : []),
+    ...(user?.role === 'ADMIN' ? [{ id: 'users' as ViewType, label: t('users'), icon: Users }] : []),
+    { id: 'settings' as ViewType, label: t('settings'), icon: Settings },
   ];
 
   // Not logged in (wrap in hydration gate)
@@ -281,8 +285,8 @@ export default function HomePage() {
 
       {/* ═══ HEADER ═══ */}
       <header className="sticky top-0 z-50 glass-header border-b border-border/50">
-        {/* Animated gradient border at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 h-px" style={{ background: 'linear-gradient(90deg, transparent, #0A2463, #16A34A, #D97706, #DC2626, transparent)' }} />
+        {/* Animated vivid gradient ribbon at bottom — 3px with shimmer */}
+        <div className="absolute bottom-0 left-0 right-0 header-ribbon" />
 
         <div className="flex items-center justify-between h-14 px-4">
           <div className="flex items-center gap-3">
@@ -294,7 +298,18 @@ export default function HomePage() {
                 <Shield className="h-4 w-4 text-white" />
               </div>
               <div className="hidden sm:block">
-                <h1 className="text-sm font-black tracking-tight" style={{ color: NAVY }}>WB Grievance Portal</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-sm font-black tracking-tight" style={{ color: NAVY }}>WB Grievance Portal</h1>
+                  {user?.role === 'ADMIN' && (
+                    <span className="live-badge">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
+                      </span>
+                      LIVE
+                    </span>
+                  )}
+                </div>
                 <p className="text-[10px] text-muted-foreground -mt-0.5">Government of West Bengal</p>
               </div>
             </div>
@@ -321,7 +336,7 @@ export default function HomePage() {
             <Button
               variant="outline"
               size="sm"
-              className="hidden sm:flex h-8 gap-2 px-3 text-xs text-muted-foreground hover:text-foreground font-normal"
+              className="hidden sm:flex h-8 gap-2 px-3 text-xs text-muted-foreground hover:text-foreground font-normal search-btn-gradient"
               onClick={() => setShortcutOpen(true)}
             >
               <Search className="h-3.5 w-3.5" />
@@ -342,6 +357,20 @@ export default function HomePage() {
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
 
+            {/* Language Toggle — EN / বাং */}
+            <button
+              onClick={() => setLang(lang === 'en' ? 'bn' : 'en')}
+              className="hidden sm:flex lang-toggle"
+              title={lang === 'en' ? 'Switch to Bengali' : 'Switch to English'}
+            >
+              <span className={`lang-toggle-btn ${lang === 'en' ? 'active' : ''}`}>
+                EN
+              </span>
+              <span className={`lang-toggle-btn ${lang === 'bn' ? 'active' : ''}`}>
+                বাং
+              </span>
+            </button>
+
             {/* Notifications Bell */}
             <DropdownMenu open={notificationOpen} onOpenChange={(open) => {
               setNotificationOpen(open);
@@ -353,8 +382,8 @@ export default function HomePage() {
               }
             }}>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 relative">
-                  <Bell className={`h-4 w-4 ${criticalCount > 0 ? 'text-red-500' : ''}`} />
+                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 relative ${criticalCount > 0 ? 'animate-wiggle' : ''}`}>
+                  <Bell className={`h-4 w-4 ${criticalCount > 0 ? 'text-red-500 animate-bell-ring' : ''}`} />
                   {criticalCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center notif-pulse">
                       {criticalCount > 9 ? '9+' : criticalCount}
@@ -365,7 +394,7 @@ export default function HomePage() {
               <DropdownMenuContent align="end" className="w-80">
                 <DropdownMenuLabel className="text-xs font-bold flex items-center gap-2">
                   <Bell className="h-3.5 w-3.5" />
-                  Notifications
+                  {t('notifications')}
                   {criticalCount > 0 && (
                     <Badge className="ml-auto bg-red-500 text-white text-[10px] px-1.5 py-0">{criticalCount} critical</Badge>
                   )}
@@ -450,7 +479,7 @@ export default function HomePage() {
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => logout()} className="text-red-600 dark:text-red-400 cursor-pointer">
-                  <LogOut className="h-3.5 w-3.5 mr-2" />Sign Out
+                  <LogOut className="h-3.5 w-3.5 mr-2" />{t('signOut')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -523,9 +552,9 @@ export default function HomePage() {
                 <ShieldCheck className="h-4 w-4" style={{ color: NAVY }} />
                 <span className="text-[10px] font-bold uppercase tracking-widest">Secured</span>
               </div>
-              <p className="text-[11px] text-muted-foreground">Session active</p>
+              <p className="text-[11px] text-muted-foreground">{t('sessionActive')}</p>
               <Button variant="ghost" size="sm" onClick={() => logout()} className="w-full mt-2 h-7 text-xs text-red-600 dark:text-red-400 gap-1 hover:bg-red-50 dark:hover:bg-red-950/30">
-                <LogOut className="h-3 w-3" /> Sign Out
+                <LogOut className="h-3 w-3" /> {t('signOut')}
               </Button>
             </div>
           </div>
@@ -557,6 +586,9 @@ export default function HomePage() {
                 {view === 'audit' && (
                   <AuditLogView />
                 )}
+                {view === 'systemStatus' && (
+                  <PublicStatusPage />
+                )}
                 {view === 'settings' && (
                   <SettingsView />
                 )}
@@ -584,43 +616,43 @@ export default function HomePage() {
 
               {/* Quick Links */}
               <div className="hidden sm:flex items-center gap-4 text-[11px]">
-                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1"><LayoutDashboard className="h-3 w-3" />Dashboard</span>
+                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1"><LayoutDashboard className="h-3 w-3" />{t('dashboard')}</span>
                 <span className="text-white/30">|</span>
-                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1" onClick={() => setTicketTrackerOpen(true)}><FileText className="h-3 w-3" />Track Status</span>
+                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1" onClick={() => setTicketTrackerOpen(true)}><FileText className="h-3 w-3" />{lang === 'en' ? 'Track Status' : 'ট্র্যাক স্ট্যাটাস'}</span>
                 <span className="text-white/30">|</span>
-                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1"><BarChart2 className="h-3 w-3" />Analytics</span>
+                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1"><BarChart2 className="h-3 w-3" />{t('analytics')}</span>
                 <span className="text-white/30">|</span>
-                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1"><CircleHelp className="h-3 w-3" />Help</span>
+                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1"><CircleHelp className="h-3 w-3" />{lang === 'en' ? 'Help' : 'সাহায্য'}</span>
               </div>
 
               {/* Status Indicators */}
               <div className="flex items-center gap-4 text-center">
                 <div className="hidden sm:block">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Version</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">{t('version')}</p>
                   <p className="text-xs font-bold text-white/80 mt-0.5">v2.5.0</p>
                 </div>
                 <div className="hidden sm:block w-px h-8 bg-white/10" />
                 <div className="hidden sm:block">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Status</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">{t('status')}</p>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
                     </span>
-                    <p className="text-xs font-bold text-emerald-300">Online</p>
+                    <p className="text-xs font-bold text-emerald-300">{t('online')}</p>
                   </div>
                 </div>
                 <div className="hidden sm:block w-px h-8 bg-white/10" />
                 <div className="hidden sm:block">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Uptime</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">{t('uptime')}</p>
                   <p className="text-xs font-bold text-white/80 mt-0.5 font-mono">{uptimeDisplay}</p>
                 </div>
                 <div className="hidden sm:block w-px h-8 bg-white/10" />
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Security</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">{t('security')}</p>
                   <div className="flex items-center gap-1 mt-0.5">
                     <ShieldCheck className="h-3 w-3 text-emerald-300" />
-                    <p className="text-xs font-bold text-white/80">Encrypted</p>
+                    <p className="text-xs font-bold text-white/80">{t('encrypted')}</p>
                   </div>
                 </div>
               </div>

@@ -60,6 +60,78 @@ import { fmtDate, fmtDateTime, fmtStatus, fmtUrgency, fmtRole, safeGetLocalStora
 import { StatusBadge, UrgencyBadge, RoleBadge, StatCard, MiniStat, PieLabel, LoadingSkeleton, EmptyState } from '@/components/common';
 import { FeedbackDialog } from '@/components/FeedbackDialog';
 
+// ─── Inline Satisfaction Rating Widget ───
+function SatisfactionRating({ complaintId }: { complaintId: string }) {
+  const [rating, setRating] = useState(0);
+  const [hoveredRating, setHoveredRating] = useState(0);
+  const [hasRated, setHasRated] = useState(false);
+
+  useEffect(() => {
+    const stored = safeGetLocalStorage(`wb_rating_${complaintId}`);
+    if (stored) {
+      setRating(parseInt(stored, 10));
+      setHasRated(true);
+    }
+  }, [complaintId]);
+
+  const handleRate = useCallback((star: number) => {
+    setRating(star);
+    safeSetLocalStorage(`wb_rating_${complaintId}`, String(star));
+    setHasRated(true);
+    toast.success('Thank you for your feedback!', { description: `You rated this resolution ${star}/5 stars.` });
+  }, [complaintId]);
+
+  const activeRating = hoveredRating || rating;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-emerald-200/40 dark:border-emerald-800/30">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700/70 dark:text-emerald-400/70">
+            {hasRated ? 'Your Rating' : 'Rate this resolution'}
+          </span>
+          {activeRating > 0 && (
+            <motion.span
+              key={activeRating}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-xs font-bold text-amber-600 dark:text-amber-400"
+            >
+              {activeRating}/5
+            </motion.span>
+          )}
+        </div>
+        {hasRated && (
+          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3" />
+            Thank you for your feedback!
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-0.5 mt-1.5">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            type="button"
+            onClick={() => handleRate(star)}
+            onMouseEnter={() => setHoveredRating(star)}
+            onMouseLeave={() => setHoveredRating(0)}
+            className="p-0.5 hover:scale-110 transition-transform focus:outline-none"
+          >
+            <Star
+              className={`h-5 w-5 transition-colors duration-150 ${
+                star <= activeRating
+                  ? 'text-amber-400 fill-amber-400'
+                  : 'text-gray-300 dark:text-gray-600'
+              }`}
+            />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpenChange, onUpdate }: {
   complaint: Complaint | null; open: boolean; onOpenChange: (v: boolean) => void;
   onUpdate?: (id: string, status: string, resolution?: string) => void;
@@ -375,6 +447,8 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
                     Rate Resolution
                   </Button>
                 </div>
+                {/* Inline Satisfaction Rating Widget */}
+                <SatisfactionRating complaintId={complaint.id} />
               </div>
             </motion.div>
           )}

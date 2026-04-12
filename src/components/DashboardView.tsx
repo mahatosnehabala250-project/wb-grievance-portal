@@ -58,6 +58,7 @@ import type { Complaint, DashboardData } from '@/lib/types';
 import { NAVY, NAVY_DARK, STATUS_MAP, URGENCY_MAP, URGENCY_BORDER_MAP, ROLE_MAP, ROLE_COLORS, CATEGORIES, CATEGORY_COLORS } from '@/lib/constants';
 import { Trophy } from 'lucide-react';
 import { fmtDate, fmtDateTime, fmtStatus, fmtUrgency, fmtRole, safeGetLocalStorage, safeSetLocalStorage, authHeaders, getDaysOld, getSLAInfo, playNotificationSound } from '@/lib/helpers';
+import { useI18nStore } from '@/lib/i18n-store';
 import { StatusBadge, UrgencyBadge, RoleBadge, StatCard, MiniStat, PieLabel, LoadingSkeleton, EmptyState } from '@/components/common';
 
 interface LeaderboardEntry {
@@ -67,6 +68,7 @@ interface LeaderboardEntry {
 
 export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id: string, complaint?: Complaint) => void; onDashboardData?: (data: DashboardData) => void }) {
   const user = useAuthStore((s) => s.user);
+  const { lang, t } = useI18nStore();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [assignedTasks, setAssignedTasks] = useState<Complaint[]>([]);
@@ -511,16 +513,20 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard title="Total Complaints" value={stats.total} icon={FileText} color={NAVY} bgColor="#E3F2FD" delay={0} />
-        <StatCard title="Open" value={stats.open} icon={CircleDot} color="#DC2626" bgColor="#FEF2F2" delay={100} />
-        <StatCard title="In Progress" value={stats.inProgress} icon={Clock} color="#D97706" bgColor="#FFFBEB" delay={200} />
-        <StatCard title="Resolved" value={stats.resolved} icon={CheckCircle2} color="#16A34A" bgColor="#F0FDF4" delay={300} />
+        <div className="border-t-navy rounded-t-xl"><StatCard title={t('totalComplaints')} value={stats.total} icon={FileText} color={NAVY} bgColor="#E3F2FD" delay={0} trend={weeklyTrend ? (weeklyTrend.direction === 'up' ? Math.abs(weeklyTrend.change) : -Math.abs(weeklyTrend.change)) : 0} /></div>
+        <div className="border-t-red rounded-t-xl"><StatCard title={t('open')} value={stats.open} icon={CircleDot} color="#DC2626" bgColor="#FEF2F2" delay={100} trend={stats.total > 0 ? -Math.round((stats.open / stats.total) * 10) : 0} /></div>
+        <div className="border-t-amber rounded-t-xl"><StatCard title={t('inProgress')} value={stats.inProgress} icon={Clock} color="#D97706" bgColor="#FFFBEB" delay={200} trend={5} /></div>
+        <div className="border-t-green rounded-t-xl"><StatCard title={t('resolved')} value={stats.resolved} icon={CheckCircle2} color="#16A34A" bgColor="#F0FDF4" delay={300} trend={stats.total > 0 ? Math.round((stats.resolved / stats.total) * 8) : 0} /></div>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}>
-          <Card className={`border-0 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-300 overflow-hidden group relative border-l-4 ${(stats.slaBreaches || 0) > 0 ? 'pulse-glow' : ''}`} style={{ borderLeftColor: '#DC2626', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
-            <CardContent className="p-5 pl-6">
+          <Card className={`border-t-red rounded-t-xl border-0 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-300 overflow-hidden group relative border-l-4 ${(stats.slaBreaches || 0) > 0 ? 'pulse-glow' : ''}`} style={{ borderLeftColor: '#DC2626', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
+            <CardContent className="p-5 pl-6 relative">
+              {/* Watermark icon */}
+              <div className="stat-watermark">
+                <Flame className="h-20 w-20" style={{ color: '#DC2626' }} />
+              </div>
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1.5 flex-1 min-w-0">
-                  <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-muted-foreground">SLA Breaches</p>
+                  <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{t('slaBreaches')}</p>
                   <p className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums text-red-600 dark:text-red-400">
                     {stats.slaBreaches || 0}
                   </p>
@@ -537,15 +543,15 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
 
       {/* Mini Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <MiniStat label="Critical" value={stats.critical} icon={AlertTriangle} color="#DC2626" bgColor="#FEF2F2" delay={350} />
-        <MiniStat label="Today's New" value={stats.todayComplaints} icon={TrendingUp} color={NAVY} bgColor="#E3F2FD" delay={400} />
-        <MiniStat label="Resolution Rate" value={stats.resolutionRate} icon={Activity} color="#16A34A" bgColor="#F0FDF4" delay={450} suffix="%" />
+        <MiniStat label={t('critical')} value={stats.critical} icon={AlertTriangle} color="#DC2626" bgColor="#FEF2F2" delay={350} />
+        <MiniStat label={t('todayNew')} value={stats.todayComplaints} icon={TrendingUp} color={NAVY} bgColor="#E3F2FD" delay={400} />
+        <MiniStat label={t('resolutionRate')} value={stats.resolutionRate} icon={Activity} color="#16A34A" bgColor="#F0FDF4" delay={450} suffix="%" />
       </div>
 
       {/* ═══ QUICK STATUS FILTER CHIPS ═══ */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}>
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mr-1">Quick View:</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mr-1">{lang === 'en' ? 'Quick View:' : 'দ্রুত দেখুন:'}</span>
           {[
             { label: 'All Complaints', count: stats.total, status: '', color: NAVY },
             { label: 'Open', count: stats.open, status: 'OPEN', color: '#DC2626' },
@@ -574,7 +580,7 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <Gauge className="h-4 w-4" style={{ color: NAVY }} />
-              Performance Overview
+              {t('performanceOverview')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -771,7 +777,7 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
           <CardHeader className="pb-1">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <BarChart2 className="h-4 w-4" style={{ color: NAVY }} />
-              7-Day Trend
+              {t('dayTrend')}
             </CardTitle>
           </CardHeader>
           <CardContent>

@@ -10,11 +10,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/lib/auth-store';
+import { useI18nStore } from '@/lib/i18n-store';
 import { NAVY, NAVY_DARK } from '@/lib/constants';
 import { RoleBadge } from '@/components/common';
 
 export function LoginView() {
   const { login, isLoading, error, clearError } = useAuthStore();
+  const { t } = useI18nStore();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [mounted, setMounted] = useState(false);
@@ -155,7 +157,7 @@ export function LoginView() {
             )}
             <CardHeader className="pb-4 relative z-[2]">
               <div className="flex items-center justify-center gap-2 mb-1">
-                <CardTitle className="text-lg font-bold text-center">Sign In to Portal</CardTitle>
+                <CardTitle className="text-lg font-bold text-center">{t('signInToPortal')}</CardTitle>
                 <Badge className="bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300 border-0 text-[10px] px-1.5 py-0 font-bold">v2.0</Badge>
               </div>
               <CardDescription className="text-center text-xs">
@@ -174,21 +176,21 @@ export function LoginView() {
                   </div>
                 )}
                 <div className="space-y-2">
-                  <Label htmlFor="username" className="text-xs font-semibold uppercase tracking-wider">Username</Label>
+                  <Label htmlFor="username" className="text-xs font-semibold uppercase tracking-wider">{t('username')}</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
                     <Input
                       id="username"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Enter your username"
+                      placeholder={t('enterUsername')}
                       className="h-11 pl-10"
                       required
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider">Password</Label>
+                  <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider">{t('password')}</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
                     <Input
@@ -196,7 +198,7 @@ export function LoginView() {
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Enter your password"
+                      placeholder={t('enterPassword')}
                       className="h-11 pl-10"
                       required
                     />
@@ -211,10 +213,10 @@ export function LoginView() {
                   {isLoading ? (
                     <span className="flex items-center gap-2">
                       <RefreshCw className="h-4 w-4 animate-spin" />
-                      Authenticating...
+                      {t('authenticating')}
                     </span>
                   ) : (
-                    'Sign In'
+                    t('login')
                   )}
                 </Button>
                 {/* Forgot Password link */}
@@ -224,7 +226,7 @@ export function LoginView() {
                     onClick={handleForgotPassword}
                     className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
                   >
-                    Forgot Password?
+                    {t('forgotPassword')}
                   </button>
                   <div>
                     <button
@@ -242,7 +244,7 @@ export function LoginView() {
               {/* Enhanced Demo Accounts with icon accents and better hover states */}
               <div className="mt-6 pt-4 border-t">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3 text-center">
-                  Demo Accounts
+                  {t('demoAccounts')}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   {[

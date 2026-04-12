@@ -165,13 +165,36 @@ export function SettingsView() {
         </p>
       </div>
 
-      {/* ═══ Profile Section ═══ */}
+      {/* ═══ Profile Header Card with Gradient Background ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+        <div className="profile-header-gradient rounded-2xl shadow-lg overflow-hidden">
+          <div className="px-6 py-8 sm:px-8 flex items-center gap-5 relative z-[1]">
+            <div className="h-16 w-16 rounded-2xl flex items-center justify-center text-white text-2xl font-black shrink-0 shadow-lg bg-white/15 backdrop-blur-sm border border-white/20">
+              {(user?.name || 'U').charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl font-black text-white">{user?.name}</h2>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-white/15 text-blue-100 border border-white/20">
+                  {user?.role === 'ADMIN' ? <Shield className="h-3 w-3 inline mr-1" /> : user?.role === 'STATE' ? <Globe className="h-3 w-3 inline mr-1" /> : user?.role === 'DISTRICT' ? <Building2 className="h-3 w-3 inline mr-1" /> : <MapPin className="h-3 w-3 inline mr-1" />}
+                  {fmtRole(user?.role || '')}
+                </span>
+                <span className="text-[11px] text-blue-200/60 flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />{user?.location}{user?.district ? `, ${user.district}` : ''}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ═══ Profile Details Section ═══ */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <UserCircle className="h-4 w-4" style={{ color: NAVY }} />
-              Profile
+              Profile Details
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -210,6 +233,9 @@ export function SettingsView() {
         </Card>
       </motion.div>
 
+      {/* ═══ Section Divider ═══ */}
+      <Separator className="my-1" />
+
       {/* ═══ Appearance Section ═══ */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
         <Card className="border-0 shadow-sm">
@@ -228,7 +254,7 @@ export function SettingsView() {
                   <button
                     key={opt.value}
                     onClick={() => setTheme(opt.value)}
-                    className={`relative p-4 rounded-xl transition-all text-center group ${opt.bg} ${isActive ? `${opt.ring} ring-2 shadow-md scale-[1.02]` : 'opacity-70 hover:opacity-100 hover:scale-[1.01]'}`}
+                    className={`relative p-4 rounded-xl transition-all text-center group ${isActive ? 'theme-card-active' : `p-[1px] rounded-xl ${opt.bg}`} ${isActive ? 'scale-[1.02] shadow-lg' : 'opacity-70 hover:opacity-100 hover:scale-[1.01]'}`}
                   >
                     {isActive && (
                       <div className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-sky-500 flex items-center justify-center">
@@ -249,6 +275,9 @@ export function SettingsView() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* ═══ Section Divider ═══ */}
+      <Separator className="my-1" />
 
       {/* ═══ Notification Preferences ═══ */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
@@ -283,6 +312,9 @@ export function SettingsView() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* ═══ Section Divider ═══ */}
+      <Separator className="my-1" />
 
       {/* ═══ Citizen Feedback Section ═══ */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
@@ -384,10 +416,13 @@ export function SettingsView() {
         </Card>
       </motion.div>
 
-      {/* ═══ DANGER ZONE (Admin Only) ═══ */}
-      {user?.role === 'ADMIN' && (
+      {/* ═══ Section Divider ═══ */}
+      <Separator className="my-1" />
+
+      {/* ═══ DANGER ZONE (All Users) ═══ */}
+      {true && (
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}>
-          <Card className="border-0 shadow-sm border border-red-200 dark:border-red-800/50">
+          <Card className="danger-zone border-0 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-bold flex items-center gap-2 text-red-700 dark:text-red-400">
                 <AlertTriangle className="h-4 w-4" />
