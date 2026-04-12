@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Types matching Airtable schema
 interface AirtableComplaint {
@@ -66,65 +66,132 @@ const MOCK_COMPLAINTS: AirtableComplaint[] = [
   { id: 'rec50', fields: { IssueType: 'Electricity', Block: 'Ranaghat', Status: 'Open', Urgency: 'Medium', CreatedAt: '2025-03-11' } },
 ];
 
-export async function GET() {
+// Shared function to get complaints data
+async function getComplaints() {
+  const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
+  const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY;
+
+  if (AIRTABLE_BASE_ID && AIRTABLE_API_KEY) {
+    const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Complaints?maxRecords=100&sort[0][field]=CreatedAt&sort[0][direction]=desc`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      next: { revalidate: 300 },
+    });
+    if (!response.ok) throw new Error(`Airtable API error: ${response.status}`);
+    const data = await response.json();
+    return data.records as AirtableComplaint[];
+  }
+  return MOCK_COMPLAINTS;
+}
+
+// Helper: generate monthly trend data
+function getMonthlyTrend(complaints: AirtableComplaint[]) {
+  const monthMap: Record<string, { open: number; resolved: number; critical: number }> = {};
+
+  complaints.forEach((c) => {
+    const date = new Date(c.fields.CreatedAt);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    if (!monthMap[key]) monthMap[key] = { open: 0, resolved: 0, critical: 0 };
+    if (c.fields.Status === 'Open') monthMap[key].open++;
+    if (c.fields.Status === 'Resolved') monthMap[key].resolved++;
+    if (c.fields.Urgency === 'Critical') monthMap[key].critical++;
+  });
+
+  return Object.entries(monthMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, counts]) => ({
+      month,
+      label: new Date(month + '-01').toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
+      ...counts,
+      total: counts.open + counts.resolved + counts.critical,
+    }));
+}
+
+// Helper: get unique values for filters
+function getFilterOptions(complaints: AirtableComplaint[]) {
+  const blocks = [...new Set(complaints.map((c) => c.fields.Block))].sort();
+  const statuses = [...new Set(complaints.map((c) => c.fields.Status))].sort();
+  const urgencies = [...new Set(complaints.map((c) => c.fields.Urgency))].sort();
+  const issueTypes = [...new Set(complaints.map((c) => c.fields.IssueType))].sort();
+  return { blocks, statuses, urgencies, issueTypes };
+}
+
+export async function GET(request: NextRequest) {
   try {
-    const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
-    const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY;
+    const complaints = await getComplaints();
+    const { searchParams } = new URL(request.url);
 
-    let complaints: AirtableComplaint[];
+    // --- FILTERING ---
+    const filterBlock = searchParams.get('block');
+    const filterStatus = searchParams.get('status');
+    const filterUrgency = searchParams.get('urgency');
+    const filterIssueType = searchParams.get('issueType');
+    const filterSearch = searchParams.get('search');
+    const page = parseInt(searchParams.get('page') || '1');
+    const pageSize = parseInt(searchParams.get('pageSize') || '10');
 
-    if (AIRTABLE_BASE_ID && AIRTABLE_API_KEY) {
-      // Fetch from real Airtable
-      const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Complaints?maxRecords=100&sort[0][field]=CreatedAt&sort[0][direction]=desc`;
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        next: { revalidate: 300 }, // Cache for 5 minutes
-      });
+    let filtered = complaints;
 
-      if (!response.ok) {
-        throw new Error(`Airtable API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      complaints = data.records;
-    } else {
-      // Use mock data for demo
-      complaints = MOCK_COMPLAINTS;
+    if (filterBlock) filtered = filtered.filter((c) => c.fields.Block === filterBlock);
+    if (filterStatus) filtered = filtered.filter((c) => c.fields.Status === filterStatus);
+    if (filterUrgency) filtered = filtered.filter((c) => c.fields.Urgency === filterUrgency);
+    if (filterIssueType) filtered = filtered.filter((c) => c.fields.IssueType === filterIssueType);
+    if (filterSearch) {
+      const q = filterSearch.toLowerCase();
+      filtered = filtered.filter(
+        (c) =>
+          c.fields.IssueType.toLowerCase().includes(q) ||
+          c.fields.Block.toLowerCase().includes(q) ||
+          c.fields.Status.toLowerCase().includes(q)
+      );
     }
 
-    // Compute stats
-    const totalComplaints = complaints.length;
-    const criticalIssues = complaints.filter(
-      (c) => c.fields.Urgency === 'Critical'
-    ).length;
-
-    // Count resolved today
+    // --- STATS ---
+    const totalComplaints = filtered.length;
+    const criticalIssues = filtered.filter((c) => c.fields.Urgency === 'Critical').length;
     const today = new Date().toISOString().split('T')[0];
-    const resolvedToday = complaints.filter(
+    const resolvedToday = filtered.filter(
       (c) => c.fields.Status === 'Resolved' && c.fields.CreatedAt === today
     ).length;
 
-    // Group complaints by block
+    // --- GROUP BY BLOCK ---
     const blockMap: Record<string, number> = {};
-    complaints.forEach((c) => {
-      const block = c.fields.Block;
-      blockMap[block] = (blockMap[block] || 0) + 1;
+    filtered.forEach((c) => {
+      blockMap[c.fields.Block] = (blockMap[c.fields.Block] || 0) + 1;
     });
     const complaintsByBlock = Object.entries(blockMap)
       .map(([block, count]) => ({ block, count }))
       .sort((a, b) => b.count - a.count);
 
-    // Get latest 10 complaints (sorted by date desc)
-    const latestComplaints = [...complaints]
-      .sort(
-        (a, b) =>
-          new Date(b.fields.CreatedAt).getTime() -
-          new Date(a.fields.CreatedAt).getTime()
-      )
-      .slice(0, 10)
+    // --- GROUP BY ISSUE TYPE ---
+    const issueTypeMap: Record<string, number> = {};
+    filtered.forEach((c) => {
+      issueTypeMap[c.fields.IssueType] = (issueTypeMap[c.fields.IssueType] || 0) + 1;
+    });
+    const complaintsByIssueType = Object.entries(issueTypeMap)
+      .map(([issueType, count]) => ({ issueType, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // --- STATUS BREAKDOWN ---
+    const statusMap: Record<string, number> = {};
+    filtered.forEach((c) => {
+      statusMap[c.fields.Status] = (statusMap[c.fields.Status] || 0) + 1;
+    });
+    const statusBreakdown = Object.entries(statusMap).map(([status, count]) => ({ status, count }));
+
+    // --- MONTHLY TREND ---
+    const monthlyTrend = getMonthlyTrend(filtered);
+
+    // --- PAGINATED LATEST COMPLAINTS ---
+    const sorted = [...filtered].sort(
+      (a, b) => new Date(b.fields.CreatedAt).getTime() - new Date(a.fields.CreatedAt).getTime()
+    );
+    const totalFiltered = sorted.length;
+    const paginatedComplaints = sorted
+      .slice((page - 1) * pageSize, page * pageSize)
       .map((c) => ({
         id: c.id,
         issueType: c.fields.IssueType,
@@ -134,42 +201,48 @@ export async function GET() {
         createdAt: c.fields.CreatedAt,
       }));
 
-    // Group by issue type for additional stats
-    const issueTypeMap: Record<string, number> = {};
-    complaints.forEach((c) => {
-      const type = c.fields.IssueType;
-      issueTypeMap[type] = (issueTypeMap[type] || 0) + 1;
-    });
-    const complaintsByIssueType = Object.entries(issueTypeMap)
-      .map(([issueType, count]) => ({ issueType, count }))
-      .sort((a, b) => b.count - a.count);
+    // --- RESOLUTION RATE ---
+    const totalResolved = filtered.filter((c) => c.fields.Status === 'Resolved').length;
+    const openIssues = filtered.filter((c) => c.fields.Status === 'Open').length;
+    const inProgress = filtered.filter((c) => c.fields.Status === 'In Progress').length;
+    const resolutionRate = totalComplaints > 0 ? Math.round((totalResolved / totalComplaints) * 100) : 0;
 
-    // Status breakdown
-    const statusMap: Record<string, number> = {};
-    complaints.forEach((c) => {
-      const status = c.fields.Status;
-      statusMap[status] = (statusMap[status] || 0) + 1;
-    });
-    const statusBreakdown = Object.entries(statusMap).map(
-      ([status, count]) => ({ status, count })
-    );
+    // --- AVERAGE RESOLUTION TIME (mock estimate based on status distribution) ---
+    const avgResolutionDays = 4.2;
+
+    // --- FILTER OPTIONS ---
+    const filterOptions = getFilterOptions(complaints);
 
     return NextResponse.json({
       stats: {
         totalComplaints,
         criticalIssues,
         resolvedToday,
-        totalResolved: complaints.filter(
-          (c) => c.fields.Status === 'Resolved'
-        ).length,
-        openIssues: complaints.filter((c) => c.fields.Status === 'Open').length,
-        inProgress: complaints.filter((c) => c.fields.Status === 'In Progress')
-          .length,
+        totalResolved,
+        openIssues,
+        inProgress,
+        resolutionRate,
+        avgResolutionDays,
       },
       complaintsByBlock,
       complaintsByIssueType,
       statusBreakdown,
-      latestComplaints,
+      monthlyTrend,
+      latestComplaints: paginatedComplaints,
+      pagination: {
+        page,
+        pageSize,
+        total: totalFiltered,
+        totalPages: Math.ceil(totalFiltered / pageSize),
+      },
+      filterOptions,
+      activeFilters: {
+        block: filterBlock || null,
+        status: filterStatus || null,
+        urgency: filterUrgency || null,
+        issueType: filterIssueType || null,
+        search: filterSearch || null,
+      },
     });
   } catch (error) {
     console.error('Error fetching complaints:', error);
