@@ -8,7 +8,10 @@ import {
   ChevronRight, Clock, Globe, Smartphone, MessageSquare,
   PhoneCall, Server, Monitor, CheckCircle2, XCircle,
   Info, BookOpen, Rocket, ArrowUpRight, Table, Key,
-  ClipboardCopy, Loader2, Signal,
+  ClipboardCopy, Loader2, Signal, Sparkles, BrainCircuit,
+  Send, ArrowLeftRight, FileSpreadsheet, Bot, ArrowDown,
+  ChevronDown, Target, Languages, Lightbulb, BarChart2,
+  Tag, Hash, TrendingUp, Gauge, MessageCircle, FileText, Users,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/lib/auth-store';
 import { motion } from 'framer-motion';
@@ -266,6 +270,296 @@ const FIELD_MAPPINGS = [
   { our: 'updatedAt', airtable: 'Updated At', type: 'Date' },
 ];
 
+/* ──────────────── Airtable Data Flow Diagram ──────────────── */
+function AirtableFlowDiagram() {
+  const nodes = [
+    { icon: Monitor, label: 'WB Portal', color: '#0A2463', sublabel: 'PostgreSQL DB' },
+    { icon: ArrowLeftRight, label: '↔ Two-Way Sync', color: '#0EA5E9', sublabel: 'REST API', isWide: true },
+    { icon: FileSpreadsheet, label: 'Airtable', color: '#166EE1', sublabel: 'Spreadsheet DB' },
+  ];
+  const consumers = [
+    { icon: BarChart2, label: 'Reports & Charts', color: '#7C3AED' },
+    { icon: Globe, label: 'Share with Depts', color: '#059669' },
+    { icon: Users, label: 'Non-Portal Users', color: '#D97706' },
+  ];
+  return (
+    <div className="space-y-5">
+      {/* Main Sync Flow */}
+      <div className="relative overflow-x-auto">
+        <div className="flex items-center gap-0 min-w-[500px] justify-center">
+          {nodes.map((node, i) => (
+            <div key={node.label} className="flex items-center">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.15 }}
+                className="flex flex-col items-center gap-1.5"
+                style={{ width: node.isWide ? 140 : 110 }}
+              >
+                <div
+                  className="h-14 w-14 rounded-xl flex items-center justify-center shadow-lg border border-white/20"
+                  style={{ backgroundColor: node.color }}
+                >
+                  <node.icon className={node.isWide ? "h-6 w-6 text-white" : "h-6 w-6 text-white"} />
+                </div>
+                <span className="text-[11px] font-bold text-foreground text-center leading-tight">{node.label}</span>
+                <span className="text-[9px] text-muted-foreground text-center">{node.sublabel}</span>
+              </motion.div>
+              {i < nodes.length - 1 && (
+                <motion.div
+                  initial={{ opacity: 0, scaleX: 0 }}
+                  animate={{ opacity: 1, scaleX: 1 }}
+                  transition={{ delay: i * 0.15 + 0.08 }}
+                  className="flex items-center mx-1"
+                >
+                  <div className="w-8 h-[2px] rounded-full bg-sky-400/60" />
+                  <ChevronRight className="h-3.5 w-3.5 text-sky-400/60 -ml-1" />
+                </motion.div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Airtable Outputs */}
+      <div className="relative">
+        <div className="absolute left-1/2 -translate-x-1/2 -top-3 w-[2px] h-3 bg-sky-400/40" />
+        <div className="grid grid-cols-3 gap-3">
+          {consumers.map((c, i) => (
+            <motion.div
+              key={c.label}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 + i * 0.1 }}
+              className="p-3 rounded-xl bg-muted/50 border border-border/50 text-center"
+            >
+              <div className="h-8 w-8 rounded-lg mx-auto mb-1.5 flex items-center justify-center" style={{ backgroundColor: `${c.color}15` }}>
+                <c.icon className="h-4 w-4" style={{ color: c.color }} />
+              </div>
+              <span className="text-[10px] font-bold text-foreground leading-tight block">{c.label}</span>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────── AI Brain Flow Diagram ──────────────── */
+function AIBrainFlowDiagram() {
+  const mainNodes = [
+    { icon: Smartphone, label: 'WhatsApp', color: '#25D366', sublabel: '"Pani nahi aa raha"' },
+    { icon: BrainCircuit, label: 'AI Brain', color: '#10B981', sublabel: 'Smart Analysis' },
+    { icon: FileText, label: 'Portal', color: '#0A2463', sublabel: 'Ticket Created' },
+  ];
+  const aiOutputs = [
+    { icon: Tag, label: 'Category', color: '#8B5CF6', value: 'Water Supply' },
+    { icon: Gauge, label: 'Urgency', color: '#EF4444', value: 'HIGH' },
+    { icon: TrendingUp, label: 'Sentiment', color: '#F59E0B', value: 'FRUSTRATED' },
+    { icon: Languages, label: 'Language', color: '#0EA5E9', value: 'Bengali' },
+    { icon: Target, label: 'Department', color: '#059669', value: 'PHE' },
+    { icon: Lightbulb, label: 'Action', color: '#EC4899', value: 'Send Team' },
+  ];
+  return (
+    <div className="space-y-5">
+      {/* Main Flow */}
+      <div className="relative overflow-x-auto">
+        <div className="flex items-center gap-0 min-w-[500px] justify-center">
+          {mainNodes.map((node, i) => (
+            <div key={node.label} className="flex items-center">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.15 }}
+                className="flex flex-col items-center gap-1.5 w-[110px]"
+              >
+                <div
+                  className="h-14 w-14 rounded-xl flex items-center justify-center shadow-lg border border-white/20"
+                  style={{ backgroundColor: node.color }}
+                >
+                  <node.icon className="h-6 w-6 text-white" />
+                </div>
+                <span className="text-[11px] font-bold text-foreground text-center leading-tight">{node.label}</span>
+                <span className="text-[9px] text-muted-foreground text-center">{node.sublabel}</span>
+              </motion.div>
+              {i < mainNodes.length - 1 && (
+                <motion.div
+                  initial={{ opacity: 0, scaleX: 0 }}
+                  animate={{ opacity: 1, scaleX: 1 }}
+                  transition={{ delay: i * 0.15 + 0.08 }}
+                  className="flex items-center mx-1"
+                >
+                  <div className="w-8 h-[2px] rounded-full bg-emerald-400/60" />
+                  <ChevronRight className="h-3.5 w-3.5 text-emerald-400/60 -ml-1" />
+                </motion.div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* AI Output Badges */}
+      <div className="relative">
+        <div className="absolute left-1/2 -translate-x-1/2 -top-3 w-[2px] h-3 bg-emerald-400/40" />
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center mb-3">AI Brain Automatically Detects ↓</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {aiOutputs.map((c, i) => (
+            <motion.div
+              key={c.label}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 + i * 0.08 }}
+              className="p-3 rounded-xl border border-border/50 text-center"
+              style={{ background: `linear-gradient(135deg, ${c.color}08, ${c.color}15)` }}
+            >
+              <div className="h-8 w-8 rounded-lg mx-auto mb-1.5 flex items-center justify-center" style={{ backgroundColor: `${c.color}20` }}>
+                <c.icon className="h-4 w-4" style={{ color: c.color }} />
+              </div>
+              <span className="text-[10px] font-bold text-foreground leading-tight block">{c.label}</span>
+              <span className="text-[9px] font-mono font-semibold mt-0.5 block" style={{ color: c.color }}>{c.value}</span>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────── AI Brain Test Panel ──────────────── */
+function AIBrainTestPanel() {
+  const [testText, setTestText] = useState('');
+  const [testResult, setTestResult] = useState<Record<string, unknown> | null>(null);
+  const [testLoading, setTestLoading] = useState(false);
+
+  const handleAITest = useCallback(async () => {
+    if (!testText.trim()) return;
+    setTestLoading(true);
+    setTestResult(null);
+    try {
+      const res = await fetch('/api/ai/process-complaint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: testText.trim(), district: 'Nadia', block: 'Krishnanagar-I' }),
+      });
+      const data = await res.json();
+      setTestResult(data);
+    } catch {
+      setTestResult({ error: 'Failed to connect to AI service' });
+    }
+    setTestLoading(false);
+  }, [testText]);
+
+  const sampleTexts = [
+    'হামার এলাকায় ৩ দিন ধরে পানি নেই, অনেক পরিবার কষ্ট পাচ্ছে',
+    'Road from Krishnanagar to Ranaghat is completely broken, accidents happening daily',
+    'बिजली बिल में बहुत ज्यादा charge आ रहा है, मीटर भी खराब है',
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* Sample Complaints */}
+      <div>
+        <p className="text-xs font-bold text-foreground mb-2 flex items-center gap-1.5">
+          <MessageCircle className="h-3.5 w-3.5" style={{ color: NAVY }} />
+          Try a sample complaint:
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {sampleTexts.map((text, i) => (
+            <button
+              key={i}
+              onClick={() => { setTestText(text); setTestResult(null); }}
+              className="px-3 py-1.5 rounded-lg bg-muted/50 border border-border/50 text-[10px] font-medium text-foreground hover:bg-muted/80 transition-colors text-left max-w-[260px] truncate"
+            >
+              &ldquo;{text.slice(0, 50)}{text.length > 50 ? '...' : ''}&rdquo;
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* Input */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Textarea
+          placeholder="Type or paste a citizen complaint here..."
+          value={testText}
+          onChange={(e) => setTestText(e.target.value)}
+          className="min-h-[80px] text-sm resize-none"
+          onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAITest(); }}
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={handleAITest}
+          disabled={testLoading || !testText.trim()}
+          className="gap-2 text-xs font-semibold"
+          style={{ backgroundColor: '#10B981', color: 'white' }}
+        >
+          {testLoading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing...</> : <><Sparkles className="h-3.5 w-3.5" /> Analyze with AI Brain</>}
+        </Button>
+        <span className="text-[10px] text-muted-foreground">Ctrl+Enter to send</span>
+      </div>
+      {/* Results */}
+      {testResult && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+          {testResult.error ? (
+            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-800/30">
+              <p className="text-xs font-semibold text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                <XCircle className="h-3.5 w-3.5" /> {String(testResult.error)}
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* AI Analysis Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { label: 'Category', value: testResult.category, color: '#8B5CF6' },
+                  { label: 'Urgency', value: testResult.urgency, color: '#EF4444' },
+                  { label: 'Sentiment', value: testResult.sentiment, color: '#F59E0B' },
+                  { label: 'Language', value: testResult.language, color: '#0EA5E9' },
+                  { label: 'Department', value: testResult.department, color: '#059669' },
+                  { label: 'Confidence', value: `${testResult.confidence}%`, color: '#EC4899' },
+                ].map((item) => (
+                  <div key={item.label} className="p-3 rounded-xl border border-border/50" style={{ background: `linear-gradient(135deg, ${item.color}08, ${item.color}15)` }}>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">{item.label}</span>
+                    <span className="text-sm font-black mt-0.5 block" style={{ color: item.color }}>{String(item.value)}</span>
+                  </div>
+                ))}
+              </div>
+              {/* Summary & Action */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 rounded-xl bg-muted/50 border border-border/50">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Summary</span>
+                  <p className="text-xs text-foreground mt-1 leading-relaxed">{String(testResult.summary || '')}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-muted/50 border border-border/50">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Suggested Action</span>
+                  <p className="text-xs text-foreground mt-1 leading-relaxed">{String(testResult.suggestedAction || '')}</p>
+                </div>
+              </div>
+              {/* Keywords */}
+              {Array.isArray(testResult.keywords) && testResult.keywords.length > 0 && (
+                <div className="p-3 rounded-xl bg-muted/50 border border-border/50">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Keywords</span>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {(testResult.keywords as string[]).map((kw: string) => (
+                      <Badge key={kw} variant="outline" className="text-[10px] gap-1 font-normal">
+                        <Hash className="h-2.5 w-2.5" /> {kw}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {testResult._fallback && (
+                <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30">
+                  <p className="text-[10px] text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                    <AlertTriangle className="h-3 w-3" /> Fallback mode: AI used defaults ({String(testResult._reason)})
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════
    INTEGRATIONS VIEW — MAIN COMPONENT
    ══════════════════════════════════════════════════════════ */
@@ -445,8 +739,13 @@ export default function IntegrationsView() {
       </div>
 
       {/* ═══ Tabs ═══ */}
-      <Tabs defaultValue="n8n" className="space-y-5">
+      <Tabs defaultValue="ai-brain" className="space-y-5">
         <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="ai-brain" className="gap-1.5 text-xs">
+            <Sparkles className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">AI Brain</span>
+            <span className="sm:hidden">AI</span>
+          </TabsTrigger>
           <TabsTrigger value="n8n" className="gap-1.5 text-xs">
             <Zap className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">n8n Workflow</span>
@@ -468,7 +767,167 @@ export default function IntegrationsView() {
         </TabsList>
 
         {/* ═══════════════════════════════════════════════════════
-            TAB 1: n8n INTEGRATION
+            TAB 1: AI BRAIN — Smart Complaint Analysis
+            ═══════════════════════════════════════════════════════ */}
+        <TabsContent value="ai-brain">
+          <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-5">
+            {/* Hero: What is AI Brain? */}
+            <motion.div variants={fadeUp}>
+              <div className="relative overflow-hidden rounded-2xl shadow-lg">
+                <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #064E3B, #10B981, #059669)' }} />
+                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 30% 40%, white 1px, transparent 1px), radial-gradient(circle at 70% 60%, white 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+                <div className="relative px-6 py-8">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="h-12 w-12 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+                      <BrainCircuit className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-white tracking-tight">AI Brain — Smart Complaint Analysis</h3>
+                      <p className="text-sm text-emerald-200/80">Artificial Intelligence se complaint automatically samjho aur categorize karo</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    <Badge className="bg-white/15 text-white border border-white/20 text-[10px] gap-1"><Languages className="h-3 w-3" /> 3 Languages (EN / BN / HI)</Badge>
+                    <Badge className="bg-white/15 text-white border border-white/20 text-[10px] gap-1"><Target className="h-3 w-3" /> 10 Categories</Badge>
+                    <Badge className="bg-white/15 text-white border border-white/20 text-[10px] gap-1"><Gauge className="h-3 w-3" /> 4 Urgency Levels</Badge>
+                    <Badge className="bg-white/15 text-white border border-white/20 text-[10px] gap-1"><TrendingUp className="h-3 w-3" /> Sentiment Analysis</Badge>
+                    <Badge className="bg-white/15 text-white border border-white/20 text-[10px] gap-1"><Bot className="h-3 w-3" /> 15s Response</Badge>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* How AI Brain Works — Step by Step */}
+            <motion.div variants={fadeUp}>
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Lightbulb className="h-4 w-4 text-emerald-600" />
+                    AI Brain Kaise Kaam Karta Hai?
+                  </CardTitle>
+                  <CardDescription className="text-xs">Step-by-step breakdown of how AI processes a citizen complaint</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <AIBrainFlowDiagram />
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* What AI Detects — Detailed Cards */}
+            <motion.div variants={fadeUp}>
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" style={{ color: NAVY }} />
+                    AI Brain Kya-Kya Detect Karta Hai?
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[
+                      { icon: Tag, title: 'Category (श्रेणी)', desc: 'Water Supply, Road Damage, Electricity, Sanitation, Healthcare, Education, Public Transport, Agriculture, Housing, Other — 10 categories mein se ek select karta hai', color: '#8B5CF6' },
+                      { icon: Gauge, title: 'Urgency (तत्कालता)', desc: 'LOW = chhoti pareshani, MEDIUM = daily life affect, HIGH = bahut urgent, CRITICAL = life-threatening emergency', color: '#EF4444' },
+                      { icon: TrendingUp, title: 'Sentiment (भावना)', desc: 'POSITIVE, NEGATIVE, NEUTRAL, FRUSTRATED (gussa hai citizen), URGENT (jaldi chahiye) — citizen ka mood detect karta hai', color: '#F59E0B' },
+                      { icon: Languages, title: 'Language (भाषा)', desc: 'English, Bengali (বাংলা), Hindi — kisi bhi language mein complaint aaye, AI samajh jayega aur English summary dega', color: '#0EA5E9' },
+                      { icon: Target, title: 'Department (विभाग)', desc: 'PHE (water), PWD (road), WBSEDCL (electricity), Health Dept, Education Dept — sahi department ko automatically assign karta hai', color: '#059669' },
+                      { icon: Lightbulb, title: 'Suggested Action (सुझाव)', desc: 'Officer ke liye recommendation — "Water team bhejo", "Road repair priority do", etc. — AI suggest karta hai kya karna chahiye', color: '#EC4899' },
+                    ].map((item) => (
+                      <div key={item.title} className="p-3 rounded-xl border border-border/50 hover:shadow-sm transition-shadow" style={{ background: `linear-gradient(135deg, ${item.color}05, ${item.color}12)` }}>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${item.color}20` }}>
+                            <item.icon className="h-3.5 w-3.5" style={{ color: item.color }} />
+                          </div>
+                          <span className="text-xs font-bold text-foreground">{item.title}</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">{item.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Live AI Test Panel */}
+            <motion.div variants={fadeUp}>
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <Bot className="h-4 w-4 text-emerald-600" />
+                        AI Brain Test — Live Demo
+                      </CardTitle>
+                      <CardDescription className="text-xs mt-1">Type any complaint in English, Bengali, or Hindi — AI Brain will analyze it in real-time</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <AIBrainTestPanel />
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* API Reference */}
+            <motion.div variants={fadeUp}>
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Code className="h-4 w-4" style={{ color: NAVY }} />
+                    AI Brain API — Backend Reference
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <CodeBlock
+                    code={`POST /api/ai/process-complaint
+
+// Request Body:
+{
+  "text": "হামার এলাকায় পানি নেই ৩ দিন ধরে",
+  "block": "Krishnanagar-I",
+  "district": "Nadia",
+  "language": "bn"
+}
+
+// Response (200 OK):
+{
+  "category": "Water Supply",
+  "urgency": "HIGH",
+  "sentiment": "FRUSTRATED",
+  "summary": "Citizen reports no water supply for 3 days in Krishnanagar area, affecting multiple families.",
+  "suggestedAction": "Immediately deploy PHE water tanker and investigate the supply issue",
+  "language": "bn",
+  "confidence": 92,
+  "keywords": ["water", "supply", "3 days", "families"],
+  "department": "PHE"
+}`}
+                    label="AI Brain — Process Complaint API"
+                  />
+                  <CodeBlock
+                    code={`POST /api/ai/smart-reply
+
+// Request Body:
+{
+  "complaintId": "clx_abc123...",
+  "language": "bn"
+}
+
+// Response (200 OK):
+{
+  "replies": {
+    "en": "Dear citizen, your complaint (WB-00182) about water supply has been registered. Our PHE team has been dispatched to investigate and restore supply within 24 hours. You will receive updates via WhatsApp.",
+    "bn": "সম্মানিত নাগরিক, পানি সরবরাহ সম্পর্কিত আপনার অভিযোগ (WB-00182) নিবন্ধিত হয়েছে। আমাদের PHE দল ২৪ ঘন্টার মধ্যে তদন্ত করে সরবরাহ পুনরুদ্ধার করবে।"
+  }
+}`}
+                    label="AI Brain — Smart Reply Generator API"
+                  />
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
+        </TabsContent>
+
+        {/* ═══════════════════════════════════════════════════════
+            TAB 2: n8n INTEGRATION
             ═══════════════════════════════════════════════════════ */}
         <TabsContent value="n8n">
           <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-5">
@@ -673,35 +1132,81 @@ export default function IntegrationsView() {
         </TabsContent>
 
         {/* ═══════════════════════════════════════════════════════
-            TAB 2: AIRTABLE INTEGRATION
+            TAB 3: AIRTABLE INTEGRATION
             ═══════════════════════════════════════════════════════ */}
         <TabsContent value="airtable">
           <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-5">
-            {/* Explanation */}
+            {/* Hero: Airtable Kaam Kya Karta Hai? */}
+            <motion.div variants={fadeUp}>
+              <div className="relative overflow-hidden rounded-2xl shadow-lg">
+                <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #1E3A5F, #166EE1, #0284C7)' }} />
+                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 25% 50%, white 1px, transparent 1px), radial-gradient(circle at 75% 50%, white 1px, transparent 1px)', backgroundSize: '35px 35px' }} />
+                <div className="relative px-6 py-8">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="h-12 w-12 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+                      <FileSpreadsheet className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-white tracking-tight">Airtable — Kaam Kya Karta Hai?</h3>
+                      <p className="text-sm text-sky-200/80">Airtable ek advanced spreadsheet hai jo Portal ke saath two-way sync mein rehta hai</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    <Badge className="bg-white/15 text-white border border-white/20 text-[10px] gap-1"><BarChart2 className="h-3 w-3" /> Reports & Charts</Badge>
+                    <Badge className="bg-white/15 text-white border border-white/20 text-[10px] gap-1"><Globe className="h-3 w-3" /> Cross-Dept Share</Badge>
+                    <Badge className="bg-white/15 text-white border border-white/20 text-[10px] gap-1"><RefreshCw className="h-3 w-3" /> Two-Way Sync</Badge>
+                    <Badge className="bg-white/15 text-white border border-white/20 text-[10px] gap-1"><ArrowLeftRight className="h-3 w-3" /> Real-time</Badge>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Visual Data Flow */}
+            <motion.div variants={fadeUp}>
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <ArrowLeftRight className="h-4 w-4 text-sky-600" />
+                    Airtable Data Flow — Kaise Sync Hota Hai?
+                  </CardTitle>
+                  <CardDescription className="text-xs">Portal aur Airtable ke beech real-time data flow</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <AirtableFlowDiagram />
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Why Airtable — Enhanced with Hindi */}
             <motion.div variants={fadeUp}>
               <Card className="border-0 shadow-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
                     <Database className="h-4 w-4" style={{ color: NAVY }} />
-                    Why Airtable?
+                    Airtable Kyun Use Kar Rahe Hain?
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Use Airtable as an external spreadsheet for advanced reporting and cross-department sharing
+                    Airtable ka har kaam clear samjhiye — kya karta hai aur kyun zaroori hai
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {[
-                      { icon: Layers, title: 'Advanced Reporting', desc: 'Airtable Views, Grouping, Filtering, and Charts for powerful analysis' },
-                      { icon: Globe, title: 'Cross-Department', desc: 'Share live complaint data with other departments without portal access' },
-                      { icon: RefreshCw, title: 'Two-Way Sync', desc: 'Keep Airtable and Portal in sync with one-click synchronization' },
+                      { icon: BarChart2, title: '1. Advanced Reports', desc: 'Airtable mein Grid, Kanban, Calendar, Gallery views hain — department-wise, category-wise, urgency-wise complaints ko ek glance mein dekho. Charts banao — pie chart, bar chart, timeline sab available hai.', color: '#7C3AED' },
+                      { icon: Globe, title: '2. Cross-Dept Sharing', desc: 'Portal ka access sirf authorized users ke paas hai. Lekin Airtable link share kar sakte ho PWD, PHE, Health Dept ko — woh bina portal login kiye complaint data dekh sakte hain. Permission control bhi hai.', color: '#059669' },
+                      { icon: RefreshCw, title: '3. Two-Way Sync', desc: 'Portal mein koi bhi change karo (status change, officer assign) — woh automatically Airtable mein update hota hai. Aur Airtable mein koi change karo — woh Portal mein aa jayega. Koi data loss nahi hoga.', color: '#0EA5E9' },
+                      { icon: FileSpreadsheet, title: '4. Smart Spreadsheet', desc: 'Airtable ek smart spreadsheet hai — Excel jaisa dikhta hai lekin database ki tarah kaam karta hai. Filtering, sorting, grouping, formulas — sab available hai. Non-technical officers ko easy lagta hai.', color: '#D97706' },
+                      { icon: Users, title: '5. Officer Collaboration', desc: 'Multiple officers ek hi Airtable base mein simultaneously kaam kar sakte hain. Comments add karo, status update karo, changes track karo — sab real-time hai. Team collaboration bohot easy ho jata hai.', color: '#DC2626' },
+                      { icon: Layers, title: '6. Backup & Archive', desc: 'Agar portal down ho jaye toh complaints ka data Airtable mein safe hai. Historical data maintain kar sakte ho. Old complaints archive kar sakte ho. Data backup ka ek reliable source hai Airtable.', color: '#0A2463' },
                     ].map((item) => (
-                      <div key={item.title} className="p-4 rounded-xl bg-muted/50 border border-border/50 text-center">
-                        <div className="h-10 w-10 rounded-xl mx-auto mb-2 flex items-center justify-center" style={{ backgroundColor: `${NAVY}15` }}>
-                          <item.icon className="h-5 w-5" style={{ color: NAVY }} />
+                      <div key={item.title} className="p-4 rounded-xl border border-border/50 hover:shadow-sm transition-shadow" style={{ background: `linear-gradient(135deg, ${item.color}05, ${item.color}12)` }}>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${item.color}20` }}>
+                            <item.icon className="h-3.5 w-3.5" style={{ color: item.color }} />
+                          </div>
+                          <span className="text-xs font-bold text-foreground">{item.title}</span>
                         </div>
-                        <p className="text-xs font-bold text-foreground">{item.title}</p>
-                        <p className="text-[11px] text-muted-foreground mt-1">{item.desc}</p>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">{item.desc}</p>
                       </div>
                     ))}
                   </div>
@@ -948,7 +1453,7 @@ export default function IntegrationsView() {
         </TabsContent>
 
         {/* ═══════════════════════════════════════════════════════
-            TAB 3: API DOCUMENTATION
+            TAB 4: API DOCUMENTATION
             ═══════════════════════════════════════════════════════ */}
         <TabsContent value="api">
           <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-5">
@@ -1112,7 +1617,7 @@ export default function IntegrationsView() {
         </TabsContent>
 
         {/* ═══════════════════════════════════════════════════════
-            TAB 4: QUICK SETUP GUIDE
+            TAB 5: QUICK SETUP GUIDE
             ═══════════════════════════════════════════════════════ */}
         <TabsContent value="setup">
           <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-5">
