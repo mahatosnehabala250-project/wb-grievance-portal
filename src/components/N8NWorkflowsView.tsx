@@ -271,7 +271,174 @@ Citizens portal pe feedback de sakte hain — general feedback system.
 11. **Status Flow**: OPEN → IN_PROGRESS → RESOLVED (ya REJECTED)
 12. **User Roles**: ADMIN (full access), BLOCK (block level), DISTRICT (district level), STATE (state level)
 
-Please build all 9 workflows in n8n with proper error handling, retry logic, and connections between workflows where needed. Use environment variables for all credentials and URLs.`;
+Please build all 9 workflows in n8n with proper error handling, retry logic, and connections between workflows where needed. Use environment variables for all credentials and URLs.
+
+---
+
+## TOOLS & SKILLS — Inko install karke use karna hai
+
+### TOOL 1: n8n-mcp (MCP Server for n8n)
+**GitHub**: https://github.com/czlonkowski/n8n-mcp
+**Kya hai**: Ye ek MCP (Model Context Protocol) server hai jo Claude ko n8n ke 1,396 nodes ki documentation, properties, aur operations ka access deta hai. Isse Claude ko n8n ki har node ka kaam pata hota hai aur wo directly tumhare n8n instance mein workflow bana sakta hai.
+
+**Features**:
+- 1,396 n8n nodes ka knowledge (812 core + 584 community)
+- Node properties ka 99% coverage
+- 265 AI-capable tool variants
+- 2,709 workflow templates
+- Node search, validation, aur template access
+
+**Install karne ke tarike**:
+- Cloud (easiest): https://dashboard.n8n-mcp.com — sign up, get API key, connect MCP client
+- Claude Code: Claude Code ke andar n8n-mcp ko MCP server ke taur pe add karo
+- npx: \`npx n8n-mcp\` run karo terminal mein
+- Docker: \`docker run ghcr.io/czlonkowski/n8n-mcp\`
+- Railway pe bhi deploy ho sakta hai
+
+**IMPORTANT**: Production workflows ko hamesha AI se edit karne se pehle backup lo!
+
+---
+
+### TOOL 2: n8n-skills (Claude Code Skills for n8n)
+**GitHub**: https://github.com/czlonkowski/n8n-skills
+**Kya hai**: Ye 7 Claude Code skills hain jo specifically n8n workflow building ke liye designed hain. Ye skills n8n-mcp ke saath kaam karti hain aur Claude ko teach karti hain ki:
+- n8n expressions sahi kaise likhne hain (\`{{}}\` syntax)
+- n8n-mcp ke tools ko kaise efficiently use karna hai
+- Proven workflow patterns kaise apply karni hain
+- Validation errors ko kaise fix karna hai
+- Node configuration kaise karni hai
+- Code nodes mein JavaScript kaise likhna hai
+
+**7 Skills**:
+1. **n8n Expression Syntax** — \`\${{ }}\` syntax, \$json, \$node, \$env variables, common mistakes
+2. **n8n MCP Tools Expert** (MOST IMPORTANT) — kaunsa tool kiske liye, nodeType format, validation profiles
+3. **n8n Workflow Patterns** — 5 proven patterns: webhook processing, HTTP API, database, AI, scheduled
+4. **n8n Validation Expert** — validation errors interpret karna aur fix karna
+5. **n8n Node Configuration** — node properties, dependencies, operation-specific settings
+6. **n8n Code JavaScript** — Code nodes mein JS likhna, \$input.all(), \$helpers.httpRequest(), dates
+7. **n8n Code Python** — Python Code nodes mein pandas, data processing
+
+**Installation (Claude Code mein)**:
+Method 1 (Recommended): \`/plugin install czlonkowski/n8n-skills\`
+Method 2: \`/plugin marketplace add czlonkowski/n8n-skills\` phir \`/plugin install\`
+Method 3 (Manual): \`git clone https://github.com/czlonkowski/n8n-skills.git\` phir \`cp -r n8n-skills/skills/* ~/.claude/skills/\`
+
+**IMPORTANT**: n8n-skills ko use karne ke liye n8n-mcp MCP server pehle se installed hona chahiye!
+
+---
+
+### TOOL 3: GitHub MCP Server
+**GitHub**: https://github.com/github/github-mcp-server
+**Kya hai**: GitHub ka official MCP server hai. Isse AI tools directly GitHub ke saath connect ho sakte hain — repositories browse karna, issues/PRs manage karna, code analyze karna, GitHub Actions monitor karna.
+
+**Use Cases**:
+- Repository management — code browse, search, commits analyze
+- Issue & PR automation — bugs triage, code review, project boards
+- CI/CD monitoring — GitHub Actions workflow runs, build failures, releases
+- Code analysis — security findings, Dependabot alerts, code patterns
+
+**Installation (VS Code)**:
+Remote (easiest): VS Code 1.101+ mein: Settings → MCP → Add Server → type "http", URL: "https://api.githubcopilot.com/mcp/"
+Manual: VS Code settings mein add karo:
+\`\`\`json
+{
+  "servers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/"
+    }
+  }
+}
+\`\`\`
+
+Claude Desktop, Cursor, Windsurf mein bhi install ho sakta hai. GitHub PAT (Personal Access Token) bhi use kar sakte ho for private repos.
+
+---
+
+### TOOL 4: Frontend Design Skill
+**Source**: https://github.com/anthropics/claude-code (plugins/frontend-design/skills/frontend-design/SKILL.md)
+**Kya hai**: Ye Claude Code ka built-in skill hai jo distinctive, production-grade frontend interfaces banata hai — generic "AI slop" aesthetics avoid karta hai.
+
+**Kya karta hai**:
+- Bold aesthetic direction choose karta hai (minimalist, maximalist, retro-futuristic, luxury etc.)
+- Unique typography, color themes, motion animations
+- Production-grade functional code
+- Visually striking aur memorable designs
+
+**Installation**: Claude Code mein already available hai — bas use karo jab frontend design chahiye.
+Claude Code command: frontend design related query do, skill automatically activate hogi.
+
+---
+
+## HOW TO USE THESE TOOLS TOGETHER
+
+### Step-by-Step Setup:
+1. **Install n8n-mcp** — MCP server setup karo (cloud ya self-hosted)
+2. **Install n8n-skills** — Claude Code mein \`/plugin install czlonkowski/n8n-skills\`
+3. **Install GitHub MCP** — VS Code mein add karo for repo management
+4. **Frontend Design Skill** — Already available in Claude Code
+
+### Workflow Building Process:
+1. Pehle n8n-mcp install karo aur connect karo apne n8n instance se
+2. n8n-skills install karo — ye automatically activate hongi jab n8n related queries doge
+3. Upar diye gaye 9 workflows ka business process samjho (DATABASE STRUCTURE + WORKFLOWS sections)
+4. Claude ko bolo "Build Workflow 1: WhatsApp Complaint Intake" — n8n-skills automatically activate hongi
+5. Har workflow ke liye n8n-mcp tools se nodes search karo, validate karo, templates use karo
+6. Validation errors aaye toh n8n Validation Expert skill automatically help karegi
+7. GitHub MCP se workflows ko GitHub repo mein save/manage karo
+8. Frontend Design Skill se agar koi custom UI page banana ho toh use karo
+
+**All tools work together seamlessly!**`;
+
+/* ══════════════════════════════════════════════════════════════
+   TOOLS & SKILLS (for card display)
+   ══════════════════════════════════════════════════════════════ */
+const TOOLS_SKILLS = [
+  {
+    id: 1,
+    name: 'n8n-mcp',
+    subtitle: 'MCP Server for n8n',
+    icon: Zap,
+    color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400',
+    github: 'czlonkowski/n8n-mcp',
+    description: 'Claude ko n8n ke 1,396 nodes ka knowledge deta hai — directly n8n instance mein workflow bana sakta hai',
+    install: 'npx n8n-mcp ya dashboard.n8n-mcp.com',
+    keyFeatures: ['1,396 nodes knowledge', '2,709 templates', 'Node search + validation', 'AI tool variants'],
+  },
+  {
+    id: 2,
+    name: 'n8n-skills',
+    subtitle: '7 Claude Code Skills',
+    icon: Sparkles,
+    color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400',
+    github: 'czlonkowski/n8n-skills',
+    description: '7 skills jo Claude ko n8n workflow building sikhati hain — expressions, patterns, validation, code',
+    install: '/plugin install czlonkowski/n8n-skills',
+    keyFeatures: ['Expression syntax', 'Workflow patterns', 'Validation expert', 'Node configuration', 'Code JS/Python'],
+  },
+  {
+    id: 3,
+    name: 'GitHub MCP Server',
+    subtitle: 'Official GitHub MCP',
+    icon: Globe,
+    color: 'text-gray-600 bg-gray-50 dark:bg-gray-950/30 dark:text-gray-400',
+    github: 'github/github-mcp-server',
+    description: 'GitHub ke saath direct connect — repos browse, issues manage, code analyze, CI/CD monitor',
+    install: 'VS Code: Settings → MCP → Add Server → https://api.githubcopilot.com/mcp/',
+    keyFeatures: ['Repository management', 'Issue & PR automation', 'CI/CD monitoring', 'Code analysis'],
+  },
+  {
+    id: 4,
+    name: 'Frontend Design Skill',
+    subtitle: 'Claude Code Built-in',
+    icon: Layers,
+    color: 'text-purple-600 bg-purple-50 dark:bg-purple-950/30 dark:text-purple-400',
+    github: 'anthropics/claude-code',
+    description: 'Distinctive, production-grade frontend interfaces — generic AI aesthetics avoid karta hai',
+    install: 'Already in Claude Code — automatically activates',
+    keyFeatures: ['Bold aesthetics', 'Unique typography', 'Motion animations', 'Production-grade code'],
+  },
+];
 
 /* ══════════════════════════════════════════════════════════════
    WORKFLOW SUMMARIES (for card display)
@@ -436,6 +603,7 @@ export default function N8NWorkflowsView() {
   const promptStats = useMemo(() => ({
     workflows: 9,
     tables: 5,
+    tools: 4,
     totalFields: 43,
     words: CLAUDE_PROMPT.split(/\s+/).length,
   }), []);
@@ -522,10 +690,11 @@ export default function N8NWorkflowsView() {
       </motion.div>
 
       {/* ═══ PROMPT STATS ═══ */}
-      <motion.div variants={fadeUp} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <motion.div variants={fadeUp} className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
           { label: 'Workflows', value: promptStats.workflows, icon: Workflow, color: 'text-emerald-600 dark:text-emerald-400' },
-          { label: 'Database Tables', value: promptStats.tables, icon: Database, color: 'text-blue-600 dark:text-blue-400' },
+          { label: 'Tools & Skills', value: promptStats.tools, icon: Sparkles, color: 'text-amber-600 dark:text-amber-400' },
+          { label: 'DB Tables', value: promptStats.tables, icon: Database, color: 'text-blue-600 dark:text-blue-400' },
           { label: 'Total Fields', value: promptStats.totalFields, icon: Layers, color: 'text-purple-600 dark:text-purple-400' },
           { label: 'Words', value: promptStats.words, icon: FileText, color: 'text-orange-600 dark:text-orange-400' },
         ].map((stat) => (
@@ -537,6 +706,43 @@ export default function N8NWorkflowsView() {
             <p className="text-2xl font-black text-foreground">{stat.value}</p>
           </Card>
         ))}
+      </motion.div>
+
+      {/* ═══ TOOLS & SKILLS ═══ */}
+      <motion.div variants={fadeUp}>
+        <div className="flex items-center gap-2 mb-3">
+          <Sparkles className="h-5 w-5" style={{ color: NAVY }} />
+          <h3 className="text-base font-bold">Tools & Skills — Install karke use karna hai</h3>
+          <Badge variant="secondary" className="text-[10px]">4 Tools</Badge>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {TOOLS_SKILLS.map((tool) => (
+            <Card key={tool.id} className="p-4 hover:shadow-md transition-shadow group">
+              <div className="flex items-start gap-3">
+                <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${tool.color}`}>
+                  <tool.icon className="h-4.5 w-4.5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-xs font-bold">{tool.name}</span>
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0">#{tool.id}</Badge>
+                    <span className="text-[10px] text-muted-foreground">— {tool.subtitle}</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mb-2">{tool.description}</p>
+                  <div className="flex items-start gap-1.5 mb-2">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mt-px shrink-0">Install:</span>
+                    <span className="text-[11px] text-muted-foreground font-mono">{tool.install}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {tool.keyFeatures.map((feat) => (
+                      <Badge key={feat} variant="secondary" className="text-[9px] px-1.5 py-0 bg-muted/50">{feat}</Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
       </motion.div>
 
       {/* ═══ DATABASE SCHEMA ═══ */}
@@ -622,7 +828,7 @@ export default function N8NWorkflowsView() {
                   Ready to Build!
                 </h3>
                 <p className="text-white/70 text-xs mt-1">
-                  Copy the complete prompt and paste it into Claude in VS Code. It has everything — database schema, business process, all 9 workflows.
+                  Copy the complete prompt — database schema, 9 workflows, 4 tools & skills with installation guides. Paste into Claude in VS Code.
                 </p>
               </div>
               <Button
