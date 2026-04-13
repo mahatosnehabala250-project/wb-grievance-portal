@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
-import { notifyN8NStatusChange, notifyN8NAssignment } from '@/lib/n8n-webhook';
+import { notifyN8NStatusChange, notifyN8NAssignment, notifyN8NUrgencyEscalation } from '@/lib/n8n-webhook';
 
 // GET /api/complaints/[id]
 export async function GET(
@@ -60,12 +60,13 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const { status, resolution, assignedToId } = body;
+    const { status, resolution, assignedToId, urgency } = body;
 
     const data: Record<string, unknown> = {};
     if (status) data.status = status;
     if (resolution !== undefined) data.resolution = resolution;
     if (assignedToId !== undefined) data.assignedToId = assignedToId || null;
+    if (urgency) data.urgency = urgency.toUpperCase();
 
     const updated = await db.complaint.update({
       where: { id },
@@ -104,8 +105,34 @@ export async function PATCH(
         });
       }
 
-      // Fire-and-forget: notify n8n of status change
+      // Fire-and-forget: notify n8n of status change → WB-03 (Citizen Notification)
       notifyN8NStatusChange(id, status);
+    }
+
+    // ═══ CASCADE: Urgency Change → WB-04 (Officer Escalation Alert) ═══
+    if (urgency && urgency.toUpperCase() !== complaint.urgency) {
+      const newUrgency = urgency.toUpperCase();
+      const previousUrgency = complaint.urgency;
+      const urgencyOrder = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+      const prevIdx = urgencyOrder.indexOf(previousUrgency);
+      const newIdx = urgencyOrder.indexOf(newUrgency);
+
+      // Only notify if urgency is actually increasing (escalation)
+      if (newIdx > prevIdx) {
+        await db.activityLog.create({
+          data: {
+            complaintId: id,
+            action: 'ESCALATED',
+            description: `Urgency escalated from ${previousUrgency} to ${newUrgency}`,
+            actorId,
+            actorName,
+            metadata: JSON.stringify({ from: previousUrgency, to: newUrgency }),
+          },
+        });
+
+        // Fire-and-forget: notify officer about urgency escalation → WB-04
+        notifyN8NUrgencyEscalation(id, previousUrgency, newUrgency, `Manual escalation by ${actorName}`);
+      }
     }
 
     if (assignedToId !== undefined && assignedToId !== complaint.assignedToId) {
@@ -124,7 +151,7 @@ export async function PATCH(
           },
         });
 
-        // Fire-and-forget: notify n8n of assignment
+        // Fire-and-forget: notify officer about assignment → WB-04
         notifyN8NAssignment(id, assignedToId);
       } else if (complaint.assignedToId) {
         await db.activityLog.create({

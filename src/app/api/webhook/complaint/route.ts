@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { notifyN8NStatusChange } from '@/lib/n8n-webhook';
+import { notifyN8NNewComplaint } from '@/lib/n8n-webhook';
 
 // POST /api/webhook/complaint — Webhook for n8n to push complaints
 export async function POST(request: NextRequest) {
@@ -47,8 +47,15 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Fire-and-forget: notify n8n of new complaint (for downstream workflows)
-    notifyN8NStatusChange(complaint.id, complaint.status);
+    // ═══ CASCADE 1: Trigger WB-02 Auto-Assignment Engine ═══
+    // This tells n8n to find the best officer for this new complaint
+    notifyN8NNewComplaint(complaint.id, {
+      issue: complaint.issue,
+      category: complaint.category,
+      block: complaint.block,
+      district: complaint.district,
+      urgency: complaint.urgency,
+    });
 
     return NextResponse.json({
       success: true,
