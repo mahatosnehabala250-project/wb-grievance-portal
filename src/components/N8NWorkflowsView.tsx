@@ -446,84 +446,102 @@ const TOOLS_SKILLS = [
 const WORKFLOWS = [
   {
     id: 1,
-    name: 'WhatsApp Complaint Intake',
+    name: 'WB-01 v2: WhatsApp Complaint Intake',
+    version: 'AI Agent',
     icon: MessageSquare,
     color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400',
     description: 'Citizen WhatsApp message → AI Brain analysis → Database save → WhatsApp confirmation reply',
     trigger: 'WhatsApp Webhook (jab message aata hai)',
     data: 'Complaint text, phone, name → category, urgency, summary → new complaint row',
+    n8nName: '[WB Grievance] WB-01 v2: WhatsApp Complaint Intake (AI Agent)',
   },
   {
     id: 2,
-    name: 'Auto-Assignment Engine',
+    name: 'WB-02 v2: Auto-Assignment Engine',
+    version: 'AI Agent',
     icon: Users,
     color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/30 dark:text-blue-400',
     description: 'Unassigned complaints ko block/district ke hisab se officers ko automatically assign karta hai',
     trigger: 'Har 5 minute (scheduled)',
     data: 'Open unassigned complaints → match by block → update assignedToId',
+    n8nName: '[WB Grievance] WB-02 v2: Auto-Assignment Engine (AI Smart Match)',
   },
   {
     id: 3,
-    name: 'Citizen Status Notification',
+    name: 'WB-03: Citizen Status Notification',
+    version: 'LLM Chain',
     icon: Bell,
     color: 'text-purple-600 bg-purple-50 dark:bg-purple-950/30 dark:text-purple-400',
     description: 'Jab officer status change karta hai, citizen ko WhatsApp pe update bhejta hai',
     trigger: 'Portal webhook (jab status change hota hai)',
     data: 'Complaint status, resolution → WhatsApp message → citizen phone',
+    n8nName: '[WB Grievance] WB-03: Citizen Status Notification',
   },
   {
     id: 4,
-    name: 'Officer Assignment Notification',
+    name: 'WB-04: Officer Assignment Notification',
+    version: 'LLM Chain',
     icon: Mail,
     color: 'text-orange-600 bg-orange-50 dark:bg-orange-950/30 dark:text-orange-400',
     description: 'Officer ko WhatsApp + Email pe notification — naya complaint assign hua hai',
     trigger: 'Portal webhook (jab assign hota hai)',
     data: 'Complaint details + Officer details → WhatsApp + Email',
+    n8nName: '[WB Grievance] WB-04: Officer Assignment Notification',
   },
   {
     id: 5,
-    name: 'SLA Breach Escalation',
+    name: 'WB-05 v2: SLA Breach Escalation',
+    version: 'AI Agent',
     icon: AlertTriangle,
     color: 'text-red-600 bg-red-50 dark:bg-red-950/30 dark:text-red-400',
     description: '7 din se open complaints ki urgency CRITICAL kar deta hai + admin ko email alert',
-    trigger: 'Roz subah 9 baje (scheduled)',
+    trigger: 'Every 2 hours (scheduled)',
     data: '7+ day open complaints → escalate urgency → email report to admin',
+    n8nName: '[WB Grievance] WB-05 v2: SLA Breach Escalation (AI Agent)',
   },
   {
     id: 6,
-    name: 'Daily Summary Report',
+    name: 'WB-06 v2: Daily Summary Report',
+    version: 'AI Agent',
     icon: FileText,
     color: 'text-cyan-600 bg-cyan-50 dark:bg-cyan-950/30 dark:text-cyan-400',
-    description: 'Roz shaam 6 baje district admins ko daily stats email bhejta hai',
-    trigger: 'Roz shaam 6 baje (scheduled)',
+    description: 'Roz subah 9 baje district admins ko daily stats email bhejta hai',
+    trigger: 'Daily 9:00 AM (scheduled)',
     data: 'Dashboard stats → HTML report → email to district admins',
+    n8nName: '[WB Grievance] WB-06 v2: Daily Summary Report (AI Analytics)',
   },
   {
     id: 7,
-    name: 'AI Complaint Brain',
+    name: 'WB-07 v2: AI Complaint Brain',
+    version: 'AI Agent',
     icon: Sparkles,
     color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400',
     description: 'Complaint text analyze karke category, urgency, department, smart reply generate karta hai',
     trigger: 'Jab naya complaint aata hai',
     data: 'Complaint text → AI analysis → category, urgency, summary, smart reply',
+    n8nName: '[WB Grievance] WB-07 v2: AI Complaint Brain (RAG)',
   },
   {
     id: 8,
-    name: 'Airtable Bidirectional Sync',
+    name: 'WB-08: Airtable Bidirectional Sync',
+    version: 'Utility',
     icon: RefreshCw,
     color: 'text-teal-600 bg-teal-50 dark:bg-teal-950/30 dark:text-teal-400',
     description: 'Supabase ↔ Airtable sync — har 30 minute mein data dono taraf copy',
     trigger: 'Har 30 minute (scheduled)',
     data: 'Complaints push to Airtable + pull changes from Airtable',
+    n8nName: '[WB Grievance] WB-08 Airtable Bidirectional Sync',
   },
   {
     id: 9,
-    name: 'Error Handler',
+    name: 'WB-09 v2: Error Handler',
+    version: 'AI Agent',
     icon: Shield,
     color: 'text-rose-600 bg-rose-50 dark:bg-rose-950/30 dark:text-rose-400',
     description: 'Sab workflows ka global error handler — admin email + Slack alert + auto retry',
     trigger: 'Jab koi workflow fail ho (error trigger)',
     data: 'Error details → admin email + Slack → retry (max 3)',
+    n8nName: '[WB Grievance] WB-09 v2: Error Handler (AI Diagnostics)',
   },
 ];
 
@@ -788,8 +806,23 @@ export default function N8NWorkflowsView() {
       <motion.div variants={fadeUp}>
         <div className="flex items-center gap-2 mb-3">
           <Zap className="h-5 w-5" style={{ color: NAVY }} />
-          <h3 className="text-base font-bold">Workflows — Business Process</h3>
+          <h3 className="text-base font-bold">Workflows — [WB Grievance] Group</h3>
           <Badge variant="secondary" className="text-[10px]">9 Workflows</Badge>
+          <Badge className="bg-emerald-500 text-white text-[9px] px-1.5 py-0 font-bold gap-0.5">
+            <CheckCircle className="h-3 w-3" /> Organized
+          </Badge>
+        </div>
+        {/* Architecture Legend */}
+        <div className="flex items-center gap-3 mb-3 px-1">
+          <div className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+            <span className="h-2 w-2 rounded-full bg-violet-500" /> AI Agent (6)
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+            <span className="h-2 w-2 rounded-full bg-sky-500" /> LLM Chain (2)
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+            <span className="h-2 w-2 rounded-full bg-gray-400" /> Utility (1)
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {WORKFLOWS.map((wf) => (
@@ -799,19 +832,21 @@ export default function N8NWorkflowsView() {
                   <wf.icon className="h-4.5 w-4.5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                     <span className="text-xs font-bold">{wf.name}</span>
-                    <Badge variant="outline" className="text-[9px] px-1.5 py-0">#{wf.id}</Badge>
+                    <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${wf.version === 'AI Agent' ? 'border-violet-300 text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20' : wf.version === 'LLM Chain' ? 'border-sky-300 text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20' : 'border-gray-300 text-gray-500 bg-gray-50 dark:bg-gray-950/20'}`}>
+                      {wf.version}
+                    </Badge>
                   </div>
                   <p className="text-[11px] text-muted-foreground mb-2">{wf.description}</p>
                   <div className="space-y-1.5">
                     <div className="flex items-start gap-1.5">
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70 mt-px shrink-0">Trigger:</span>
-                      <span className="text-[11px] text-muted-foreground">{wf.trigger}</span>
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70 mt-px shrink-0">n8n:</span>
+                      <span className="text-[11px] text-muted-foreground font-mono">{wf.n8nName}</span>
                     </div>
                     <div className="flex items-start gap-1.5">
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70 mt-px shrink-0">Data:</span>
-                      <span className="text-[11px] text-muted-foreground">{wf.data}</span>
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70 mt-px shrink-0">Trigger:</span>
+                      <span className="text-[11px] text-muted-foreground">{wf.trigger}</span>
                     </div>
                   </div>
                 </div>
