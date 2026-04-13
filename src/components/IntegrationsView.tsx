@@ -12,6 +12,7 @@ import {
   Send, ArrowLeftRight, FileSpreadsheet, Bot, ArrowDown,
   ChevronDown, Target, Languages, Lightbulb, BarChart2,
   Tag, Hash, TrendingUp, Gauge, MessageCircle, FileText, Users,
+  Cpu, Cloud, LayoutGrid, Workflow, ArrowUp, Lock,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -763,6 +764,11 @@ export default function IntegrationsView() {
           <TabsTrigger value="setup" className="gap-1.5 text-xs">
             <Rocket className="h-3.5 w-3.5" />
             Setup
+          </TabsTrigger>
+          <TabsTrigger value="architecture" className="gap-1.5 text-xs">
+            <LayoutGrid className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Architecture</span>
+            <span className="sm:hidden">Arch</span>
           </TabsTrigger>
         </TabsList>
 
@@ -1780,6 +1786,417 @@ export default function IntegrationsView() {
                 </CardContent>
               </Card>
             </motion.div>
+          </motion.div>
+        </TabsContent>
+
+        {/* ═══════════════════════════════════════════════════════
+            TAB 6: ARCHITECTURE — System Architecture Overview
+            ═══════════════════════════════════════════════════════ */}
+        <TabsContent value="architecture">
+          <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
+
+            {/* ── Hero Section ── */}
+            <motion.div variants={fadeUp}>
+              <div className="relative overflow-hidden rounded-2xl shadow-lg">
+                <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #1E1B4B, #312E81, #4338CA)' }} />
+                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 25% 30%, white 1px, transparent 1px), radial-gradient(circle at 75% 70%, white 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+                <div className="relative px-6 py-8">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="h-12 w-12 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+                      <LayoutGrid className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-white tracking-tight">System Architecture</h3>
+                      <p className="text-sm text-indigo-200/80">West Bengal AI Public Support System — Complete Technology Stack</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    <Badge className="bg-white/15 text-white border border-white/20 text-[10px] gap-1"><Lock className="h-3 w-3" /> Production-Ready</Badge>
+                    <Badge className="bg-white/15 text-white border border-white/20 text-[10px] gap-1"><Layers className="h-3 w-3" /> 5-Layer Stack</Badge>
+                    <Badge className="bg-white/15 text-white border border-white/20 text-[10px]">v2.8.0</Badge>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* ── Visual Architecture Diagram ── */}
+            <motion.div variants={fadeUp}>
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Cpu className="h-4 w-4" style={{ color: '#4338CA' }} />
+                    Platform Architecture — 5-Layer Stack
+                  </CardTitle>
+                  <CardDescription className="text-[11px] text-muted-foreground">Data flows top-down from user channels through processing, API, and data layers to infrastructure</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-0">
+                  <div className="flex flex-col items-center gap-0">
+
+                    {/* Layer 1 — User Channels */}
+                    <motion.div
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="w-full rounded-xl border-l-4 p-4"
+                      style={{ borderColor: '#25D366', background: 'linear-gradient(135deg, #F0FDF4, #DCFCE7)' }}
+                    >
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#25D366' }}>
+                          <Globe className="h-3.5 w-3.5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-foreground">Layer 1 — User Channels</p>
+                          <p className="text-[10px] text-muted-foreground">Where citizens interact with the system</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { icon: MessageSquare, label: 'WhatsApp Bot', color: '#25D366', desc: 'Primary Channel' },
+                          { icon: Monitor, label: 'Web Portal', color: '#0A2463', desc: 'Admin & Citizen' },
+                          { icon: FileSpreadsheet, label: 'Airtable Dashboard', color: '#166EE1', desc: 'Visual Reports' },
+                        ].map((item) => (
+                          <div key={item.label} className="flex items-center gap-2 rounded-lg p-2 bg-white/70 border border-border/40">
+                            <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${item.color}15` }}>
+                              <item.icon className="h-4 w-4" style={{ color: item.color }} />
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-bold text-foreground leading-tight">{item.label}</p>
+                              <p className="text-[9px] text-muted-foreground">{item.desc}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+
+                    {/* Animated Arrow 1→2 */}
+                    <div className="flex flex-col items-center py-2 w-full">
+                      <div className="w-[2px] h-4 border-l-2 border-dashed border-muted-foreground/40 animate-pulse" />
+                      <ArrowDown className="h-4 w-4 text-muted-foreground/40" />
+                    </div>
+
+                    {/* Layer 2 — Processing Engine */}
+                    <motion.div
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.25 }}
+                      className="w-full rounded-xl border-l-4 p-4"
+                      style={{ borderColor: '#10B981', background: 'linear-gradient(135deg, #ECFDF5, #D1FAE5)' }}
+                    >
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#10B981' }}>
+                          <Cpu className="h-3.5 w-3.5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-foreground">Layer 2 — Processing Engine</p>
+                          <p className="text-[10px] text-muted-foreground">Intelligence &amp; workflow orchestration</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="flex items-center gap-2 rounded-lg p-2 bg-white/70 border border-border/40">
+                          <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#10B98115' }}>
+                            <BrainCircuit className="h-4 w-4" style={{ color: '#10B981' }} />
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-bold text-foreground leading-tight">AI Brain (LLM + NLP)</p>
+                            <p className="text-[9px] text-muted-foreground">Auto categorize, sentiment, urgency</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-lg p-2 bg-white/70 border border-border/40">
+                          <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#EA580C15' }}>
+                            <Zap className="h-4 w-4" style={{ color: '#EA580C' }} />
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-bold text-foreground leading-tight">n8n Workflows</p>
+                            <p className="text-[9px] text-muted-foreground">9 workflows, 47 nodes</p>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* Animated Arrow 2→3 */}
+                    <div className="flex flex-col items-center py-2 w-full">
+                      <div className="w-[2px] h-4 border-l-2 border-dashed border-muted-foreground/40 animate-pulse" />
+                      <ArrowDown className="h-4 w-4 text-muted-foreground/40" />
+                    </div>
+
+                    {/* Layer 3 — API Layer */}
+                    <motion.div
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 }}
+                      className="w-full rounded-xl border-l-4 p-4"
+                      style={{ borderColor: '#0A2463', background: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)' }}
+                    >
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#0A2463' }}>
+                          <Code className="h-3.5 w-3.5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-foreground">Layer 3 — API Layer</p>
+                          <p className="text-[10px] text-muted-foreground">RESTful endpoints for all services</p>
+                        </div>
+                        <Badge className="ml-auto bg-sky-100 text-sky-700 border-sky-200 text-[9px] font-semibold">REST</Badge>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="flex items-center gap-2 rounded-lg p-2 bg-white/70 border border-border/40">
+                          <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0A246315' }}>
+                            <Server className="h-4 w-4" style={{ color: '#0A2463' }} />
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-bold text-foreground leading-tight">Next.js API Routes</p>
+                            <p className="text-[9px] text-muted-foreground">14 endpoints, JWT auth</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-lg p-2 bg-white/70 border border-border/40">
+                          <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#7C3AED15' }}>
+                            <Webhook className="h-4 w-4" style={{ color: '#7C3AED' }} />
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-bold text-foreground leading-tight">Webhook Endpoints</p>
+                            <p className="text-[9px] text-muted-foreground">n8n trigger, WhatsApp inbound</p>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* Animated Arrow 3→4 */}
+                    <div className="flex flex-col items-center py-2 w-full">
+                      <div className="w-[2px] h-4 border-l-2 border-dashed border-muted-foreground/40 animate-pulse" />
+                      <ArrowDown className="h-4 w-4 text-muted-foreground/40" />
+                    </div>
+
+                    {/* Layer 4 — Data Layer */}
+                    <motion.div
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.55 }}
+                      className="w-full rounded-xl border-l-4 p-4"
+                      style={{ borderColor: '#7C3AED', background: 'linear-gradient(135deg, #FAF5FF, #F3E8FF)' }}
+                    >
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#7C3AED' }}>
+                          <Database className="h-3.5 w-3.5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-foreground">Layer 4 — Data Layer</p>
+                          <p className="text-[10px] text-muted-foreground">Persistent storage and synchronization</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="flex items-center gap-2 rounded-lg p-2 bg-white/70 border border-border/40 ring-2 ring-emerald-200">
+                          <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#10B98115' }}>
+                            <Database className="h-4 w-4" style={{ color: '#10B981' }} />
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-bold text-foreground leading-tight">Supabase PostgreSQL</p>
+                            <p className="text-[9px] text-muted-foreground">Real-time data</p>
+                          </div>
+                          <Badge className="ml-auto bg-emerald-100 text-emerald-700 border-emerald-200 text-[8px] font-bold px-1.5">PRIMARY</Badge>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-lg p-2 bg-white/70 border border-border/40">
+                          <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#166EE115' }}>
+                            <FileSpreadsheet className="h-4 w-4" style={{ color: '#166EE1' }} />
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-bold text-foreground leading-tight">Airtable</p>
+                            <p className="text-[9px] text-muted-foreground">Visual layer</p>
+                          </div>
+                          <Badge className="ml-auto bg-sky-100 text-sky-700 border-sky-200 text-[8px] font-bold px-1.5">SYNC</Badge>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-lg p-2 bg-white/70 border border-border/40">
+                          <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#64748B15' }}>
+                            <Database className="h-4 w-4" style={{ color: '#64748B' }} />
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-bold text-foreground leading-tight">SQLite</p>
+                            <p className="text-[9px] text-muted-foreground">Local dev</p>
+                          </div>
+                          <Badge className="ml-auto bg-gray-100 text-gray-600 border-gray-200 text-[8px] font-bold px-1.5">DEV</Badge>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* Animated Arrow 4→5 */}
+                    <div className="flex flex-col items-center py-2 w-full">
+                      <div className="w-[2px] h-4 border-l-2 border-dashed border-muted-foreground/40 animate-pulse" />
+                      <ArrowDown className="h-4 w-4 text-muted-foreground/40" />
+                    </div>
+
+                    {/* Layer 5 — Infrastructure */}
+                    <motion.div
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.7 }}
+                      className="w-full rounded-xl border-l-4 p-4"
+                      style={{ borderColor: '#64748B', background: 'linear-gradient(135deg, #F8FAFC, #F1F5F9)' }}
+                    >
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#64748B' }}>
+                          <Cloud className="h-3.5 w-3.5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-foreground">Layer 5 — Infrastructure</p>
+                          <p className="text-[10px] text-muted-foreground">Cloud hosting and managed services</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { icon: Rocket, label: 'Vercel', color: '#000000', desc: 'Edge Hosting' },
+                          { icon: Server, label: 'Supabase', color: '#10B981', desc: 'Backend as a Service' },
+                          { icon: Zap, label: 'n8n Cloud', color: '#EA580C', desc: 'Automation' },
+                        ].map((item) => (
+                          <div key={item.label} className="flex items-center gap-2 rounded-lg p-2 bg-white/70 border border-border/40">
+                            <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${item.color}15` }}>
+                              <item.icon className="h-4 w-4" style={{ color: item.color }} />
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-bold text-foreground leading-tight">{item.label}</p>
+                              <p className="text-[9px] text-muted-foreground">{item.desc}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* ── Data Flow Explanation ── */}
+            <motion.div variants={fadeUp}>
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <ArrowRight className="h-4 w-4" style={{ color: '#4338CA' }} />
+                    Data Flow — How Complaints Move Through the System
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[
+                      { step: 1, icon: Smartphone, color: '#25D366', title: 'Complaint Intake', desc: 'Citizen files complaint via WhatsApp → AI Brain analyzes → Auto-categorized → Stored in Supabase → Synced to Airtable' },
+                      { step: 2, icon: BarChart2, color: '#7C3AED', title: 'Dashboard Analytics', desc: 'Admin views Dashboard → Real-time data from Supabase → Charts & Analytics for all districts' },
+                      { step: 3, icon: Send, color: '#0EA5E9', title: 'Officer Updates', desc: 'Officer updates complaint → n8n triggers → WhatsApp notification sent → Airtable updated automatically' },
+                      { step: 4, icon: BrainCircuit, color: '#10B981', title: 'AI Processing', desc: 'AI Brain processes complaint → Category + Urgency + Sentiment detected → Smart reply generated in citizen\'s language' },
+                    ].map((flow) => (
+                      <div key={flow.step} className="rounded-xl border border-border/50 p-3 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-16 h-16 rounded-bl-full opacity-[0.06]" style={{ backgroundColor: flow.color }} />
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 h-8 w-8 rounded-lg flex items-center justify-center text-white font-black text-xs" style={{ backgroundColor: flow.color }}>
+                            {flow.step}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <flow.icon className="h-3.5 w-3.5" style={{ color: flow.color }} />
+                              <p className="text-xs font-bold text-foreground">{flow.title}</p>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground leading-relaxed">{flow.desc}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* ── Technology Stack Grid ── */}
+            <motion.div variants={fadeUp}>
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Workflow className="h-4 w-4" style={{ color: '#4338CA' }} />
+                    Technology Stack — Complete Overview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {[
+                      { icon: Monitor, color: '#0A2463', title: 'Frontend', items: ['Next.js 16', 'React 19', 'TypeScript', 'Tailwind CSS 4', 'shadcn/ui', 'Framer Motion'] },
+                      { icon: Server, color: '#10B981', title: 'Backend', items: ['Next.js API Routes', 'Prisma ORM', 'NextAuth.js', 'JWT Authentication', 'Server Actions'] },
+                      { icon: Database, color: '#7C3AED', title: 'Database', items: ['Supabase PostgreSQL', '(Production)', 'SQLite (Dev)'] },
+                      { icon: BrainCircuit, color: '#F59E0B', title: 'AI / ML', items: ['LLM (z-ai-web-dev-sdk)', '3 Languages (EN/BN/HI)', '10 Categories', 'Sentiment Analysis'] },
+                      { icon: Zap, color: '#EA580C', title: 'Automation', items: ['n8n (9 Workflows)', '47 Nodes', 'Webhook Triggers', 'Auto Notifications'] },
+                      { icon: ArrowLeftRight, color: '#0EA5E9', title: 'Integration', items: ['Airtable (Bidirectional)', 'WhatsApp API', 'REST Sync Layer'] },
+                      { icon: Cloud, color: '#64748B', title: 'Deployment', items: ['Vercel (Edge)', 'Supabase Cloud', 'n8n Cloud', 'Auto CI/CD'] },
+                      { icon: Lock, color: '#EF4444', title: 'Security', items: ['JWT Tokens', 'Role-Based Access', 'Input Sanitization', 'HTTPS Only'] },
+                    ].map((stack) => (
+                      <div key={stack.title} className="rounded-xl border border-border/50 p-3">
+                        <div className="flex items-center gap-2 mb-2.5">
+                          <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${stack.color}15` }}>
+                            <stack.icon className="h-3.5 w-3.5" style={{ color: stack.color }} />
+                          </div>
+                          <p className="text-xs font-bold text-foreground">{stack.title}</p>
+                        </div>
+                        <ul className="space-y-1">
+                          {stack.items.map((item) => (
+                            <li key={item} className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+                              <span className="w-1 h-1 rounded-full flex-shrink-0" style={{ backgroundColor: stack.color }} />
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* ── Why This Architecture? ── */}
+            <motion.div variants={fadeUp}>
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Lightbulb className="h-4 w-4" style={{ color: '#4338CA' }} />
+                    Why This Architecture?
+                  </CardTitle>
+                  <CardDescription className="text-[11px] text-muted-foreground">Simple explanation of our technology choices</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[
+                      {
+                        icon: Database,
+                        color: '#10B981',
+                        name: 'Supabase = Fast & Reliable',
+                        desc: 'Supabase provides a real-time PostgreSQL database that powers the portal with instant data sync, row-level security, and automatic API generation. It handles millions of complaint records efficiently.',
+                      },
+                      {
+                        icon: FileSpreadsheet,
+                        color: '#166EE1',
+                        name: 'Airtable = Visual Collaboration',
+                        desc: 'Airtable serves as the visual collaboration layer for non-technical users — district officers, BDOs, and department heads can view, filter, and share complaint data without logging into the portal.',
+                      },
+                      {
+                        icon: BrainCircuit,
+                        color: '#F59E0B',
+                        name: 'AI Brain = Intelligent Analysis',
+                        desc: 'The AI Brain replaces manual complaint sorting. It automatically categorizes complaints, detects urgency levels, analyzes sentiment, and routes them to the right department — reducing processing time from hours to seconds.',
+                      },
+                      {
+                        icon: Zap,
+                        color: '#EA580C',
+                        name: 'n8n = Workflow Automation',
+                        desc: 'n8n connects all services together with 9 automated workflows. When a complaint is updated, n8n automatically triggers WhatsApp notifications, syncs data to Airtable, and escalates urgent issues — no manual intervention needed.',
+                      },
+                    ].map((item) => (
+                      <div key={item.name} className="rounded-xl p-4 border border-border/50" style={{ background: `linear-gradient(135deg, ${item.color}06, ${item.color}12)` }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${item.color}18` }}>
+                            <item.icon className="h-4 w-4" style={{ color: item.color }} />
+                          </div>
+                          <p className="text-xs font-bold text-foreground">{item.name}</p>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">{item.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
           </motion.div>
         </TabsContent>
       </Tabs>

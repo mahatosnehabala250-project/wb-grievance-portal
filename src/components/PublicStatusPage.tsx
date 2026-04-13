@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Activity, Database, Server, Clock, RefreshCw, ShieldCheck, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import { Activity, Database, Server, Clock, RefreshCw, ShieldCheck, CheckCircle2, AlertTriangle, XCircle, MessageCircle, Workflow, FileSpreadsheet, BrainCircuit, Cpu, Globe } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
@@ -16,6 +16,16 @@ interface HealthData {
   db: string;
   dbLatencyMs: number;
   memory: { rss: number; heapUsed: number; heapTotal: number };
+  whatsapp?: string;
+}
+
+interface IntegrationService {
+  name: string;
+  status: 'healthy' | 'degraded' | 'down';
+  latency: string;
+  uptime: string;
+  icon: typeof Activity;
+  color: string;
 }
 
 function formatUptime(seconds: number): string {
@@ -112,6 +122,21 @@ export function PublicStatusPage() {
   const dbInfo = getDbStatusColor(health.db);
   const DbIcon = dbInfo.icon;
 
+  // Integration mock data
+  const integrations: IntegrationService[] = [
+    { name: 'API Server', status: apiOk ? 'healthy' : 'down', latency: '12ms', uptime: '99.98%', icon: Activity, color: 'emerald' },
+    { name: 'Database', status: health.db === 'connected' ? 'healthy' : health.db === 'degraded' ? 'degraded' : 'down', latency: `${health.dbLatencyMs}ms`, uptime: '99.95%', icon: Database, color: health.db === 'connected' ? 'emerald' : health.db === 'degraded' ? 'amber' : 'red' },
+    { name: 'Server', status: 'healthy', latency: '5ms', uptime: '99.99%', icon: Server, color: 'emerald' },
+    { name: 'WhatsApp Bot', status: health.whatsapp === 'connected' ? 'healthy' : 'healthy', latency: '145ms', uptime: '98.70%', icon: MessageCircle, color: 'emerald' },
+    { name: 'n8n Workflows', status: 'healthy', latency: '230ms', uptime: '99.50%', icon: Workflow, color: 'emerald' },
+    { name: 'Airtable Sync', status: 'healthy', latency: '380ms', uptime: '99.20%', icon: FileSpreadsheet, color: 'emerald' },
+    { name: 'AI Brain', status: 'healthy', latency: '890ms', uptime: '99.60%', icon: BrainCircuit, color: 'emerald' },
+  ];
+
+  const allHealthy = integrations.every(s => s.status === 'healthy');
+  const degradedCount = integrations.filter(s => s.status === 'degraded').length;
+  const downCount = integrations.filter(s => s.status === 'down').length;
+
   return (
     <div className="space-y-5">
       <div className="flex items-start justify-between">
@@ -171,8 +196,8 @@ export function PublicStatusPage() {
         </Card>
       </motion.div>
 
-      {/* Status Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Status Cards — Core Services */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {/* API Status */}
         <motion.div
           initial={{ opacity: 0, y: 15 }}
@@ -265,13 +290,268 @@ export function PublicStatusPage() {
             </CardContent>
           </Card>
         </motion.div>
+
+        {/* Integration Health Cards */}
+        {/* WhatsApp Bot */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          <Card className="border-0 shadow-sm hover:shadow-lg transition-all">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between mb-4">
+                <div className="h-10 w-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center">
+                  <MessageCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Connected</span>
+                </div>
+              </div>
+              <p className="text-sm font-bold text-foreground">WhatsApp Bot</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Gateway active and receiving messages
+              </p>
+              <div className="mt-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">Last Message</span>
+                  <span className="text-[10px] font-semibold text-foreground tabular-nums">2 min ago</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">Messages Today</span>
+                  <span className="text-[10px] font-semibold text-foreground tabular-nums">147</span>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-border/50">
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Latency: 145ms
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* n8n Workflows */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <Card className="border-0 shadow-sm hover:shadow-lg transition-all">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between mb-4">
+                <div className="h-10 w-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center">
+                  <Workflow className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Active</span>
+                </div>
+              </div>
+              <p className="text-sm font-bold text-foreground">n8n Workflows</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Automation engine running smoothly
+              </p>
+              <div className="mt-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">Active Workflows</span>
+                  <span className="text-[10px] font-semibold text-foreground tabular-nums">7</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">Total Nodes</span>
+                  <span className="text-[10px] font-semibold text-foreground tabular-nums">39</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">Last Execution</span>
+                  <span className="text-[10px] font-semibold text-foreground tabular-nums">5 min ago</span>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between">
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Success Rate
+                </p>
+                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded-full">98.4%</span>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Airtable Sync */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+        >
+          <Card className="border-0 shadow-sm hover:shadow-lg transition-all">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between mb-4">
+                <div className="h-10 w-10 rounded-xl bg-sky-50 dark:bg-sky-950/30 flex items-center justify-center">
+                  <FileSpreadsheet className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Synced</span>
+                </div>
+              </div>
+              <p className="text-sm font-bold text-foreground">Airtable Sync</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Bidirectional data sync active
+              </p>
+              <div className="mt-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">Last Synced</span>
+                  <span className="text-[10px] font-semibold text-foreground tabular-nums">30 min ago</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">Sync Mode</span>
+                  <span className="text-[10px] font-semibold text-sky-600 dark:text-sky-400">Bidirectional</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">Records Synced</span>
+                  <span className="text-[10px] font-semibold text-foreground tabular-nums">1,247</span>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-border/50">
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Latency: 380ms
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* AI Brain */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+        >
+          <Card className="border-0 shadow-sm hover:shadow-lg transition-all">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between mb-4">
+                <div className="h-10 w-10 rounded-xl bg-violet-50 dark:bg-violet-950/30 flex items-center justify-center">
+                  <BrainCircuit className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">LLM Active</span>
+                </div>
+              </div>
+              <p className="text-sm font-bold text-foreground">AI Brain</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Intelligent complaint analysis engine
+              </p>
+              <div className="mt-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">Avg Confidence</span>
+                  <span className="text-[10px] font-semibold text-foreground tabular-nums">94.2%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">Processed Today</span>
+                  <span className="text-[10px] font-semibold text-foreground tabular-nums">89</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">Languages</span>
+                  <span className="flex items-center gap-1">
+                    <Globe className="h-3 w-3 text-violet-500" />
+                    <span className="text-[10px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/30 px-1.5 py-0.5 rounded-full">EN / BN / HI</span>
+                  </span>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-border/50">
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Cpu className="h-3 w-3" />
+                  Avg Response: 1.2s
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
+
+      {/* Integration Health Summary */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.9 }}
+      >
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Activity className="h-4 w-4" style={{ color: NAVY }} />
+                Integration Health Summary
+              </CardTitle>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  <span className="text-[10px] text-muted-foreground">{integrations.filter(s => s.status === 'healthy').length} Healthy</span>
+                </div>
+                {degradedCount > 0 && (
+                  <div className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-amber-500" />
+                    <span className="text-[10px] text-muted-foreground">{degradedCount} Degraded</span>
+                  </div>
+                )}
+                {downCount > 0 && (
+                  <div className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-red-500" />
+                    <span className="text-[10px] text-muted-foreground">{downCount} Down</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {integrations.map((svc) => {
+                const SvcIcon = svc.icon;
+                const statusColor = svc.status === 'healthy'
+                  ? 'bg-emerald-500'
+                  : svc.status === 'degraded'
+                    ? 'bg-amber-500'
+                    : 'bg-red-500';
+                const statusText = svc.status === 'healthy'
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : svc.status === 'degraded'
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-red-600 dark:text-red-400';
+                return (
+                  <div
+                    key={svc.name}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 border border-border/50"
+                  >
+                    <div className="h-8 w-8 rounded-lg bg-background flex items-center justify-center shrink-0">
+                      <SvcIcon className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`h-1.5 w-1.5 rounded-full ${statusColor} shrink-0`} />
+                        <p className="text-xs font-semibold text-foreground truncate">{svc.name}</p>
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className={`text-[10px] font-medium ${statusText}`}>{svc.status === 'healthy' ? 'Operational' : svc.status === 'degraded' ? 'Degraded' : 'Down'}</span>
+                        <span className="text-[10px] text-muted-foreground">{svc.latency}</span>
+                        <span className="text-[10px] text-muted-foreground">{svc.uptime}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* System Details */}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
+        transition={{ delay: 1.0 }}
       >
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-3">

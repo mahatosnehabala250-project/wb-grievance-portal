@@ -14,7 +14,7 @@ import {
   Settings, CircleHelp, Monitor, Mail, Volume2, LayoutGrid, Keyboard,
   UserCheck, GitCompareArrows, CalendarClock, History, Tag, ClipboardList,
   AlertCircle, Info, CheckCircle2 as CheckCircleFill, Sparkles, Megaphone,
-  ArrowUp, Flame, CalendarRange, TimerReset,
+  ArrowUp, Flame, CalendarRange, TimerReset, BrainCircuit, Target, Languages,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -75,6 +75,26 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+
+  // AI Brain Analytics mock data
+  const [aiStats, setAiStats] = useState({
+    processedToday: 47,
+    avgConfidence: 94.2,
+    languages: 3,
+    avgLatencyMs: 1820,
+    categoryAccuracy: [
+      { category: 'Water Supply', accuracy: 96 },
+      { category: 'Road Damage', accuracy: 93 },
+      { category: 'Electricity', accuracy: 91 },
+      { category: 'Healthcare', accuracy: 89 },
+      { category: 'Education', accuracy: 95 },
+    ],
+    recentProcessing: [
+      { ticket: 'WB-01047', category: 'Water Supply', confidence: 97, secondsAgo: 2 },
+      { ticket: 'WB-01046', category: 'Road Damage', confidence: 91, secondsAgo: 15 },
+      { ticket: 'WB-01045', category: 'Electricity', confidence: 88, secondsAgo: 32 },
+    ],
+  });
 
   // Date range filter
   const [dateRange, setDateRange] = useState('all');
@@ -607,6 +627,125 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
           </Card>
         </motion.div>
       </div>
+
+      {/* ═══ AI BRAIN ANALYTICS ═══ */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.55 }}>
+        <Card className="border-0 shadow-sm border-l-[3px]" style={{ borderLeftColor: '#8B5CF6' }}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <div className="w-1 h-4 rounded-full" style={{ background: 'linear-gradient(180deg, #8B5CF6, #8B5CF660)' }} />
+              <BrainCircuit className="h-4 w-4 text-purple-500" />
+              <span>AI Brain Analytics</span>
+              <span className="ml-auto flex items-center gap-1 text-[9px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {/* 4 Mini Stat Boxes */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* Processed Today */}
+              <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200/60 dark:border-purple-800/40">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-purple-500" />
+                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Processed Today</span>
+                </div>
+                <p className="text-xl sm:text-2xl font-black tracking-tight text-purple-600 dark:text-purple-400 tabular-nums">
+                  {aiStats.processedToday}
+                </p>
+              </div>
+              {/* Avg Confidence */}
+              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/40">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Target className="h-3.5 w-3.5 text-emerald-500" />
+                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Avg Confidence</span>
+                </div>
+                <p className="text-xl sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums">
+                  {aiStats.avgConfidence}%
+                </p>
+              </div>
+              {/* Languages */}
+              <div className="p-3 rounded-xl bg-sky-50 dark:bg-sky-950/30 border border-sky-200/60 dark:border-sky-800/40">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Languages className="h-3.5 w-3.5 text-sky-500" />
+                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Languages</span>
+                </div>
+                <p className="text-xl sm:text-2xl font-black tracking-tight text-sky-600 dark:text-sky-400 tabular-nums">
+                  {aiStats.languages}
+                </p>
+                <p className="text-[9px] text-muted-foreground font-medium">EN / BN / HI</p>
+              </div>
+              {/* Avg Response */}
+              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Timer className="h-3.5 w-3.5 text-amber-500" />
+                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Avg Response</span>
+                </div>
+                <p className="text-xl sm:text-2xl font-black tracking-tight text-amber-600 dark:text-amber-400 tabular-nums">
+                  {(aiStats.avgLatencyMs / 1000).toFixed(1)}s
+                </p>
+                <p className="text-[9px] text-muted-foreground font-medium">LLM latency</p>
+              </div>
+            </div>
+
+            {/* AI Category Accuracy - Horizontal Bar Chart */}
+            <div className="space-y-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                <BarChart2 className="h-3.5 w-3.5" style={{ color: '#8B5CF6' }} />
+                AI Category Accuracy
+              </p>
+              <div className="space-y-2">
+                {aiStats.categoryAccuracy.map((cat, idx) => {
+                  const barColor = idx % 2 === 0
+                    ? 'linear-gradient(90deg, #16A34A, #34D399)'
+                    : 'linear-gradient(90deg, #D97706, #FBBF24)';
+                  return (
+                    <div key={cat.category} className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-foreground">{cat.category}</span>
+                        <span className="text-[11px] font-black tabular-nums" style={{ color: idx % 2 === 0 ? '#16A34A' : '#D97706' }}>{cat.accuracy}%</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <motion.div
+                          className="h-full rounded-full"
+                          style={{ background: barColor }}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${cat.accuracy}%` }}
+                          transition={{ duration: 1.2, ease: 'easeOut', delay: 0.6 + idx * 0.1 }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Live AI Processing Log */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5 text-purple-500" />
+                Live AI Processing Log
+              </p>
+              <div className="space-y-1.5">
+                {aiStats.recentProcessing.map((entry, idx) => (
+                  <div
+                    key={entry.ticket}
+                    className="flex items-center gap-2 p-2 rounded-lg bg-muted/40 border border-border/30 text-[11px]"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: idx === 0 ? '#16A34A' : '#9CA3AF' }} />
+                    <span className="font-mono font-bold text-purple-600 dark:text-purple-400 shrink-0">{entry.ticket}</span>
+                    <span className="text-muted-foreground">→</span>
+                    <span className="text-foreground font-medium truncate">{entry.category}</span>
+                    <span className="text-muted-foreground shrink-0">({entry.confidence}% confidence)</span>
+                    <span className="ml-auto text-[9px] text-muted-foreground shrink-0">{entry.secondsAgo}s ago</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* ═══ QUICK STATUS FILTER CHIPS ═══ */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}>

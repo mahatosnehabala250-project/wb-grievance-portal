@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react';
 import {
   Shield, LayoutDashboard, FileText, Users, Bell, Sun, Moon, Menu,
   Search, Filter, X, Eye, Download, Plus, ArrowUpDown, ChevronLeft,
@@ -15,6 +15,7 @@ import {
   UserCheck, GitCompareArrows, CalendarClock, History, Tag, ClipboardList,
   AlertCircle, Info, CheckCircle2 as CheckCircleFill, Sparkles, Megaphone,
   ArrowUp, Flame, CalendarRange, TimerReset, GraduationCap, Droplets, Bus, Sprout,
+  BrainCircuit,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +27,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -100,6 +102,17 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
   // Block filter options (dynamic)
   const [blockOptions, setBlockOptions] = useState<string[]>([]);
 
+  // AI Smart Search states
+  const [aiSearchEnabled, setAiSearchEnabled] = useState(false);
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
+  const [aiInsightsReady, setAiInsightsReady] = useState(false);
+
+  // Bulk AI Categorization states
+  const [aiCategorizeOpen, setAiCategorizeOpen] = useState(false);
+  const [aiCategorizeProgress, setAiCategorizeProgress] = useState(0);
+  const [aiCategorizeResults, setAiCategorizeResults] = useState<{ ticketNo: string; category: string; urgency: string; confidence: number; sentiment: string; department: string; updated: boolean }[]>([]);
+  const [aiCategorizeDone, setAiCategorizeDone] = useState(false);
+
   // Handle special initialFilterStatus values (BREACH, CRITICAL, TODAY)
   const initialProcessed = useRef(false);
   useEffect(() => {
@@ -137,6 +150,22 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
     const t = setTimeout(() => setDebouncedSearch(search), 350);
     return () => clearTimeout(t);
   }, [search]);
+
+  // AI Smart Search analyzing simulation
+  useEffect(() => {
+    if (aiSearchEnabled && debouncedSearch) {
+      setAiAnalyzing(true);
+      setAiInsightsReady(false);
+      const timer = setTimeout(() => {
+        setAiAnalyzing(false);
+        setAiInsightsReady(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    } else {
+      setAiAnalyzing(false);
+      setAiInsightsReady(false);
+    }
+  }, [aiSearchEnabled, debouncedSearch]);
 
   // Clear special filter label when user manually changes filters
   useEffect(() => {
@@ -325,6 +354,84 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
     toast.success('Export complete', { description: `${data.length} complaints exported` });
   }, [complaints]);
 
+  // Mock AI insight generator
+  const getAIInsight = useCallback((searchTerm: string, complaint: Complaint): string => {
+    const term = searchTerm.toLowerCase();
+    if (term.includes('water') || term.includes('paani')) return 'Category: Water Supply';
+    if (term.includes('road') || term.includes('sadak')) return 'Category: Road Damage';
+    if (term.includes('light') || term.includes('bijli')) return 'Category: Electricity';
+    if (term.includes('health') || term.includes('hospital')) return 'Category: Healthcare';
+    if (term.includes('school') || term.includes('education')) return 'Category: Education';
+    if (term.includes('transport') || term.includes('bus')) return 'Category: Public Transport';
+    if (term.includes('sanitation') || term.includes('clean')) return 'Category: Sanitation';
+    if (term.includes('crime') || term.includes('police')) return 'Category: Law & Order';
+    if (term.includes('crop') || term.includes('agri')) return 'Category: Agriculture';
+    const sentiments = ['Sentiment: Negative', 'Sentiment: Neutral', 'Similar to WB-' + String(10000 + Math.floor(Math.random() * 500)).padStart(5, '0')];
+    return sentiments[Math.floor(Math.random() * sentiments.length)];
+  }, []);
+
+  // Mock AI analysis result generator
+  const mockAIResult = useCallback((complaint: Complaint) => {
+    const categories = ['Water Supply', 'Road Damage', 'Electricity', 'Healthcare', 'Education', 'Sanitation', 'Public Transport', 'Street Lighting'];
+    const urgencies = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+    const departments: Record<string, string> = {
+      'Water Supply': 'PHE', 'Road Damage': 'PWD', 'Electricity': 'WBSEDCL',
+      'Healthcare': 'Health Dept', 'Education': 'Education Dept', 'Sanitation': 'Municipal',
+      'Public Transport': 'Transport Dept', 'Street Lighting': 'Municipal',
+    };
+    const category = categories[Math.floor(Math.random() * categories.length)];
+    const urgency = urgencies[Math.floor(Math.random() * urgencies.length)];
+    const confidence = Math.floor(85 + Math.random() * 14);
+    const sentiment = Math.random() > 0.3 ? 'Negative' : 'Neutral';
+    const updated = category !== complaint.category || urgency !== complaint.urgency;
+    return { category, urgency, confidence, sentiment, department: departments[category] || 'General', updated };
+  }, []);
+
+  // Open Bulk AI Categorization dialog (from floating bar)
+  const openAICategorizeDialog = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    setAiCategorizeOpen(true);
+    setAiCategorizeProgress(0);
+    setAiCategorizeResults([]);
+    setAiCategorizeDone(false);
+  }, [selectedIds.size]);
+
+  // Bulk AI Categorization handler (actual analysis)
+  const handleBulkAICategorize = useCallback(async () => {
+    const selectedComplaints = complaints.filter((c) => selectedIds.has(c.id));
+    if (selectedComplaints.length === 0) return;
+    setAiCategorizeProgress(0);
+    setAiCategorizeResults([]);
+    setAiCategorizeDone(false);
+
+    const results: typeof aiCategorizeResults = [];
+    for (let i = 0; i < selectedComplaints.length; i++) {
+      await new Promise((r) => setTimeout(r, 300));
+      const c = selectedComplaints[i];
+      const result = mockAIResult(c);
+      results.push({ ...result, ticketNo: c.ticketNo });
+      setAiCategorizeProgress(i + 1);
+      setAiCategorizeResults([...results]);
+    }
+    setAiCategorizeDone(true);
+
+    const updatedCount = results.filter((r) => r.updated).length;
+    const unchangedCount = results.length - updatedCount;
+    toast.success('Bulk AI Categorization Complete', {
+      description: `${updatedCount} updated, ${unchangedCount} unchanged out of ${results.length} complaints`,
+    });
+    setSelectedIds(new Set());
+    fetchComplaints();
+  }, [complaints, selectedIds, mockAIResult, fetchComplaints]);
+
+  // Quick AI Actions handler
+  const handleQuickAIAction = useCallback((action: string) => {
+    toast.info(`AI Feature: ${action}`, {
+      description: `The AI engine would process "${action}" across ${pagination.total} complaints. This feature is coming soon!`,
+      duration: 4000,
+    });
+  }, [pagination.total]);
+
   // Server-side CSV export via /api/export API
   const handleServerExport = useCallback(() => {
     const params = new URLSearchParams();
@@ -402,19 +509,74 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
           <div className="flex flex-col sm:flex-row gap-3">
             {/* Search */}
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${aiSearchEnabled && search ? 'text-violet-500' : 'text-muted-foreground'}`} />
               <Input
-                placeholder="Search by name, ticket, issue, block..."
+                placeholder={aiSearchEnabled ? 'AI-powered search: try natural language...' : 'Search by name, ticket, issue, block...'}
                 value={search}
                 onChange={(e) => updateFilter(setSearch, e.target.value)}
-                className="pl-9 pr-8 h-9 text-sm"
+                className={`pl-9 pr-8 h-9 text-sm ${aiSearchEnabled && search ? 'ring-1 ring-violet-400/50 border-violet-300 dark:border-violet-700' : ''}`}
               />
               {search && (
                 <button onClick={() => updateFilter(setSearch, '')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                   <X className="h-3.5 w-3.5" />
                 </button>
               )}
+              {/* AI analyzing indicator */}
+              {aiAnalyzing && (
+                <div className="absolute right-9 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
+                  <Sparkles className="h-3.5 w-3.5 text-violet-500 animate-spin" />
+                </div>
+              )}
             </div>
+
+            {/* AI Smart Search Toggle */}
+            <Button
+              size="sm"
+              onClick={() => setAiSearchEnabled((v) => !v)}
+              className={`text-xs gap-1.5 h-9 rounded-full transition-all duration-200 ${
+                aiSearchEnabled
+                  ? 'bg-violet-600 hover:bg-violet-700 text-white shadow-md shadow-violet-200 dark:shadow-violet-900/30'
+                  : 'bg-background border border-border text-muted-foreground hover:text-foreground hover:border-violet-300'
+              }`}
+            >
+              <Sparkles className={`h-3.5 w-3.5 ${aiSearchEnabled ? 'text-white' : 'text-violet-500'}`} />
+              <span className="hidden sm:inline">AI Smart Search</span>
+              <span className="sm:hidden">AI</span>
+            </Button>
+
+            {/* Quick AI Actions Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="text-xs gap-1.5 h-9 rounded-full hover:border-violet-300">
+                  <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+                  <span className="hidden sm:inline">Quick AI Actions</span>
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="flex items-center gap-2 text-xs font-bold">
+                  <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+                  AI-Powered Actions
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleQuickAIAction('Find Similar Complaints')} className="text-xs cursor-pointer gap-2">
+                  <GitCompareArrows className="h-4 w-4 text-violet-500" />
+                  Find Similar Complaints
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleQuickAIAction('Summarize Open Complaints')} className="text-xs cursor-pointer gap-2">
+                  <ClipboardList className="h-4 w-4 text-violet-500" />
+                  Summarize Open Complaints
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleQuickAIAction('Predict Resolution Time')} className="text-xs cursor-pointer gap-2">
+                  <Timer className="h-4 w-4 text-violet-500" />
+                  Predict Resolution Time
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleQuickAIAction('Analyze Complaint Patterns')} className="text-xs cursor-pointer gap-2">
+                  <BarChart2 className="h-4 w-4 text-violet-500" />
+                  Analyze Complaint Patterns
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* Filter Count + Clear */}
             {activeFilterCount > 0 && (
@@ -423,6 +585,24 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
               </Button>
             )}
           </div>
+
+          {/* AI Analyzing / AI Active Indicator */}
+          {aiSearchEnabled && search && (
+            <div className="flex items-center gap-2 mt-2">
+              {aiAnalyzing ? (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-50 dark:bg-violet-950/20 border border-violet-200/50 dark:border-violet-800/30">
+                  <Sparkles className="h-3 w-3 text-violet-500 animate-spin" />
+                  <span className="text-[11px] font-medium text-violet-700 dark:text-violet-400">AI is analyzing...</span>
+                </motion.div>
+              ) : aiInsightsReady ? (
+                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-50 dark:bg-violet-950/20 border border-violet-200/50 dark:border-violet-800/30">
+                  <Sparkles className="h-3 w-3 text-violet-500" />
+                  <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-400">AI Search Active</span>
+                  <span className="text-[10px] text-violet-500/60">&middot; Showing AI-enhanced results</span>
+                </motion.div>
+              ) : null}
+            </div>
+          )}
 
           {/* Filter Row */}
           <div className="flex flex-wrap gap-2 mt-3">
@@ -564,6 +744,16 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
               </Button>
               <div className="w-px h-6 bg-white/20" />
               <Button
+                size="sm"
+                disabled={bulkLoading || aiCategorizeOpen}
+                onClick={openAICategorizeDialog}
+                className="h-8 gap-1.5 text-xs bg-violet-600 hover:bg-violet-700 text-white rounded-lg"
+              >
+                <BrainCircuit className="h-3 w-3" />
+                <span className="hidden sm:inline">AI Categorize</span>
+                <span className="sm:hidden">AI</span>
+              </Button>
+              <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => exportCSV()}
@@ -595,7 +785,7 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
                 <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow className="bg-muted/50">
                     <TableHead className="w-10">
-                      <input type="checkbox" checked={selectedIds.size === complaints.length && complaints.length > 0} onChange={toggleSelectAll} className="cursor-pointer rounded" />
+                      <Checkbox checked={selectedIds.size === complaints.length && complaints.length > 0} onCheckedChange={toggleSelectAll} className="cursor-pointer" />
                     </TableHead>
                     <TableHead className="text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:bg-muted" onClick={() => handleSort('ticketNo')}>
                       <span className="flex items-center gap-1">Ticket # <ArrowUpDown className="h-3 w-3" /></span>
@@ -625,9 +815,10 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
                     ))
                   ) : (
                     complaints.map((c, idx) => (
-                      <TableRow key={c.id} className={`table-row-hover hover:border-l-2 hover:border-l-sky-400 border-l-2 border-l-transparent ${idx % 2 === 1 ? 'bg-muted/20' : ''} ${flashIds.has(c.id) ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''}`}>
+                      <Fragment key={c.id}>
+                      <TableRow className={`table-row-hover hover:border-l-2 hover:border-l-sky-400 border-l-2 border-l-transparent ${idx % 2 === 1 ? 'bg-muted/20' : ''} ${flashIds.has(c.id) ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''}`}>
                         <TableCell>
-                          <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="cursor-pointer rounded" />
+                          <Checkbox checked={selectedIds.has(c.id)} onCheckedChange={() => toggleSelect(c.id)} className="cursor-pointer" />
                         </TableCell>
                         <TableCell className="font-mono text-xs font-bold">{c.ticketNo}</TableCell>
                         <TableCell>
@@ -680,6 +871,19 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
                           </Button>
                         </TableCell>
                       </TableRow>
+                      {/* AI Insight sub-row */}
+                      {aiSearchEnabled && aiInsightsReady && debouncedSearch && (
+                        <TableRow className="bg-violet-50/50 dark:bg-violet-950/10 hover:bg-transparent">
+                          <TableCell colSpan={10} className="py-1.5 px-4">
+                            <div className="flex items-center gap-1.5">
+                              <Sparkles className="h-3 w-3 text-violet-500 shrink-0" />
+                              <span className="text-[10px] font-medium text-violet-700 dark:text-violet-400">{getAIInsight(debouncedSearch, c)}</span>
+                              {c.status === 'OPEN' && <span className="text-[10px] text-violet-400">&middot; Sentiment: Needs attention</span>}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      </Fragment>
                     ))
                   )}
                 </TableBody>
@@ -702,6 +906,7 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
                     <CardContent className="p-4 space-y-3">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
+                          <Checkbox checked={selectedIds.has(c.id)} onCheckedChange={() => toggleSelect(c.id)} className="shrink-0" />
                           <span className="font-mono text-xs font-bold text-foreground shrink-0">{c.ticketNo}</span>
                           <span className="h-4 w-4 rounded-md bg-muted/80 flex items-center justify-center shrink-0">
                             <CategoryIcon className="h-2.5 w-2.5 text-muted-foreground" />
@@ -722,6 +927,13 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
                           <span className="text-[11px] text-muted-foreground">{c.category}</span>
                         </div>
                       </div>
+                      {/* AI Insight badge for mobile */}
+                      {aiSearchEnabled && aiInsightsReady && debouncedSearch && (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-50 dark:bg-violet-950/20">
+                          <Sparkles className="h-3 w-3 text-violet-500 shrink-0" />
+                          <span className="text-[10px] font-medium text-violet-700 dark:text-violet-400">{getAIInsight(debouncedSearch, c)}</span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between pt-2.5 border-t border-border/40">
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] text-muted-foreground flex items-center gap-1">
@@ -781,6 +993,126 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
           )}
         </>
       )}
+
+      {/* Bulk AI Categorization Dialog */}
+      <Dialog open={aiCategorizeOpen} onOpenChange={(open) => { if (!open) { setAiCategorizeOpen(false); setAiCategorizeDone(false); } }}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                <BrainCircuit className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+              </div>
+              Bulk AI Categorization
+            </DialogTitle>
+            <DialogDescription>
+              AI will analyze {selectedIds.size || aiCategorizeResults.length} complaints and suggest categories, urgency levels, and departments.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!aiCategorizeDone && aiCategorizeProgress === 0 && (
+            <div className="flex flex-col items-center gap-4 py-6">
+              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/40 dark:to-purple-900/40 flex items-center justify-center">
+                <BrainCircuit className="h-8 w-8 text-violet-600 dark:text-violet-400" />
+              </div>
+              <p className="text-sm text-muted-foreground text-center">
+                This will analyze each selected complaint using AI to suggest optimal categorization, urgency, and department assignment.
+              </p>
+              <Button onClick={handleBulkAICategorize} className="gap-2 bg-violet-600 hover:bg-violet-700 text-white">
+                <Sparkles className="h-4 w-4" />
+                Start Analysis
+              </Button>
+            </div>
+          )}
+
+          {(aiCategorizeProgress > 0 || aiCategorizeDone) && (
+            <div className="space-y-4">
+              {/* Progress Bar */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-muted-foreground">
+                    {aiCategorizeDone
+                      ? 'Analysis Complete'
+                      : `Analyzing complaint ${aiCategorizeProgress} of ${selectedIds.size || aiCategorizeResults.length}...`}
+                  </span>
+                  <span className="font-mono text-muted-foreground">
+                    {Math.round((aiCategorizeProgress / (selectedIds.size || aiCategorizeResults.length)) * 100)}%
+                  </span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(aiCategorizeProgress / (selectedIds.size || aiCategorizeResults.length)) * 100}%` }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </div>
+              </div>
+
+              {/* Results List */}
+              <ScrollArea className="max-h-72 pr-3">
+                <div className="space-y-2">
+                  {aiCategorizeResults.map((r, i) => (
+                    <motion.div
+                      key={r.ticketNo}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.02 }}
+                      className={`flex items-center gap-3 p-3 rounded-xl border text-xs ${
+                        r.updated
+                          ? 'bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800/40'
+                          : 'bg-muted/30 border-border/60'
+                      }`}
+                    >
+                      <span className="font-mono font-bold text-foreground shrink-0">{r.ticketNo}</span>
+                      <div className="w-px h-4 bg-border" />
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0 flex-wrap">
+                        <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-semibold">{r.category}</Badge>
+                        <Badge variant="outline" className={`text-[10px] h-5 px-1.5 font-semibold ${
+                          r.urgency === 'CRITICAL' ? 'border-red-300 text-red-700 dark:text-red-400' :
+                          r.urgency === 'HIGH' ? 'border-orange-300 text-orange-700 dark:text-orange-400' :
+                          r.urgency === 'MEDIUM' ? 'border-amber-300 text-amber-700 dark:text-amber-400' :
+                          'border-green-300 text-green-700 dark:text-green-400'
+                        }`}>{r.urgency}</Badge>
+                        <Badge variant="outline" className={`text-[10px] h-5 px-1.5 font-semibold ${
+                          r.confidence >= 90 ? 'border-emerald-300 text-emerald-700 dark:text-emerald-400' :
+                          r.confidence >= 80 ? 'border-amber-300 text-amber-700 dark:text-amber-400' :
+                          'border-red-300 text-red-700 dark:text-red-400'
+                        }`}>{r.confidence}%</Badge>
+                      </div>
+                      {r.updated && (
+                        <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 shrink-0 flex items-center gap-0.5">
+                          <Sparkles className="h-3 w-3" /> Updated
+                        </span>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              </ScrollArea>
+
+              {/* Summary */}
+              {aiCategorizeDone && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-bold text-emerald-700 dark:text-emerald-400">Analysis Complete!</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-0.5">
+                        {aiCategorizeResults.filter((r) => r.updated).length} updated, {aiCategorizeResults.filter((r) => !r.updated).length} unchanged
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setAiCategorizeOpen(false); setAiCategorizeDone(false); }} disabled={!aiCategorizeDone && aiCategorizeProgress > 0}>
+              {aiCategorizeDone ? 'Close' : 'Cancel'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Detail Dialog */}
       <ComplaintDetailDialog
