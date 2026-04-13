@@ -1,1656 +1,679 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
-  GitBranch, Webhook, Clock, Zap, AlertTriangle, Mail, Smartphone,
-  Copy, CheckCircle, Download, ChevronRight, Shield, Info,
-  Workflow, ArrowRight, FileJson, Terminal, Play, Link,
-  Timer, Bell, RefreshCw, Send, Database, BarChart2, Users,
-  CheckCircle2, Eye, Code, Rocket, Settings, Globe, Layers,
-  Hash, Tag, MessageSquare, Loader2, CircleCheck, XCircle,
-  Sparkles,
+  Copy, CheckCircle, ClipboardList, Database, Workflow, 
+  ChevronRight, Sparkles, BookOpen, Zap, Users, Bell,
+  MessageSquare, Mail, Shield, Timer, RefreshCw, AlertTriangle,
+  Layers, FileText, Globe, Info, ExternalLink, ArrowRight,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from '@/components/ui/accordion';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { useAuthStore } from '@/lib/auth-store';
 import { motion } from 'framer-motion';
-import { NAVY, NAVY_DARK } from '@/lib/constants';
-import { authHeaders, safeGetLocalStorage } from '@/lib/helpers';
+import { NAVY } from '@/lib/constants';
+
+/* ══════════════════════════════════════════════════════════════
+   THE COMPLETE PROMPT — copy-paste this to Claude in VS Code
+   ══════════════════════════════════════════════════════════════ */
+const CLAUDE_PROMPT = `# West Bengal AI Public Support System — n8n Workflow Builder Prompt
+
+## Project Overview
+Ye ek West Bengal Government ka **Grievance / Complaint Management Portal** hai. Citizens WhatsApp pe message karke apni shikayat kar sakte hain. Portal automatically complaint receive karta hai, AI se category detect karta hai, officers ko assign karta hai, aur citizen ko WhatsApp pe status update bhejta hai.
+
+**Frontend**: Next.js web dashboard (admin officers use karte hain)
+**Database**: Supabase PostgreSQL
+**AI**: AI Brain — complaint text se category, urgency, department detect karta hai
+**Messaging**: WhatsApp Business API
+**Airtable**: Optional — spreadsheet jaisa collaboration tool hai jo database ke saath sync hota hai
+
+---
+
+## DATABASE STRUCTURE — Ye sab tables/fields hain database mein
+
+### TABLE 1: users
+Ye admin/officer accounts hain jo dashboard login karke complaints manage karte hain.
+
+| Field | Type | Kya hai |
+|-------|------|---------|
+| id | Auto ID | Unique identifier |
+| username | Text | Login username (e.g. "admin", "officer_krishnagar") |
+| passwordHash | Text | Encrypted password |
+| role | Text | 4 roles: ADMIN (super admin), BLOCK (block officer), DISTRICT (district officer), STATE (state level) |
+| name | Text | Officer ka display name |
+| location | Text | Officer ka area (e.g. "Krishnanagar", "Nadia") |
+| district | Text (optional) | District name — block level officers ke liye |
+| isActive | True/False | Account active hai ya nahi |
+| createdAt | Date | Kab account bana |
+
+### TABLE 2: complaints
+Ye main table hai — har ek citizen complaint yahan stored hai.
+
+| Field | Type | Kya hai |
+|-------|------|---------|
+| id | Auto ID | Unique identifier |
+| ticketNo | Text (unique) | Ticket number — auto-generated, format: WB-01001, WB-01002 etc. |
+| citizenName | Text (optional) | Citizen ka naam |
+| phone | Text (optional) | Citizen ka phone number (WhatsApp number) |
+| issue | Text | Complaint ka main text — citizen ne jo likha/bole |
+| category | Text | AI ya manual se assigned category — jaise: "Water Supply", "Road Damage", "Electricity", "Sanitation", "Healthcare", "Education", "Other" |
+| block | Text | Block name jahan problem hai (e.g. "Krishnanagar-I") |
+| district | Text | District name (e.g. "Nadia") |
+| urgency | Text | Priority level: LOW, MEDIUM (default), HIGH, CRITICAL |
+| status | Text | Current status: OPEN (default), IN_PROGRESS, RESOLVED, REJECTED |
+| description | Text (optional) | Detailed description — AI ya officer ne likha |
+| resolution | Text (optional) | Jab resolve ho toh resolution text |
+| assignedToId | Text (optional) | Kaunsa officer/user is complaint ko handle kar raha hai (users table ka id) |
+| source | Text | Complaint kahan se aaya: WHATSAPP (default), MANUAL, WEB |
+| satisfactionRating | Number (optional) | Citizen ne 1-5 diya hai satisfaction rating |
+| airtableRecordId | Text (optional) | Airtable mein ye complaint ka record ID — bidirectional sync ke liye |
+| createdAt | Date | Kab complaint aaya |
+| updatedAt | Date | Last update kab hua |
+
+### TABLE 3: activity_logs
+Complaint pe kya kya hua — sab activity ka history yahan hai.
+
+| Field | Type | Kya hai |
+|-------|------|---------|
+| id | Auto ID | Unique identifier |
+| complaintId | Text | Kaunsi complaint pe ye activity (complaints table ka id) |
+| action | Text | Activity type: CREATED, STATUS_CHANGED, ASSIGNED, RESOLVED, REJECTED, UNASSIGNED, ESCALATED |
+| description | Text | Kya hua — detail mein (e.g. "Status changed from OPEN to IN_PROGRESS") |
+| actorId | Text (optional) | Kisne kiya (users table ka id) — ya "System" agar automated |
+| actorName | Text (optional) | Kisne kiya — naam |
+| metadata | Text (optional) | Extra JSON data |
+| createdAt | Date | Kab hua |
+
+### TABLE 4: comments
+Officers aur admins complaint pe comments kar sakte hain — internal discussion.
+
+| Field | Type | Kya hai |
+|-------|------|---------|
+| id | Auto ID | Unique identifier |
+| complaintId | Text | Kaunsi complaint pe comment |
+| content | Text | Comment ka text |
+| actorId | Text (optional) | Kisne likha (users table ka id) |
+| actorName | Text (optional) | Kaun likhne wala — naam |
+| createdAt | Date | Kab likha |
+
+### TABLE 5: feedback
+Citizens portal pe feedback de sakte hain — general feedback system.
+
+| Field | Type | Kya hai |
+|-------|------|---------|
+| id | Auto ID | Unique identifier |
+| name | Text | Feedback dene wale ka naam |
+| email | Text (optional) | Email |
+| message | Text | Feedback text |
+| category | Text | Category: "General" (default) etc. |
+| rating | Number | 1-5 rating (default 5) |
+| createdAt | Date | Kab diya |
+
+---
+
+## WORKFLOWS — Ye 9 workflows banane hain n8n mein
+
+### WORKFLOW 1: WhatsApp Complaint Intake
+**Kya karta hai**: Jab citizen WhatsApp pe message bhejta hai, ye workflow complaint receive karta hai.
+
+**Process**:
+1. WhatsApp se message aata hai — usme hota hai: message text, sender phone number, citizen naam, block/district info
+2. AI Brain ko bhejta hai complaint text — AI batata hai: category (Water/Road/Electricity etc.), urgency (LOW/MEDIUM/HIGH/CRITICAL), summary
+3. Agar AI kaam nahi karta toh keyword matching se category guess karta hai (water keyword = Water Supply, road = Road Damage etc.)
+4. Supabase database mein naya complaint create karta hai — sab fields fill karta hai: citizenName, phone, issue, category, block, district, urgency, source="WHATSAPP"
+5. Database se ticket number receive karta hai (WB-01001 jaisa)
+6. Citizen ko WhatsApp pe confirmation message bhejta hai: "Aapka shikayat register ho gaya! Ticket: WB-01001"
+
+**Data flow**: WhatsApp → AI Brain → Database → WhatsApp Reply
+
+---
+
+### WORKFLOW 2: Auto-Assignment Engine
+**Kya karta hai**: Jo complaints abhi tak kisi officer ko assign nahi hain, unhe automatically block/district ke hisab se officer ko assign karta hai.
+
+**Process**:
+1. Har 5 minute mein check karta hai — database mein wo complaints dhundhta hai jinka status OPEN hai aur assignedToId null hai (kisi ko assign nahi hua)
+2. Har complaint ka block aur district dekhta hai
+3. Officers list mein se us block/district ka matching officer dhundhta hai
+4. Complaint ko us officer ko assign kar deta hai (assignedToId update)
+5. Activity log mein entry add hoti hai: "Assigned to [Officer Name]"
+
+**Data flow**: Timer (5 min) → Fetch unassigned complaints → Match block/district → Assign officer → Update database
+
+---
+
+### WORKFLOW 3: Citizen Status Notification
+**Kya karta hai**: Jab officer complaint ka status change karta hai (OPEN → IN_PROGRESS, IN_PROGRESS → RESOLVED etc.), citizen ko WhatsApp pe update bhejta hai.
+
+**Process**:
+1. Portal se trigger aata hai jab complaint ka status change hota hai
+2. Database se complaint ki full details le aata hai (ticketNo, citizenName, phone, issue, new status, resolution)
+3. Status ke hisab se WhatsApp message banata hai:
+   - IN_PROGRESS: "Aapka shikayat ab process ho raha hai..."
+   - RESOLVED: "Aapka shikayat resolve ho gaya!" + resolution text
+   - REJECTED: "Aapka shikayat process nahi ho paya..."
+4. Citizen ke phone pe WhatsApp message bhejta hai
+5. Agar WhatsApp fail ho toh SMS fallback bhejta hai
+
+**Data flow**: Status Change Trigger → Get complaint details → Format message → WhatsApp/SMS to citizen
+
+---
+
+### WORKFLOW 4: Officer Assignment Notification
+**Kya karta hai**: Jab complaint kisi officer ko assign hota hai, use WhatsApp aur Email pe notification bhejta hai.
+
+**Process**:
+1. Trigger aata hai jab complaint assign hota hai (auto ya manual)
+2. Complaint ki details le aata hai: ticketNo, issue, category, citizenName, urgency, block, district
+3. Assigned officer ki details le aata hai: naam, phone, email
+4. Officer ko WhatsApp pe message bhejta hai: "Naya shikayat aapko assign hua! Ticket: WB-01001, Category: Water Supply..."
+5. Officer ko Email bhi bhejta hai — HTML format mein ek professional email with complaint details
+6. Message Hindi + English dono mein hota hai
+
+**Data flow**: Assignment Trigger → Get complaint + officer details → WhatsApp + Email to officer
+
+---
+
+### WORKFLOW 5: SLA Breach Escalation
+**Kya karta hai**: Jo complaints 7 din se zyada open hain (SLA breach), unki urgency badhata hai aur district admin ko email alert bhejta hai.
+
+**Process**:
+1. Roz subah 9 baje check karta hai
+2. Database mein wo complaints dhundhta hai jinka status OPEN ya IN_PROGRESS hai aur 7 din purane hain (createdAt se 7+ din)
+3. Breach kiye complaints ki urgency CRITICAL kar deta hai
+4. District admin ko email bhejta hai — ek HTML report format mein:
+   - Kitne complaints breach hue
+   - Har complaint ka: Ticket, Issue, District, Kitne din open, Urgency
+5. Activity log mein entry add hoti hai: "SLA Breach — Escalated to CRITICAL"
+
+**Data flow**: Timer (daily 9 AM) → Find 7+ day open complaints → Escalate urgency → Email to admin
+
+---
+
+### WORKFLOW 6: Daily Summary Report
+**Kya karta hai**: Roz shaam 6 baje district admins ko ek daily summary email bhejta hai — kitne complaints aaye, kitne resolve hue, kitne open hain etc.
+
+**Process**:
+1. Roz shaam 6 baje trigger hota hai
+2. Database se statistics le aata hai: total complaints, open, in_progress, resolved, rejected, critical count, resolution rate
+3. Ek beautiful HTML email report banata hai — cards mein numbers dikhata hai
+4. District admins ke email pe bhejta hai
+5. Email mein hota hai: total count, open count, resolved count, critical count, resolution rate percentage
+
+**Data flow**: Timer (daily 6 PM) → Fetch dashboard stats → Format HTML report → Email to admins
+
+---
+
+### WORKFLOW 7: AI Complaint Brain
+**Kya karta hai**: Complaint text analyze karke category, urgency, department, summary, smart reply generate karta hai. Ye AI ka main brain hai.
+
+**Process**:
+1. Trigger hota hai jab naya complaint aata hai (WhatsApp ya manual)
+2. Complaint text AI model ko bhejta hai
+3. AI return karta hai: category, urgency, department, summary, sentiment (positive/negative/neutral)
+4. Smart reply bhi generate karta hai — citizen ko bhejne ke liye ready-made reply (English + Bengali)
+5. Agar Airtable configured hai toh Airtable mein bhi sync karta hai
+
+**Data flow**: Complaint Trigger → AI Analysis → Smart Reply Generation → Airtable Sync (optional)
+
+---
+
+### WORKFLOW 8: Airtable Bidirectional Sync
+**Kya karta hai**: Supabase database aur Airtable ke beech har 30 minute mein sync karta hai — data dono taraf copy hota hai.
+
+**Process**:
+1. Har 30 minute mein run hota hai
+2. Supabase se saare complaints le kar Airtable mein push karta hai (new + updated)
+3. Airtable se bhi data pull karta hai — agar Airtable mein koi change hua hai toh Supabase mein update karta hai
+4. Har complaint ka airtableRecordId track karta hai database mein — taaki duplicate na bane
+5. Agar sync fail ho toh error log karta hai
+
+**Data flow**: Timer (30 min) → Push DB→Airtable → Pull Airtable→DB → Check sync status → Log errors
+
+---
+
+### WORKFLOW 9: Error Handler
+**Kya karta hai**: Agar koi bhi workflow mein error aaye toh admin ko alert bhejta hai. Ye sab workflows ka global error handler hai.
+
+**Process**:
+1. Koi bhi workflow fail ho toh ye trigger hota hai
+2. Error details format karta hai: kaunsi workflow fail hui, kaunsa node fail hua, error message, time
+3. Check karta hai — retry karna chahiye ya nahi (max 3 retries, authentication errors ko nahi retry karte)
+4. Admin ko email bhejta hai — HTML format mein full error details
+5. Slack ya Discord pe bhi error message post karta hai (if configured)
+6. Agar retry possible hai toh 60 second wait karke retry karta hai
+
+**Data flow**: Error Trigger → Format error → Check retry count → Email admin + Slack/Discord → Wait & Retry (if needed)
+
+---
+
+## IMPORTANT NOTES FOR BUILDING
+
+1. **Supabase PostgreSQL** is the main database — all data lives here
+2. **WhatsApp Business API** — citizens message karte hain, officers ko bhi WhatsApp pe notify hota hai
+3. **Portal Web App** — Next.js dashboard hai jahan officers complaints manage karte hain. Portal automatically webhooks fire karta hai jab status change hota hai
+4. **AI Brain** — optional but recommended. Fallback mein keyword matching hai
+5. **Airtable** — optional collaboration layer. Supabase database primary hai
+6. **Language**: Citizens Hindi/English dono mein baat karte hain. WhatsApp messages Hindi+English mein hone chahiye
+7. **SLA Rule**: 7 days — uske baad automatic escalation
+8. **Ticket Format**: WB-XXXXX (WB-01001, WB-01002 etc.)
+9. **Categories**: Water Supply, Road Damage, Electricity, Sanitation, Healthcare, Education, Other
+10. **Urgency Levels**: LOW, MEDIUM, HIGH, CRITICAL
+11. **Status Flow**: OPEN → IN_PROGRESS → RESOLVED (ya REJECTED)
+12. **User Roles**: ADMIN (full access), BLOCK (block level), DISTRICT (district level), STATE (state level)
+
+Please build all 9 workflows in n8n with proper error handling, retry logic, and connections between workflows where needed. Use environment variables for all credentials and URLs.`;
+
+/* ══════════════════════════════════════════════════════════════
+   WORKFLOW SUMMARIES (for card display)
+   ══════════════════════════════════════════════════════════════ */
+const WORKFLOWS = [
+  {
+    id: 1,
+    name: 'WhatsApp Complaint Intake',
+    icon: MessageSquare,
+    color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400',
+    description: 'Citizen WhatsApp message → AI Brain analysis → Database save → WhatsApp confirmation reply',
+    trigger: 'WhatsApp Webhook (jab message aata hai)',
+    data: 'Complaint text, phone, name → category, urgency, summary → new complaint row',
+  },
+  {
+    id: 2,
+    name: 'Auto-Assignment Engine',
+    icon: Users,
+    color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/30 dark:text-blue-400',
+    description: 'Unassigned complaints ko block/district ke hisab se officers ko automatically assign karta hai',
+    trigger: 'Har 5 minute (scheduled)',
+    data: 'Open unassigned complaints → match by block → update assignedToId',
+  },
+  {
+    id: 3,
+    name: 'Citizen Status Notification',
+    icon: Bell,
+    color: 'text-purple-600 bg-purple-50 dark:bg-purple-950/30 dark:text-purple-400',
+    description: 'Jab officer status change karta hai, citizen ko WhatsApp pe update bhejta hai',
+    trigger: 'Portal webhook (jab status change hota hai)',
+    data: 'Complaint status, resolution → WhatsApp message → citizen phone',
+  },
+  {
+    id: 4,
+    name: 'Officer Assignment Notification',
+    icon: Mail,
+    color: 'text-orange-600 bg-orange-50 dark:bg-orange-950/30 dark:text-orange-400',
+    description: 'Officer ko WhatsApp + Email pe notification — naya complaint assign hua hai',
+    trigger: 'Portal webhook (jab assign hota hai)',
+    data: 'Complaint details + Officer details → WhatsApp + Email',
+  },
+  {
+    id: 5,
+    name: 'SLA Breach Escalation',
+    icon: AlertTriangle,
+    color: 'text-red-600 bg-red-50 dark:bg-red-950/30 dark:text-red-400',
+    description: '7 din se open complaints ki urgency CRITICAL kar deta hai + admin ko email alert',
+    trigger: 'Roz subah 9 baje (scheduled)',
+    data: '7+ day open complaints → escalate urgency → email report to admin',
+  },
+  {
+    id: 6,
+    name: 'Daily Summary Report',
+    icon: FileText,
+    color: 'text-cyan-600 bg-cyan-50 dark:bg-cyan-950/30 dark:text-cyan-400',
+    description: 'Roz shaam 6 baje district admins ko daily stats email bhejta hai',
+    trigger: 'Roz shaam 6 baje (scheduled)',
+    data: 'Dashboard stats → HTML report → email to district admins',
+  },
+  {
+    id: 7,
+    name: 'AI Complaint Brain',
+    icon: Sparkles,
+    color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400',
+    description: 'Complaint text analyze karke category, urgency, department, smart reply generate karta hai',
+    trigger: 'Jab naya complaint aata hai',
+    data: 'Complaint text → AI analysis → category, urgency, summary, smart reply',
+  },
+  {
+    id: 8,
+    name: 'Airtable Bidirectional Sync',
+    icon: RefreshCw,
+    color: 'text-teal-600 bg-teal-50 dark:bg-teal-950/30 dark:text-teal-400',
+    description: 'Supabase ↔ Airtable sync — har 30 minute mein data dono taraf copy',
+    trigger: 'Har 30 minute (scheduled)',
+    data: 'Complaints push to Airtable + pull changes from Airtable',
+  },
+  {
+    id: 9,
+    name: 'Error Handler',
+    icon: Shield,
+    color: 'text-rose-600 bg-rose-50 dark:bg-rose-950/30 dark:text-rose-400',
+    description: 'Sab workflows ka global error handler — admin email + Slack alert + auto retry',
+    trigger: 'Jab koi workflow fail ho (error trigger)',
+    data: 'Error details → admin email + Slack → retry (max 3)',
+  },
+];
+
+/* ══════════════════════════════════════════════════════════════
+   DATABASE TABLE INFO (for card display)
+   ══════════════════════════════════════════════════════════════ */
+const DB_TABLES = [
+  {
+    name: 'users',
+    icon: Users,
+    count: '9 fields',
+    description: 'Admin aur officer accounts — dashboard login karne ke liye',
+    keyFields: ['role (ADMIN/BLOCK/DISTRICT/STATE)', 'name', 'location', 'district', 'isActive'],
+  },
+  {
+    name: 'complaints',
+    icon: FileText,
+    count: '16 fields',
+    description: 'Main table — har ek citizen complaint yahan stored hai',
+    keyFields: ['ticketNo (WB-01001)', 'citizenName', 'phone', 'issue', 'category', 'block', 'district', 'urgency', 'status', 'assignedToId', 'source', 'resolution', 'satisfactionRating'],
+  },
+  {
+    name: 'activity_logs',
+    icon: Timer,
+    count: '7 fields',
+    description: 'Complaint pe kya kya hua — sab activity ka history',
+    keyFields: ['complaintId', 'action (CREATED/STATUS_CHANGED/ASSIGNED etc.)', 'description', 'actorName'],
+  },
+  {
+    name: 'comments',
+    icon: MessageSquare,
+    count: '5 fields',
+    description: 'Officers/admins ki internal discussion — complaint pe comments',
+    keyFields: ['complaintId', 'content', 'actorName'],
+  },
+  {
+    name: 'feedback',
+    icon: Globe,
+    count: '6 fields',
+    description: 'Citizens ka general feedback — portal pe feedback form',
+    keyFields: ['name', 'email', 'message', 'category', 'rating (1-5)'],
+  },
+];
 
 /* ══════════════════════════════════════════════════════════════
    ANIMATION VARIANTS
    ══════════════════════════════════════════════════════════════ */
 const stagger = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.07 } },
+  show: { transition: { staggerChildren: 0.06 } },
 };
 const fadeUp = {
-  hidden: { opacity: 0, y: 18 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' as const } },
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' as const } },
 };
-
-/* ══════════════════════════════════════════════════════════════
-   WORKFLOW JSON DEFINITIONS
-   ══════════════════════════════════════════════════════════════ */
-
-const WORKFLOW_WHATSAPP = {
-  name: 'WhatsApp Complaint Intake',
-  nodes: [
-    {
-      parameters: { httpMethod: 'POST', path: 'incoming-whatsapp', responseMode: 'responseNode', responseData: 'allEntries' },
-      name: 'WhatsApp Webhook',
-      type: 'n8n-nodes-base.webhook',
-      typeVersion: 2,
-      position: [250, 300],
-      credentials: {},
-      webhookId: 'whatsapp-intake-trigger',
-    },
-    {
-      parameters: {
-        url: '={{ $env.WB_PORTAL_URL }}/api/ai/process-complaint',
-        method: 'POST',
-        sendBody: true,
-        contentType: 'json',
-        bodyParameters: {
-          parameters: [
-            { name: 'text', value: '={{ $json.body.message || $json.body.text || "No message provided" }}' },
-            { name: 'block', value: '={{ $json.body.block }}' },
-            { name: 'district', value: '={{ $json.body.district }}' },
-          ],
-        },
-        options: { timeout: 30000 },
-        continueOnFail: true,
-      },
-      name: 'Call AI Brain API',
-      type: 'n8n-nodes-base.httpRequest',
-      typeVersion: 4.2,
-      position: [470, 300],
-    },
-    {
-      parameters: {
-        jsCode: `// Merge WhatsApp data with AI analysis, fallback to keyword matching if AI failed\nconst webhookData = $('WhatsApp Webhook').first().json.body;\nconst aiResult = $input.first().json;\n\nfunction guessCategory(text) {\n  const t = (text || '').toLowerCase();\n  if (/water|পানি|jal/.test(t)) return 'Water Supply';\n  if (/road|সড়ক|রাস্তা/.test(t)) return 'Road Damage';\n  if (/electric|বিদ্যুৎ|light/.test(t)) return 'Electricity';\n  if (/sanitation|পয়ঃনিষ্কাশন/.test(t)) return 'Sanitation';\n  if (/health|স্বাস্থ্য|হাসপাতাল/.test(t)) return 'Healthcare';\n  if (/school|শিক্ষা/.test(t)) return 'Education';\n  return 'Other';\n}\n\nconst aiFailed = !aiResult || !aiResult.category || aiResult.error;\nconst message = webhookData.message || webhookData.text || 'No message provided';\n\nconst complaint = {\n  citizenName: webhookData.profileName || webhookData.sender_name || 'WhatsApp User',\n  phone: webhookData.sender || webhookData.phone_number || '',\n  issue: message,\n  category: aiFailed ? guessCategory(message) : aiResult.category,\n  block: webhookData.block || 'Unknown',\n  district: webhookData.district || 'Unknown',\n  urgency: aiFailed ? 'MEDIUM' : aiResult.urgency,\n  source: 'WhatsApp',\n  description: aiFailed ? message : (aiResult.summary || message),\n  aiProcessed: !aiFailed,\n  sentiment: aiFailed ? 'unknown' : aiResult.sentiment,\n  department: aiFailed ? 'General' : aiResult.department,\n};\n\nreturn [{ json: complaint }];`,
-      },
-      name: 'AI Fallback Merge',
-      type: 'n8n-nodes-base.code',
-      typeVersion: 2,
-      position: [690, 300],
-    },
-    {
-      parameters: {
-        url: '={{ $env.WB_PORTAL_URL }}/api/webhook/complaint',
-        method: 'POST',
-        sendBody: true,
-        contentType: 'json',
-        bodyParameters: {
-          parameters: [
-            { name: 'citizenName', value: '={{ $json.citizenName }}' },
-            { name: 'phone', value: '={{ $json.phone }}' },
-            { name: 'issue', value: '={{ $json.issue }}' },
-            { name: 'category', value: '={{ $json.category }}' },
-            { name: 'block', value: '={{ $json.block }}' },
-            { name: 'district', value: '={{ $json.district }}' },
-            { name: 'urgency', value: '={{ $json.urgency }}' },
-            { name: 'source', value: '={{ $json.source }}' },
-            { name: 'description', value: '={{ $json.description }}' },
-          ],
-        },
-        options: { timeout: 10000 },
-      },
-      name: 'POST to Portal API',
-      type: 'n8n-nodes-base.httpRequest',
-      typeVersion: 4.2,
-      position: [910, 300],
-    },
-    {
-      parameters: {
-        respondWith: 'json',
-        responseBody: '={{ JSON.stringify({ success: true, message: "Complaint received" }) }}',
-        responseCode: 200,
-      },
-      name: 'Respond to Webhook',
-      type: 'n8n-nodes-base.respondToWebhook',
-      typeVersion: 1.1,
-      position: [1130, 300],
-    },
-    {
-      parameters: {
-        jsCode: `const resp = $input.first().json;\nconst ticket = resp.ticketNo || 'N/A';\nconst msg = \`✅ আপনার অভিযোগ নিবন্ধিত হয়েছে!\\n🎫 টিকেট: \${ticket}\\nআমরা শীঘ্রই এটি পর্যালোচনা করব।\\n— WB Grievance Portal\`;\nreturn [{ json: { message: msg, phone: resp.phone } }];`,
-      },
-      name: 'Build Confirmation',
-      type: 'n8n-nodes-base.code',
-      typeVersion: 2,
-      position: [1350, 300],
-    },
-    {
-      parameters: {
-        phoneNumberId: '={{ $env.WA_PHONE_NUMBER_ID }}',
-        recipientPhoneNumber: '={{ $json.phone }}',
-        text: '={{ $json.message }}',
-      },
-      name: 'Send WhatsApp Reply',
-      type: 'n8n-nodes-base.whatsApp',
-      typeVersion: 1.1,
-      position: [1570, 300],
-    },
-  ],
-  connections: {
-    'WhatsApp Webhook': { main: [[{ node: 'Call AI Brain API', type: 'main', index: 0 }]] },
-    'Call AI Brain API': { main: [[{ node: 'AI Fallback Merge', type: 'main', index: 0 }]] },
-    'AI Fallback Merge': { main: [[{ node: 'POST to Portal API', type: 'main', index: 0 }]] },
-    'POST to Portal API': { main: [[{ node: 'Respond to Webhook', type: 'main', index: 0 }, { node: 'Build Confirmation', type: 'main', index: 0 }]] },
-    'Build Confirmation': { main: [[{ node: 'Send WhatsApp Reply', type: 'main', index: 0 }]] },
-  },
-  settings: { executionOrder: 'v1', saveManualExecutions: true, callerPolicy: 'workflowsFromSameOwner', errorWorkflow: 'Error Handler' },
-  meta: { instanceId: 'wb-grievance-portal' },
-  tags: [{ name: 'WhatsApp' }, { name: 'Complaint' }, { name: 'AI' }, { name: 'Auto-Reply' }],
-};
-
-const WORKFLOW_AUTO_ASSIGN = {
-  name: 'Auto-Assignment Engine',
-  nodes: [
-    {
-      parameters: { rule: { interval: [{ field: 'minutes', minutesInterval: 5 }] } },
-      name: 'Every 5 Minutes',
-      type: 'n8n-nodes-base.scheduleTrigger',
-      typeVersion: 1.2,
-      position: [250, 300],
-    },
-    {
-      parameters: {
-        url: '={{ $env.WB_PORTAL_URL }}/api/complaints?status=OPEN&assignedToId=null&page=1&limit=50',
-        method: 'GET',
-        authentication: 'genericCredentialType',
-        genericAuthType: 'httpHeaderAuth',
-        sendHeaders: true,
-        headerParameters: {
-          parameters: [{ name: 'Authorization', value: 'Bearer {{ $env.WB_API_TOKEN }}' }],
-        },
-        options: { timeout: 10000 },
-      },
-      name: 'Fetch Unassigned',
-      type: 'n8n-nodes-base.httpRequest',
-      typeVersion: 4.2,
-      position: [470, 300],
-    },
-    {
-      parameters: {
-        jsCode: `// Match each complaint to an officer by block/district\nconst complaints = $('Fetch Unassigned').all();\nconst results = [];\n\nconst officerPool = [\n  { block: 'Krishnanagar-I', district: 'Nadia', officerId: 'blk-001' },\n  { block: 'Krishnanagar-II', district: 'Nadia', officerId: 'blk-002' },\n  { block: 'Kalyani', district: 'Nadia', officerId: 'blk-003' },\n];\n\nfor (const item of complaints) {\n  const c = item.json;\n  const match = officerPool.find(o => o.block === c.block);\n  if (match) {\n    results.push({ json: { id: c.id, assignedToId: match.officerId, block: c.block } });\n  }\n}\n\nif (results.length === 0) {\n  return [{ json: { message: 'No matching officers found', count: 0 } }];\n}\nreturn results;`,
-      },
-      name: 'Match by Block/District',
-      type: 'n8n-nodes-base.code',
-      typeVersion: 2,
-      position: [690, 300],
-    },
-    {
-      parameters: {
-        method: 'PATCH',
-        url: '={{ $env.WB_PORTAL_URL }}/api/complaints/{{ $json.id }}',
-        authentication: 'genericCredentialType',
-        genericAuthType: 'httpHeaderAuth',
-        sendHeaders: true,
-        headerParameters: {
-          parameters: [{ name: 'Authorization', value: 'Bearer {{ $env.WB_API_TOKEN }}' }],
-        },
-        sendBody: true,
-        contentType: 'json',
-        bodyParameters: {
-          parameters: [{ name: 'assignedToId', value: '={{ $json.assignedToId }}' }],
-        },
-        options: { timeout: 10000 },
-      },
-      name: 'Assign to Officer',
-      type: 'n8n-nodes-base.httpRequest',
-      typeVersion: 4.2,
-      position: [910, 300],
-    },
-  ],
-  connections: {
-    'Every 5 Minutes': { main: [[{ node: 'Fetch Unassigned', type: 'main', index: 0 }]] },
-    'Fetch Unassigned': { main: [[{ node: 'Match by Block/District', type: 'main', index: 0 }]] },
-    'Match by Block/District': { main: [[{ node: 'Assign to Officer', type: 'main', index: 0 }]] },
-  },
-  settings: { executionOrder: 'v1', saveManualExecutions: true, errorWorkflow: 'Error Handler' },
-  meta: { instanceId: 'wb-grievance-portal' },
-  tags: [{ name: 'Automation' }, { name: 'Assignment' }, { name: 'Cron' }],
-};
-
-const WORKFLOW_SLA_BREACH = {
-  name: 'SLA Breach Escalation',
-  nodes: [
-    {
-      parameters: { rule: { interval: [{ field: 'cron', minute: '0', hour: '9' }] } },
-      name: 'Daily at 9 AM',
-      type: 'n8n-nodes-base.scheduleTrigger',
-      typeVersion: 1.2,
-      position: [250, 300],
-    },
-    {
-      parameters: {
-        url: '={{ $env.WB_PORTAL_URL }}/api/complaints?status=OPEN,IN_PROGRESS&page=1&limit=200',
-        method: 'GET',
-        authentication: 'genericCredentialType',
-        genericAuthType: 'httpHeaderAuth',
-        sendHeaders: true,
-        headerParameters: {
-          parameters: [{ name: 'Authorization', value: 'Bearer {{ $env.WB_API_TOKEN }}' }],
-        },
-        options: { timeout: 15000 },
-      },
-      name: 'Fetch Open Complaints',
-      type: 'n8n-nodes-base.httpRequest',
-      typeVersion: 4.2,
-      position: [470, 300],
-    },
-    {
-      parameters: {
-        jsCode: `// Find complaints open > 7 days (SLA breached)\nconst sevenDaysAgo = new Date();\nsevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);\nconst complaints = $('Fetch Open Complaints').all();\nconst breached = complaints.filter(c => {\n  const created = new Date(c.json.createdAt);\n  return created < sevenDaysAgo;\n});\n\nif (breached.length === 0) {\n  return [{ json: { message: 'No SLA breaches found', count: 0 } }];\n}\n\nreturn breached.map(c => ({\n  json: {\n    id: c.json.id,\n    ticketNo: c.json.ticketNo,\n    issue: c.json.issue,\n    district: c.json.district,\n    urgency: c.json.urgency,\n    daysOpen: Math.floor((Date.now() - new Date(c.json.createdAt).getTime()) / 86400000),\n    citizenName: c.json.citizenName,\n    phone: c.json.phone,\n  }\n}));`,
-      },
-      name: 'Filter SLA Breached',
-      type: 'n8n-nodes-base.code',
-      typeVersion: 2,
-      position: [690, 300],
-    },
-    {
-      parameters: {
-        method: 'PATCH',
-        url: '={{ $env.WB_PORTAL_URL }}/api/complaints/{{ $json.id }}/escalate',
-        authentication: 'genericCredentialType',
-        genericAuthType: 'httpHeaderAuth',
-        sendHeaders: true,
-        headerParameters: {
-          parameters: [{ name: 'Authorization', value: 'Bearer {{ $env.WB_API_TOKEN }}' }],
-        },
-        options: { timeout: 10000 },
-      },
-      name: 'Escalate Urgency',
-      type: 'n8n-nodes-base.httpRequest',
-      typeVersion: 4.2,
-      position: [910, 200],
-    },
-    {
-      parameters: {
-        jsCode: `// Build escalation email\nconst items = $('Filter SLA Breached').all();\nconst body = \`<h2>🚨 SLA Breach Escalation Report</h2>\n<p>The following complaints have exceeded the 7-day SLA:</p>\n<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse">\n<tr style="background:#0A2463;color:white"><th>Ticket</th><th>Issue</th><th>District</th><th>Days Open</th><th>Urgency</th></tr>\n\${items.map(i => \`\${i.json.ticketNo}\${i.json.issue}\${i.json.district}\${i.json.daysOpen}\${i.json.urgency}\`).join('')}\n</table>\n<p style="color:#666;font-size:12px">Generated by n8n Workflow — WB Grievance Portal</p>\`;\nreturn [{ json: { subject: \`[ESCALATION] \${items.length} SLA Breaches Detected - \${new Date().toLocaleDateString('en-IN')}\`, html: body } }];`,
-      },
-      name: 'Format Email Report',
-      type: 'n8n-nodes-base.code',
-      typeVersion: 2,
-      position: [910, 420],
-    },
-    {
-      parameters: {
-        fromEmail: 'noreply@wb-grievance.gov.in',
-        toEmail: '={{ $env.DISTRICT_ADMIN_EMAIL }}',
-        subject: '={{ $json.subject }}',
-        html: '={{ $json.html }}',
-        options: {},
-      },
-      name: 'Send Email Alert',
-      type: 'n8n-nodes-base.emailSend',
-      typeVersion: 2.1,
-      position: [1130, 420],
-    },
-  ],
-  connections: {
-    'Daily at 9 AM': { main: [[{ node: 'Fetch Open Complaints', type: 'main', index: 0 }]] },
-    'Fetch Open Complaints': { main: [[{ node: 'Filter SLA Breached', type: 'main', index: 0 }]] },
-    'Filter SLA Breached': { main: [[{ node: 'Escalate Urgency', type: 'main', index: 0 }, { node: 'Format Email Report', type: 'main', index: 0 }]] },
-    'Format Email Report': { main: [[{ node: 'Send Email Alert', type: 'main', index: 0 }]] },
-  },
-  settings: { executionOrder: 'v1', saveManualExecutions: true, errorWorkflow: 'Error Handler' },
-  meta: { instanceId: 'wb-grievance-portal' },
-  tags: [{ name: 'SLA' }, { name: 'Escalation' }, { name: 'Notification' }, { name: 'Email' }],
-};
-
-const WORKFLOW_DAILY_REPORT = {
-  name: 'Daily Summary Report',
-  nodes: [
-    {
-      parameters: { rule: { interval: [{ field: 'cron', minute: '0', hour: '18' }] } },
-      name: 'Daily at 6 PM',
-      type: 'n8n-nodes-base.scheduleTrigger',
-      typeVersion: 1.2,
-      position: [250, 300],
-    },
-    {
-      parameters: {
-        url: '={{ $env.WB_PORTAL_URL }}/api/dashboard',
-        method: 'GET',
-        authentication: 'genericCredentialType',
-        genericAuthType: 'httpHeaderAuth',
-        sendHeaders: true,
-        headerParameters: {
-          parameters: [{ name: 'Authorization', value: 'Bearer {{ $env.WB_API_TOKEN }}' }],
-        },
-        options: { timeout: 15000 },
-      },
-      name: 'Fetch Dashboard Stats',
-      type: 'n8n-nodes-base.httpRequest',
-      typeVersion: 4.2,
-      position: [470, 300],
-    },
-    {
-      parameters: {
-        jsCode: `// Format daily summary report\nconst data = $input.first().json;\nconst s = data.stats;\nconst today = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\n\nconst html = \`<!DOCTYPE html><html><head><style>body{font-family:system-ui;background:#f8fafc;color:#1e293b;padding:40px}.header{background:linear-gradient(135deg,#0A2463,#1a3a7a);color:white;padding:30px;border-radius:12px;margin-bottom:24px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:20px 0}.stat{background:white;border-radius:10px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08);text-align:center}.stat h3{font-size:28px;margin:0}.stat p{color:#64748b;font-size:13px;margin:4px 0 0}</style></head><body>\n<div class="header"><h1 style="margin:0;font-size:22px">📊 WB Grievance Portal — Daily Report</h1><p style="margin:8px 0 0;opacity:.85">\${today}</p></div>\n<div class="stats">\n<div class="stat"><h3>\${s.total}</h3><p>Total Complaints</p></div>\n<div class="stat"><h3 style="color:#DC2626">\${s.open}</h3><p>Open</p></div>\n<div class="stat"><h3 style="color:#F59E0B">\${s.inProgress}</h3><p>In Progress</p></div>\n<div class="stat"><h3 style="color:#16A34A">\${s.resolved}</h3><p>Resolved</p></div>\n<div class="stat"><h3 style="color:#DC2626">\${s.critical}</h3><p>Critical</p></div>\n<div class="stat"><h3>\${s.resolutionRate}%</h3><p>Resolution Rate</p></div>\n</div>\n<p style="color:#94a3b8;font-size:12px;text-align:center">Generated by n8n Workflow — West Bengal Grievance Portal</p></body></html>\`;\n\nreturn [{ json: { subject: \`[Daily Report] Grievance Summary — \${today}\`, html, total: s.total, resolved: s.resolved, open: s.open } }];`,
-      },
-      name: 'Format HTML Report',
-      type: 'n8n-nodes-base.code',
-      typeVersion: 2,
-      position: [690, 300],
-    },
-    {
-      parameters: {
-        fromEmail: 'reports@wb-grievance.gov.in',
-        toEmail: '={{ $env.DISTRICT_ADMIN_EMAILS }}',
-        subject: '={{ $json.subject }}',
-        html: '={{ $json.html }}',
-        options: {},
-      },
-      name: 'Email to District Admins',
-      type: 'n8n-nodes-base.emailSend',
-      typeVersion: 2.1,
-      position: [910, 300],
-    },
-  ],
-  connections: {
-    'Daily at 6 PM': { main: [[{ node: 'Fetch Dashboard Stats', type: 'main', index: 0 }]] },
-    'Fetch Dashboard Stats': { main: [[{ node: 'Format HTML Report', type: 'main', index: 0 }]] },
-    'Format HTML Report': { main: [[{ node: 'Email to District Admins', type: 'main', index: 0 }]] },
-  },
-  settings: { executionOrder: 'v1', saveManualExecutions: true, errorWorkflow: 'Error Handler' },
-  meta: { instanceId: 'wb-grievance-portal' },
-  tags: [{ name: 'Report' }, { name: 'Daily' }, { name: 'Email' }, { name: 'Dashboard' }],
-};
-
-const WORKFLOW_STATUS_NOTIFY = {
-  name: 'Citizen Status Notification',
-  nodes: [
-    {
-      parameters: { httpMethod: 'POST', path: 'status-change', responseMode: 'responseNode' },
-      name: 'Status Webhook',
-      type: 'n8n-nodes-base.webhook',
-      typeVersion: 2,
-      position: [250, 300],
-      webhookId: 'status-change-trigger',
-    },
-    {
-      parameters: {
-        url: '={{ $env.WB_PORTAL_URL }}/api/complaints/{{ $json.body.complaintId }}',
-        method: 'GET',
-        authentication: 'genericCredentialType',
-        genericAuthType: 'httpHeaderAuth',
-        sendHeaders: true,
-        headerParameters: {
-          parameters: [{ name: 'Authorization', value: 'Bearer {{ $env.WB_API_TOKEN }}' }],
-        },
-        options: { timeout: 10000 },
-      },
-      name: 'Get Complaint Details',
-      type: 'n8n-nodes-base.httpRequest',
-      typeVersion: 4.2,
-      position: [470, 300],
-    },
-    {
-      parameters: {
-        jsCode: `// Format citizen notification message\nconst c = $input.first().json;\nconst statusMessages = {\n  'IN_PROGRESS': '🔄 Your complaint is now being processed by our team.',\n  'RESOLVED': '✅ Great news! Your complaint has been resolved.',\n  'REJECTED': '❌ Your complaint could not be processed. Please contact your block office.',\n};\n\nconst msg = \`📋 WB Grievance Portal Status Update\\n\\n🎫 Ticket: \${c.ticketNo}\\n📋 Issue: \${c.issue}\\n📍 Block: \${c.block}, \${c.district}\\n\\n\${statusMessages[c.status] || 'Status updated to: ' + c.status}\\n\\n\${c.resolution ? '📝 Resolution: ' + c.resolution : ''}\\n\\n— Government of West Bengal\`;\n\nreturn [{ json: { message: msg, phone: c.phone, citizenName: c.citizenName, ticketNo: c.ticketNo } }];`,
-      },
-      name: 'Format Message',
-      type: 'n8n-nodes-base.code',
-      typeVersion: 2,
-      position: [690, 300],
-    },
-    {
-      parameters: {
-        phoneNumberId: '={{ $env.WA_PHONE_NUMBER_ID }}',
-        recipientPhoneNumber: '={{ $json.phone }}',
-        text: '={{ $json.message }}',
-      },
-      name: 'Send WhatsApp',
-      type: 'n8n-nodes-base.whatsApp',
-      typeVersion: 1.1,
-      position: [910, 200],
-    },
-    {
-      parameters: {
-        from: 'WB-GOV',
-        to: '={{ $json.phone }}',
-        message: '={{ $json.message }}',
-      },
-      name: 'Send SMS Fallback',
-      type: 'n8n-nodes-base.twilio',
-      typeVersion: 2.2,
-      position: [910, 420],
-    },
-    {
-      parameters: {
-        respondWith: 'json',
-        responseBody: '={{ JSON.stringify({ success: true, notified: true }) }}',
-        responseCode: 200,
-      },
-      name: 'Respond to Caller',
-      type: 'n8n-nodes-base.respondToWebhook',
-      typeVersion: 1.1,
-      position: [1130, 300],
-    },
-  ],
-  connections: {
-    'Status Webhook': { main: [[{ node: 'Get Complaint Details', type: 'main', index: 0 }]] },
-    'Get Complaint Details': { main: [[{ node: 'Format Message', type: 'main', index: 0 }]] },
-    'Format Message': { main: [[{ node: 'Send WhatsApp', type: 'main', index: 0 }, { node: 'Send SMS Fallback', type: 'main', index: 0 }]] },
-    'Send WhatsApp': { main: [[{ node: 'Respond to Caller', type: 'main', index: 0 }]] },
-    'Send SMS Fallback': { main: [[{ node: 'Respond to Caller', type: 'main', index: 0 }]] },
-  },
-  settings: { executionOrder: 'v1', saveManualExecutions: true, errorWorkflow: 'Error Handler' },
-  meta: { instanceId: 'wb-grievance-portal' },
-  tags: [{ name: 'Notification' }, { name: 'WhatsApp' }, { name: 'SMS' }, { name: 'Citizen' }],
-};
-
-const WORKFLOW_ERROR_HANDLER = {
-  name: 'Error Handler',
-  nodes: [
-    {
-      parameters: {},
-      name: 'Error Trigger',
-      type: 'n8n-nodes-base.errorTrigger',
-      typeVersion: 1,
-      position: [250, 300],
-    },
-    {
-      parameters: {
-        jsCode: `// Format error details into a readable message\nconst error = $input.first().json;\nconst execution = error.execution || {};\nconst workflowName = execution.workflow?.name || 'Unknown Workflow';\nconst nodeName = execution.error?.node?.name || 'Unknown Node';\nconst errorMessage = execution.error?.message || 'No error message';\nconst timestamp = new Date().toISOString();\n\nconst formattedMessage = \`🚨 Workflow Error Alert\\n\\n📋 Workflow: \${workflowName}\\n🔧 Failed Node: \${nodeName}\\n❌ Error: \${errorMessage}\\n⏰ Time: \${timestamp}\\n🔄 Execution ID: \${execution.id || 'N/A'}\\n\\nPlease investigate immediately.\`;\n\nreturn [{ json: { workflowName, nodeName, errorMessage, timestamp, executionId: execution.id, formattedMessage, retryCount: (execution.retryCount || 0) + 1 } }];`,
-      },
-      name: 'Format Error Message',
-      type: 'n8n-nodes-base.code',
-      typeVersion: 2,
-      position: [470, 300],
-    },
-    {
-      parameters: {
-        jsCode: `// Determine if error should be retried or escalated\nconst data = $input.first().json;\nconst MAX_RETRIES = 3;\nconst shouldRetry = data.retryCount < MAX_RETRIES && !data.errorMessage.includes('Authentication');\n\nreturn [{ json: { ...data, shouldRetry, isCritical: !shouldRetry } }];`,
-      },
-      name: 'Check Retry Count',
-      type: 'n8n-nodes-base.code',
-      typeVersion: 2,
-      position: [690, 300],
-    },
-    {
-      parameters: {
-        fromEmail: 'errors@wb-grievance.gov.in',
-        toEmail: '={{ $env.ADMIN_ALERT_EMAIL || "admin@wb-gov.in" }}',
-        subject: '={{ "[CRITICAL] Workflow Error: " + $json.workflowName + " - " + $json.nodeName }}',
-        html: '={{ "<div style=\\"font-family:system-ui;padding:24px;max-width:600px\\"><h2 style=\\"color:#DC2626\\">🚨 Workflow Error</h2><table style=\\"width:100%;border-collapse:collapse;font-size:14px\\"><tr><td style=\\"padding:8px;border:1px solid #e5e7eb;font-weight:bold\\">Workflow</td><td style=\\"padding:8px;border:1px solid #e5e7eb\\">" + $json.workflowName + "</td></tr><tr><td style=\\"padding:8px;border:1px solid #e5e7eb;font-weight:bold\\">Failed Node</td><td style=\\"padding:8px;border:1px solid #e5e7eb\\">" + $json.nodeName + "</td></tr><tr><td style=\\"padding:8px;border:1px solid #e5e7eb;font-weight:bold\\">Error</td><td style=\\"padding:8px;border:1px solid #e5e7eb;color:#DC2626\\">" + $json.errorMessage + "</td></tr><tr><td style=\\"padding:8px;border:1px solid #e5e7eb;font-weight:bold\\">Time</td><td style=\\"padding:8px;border:1px solid #e5e7eb\\">" + $json.timestamp + "</td></tr><tr><td style=\\"padding:8px;border:1px solid #e5e7eb;font-weight:bold\\">Retry Count</td><td style=\\"padding:8px;border:1px solid #e5e7eb\\">" + $json.retryCount + "</td></tr></table><p style=\\"color:#6b7280;font-size:12px;margin-top:16px\\">Generated by n8n Error Handler — WB Grievance Portal</p></div>" }}',
-        options: {},
-      },
-      name: 'Send Admin Email',
-      type: 'n8n-nodes-base.emailSend',
-      typeVersion: 2.1,
-      position: [910, 200],
-    },
-    {
-      parameters: {
-        url: '={{ $env.SLACK_WEBHOOK_URL || $env.DISCORD_WEBHOOK_URL }}',
-        method: 'POST',
-        sendBody: true,
-        contentType: 'json',
-        bodyParameters: {
-          parameters: [
-            { name: 'text', value: '={{ $json.formattedMessage }}' },
-          ],
-        },
-        options: { timeout: 5000 },
-      },
-      name: 'Log to Slack/Discord',
-      type: 'n8n-nodes-base.httpRequest',
-      typeVersion: 4.2,
-      position: [910, 420],
-    },
-    {
-      parameters: { amount: 60, unit: 'seconds' },
-      name: 'Wait & Retry',
-      type: 'n8n-nodes-base.wait',
-      typeVersion: 1.1,
-      position: [1130, 300],
-    },
-  ],
-  connections: {
-    'Error Trigger': { main: [[{ node: 'Format Error Message', type: 'main', index: 0 }]] },
-    'Format Error Message': { main: [[{ node: 'Check Retry Count', type: 'main', index: 0 }]] },
-    'Check Retry Count': { main: [[{ node: 'Send Admin Email', type: 'main', index: 0 }, { node: 'Log to Slack/Discord', type: 'main', index: 0 }, { node: 'Wait & Retry', type: 'main', index: 0 }]] },
-  },
-  settings: { executionOrder: 'v1', saveManualExecutions: true },
-  meta: { instanceId: 'wb-grievance-portal' },
-  tags: [{ name: 'Error' }, { name: 'Alert' }, { name: 'Admin' }, { name: 'Monitoring' }],
-};
-
-const WORKFLOW_ASSIGN_NOTIFY = {
-  name: 'Officer Assignment Notification',
-  nodes: [
-    {
-      parameters: { httpMethod: 'POST', path: 'complaint-assigned', responseMode: 'responseNode', responseData: 'allEntries' },
-      name: 'Assignment Webhook',
-      type: 'n8n-nodes-base.webhook',
-      typeVersion: 2,
-      position: [250, 300],
-      credentials: {},
-      webhookId: 'complaint-assigned-trigger',
-    },
-    {
-      parameters: {
-        url: '={{ $env.WB_PORTAL_URL }}/api/complaints/{{ $json.body.complaintId }}',
-        method: 'GET',
-        authentication: 'genericCredentialType',
-        genericAuthType: 'httpHeaderAuth',
-        sendHeaders: true,
-        headerParameters: {
-          parameters: [{ name: 'Authorization', value: 'Bearer {{ $env.WB_API_TOKEN }}' }],
-        },
-        options: { timeout: 10000 },
-      },
-      name: 'Get Complaint Details',
-      type: 'n8n-nodes-base.httpRequest',
-      typeVersion: 4.2,
-      position: [470, 300],
-    },
-    {
-      parameters: {
-        jsCode: `// Extract officer details from webhook payload\nconst body = $input.first().json.body;\nconst officer = {\n  name: body.officerName || body.assignedOfficerName || 'Officer',\n  phone: body.officerPhone || body.assignedOfficerPhone || '',\n  email: body.officerEmail || body.assignedOfficerEmail || '',\n  block: body.block || 'Unknown',\n  district: body.district || 'Unknown',\n};\n\nconst complaint = $input.first().json;\nconst complaintData = {\n  ticketNo: complaint.ticketNo || 'N/A',\n  issue: complaint.issue || 'No description',\n  category: complaint.category || 'Other',\n  citizenName: complaint.citizenName || 'Unknown',\n  urgency: complaint.urgency || 'MEDIUM',\n};\n\nreturn [{ json: { officer, complaint: complaintData } }];`,
-      },
-      name: 'Get Officer Info',
-      type: 'n8n-nodes-base.code',
-      typeVersion: 2,
-      position: [690, 300],
-    },
-    {
-      parameters: {
-        jsCode: `// Format assignment notification message (Hindi + English)\nconst data = $input.first().json;\nconst o = data.officer;\nconst c = data.complaint;\n\nconst msg = \`📋 नया अभियोग आपको सौंपा गया है / New Complaint Assigned to You\\n\\n🎫 टिकेट / Ticket: \${c.ticketNo}\\n📂 श्रेणी / Category: \${c.category}\\n📝 विवरण / Issue: \${c.issue}\\n👤 नागरिक / Citizen: \${c.citizenName}\\n🔴 प्राथमिकता / Priority: \${c.urgency}\\n📍 ब्लॉक / Block: \${o.block}, \${o.district}\\n\\nकृपया शीघ्र कार्रवाई करें / Please take action at the earliest.\\n— WB Grievance Portal\`;\n\nconst emailHtml = \`<!DOCTYPE html><html><body style=\\"font-family:system-ui;padding:24px;max-width:600px;\\"><div style=\\"background:linear-gradient(135deg,#0A2463,#1a3a7a);color:white;padding:20px;border-radius:12px;margin-bottom:20px\\"><h2 style=\\"margin:0\\">📋 New Complaint Assigned</h2><p style=\\"margin:8px 0 0;opacity:0.85\\">Ticket: \${c.ticketNo}</p></div><table style=\\"width:100%;border-collapse:collapse;font-size:14px\\"><tr><td style=\\"padding:10px;border:1px solid #e5e7eb;font-weight:bold\\">Category</td><td style=\\"padding:10px;border:1px solid #e5e7eb\\">\${c.category}</td></tr><tr><td style=\\"padding:10px;border:1px solid #e5e7eb;font-weight:bold\\">Issue</td><td style=\\"padding:10px;border:1px solid #e5e7eb\\">\${c.issue}</td></tr><tr><td style=\\"padding:10px;border:1px solid #e5e7eb;font-weight:bold\\">Citizen</td><td style=\\"padding:10px;border:1px solid #e5e7eb\\">\${c.citizenName}</td></tr><tr><td style=\\"padding:10px;border:1px solid #e5e7eb;font-weight:bold\\">Priority</td><td style=\\"padding:10px;border:1px solid #e5e7eb\\">\${c.urgency}</td></tr><tr><td style=\\"padding:10px;border:1px solid #e5e7eb;font-weight:bold\\">Block</td><td style=\\"padding:10px;border:1px solid #e5e7eb\\">\${o.block}, \${o.district}</td></tr></table><p style=\\"color:#6b7280;font-size:12px;margin-top:16px\\">Please log in to the portal to take action. — WB Grievance Portal</p></body></html>\`;\n\nreturn [{ json: { message: msg, phone: o.phone, email: o.email, officerName: o.name, emailHtml, emailSubject: \`[New Complaint] Ticket \${c.ticketNo} Assigned — \${c.category}\` } }];`,
-      },
-      name: 'Format Assignment Message',
-      type: 'n8n-nodes-base.code',
-      typeVersion: 2,
-      position: [910, 300],
-    },
-    {
-      parameters: {
-        phoneNumberId: '={{ $env.WA_PHONE_NUMBER_ID }}',
-        recipientPhoneNumber: '={{ $json.phone }}',
-        text: '={{ $json.message }}',
-      },
-      name: 'Send WhatsApp to Officer',
-      type: 'n8n-nodes-base.whatsApp',
-      typeVersion: 1.1,
-      position: [1130, 200],
-    },
-    {
-      parameters: {
-        fromEmail: 'notifications@wb-grievance.gov.in',
-        toEmail: '={{ $json.email }}',
-        subject: '={{ $json.emailSubject }}',
-        html: '={{ $json.emailHtml }}',
-        options: {},
-      },
-      name: 'Send Email to Officer',
-      type: 'n8n-nodes-base.emailSend',
-      typeVersion: 2.1,
-      position: [1130, 420],
-    },
-    {
-      parameters: {
-        respondWith: 'json',
-        responseBody: '={{ JSON.stringify({ success: true, officerNotified: true, officerName: $json.officerName }) }}',
-        responseCode: 200,
-      },
-      name: 'Respond to Caller',
-      type: 'n8n-nodes-base.respondToWebhook',
-      typeVersion: 1.1,
-      position: [1350, 300],
-    },
-  ],
-  connections: {
-    'Assignment Webhook': { main: [[{ node: 'Get Complaint Details', type: 'main', index: 0 }]] },
-    'Get Complaint Details': { main: [[{ node: 'Get Officer Info', type: 'main', index: 0 }]] },
-    'Get Officer Info': { main: [[{ node: 'Format Assignment Message', type: 'main', index: 0 }]] },
-    'Format Assignment Message': { main: [[{ node: 'Send WhatsApp to Officer', type: 'main', index: 0 }, { node: 'Send Email to Officer', type: 'main', index: 0 }]] },
-    'Send WhatsApp to Officer': { main: [[{ node: 'Respond to Caller', type: 'main', index: 0 }]] },
-    'Send Email to Officer': { main: [[{ node: 'Respond to Caller', type: 'main', index: 0 }]] },
-  },
-  settings: { executionOrder: 'v1', saveManualExecutions: true, errorWorkflow: 'Error Handler' },
-  meta: { instanceId: 'wb-grievance-portal' },
-  tags: [{ name: 'Notification' }, { name: 'Officer' }, { name: 'WhatsApp' }, { name: 'Email' }],
-};
-
-/* ══════════════════════════════════════════════════════════════
-   CONNECTION VALIDATION HELPER
-   ══════════════════════════════════════════════════════════════ */
-function validateWorkflowConnections(workflow: Record<string, unknown>): { connected: boolean; orphanNodes: string[] } {
-  const nodes = (workflow.nodes as Array<{ name: string }>) || [];
-  const connections = (workflow.connections as Record<string, { main?: Array<Array<{ node: string }>> }>) || {};
-
-  const nodeNames = new Set(nodes.map((n) => n.name));
-
-  // Nodes that appear as keys in connections (source nodes)
-  const sourceNodes = new Set(Object.keys(connections));
-
-  // Nodes that appear as targets in connections
-  const targetNodes = new Set<string>();
-  for (const conn of Object.values(connections)) {
-    if (conn.main) {
-      for (const branch of conn.main) {
-        for (const target of branch) {
-          targetNodes.add(target.node);
-        }
-      }
-    }
-  }
-
-  // Orphan nodes: defined but not a source AND not a target
-  const orphanNodes: string[] = [];
-  for (const name of nodeNames) {
-    if (!sourceNodes.has(name) && !targetNodes.has(name)) {
-      orphanNodes.push(name);
-    }
-  }
-
-  return { connected: orphanNodes.length === 0, orphanNodes };
-}
-
-const WORKFLOW_AI_BRAIN = {
-  name: 'AI Complaint Brain',
-  nodes: [
-    {
-      parameters: { httpMethod: 'POST', path: 'ai-process', responseMode: 'responseNode', responseData: 'allEntries' },
-      name: 'AI Brain Webhook',
-      type: 'n8n-nodes-base.webhook',
-      typeVersion: 2,
-      position: [250, 300],
-      credentials: {},
-      webhookId: 'ai-brain-trigger',
-    },
-    {
-      parameters: {
-        url: '={{ $env.WB_PORTAL_URL }}/api/ai/process-complaint',
-        method: 'POST',
-        sendBody: true,
-        contentType: 'json',
-        bodyParameters: {
-          parameters: [
-            { name: 'text', value: '={{ $json.body.text || $json.body.message || $json.body.issue }}' },
-            { name: 'block', value: '={{ $json.body.block }}' },
-            { name: 'district', value: '={{ $json.body.district }}' },
-          ],
-        },
-        options: { timeout: 30000 },
-      },
-      name: 'Call AI Brain API',
-      type: 'n8n-nodes-base.httpRequest',
-      typeVersion: 4.2,
-      position: [470, 300],
-    },
-    {
-      parameters: {
-        url: '={{ $env.WB_PORTAL_URL }}/api/ai/smart-reply',
-        method: 'POST',
-        sendBody: true,
-        contentType: 'json',
-        bodyParameters: {
-          parameters: [
-            { name: 'complaintId', value: '={{ $json.complaintId || $json.id }}' },
-          ],
-        },
-        options: { timeout: 30000 },
-      },
-      name: 'Smart Reply Generator',
-      type: 'n8n-nodes-base.httpRequest',
-      typeVersion: 4.2,
-      position: [690, 300],
-    },
-    {
-      parameters: {
-        jsCode: `// Merge AI analysis + smart reply into one object\nconst aiResult = $('Call AI Brain API').first().json;\nconst smartReply = $('Smart Reply Generator').first().json;\nconst merged = {\n  ...aiResult,\n  smartReplies: smartReply.replies || { en: '', bn: '' },\n  processedAt: new Date().toISOString(),\n};\nreturn [{ json: merged }];`,
-      },
-      name: 'Merge Results',
-      type: 'n8n-nodes-base.code',
-      typeVersion: 2,
-      position: [910, 300],
-    },
-    {
-      parameters: {
-        url: '={{ $env.WB_PORTAL_URL }}/api/integrations/airtable-sync',
-        method: 'POST',
-        sendBody: true,
-        contentType: 'json',
-        bodyParameters: {
-          parameters: [
-            { name: 'token', value: '={{ $env.AIRTABLE_TOKEN }}' },
-            { name: 'baseId', value: '={{ $env.AIRTABLE_BASE_ID }}' },
-            { name: 'tableName', value: 'Complaints' },
-          ],
-        },
-        options: { timeout: 15000 },
-        continueOnFail: true,
-      },
-      name: 'Sync to Airtable',
-      type: 'n8n-nodes-base.httpRequest',
-      typeVersion: 4.2,
-      position: [1130, 300],
-    },
-    {
-      parameters: {
-        respondWith: 'json',
-        responseBody: '={{ JSON.stringify($input.first().json) }}',
-        responseCode: 200,
-      },
-      name: 'Respond',
-      type: 'n8n-nodes-base.respondToWebhook',
-      typeVersion: 1.1,
-      position: [1350, 300],
-    },
-  ],
-  connections: {
-    'AI Brain Webhook': { main: [[{ node: 'Call AI Brain API', type: 'main', index: 0 }]] },
-    'Call AI Brain API': { main: [[{ node: 'Smart Reply Generator', type: 'main', index: 0 }]] },
-    'Smart Reply Generator': { main: [[{ node: 'Merge Results', type: 'main', index: 0 }]] },
-    'Merge Results': { main: [[{ node: 'Sync to Airtable', type: 'main', index: 0 }]] },
-    'Sync to Airtable': { main: [[{ node: 'Respond', type: 'main', index: 0 }]] },
-  },
-  settings: { executionOrder: 'v1', saveManualExecutions: true, errorWorkflow: 'Error Handler' },
-  meta: { instanceId: 'wb-grievance-portal' },
-  tags: [{ name: 'AI' }, { name: 'Complaint' }, { name: 'Smart Reply' }, { name: 'Airtable' }],
-};
-
-const WORKFLOW_AIRTABLE_SYNC = {
-  name: 'Airtable Bidirectional Sync',
-  nodes: [
-    {
-      parameters: { rule: { interval: [{ field: 'minutes', minutesInterval: 30 }] } },
-      name: 'Every 30 Minutes',
-      type: 'n8n-nodes-base.scheduleTrigger',
-      typeVersion: 1.2,
-      position: [250, 300],
-    },
-    {
-      parameters: {
-        url: '={{ $env.WB_PORTAL_URL }}/api/integrations/airtable-sync',
-        method: 'POST',
-        sendBody: true,
-        contentType: 'json',
-        bodyParameters: {
-          parameters: [
-            { name: 'token', value: '={{ $env.AIRTABLE_TOKEN }}' },
-            { name: 'baseId', value: '={{ $env.AIRTABLE_BASE_ID }}' },
-            { name: 'tableName', value: 'Complaints' },
-          ],
-        },
-        options: { timeout: 30000, continueOnFail: true },
-      },
-      name: 'Push to Airtable',
-      type: 'n8n-nodes-base.httpRequest',
-      typeVersion: 4.2,
-      position: [470, 300],
-    },
-    {
-      parameters: {
-        url: '={{ $env.WB_PORTAL_URL }}/api/integrations/airtable-sync?token={{ encodeURIComponent($env.AIRTABLE_TOKEN) }}&baseId={{ $env.AIRTABLE_BASE_ID }}&tableName=Complaints',
-        method: 'GET',
-        options: { timeout: 30000, continueOnFail: true },
-      },
-      name: 'Pull from Airtable',
-      type: 'n8n-nodes-base.httpRequest',
-      typeVersion: 4.2,
-      position: [690, 300],
-    },
-    {
-      parameters: {
-        jsCode: `// Check if any sync operations failed\nconst pushResult = $('Push to Airtable').first().json;\nconst pullResult = $('Pull from Airtable').first().json;\n\nconst pushFailed = !pushResult.success && pushResult.error;\nconst pullFailed = !pullResult.success && pullResult.error;\n\nconst hasFailure = pushFailed || pullFailed;\nconst failures = [];\nif (pushFailed) failures.push('Push: ' + pushResult.error);\nif (pullFailed) failures.push('Pull: ' + pullResult.error);\n\nreturn [{ json: {\n  hasFailure,\n  failures,\n  pushStatus: pushFailed ? 'FAILED' : 'SUCCESS',\n  pullStatus: pullFailed ? 'FAILED' : 'SUCCESS',\n  syncTimestamp: new Date().toISOString(),\n}}];`,
-      },
-      name: 'Check Sync Status',
-      type: 'n8n-nodes-base.code',
-      typeVersion: 2,
-      position: [910, 300],
-    },
-    {
-      parameters: {
-        fromEmail: 'noreply@wb-gov.in',
-        toEmail: '={{ $env.DISTRICT_ADMIN_EMAIL }}',
-        subject: '⚠️ Airtable Sync Failed — {{ $json.syncTimestamp }}',
-        text: '={{ "Airtable sync encountered errors:\\n\\n" + $json.failures.join("\\n") + "\\n\\nPush status: " + $json.pushStatus + "\\nPull status: " + $json.pullStatus + "\\n\\nPlease investigate." }}',
-        options: {},
-      },
-      name: 'Notify Admin on Failure',
-      type: 'n8n-nodes-base.emailSend',
-      typeVersion: 2.1,
-      position: [1130, 200],
-    },
-    {
-      parameters: {
-        jsCode: `const status = $input.first().json;\nconsole.log('Airtable sync completed at', status.syncTimestamp);\nconsole.log('Push:', status.pushStatus, '| Pull:', status.pullStatus);\nreturn [{ json: { message: 'Sync completed successfully', ...status } }];`,
-      },
-      name: 'Log Success',
-      type: 'n8n-nodes-base.code',
-      typeVersion: 2,
-      position: [1130, 400],
-    },
-  ],
-  connections: {
-    'Every 30 Minutes': { main: [[{ node: 'Push to Airtable', type: 'main', index: 0 }]] },
-    'Push to Airtable': { main: [[{ node: 'Pull from Airtable', type: 'main', index: 0 }]] },
-    'Pull from Airtable': { main: [[{ node: 'Check Sync Status', type: 'main', index: 0 }]] },
-    'Check Sync Status': {
-      main: [
-        [
-          {
-            node: 'Notify Admin on Failure',
-            type: 'main',
-            index: 0,
-          },
-        ],
-        [
-          {
-            node: 'Log Success',
-            type: 'main',
-            index: 0,
-          },
-        ],
-      ],
-    },
-  },
-  settings: { executionOrder: 'v1', saveManualExecutions: true, errorWorkflow: 'Error Handler' },
-  meta: { instanceId: 'wb-grievance-portal' },
-  tags: [{ name: 'Airtable' }, { name: 'Sync' }, { name: 'Integration' }, { name: 'Scheduled' }],
-};
-
-/* ══════════════════════════════════════════════════════════════
-   WORKFLOW DEFINITIONS
-   ══════════════════════════════════════════════════════════════ */
-interface WorkflowDef {
-  id: string;
-  name: string;
-  description: string;
-  triggerType: string;
-  triggerIcon: typeof Webhook;
-  color: string;
-  nodeCount: number;
-  estimatedRunTime: string;
-  tags: string[];
-  apiEndpoints: string[];
-  flowSteps: { label: string; icon: typeof Webhook }[];
-  json: Record<string, unknown>;
-}
-
-const WORKFLOWS: WorkflowDef[] = [
-  {
-    id: 'whatsapp-intake',
-    name: 'WhatsApp Complaint Intake',
-    description: 'Receives WhatsApp messages from citizens, uses AI Brain to intelligently categorize and analyze complaints with keyword-matching fallback, creates tickets via portal API, and sends auto-confirmation replies.',
-    triggerType: 'Webhook',
-    triggerIcon: Webhook,
-    color: '#25D366',
-    nodeCount: 7,
-    estimatedRunTime: '~5s',
-    tags: ['WhatsApp', 'Complaint', 'AI', 'Auto-Reply'],
-    apiEndpoints: ['POST /api/webhook/complaint', 'POST /api/ai/process-complaint'],
-    flowSteps: [
-      { label: 'Webhook', icon: Webhook },
-      { label: 'AI Brain', icon: Sparkles },
-      { label: 'Fallback', icon: GitBranch },
-      { label: 'POST API', icon: Send },
-      { label: 'Confirm', icon: CheckCircle2 },
-      { label: 'Reply', icon: MessageSquare },
-    ],
-    json: WORKFLOW_WHATSAPP,
-  },
-  {
-    id: 'auto-assignment',
-    name: 'Auto-Assignment Engine',
-    description: 'Runs every 5 minutes to fetch unassigned complaints, matches them to the correct block officer by location, and automatically assigns via PATCH API.',
-    triggerType: 'Cron (5 min)',
-    triggerIcon: Clock,
-    color: '#F59E0B',
-    nodeCount: 4,
-    estimatedRunTime: '~5s',
-    tags: ['Automation', 'Assignment', 'Cron', 'Smart Matching'],
-    apiEndpoints: ['GET /api/complaints', 'PATCH /api/complaints/[id]'],
-    flowSteps: [
-      { label: 'Cron', icon: Clock },
-      { label: 'Fetch', icon: Database },
-      { label: 'Match', icon: GitBranch },
-      { label: 'Assign', icon: Users },
-    ],
-    json: WORKFLOW_AUTO_ASSIGN,
-  },
-  {
-    id: 'sla-escalation',
-    name: 'SLA Breach Escalation',
-    description: 'Runs daily at 9 AM to find complaints open longer than 7 days, auto-escalates urgency level, and sends formatted HTML email alert to district administrators.',
-    triggerType: 'Cron (9 AM)',
-    triggerIcon: Clock,
-    color: '#EF4444',
-    nodeCount: 6,
-    estimatedRunTime: '~8s',
-    tags: ['SLA', 'Escalation', 'Notification', 'Email'],
-    apiEndpoints: ['GET /api/complaints', 'PATCH /api/complaints/[id]/escalate'],
-    flowSteps: [
-      { label: 'Cron', icon: Clock },
-      { label: 'Fetch Open', icon: Database },
-      { label: 'Filter >7d', icon: AlertTriangle },
-      { label: 'Escalate', icon: Zap },
-      { label: 'Format', icon: Mail },
-      { label: 'Email', icon: Send },
-    ],
-    json: WORKFLOW_SLA_BREACH,
-  },
-  {
-    id: 'daily-report',
-    name: 'Daily Summary Report',
-    description: 'Runs daily at 6 PM to aggregate dashboard statistics, generate a beautiful HTML report with key metrics, and email it to all district administrators.',
-    triggerType: 'Cron (6 PM)',
-    triggerIcon: Clock,
-    color: '#3B82F6',
-    nodeCount: 4,
-    estimatedRunTime: '~4s',
-    tags: ['Report', 'Daily', 'Email', 'Dashboard'],
-    apiEndpoints: ['GET /api/dashboard'],
-    flowSteps: [
-      { label: 'Cron', icon: Clock },
-      { label: 'Fetch Stats', icon: BarChart2 },
-      { label: 'Format HTML', icon: Code },
-      { label: 'Email', icon: Send },
-    ],
-    json: WORKFLOW_DAILY_REPORT,
-  },
-  {
-    id: 'status-notification',
-    name: 'Citizen Status Notification',
-    description: 'Triggered when a complaint status changes in the portal. Fetches full complaint details, formats a citizen-friendly message, and sends via WhatsApp with SMS fallback.',
-    triggerType: 'Webhook',
-    triggerIcon: Webhook,
-    color: '#8B5CF6',
-    nodeCount: 6,
-    estimatedRunTime: '~4s',
-    tags: ['Notification', 'WhatsApp', 'SMS', 'Citizen'],
-    apiEndpoints: ['GET /api/complaints/[id]'],
-    flowSteps: [
-      { label: 'Webhook', icon: Webhook },
-      { label: 'Get Details', icon: Eye },
-      { label: 'Format', icon: Code },
-      { label: 'WhatsApp', icon: MessageSquare },
-      { label: 'SMS', icon: Smartphone },
-      { label: 'Respond', icon: CheckCircle2 },
-    ],
-    json: WORKFLOW_STATUS_NOTIFY,
-  },
-  {
-    id: 'error-handler',
-    name: 'Error Handler',
-    description: 'Catches errors from all workflows, formats error details, sends admin email alerts, logs to Slack/Discord, and manages retry logic for transient failures.',
-    triggerType: 'Error Trigger',
-    triggerIcon: AlertTriangle,
-    color: '#EF4444',
-    nodeCount: 6,
-    estimatedRunTime: '~3s',
-    tags: ['Error', 'Alert', 'Admin', 'Monitoring'],
-    apiEndpoints: [],
-    flowSteps: [
-      { label: 'Error', icon: AlertTriangle },
-      { label: 'Format', icon: Code },
-      { label: 'Check', icon: RefreshCw },
-      { label: 'Email', icon: Mail },
-      { label: 'Log', icon: Bell },
-      { label: 'Retry', icon: Timer },
-    ],
-    json: WORKFLOW_ERROR_HANDLER,
-  },
-  {
-    id: 'assign-notify',
-    name: 'Officer Assignment Notification',
-    description: 'Triggered when a complaint is assigned to an officer. Fetches complaint details, formats bilingual Hindi/English notification, and sends via WhatsApp and email to the assigned officer.',
-    triggerType: 'Webhook',
-    triggerIcon: Webhook,
-    color: '#06B6D4',
-    nodeCount: 7,
-    estimatedRunTime: '~4s',
-    tags: ['Notification', 'Officer', 'WhatsApp', 'Email'],
-    apiEndpoints: ['GET /api/complaints/[id]', 'POST /webhook/complaint-assigned'],
-    flowSteps: [
-      { label: 'Webhook', icon: Webhook },
-      { label: 'Get Details', icon: Eye },
-      { label: 'Officer', icon: Users },
-      { label: 'Format', icon: Code },
-      { label: 'WhatsApp', icon: MessageSquare },
-      { label: 'Email', icon: Mail },
-      { label: 'Respond', icon: CheckCircle2 },
-    ],
-    json: WORKFLOW_ASSIGN_NOTIFY,
-  },
-  {
-    id: 'ai-brain',
-    name: 'AI Complaint Brain',
-    description: 'Receives complaint text and uses AI (LLM) to intelligently categorize, detect urgency, analyze sentiment, and route to the correct department.',
-    triggerType: 'Webhook',
-    triggerIcon: Sparkles,
-    color: '#10B981',
-    nodeCount: 6,
-    estimatedRunTime: '~5s',
-    tags: ['AI', 'Complaint', 'Smart Reply', 'NLP'],
-    apiEndpoints: ['POST /api/ai/process-complaint', 'POST /api/ai/smart-reply', 'POST /api/integrations/airtable-sync'],
-    flowSteps: [
-      { label: 'Webhook', icon: Webhook },
-      { label: 'AI Brain', icon: Sparkles },
-      { label: 'Smart Reply', icon: MessageSquare },
-      { label: 'Merge', icon: Code },
-      { label: 'Airtable', icon: Database },
-      { label: 'Respond', icon: CheckCircle2 },
-    ],
-    json: WORKFLOW_AI_BRAIN,
-  },
-  {
-    id: 'airtable-sync',
-    name: 'Airtable Bidirectional Sync',
-    description: 'Scheduled bidirectional sync between the portal database and Airtable. Pushes new complaints to Airtable and pulls status updates back.',
-    triggerType: 'Cron (30 min)',
-    triggerIcon: RefreshCw,
-    color: '#0EA5E9',
-    nodeCount: 6,
-    estimatedRunTime: '~12s',
-    tags: ['Airtable', 'Sync', 'Integration', 'Scheduled'],
-    apiEndpoints: ['POST /api/integrations/airtable-sync', 'GET /api/integrations/airtable-sync'],
-    flowSteps: [
-      { label: 'Cron', icon: Clock },
-      { label: 'Push', icon: Send },
-      { label: 'Pull', icon: Database },
-      { label: 'Check', icon: Code },
-      { label: 'Notify', icon: Mail },
-      { label: 'Log', icon: Bell },
-    ],
-    json: WORKFLOW_AIRTABLE_SYNC,
-  },
-];
-
-/* ══════════════════════════════════════════════════════════════
-   WEBHOOK URL REFERENCE
-   ══════════════════════════════════════════════════════════════ */
-const WEBHOOK_URLS = [
-  { method: 'POST', path: '/api/webhook/complaint', desc: 'Receive complaint from external sources', usedBy: ['WhatsApp Complaint Intake'] },
-  { method: 'GET', path: '/api/complaints', desc: 'List complaints with filters', usedBy: ['Auto-Assignment Engine', 'SLA Breach Escalation'] },
-  { method: 'GET', path: '/api/complaints/[id]', desc: 'Get single complaint details', usedBy: ['Citizen Status Notification'] },
-  { method: 'PATCH', path: '/api/complaints/[id]', desc: 'Update complaint (assign, status)', usedBy: ['Auto-Assignment Engine'] },
-  { method: 'PATCH', path: '/api/complaints/[id]/escalate', desc: 'Escalate urgency level', usedBy: ['SLA Breach Escalation'] },
-  { method: 'GET', path: '/api/dashboard', desc: 'Dashboard statistics', usedBy: ['Daily Summary Report'] },
-  { method: 'POST', path: '/api/auth/login', desc: 'Obtain JWT token', usedBy: ['All workflows (auth)'] },
-  { method: 'POST', path: '/api/ai/process-complaint', desc: 'AI complaint analysis (categorize, urgency, sentiment)', usedBy: ['AI Complaint Brain', 'WhatsApp Complaint Intake'] },
-  { method: 'POST', path: '/api/ai/smart-reply', desc: 'AI smart reply generation (EN/BN)', usedBy: ['AI Complaint Brain'] },
-  { method: 'POST', path: '/api/integrations/airtable-sync', desc: 'Portal to Airtable push sync', usedBy: ['AI Complaint Brain', 'Airtable Bidirectional Sync'] },
-  { method: 'GET', path: '/api/integrations/airtable-sync', desc: 'Airtable to Portal pull sync', usedBy: ['Airtable Bidirectional Sync'] },
-];
-
-/* ══════════════════════════════════════════════════════════════
-   SETUP GUIDE STEPS
-   ══════════════════════════════════════════════════════════════ */
-const SETUP_STEPS = [
-  {
-    title: 'Install n8n via Docker',
-    icon: Terminal,
-    content: `docker run -it --rm \\
-  --name n8n \\
-  -p 5678:5678 \\
-  -v ~/.n8n:/home/node/.n8n \\
-  -e N8N_BASIC_AUTH_ACTIVE=true \\
-  -e N8N_BASIC_AUTH_USER=admin \\
-  -e N8N_BASIC_AUTH_PASSWORD=your_secure_password \\
-  -e WEBHOOK_URL=https://your-domain.com/ \\
-  n8nio/n8n`,
-  },
-  {
-    title: 'Import Workflow JSON',
-    icon: FileJson,
-    content: `1. Open n8n at http://localhost:5678\n2. Click "Add Workflow" → "Import from JSON"\n3. Copy the workflow JSON from the "Copy JSON" button above\n4. Paste and click "Import"\n5. Review the workflow nodes and connections`,
-  },
-  {
-    title: 'Configure Environment Variables',
-    icon: Settings,
-    content: `# Required environment variables for n8n:\n\nWB_PORTAL_URL=https://your-portal-domain.com\nWB_API_TOKEN=your_jwt_api_token\nWA_PHONE_NUMBER_ID=your_whatsapp_phone_number_id\nDISTRICT_ADMIN_EMAIL=admin@wb-gov.in\nDISTRICT_ADMIN_EMAILS=admin1@wb-gov.in,admin2@wb-gov.in\n\n# Get your API token by logging in to the portal\n# and copying the JWT from browser DevTools.`,
-  },
-  {
-    title: 'Test the Workflow',
-    icon: Play,
-    content: `1. Click the "Execute Workflow" button in n8n\n2. For webhook workflows, send a test request using curl:\n\n   curl -X POST https://your-n8n.com/webhook/incoming-whatsapp \\\n     -H "Content-Type: application/json" \\\n     -d '{"message":"No water supply in our area","block":"Krishnanagar-I","district":"Nadia"}'\n\n3. Check the n8n execution log for errors\n4. Verify the complaint appears in the portal`,
-  },
-  {
-    title: 'Activate the Workflow',
-    icon: Rocket,
-    content: `1. Toggle the "Active" switch in the top-right corner of n8n\n2. The workflow will now run automatically on its schedule\n3. Monitor executions in the "Executions" tab\n4. Set up error notifications via n8n's built-in settings\n5. For production, consider enabling "Error Workflow" for automatic retry`,
-  },
-];
-
-/* ══════════════════════════════════════════════════════════════
-   SUB-COMPONENTS
-   ══════════════════════════════════════════════════════════════ */
-
-function MiniFlowDiagram({ steps, color }: { steps: { label: string; icon: typeof Webhook }[]; color: string }) {
-  return (
-    <div className="flex items-center gap-0 overflow-x-auto py-2 px-1">
-      {steps.map((step, i) => (
-        <div key={step.label} className="flex items-center shrink-0">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.7 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: i * 0.08 }}
-            className="flex flex-col items-center gap-1 w-[56px]"
-          >
-            <div
-              className="h-8 w-8 rounded-lg flex items-center justify-center shadow-sm"
-              style={{ backgroundColor: `${color}20`, border: `1.5px solid ${color}50` }}
-            >
-              <step.icon className="h-3.5 w-3.5" style={{ color }} />
-            </div>
-            <span className="text-[8px] font-semibold text-muted-foreground text-center leading-tight truncate w-full">
-              {step.label}
-            </span>
-          </motion.div>
-          {i < steps.length - 1 && (
-            <div className="mx-0.5 shrink-0">
-              <ChevronRight className="h-3 w-3 text-muted-foreground/30" />
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function CopyButton({ text, label, variant = 'outline' }: { text: string; label?: string; variant?: 'outline' | 'ghost' | 'default' }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      toast.success(label ? `${label} copied!` : 'Copied to clipboard');
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-  return (
-    <Button variant={variant} size="sm" onClick={handleCopy} className={`h-8 gap-1.5 text-xs ${copied ? 'text-emerald-600' : ''}`}>
-      {copied ? <CheckCircle className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-      {label && <span className="hidden sm:inline">{copied ? 'Copied!' : label}</span>}
-    </Button>
-  );
-}
-
-function DownloadButton({ workflow }: { workflow: WorkflowDef }) {
-  const handleDownload = () => {
-    const blob = new Blob([JSON.stringify(workflow.json, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${workflow.id}-n8n-workflow.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success('Workflow JSON downloaded!');
-  };
-  return (
-    <Button variant="outline" size="sm" onClick={handleDownload} className="h-8 gap-1.5 text-xs">
-      <Download className="h-3 w-3" />
-      <span className="hidden sm:inline">Download</span>
-    </Button>
-  );
-}
 
 /* ══════════════════════════════════════════════════════════════
    MAIN COMPONENT
    ══════════════════════════════════════════════════════════════ */
 export default function N8NWorkflowsView() {
-  const { user } = useAuthStore();
-  const isAdmin = user?.role === 'ADMIN';
+  const [copied, setCopied] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(CLAUDE_PROMPT);
+      setCopied(true);
+      toast.success('Prompt Copied!', {
+        description: 'VS Code mein Claude ko paste karo — wo workflows bana dega!',
+      });
+      setTimeout(() => setCopied(false), 3000);
+    } catch {
+      toast.error('Copy failed — manually select and copy');
+    }
+  }, []);
+
+  const promptStats = useMemo(() => ({
+    workflows: 9,
+    tables: 5,
+    totalFields: 43,
+    words: CLAUDE_PROMPT.split(/\s+/).length,
+  }), []);
 
   return (
-    <div className="space-y-6 max-w-6xl">
-      {/* ═══ PAGE HEADER ═══ */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="relative overflow-hidden rounded-2xl shadow-lg"
-      >
-        <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${NAVY_DARK} 0%, ${NAVY} 50%, #1a3a7a 100%)` }} />
-        <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle at 25% 50%, white 1px, transparent 1px), radial-gradient(circle at 75% 30%, white 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
-        {/* Decorative circles */}
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
-        <div className="absolute -right-4 -bottom-8 h-28 w-28 rounded-full bg-white/[0.03]" />
-
-        <div className="relative px-6 py-8 sm:px-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="h-14 w-14 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-lg">
-                <Workflow className="h-7 w-7 text-white" />
-              </div>
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">n8n Workflows</h2>
-                <p className="text-sm text-blue-200/70 mt-0.5">Ready-to-import automation workflows for the grievance portal</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-                </span>
-                <span className="text-xs font-medium text-white">{WORKFLOWS.length} Workflows Ready</span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20">
-                <GitBranch className="h-3.5 w-3.5 text-orange-300" />
-                <span className="text-xs font-medium text-white">{WORKFLOWS.reduce((a, w) => a + w.nodeCount, 0)} Total Nodes</span>
-              </div>
-              {isAdmin && (
-                <Badge className="bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 text-[10px]">
-                  <Shield className="h-3 w-3 mr-1" /> Admin Access
-                </Badge>
-              )}
-            </div>
+    <motion.div
+      variants={stagger}
+      initial="hidden"
+      animate="show"
+      className="space-y-6"
+    >
+      {/* ═══ HEADER ═══ */}
+      <motion.div variants={fadeUp} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 rounded-xl flex items-center justify-center shadow-sm" style={{ backgroundColor: NAVY }}>
+            <Workflow className="h-5 w-5 text-white" />
           </div>
-
-          {/* Quick stats bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
-            {WORKFLOWS.map((wf) => (
-              <div key={wf.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.07] border border-white/10">
-                <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: wf.color }} />
-                <span className="text-[10px] font-medium text-white/80 truncate">{wf.name}</span>
-              </div>
-            ))}
+          <div>
+            <h2 className="text-lg font-black text-foreground">n8n Workflow Builder</h2>
+            <p className="text-xs text-muted-foreground">Claude ko prompt copy karo — wo khud n8n mein workflows bana dega</p>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPreviewOpen(true)}
+            className="h-9 gap-2 text-xs"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            Preview Prompt
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleCopy}
+            className="h-9 gap-2 text-xs font-bold shadow-sm"
+            style={{ backgroundColor: copied ? '#16A34A' : NAVY }}
+          >
+            {copied ? (
+              <>
+                <CheckCircle className="h-4 w-4" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="h-4 w-4" />
+                Copy Full Prompt for Claude
+              </>
+            )}
+          </Button>
         </div>
       </motion.div>
 
-      {/* ═══ CONNECTION HEALTH SUMMARY ═══ */}
-      <motion.div variants={stagger} initial="hidden" animate="show">
-        <motion.div variants={fadeUp}>
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${NAVY}12`, border: `1.5px solid ${NAVY}30` }}>
-                  <Link className="h-5 w-5" style={{ color: NAVY }} />
-                </div>
-                <div>
-                  <CardTitle className="text-base font-bold">Connection Health</CardTitle>
-                  <CardDescription className="text-xs">Validates all node connections across workflows</CardDescription>
+      {/* ═══ HOW TO USE ═══ */}
+      <motion.div variants={fadeUp}>
+        <Card className="border-dashed border-2" style={{ borderColor: NAVY + '40' }}>
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: NAVY + '15' }}>
+                <Info className="h-4.5 w-4.5" style={{ color: NAVY }} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold mb-1.5">Kaise use karna hai?</h3>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-muted/50 font-medium">
+                    <span className="h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-black text-white" style={{ backgroundColor: NAVY }}>1</span>
+                    <span>Copy Prompt</span>
+                  </div>
+                  <ArrowRight className="h-3 w-3 text-muted-foreground/50 hidden sm:block" />
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-muted/50 font-medium">
+                    <span className="h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-black text-white" style={{ backgroundColor: NAVY }}>2</span>
+                    <span>VS Code mein Claude ko paste karo</span>
+                  </div>
+                  <ArrowRight className="h-3 w-3 text-muted-foreground/50 hidden sm:block" />
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-muted/50 font-medium">
+                    <span className="h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-black text-white" style={{ backgroundColor: NAVY }}>3</span>
+                    <span>Claude khud n8n workflows bana dega</span>
+                  </div>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div className="p-3 rounded-xl bg-muted/40 border border-border/50 text-center">
-                  <div className="text-xl font-black">{WORKFLOWS.length}</div>
-                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Total Workflows</div>
-                </div>
-                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30 text-center">
-                  <div className="text-xl font-black text-emerald-600">{WORKFLOWS.filter(wf => validateWorkflowConnections(wf.json).connected).length}</div>
-                  <div className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider">Connected</div>
-                </div>
-                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-800/30 text-center">
-                  <div className="text-xl font-black text-red-600">{WORKFLOWS.filter(wf => !validateWorkflowConnections(wf.json).connected).length}</div>
-                  <div className="text-[10px] font-semibold text-red-600 uppercase tracking-wider">Issues</div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {WORKFLOWS.map(wf => {
-                  const validation = validateWorkflowConnections(wf.json);
-                  return (
-                    <div key={wf.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/30 border border-border/30">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: validation.connected ? '#16A34A' : '#DC2626' }} />
-                        <span className="text-xs font-medium">{wf.name}</span>
-                      </div>
-                      {validation.connected ? (
-                        <Badge className="text-[9px] bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border-0 gap-1">
-                          <CircleCheck className="h-3 w-3" /> All nodes connected
-                        </Badge>
-                      ) : (
-                        <Badge className="text-[9px] bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 border-0 gap-1">
-                          <XCircle className="h-3 w-3" /> {validation.orphanNodes.length} orphan node(s)
-                        </Badge>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
 
-      {/* ═══ WORKFLOW CARDS ═══ */}
-      <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-5">
-        {WORKFLOWS.map((wf, idx) => (
-          <motion.div key={wf.id} variants={fadeUp}>
-            <Card className="border-0 shadow-sm overflow-hidden group hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5">
-              {/* Color accent bar */}
-              <div className="h-1 w-full" style={{ background: `linear-gradient(90deg, ${wf.color}, ${wf.color}60)` }} />
-              <CardHeader className="pb-3">
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div
-                      className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
-                      style={{ backgroundColor: `${wf.color}15`, border: `1.5px solid ${wf.color}40` }}
-                    >
-                      <wf.triggerIcon className="h-5 w-5" style={{ color: wf.color }} />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <CardTitle className="text-base font-bold">{wf.name}</CardTitle>
-                        <Badge
-                          className="text-[9px] font-bold px-1.5 py-0 text-white"
-                          style={{ backgroundColor: wf.color }}
-                        >
-                          {wf.triggerType}
-                        </Badge>
-                      </div>
-                      <CardDescription className="text-xs mt-1 leading-relaxed">{wf.description}</CardDescription>
-                    </div>
-                  </div>
-
-                  {/* Action buttons */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <CopyButton text={JSON.stringify(wf.json, null, 2)} label="Copy JSON" />
-                    <DownloadButton workflow={wf} />
-                  </div>
-                </div>
-
-                {/* Mini flow diagram */}
-                <div className="mt-4 p-3 rounded-xl bg-muted/40 border border-border/50">
-                  <div className="flex items-center gap-2 mb-2">
-                    <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Node Flow</span>
-                  </div>
-                  <MiniFlowDiagram steps={wf.flowSteps} color={wf.color} />
-                </div>
-
-                {/* Meta info */}
-                <div className="flex items-center gap-4 mt-3 flex-wrap">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Layers className="h-3 w-3" />
-                    <span className="font-semibold">{wf.nodeCount}</span> nodes
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Timer className="h-3 w-3" />
-                    <span className="font-semibold">{wf.estimatedRunTime}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <Link className="h-3 w-3 text-muted-foreground" />
-                    {wf.apiEndpoints.map((ep) => (
-                      <code key={ep} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground">
-                        {ep}
-                      </code>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Tags */}
-                <div className="flex items-center gap-1.5 mt-3 flex-wrap">
-                  {wf.tags.map((tag) => (
-                    <Badge key={tag} variant="outline" className="text-[10px] font-normal px-2 py-0">
-                      <Tag className="h-2.5 w-2.5 mr-1" />
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-
-                {/* Connection validation badge */}
-                <div className="mt-3">
-                  {(() => {
-                    const validation = validateWorkflowConnections(wf.json);
-                    return validation.connected ? (
-                      <Badge className="text-[9px] bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border-0 gap-1">
-                        <CircleCheck className="h-3 w-3" /> All nodes connected
-                      </Badge>
-                    ) : (
-                      <Badge className="text-[9px] bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 border-0 gap-1">
-                        <XCircle className="h-3 w-3" /> {validation.orphanNodes.length} orphan node(s): {validation.orphanNodes.join(', ')}
-                      </Badge>
-                    );
-                  })()}
-                </div>
-              </CardHeader>
-            </Card>
-          </motion.div>
+      {/* ═══ PROMPT STATS ═══ */}
+      <motion.div variants={fadeUp} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Workflows', value: promptStats.workflows, icon: Workflow, color: 'text-emerald-600 dark:text-emerald-400' },
+          { label: 'Database Tables', value: promptStats.tables, icon: Database, color: 'text-blue-600 dark:text-blue-400' },
+          { label: 'Total Fields', value: promptStats.totalFields, icon: Layers, color: 'text-purple-600 dark:text-purple-400' },
+          { label: 'Words', value: promptStats.words, icon: FileText, color: 'text-orange-600 dark:text-orange-400' },
+        ].map((stat) => (
+          <Card key={stat.label} className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <stat.icon className={`h-3.5 w-3.5 ${stat.color}`} />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{stat.label}</span>
+            </div>
+            <p className="text-2xl font-black text-foreground">{stat.value}</p>
+          </Card>
         ))}
       </motion.div>
 
-      {/* ═══ WEBHOOK URLs REFERENCE ═══ */}
-      <motion.div variants={stagger} initial="hidden" animate="show">
-        <motion.div variants={fadeUp}>
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${NAVY}12`, border: `1.5px solid ${NAVY}30` }}>
-                  <Globe className="h-5 w-5" style={{ color: NAVY }} />
+      {/* ═══ DATABASE SCHEMA ═══ */}
+      <motion.div variants={fadeUp}>
+        <div className="flex items-center gap-2 mb-3">
+          <Database className="h-5 w-5" style={{ color: NAVY }} />
+          <h3 className="text-base font-bold">Database Schema</h3>
+          <Badge variant="secondary" className="text-[10px]">Supabase PostgreSQL</Badge>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {DB_TABLES.map((table) => (
+            <Card key={table.name} className="p-4 hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-2 mb-2.5">
+                <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${table.color}`}>
+                  <table.icon className="h-4 w-4" />
                 </div>
                 <div>
-                  <CardTitle className="text-base font-bold">API & Webhook URL Reference</CardTitle>
-                  <CardDescription className="text-xs">All available endpoints that n8n workflows can call</CardDescription>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-bold font-mono">{table.name}</span>
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0">{table.count}</Badge>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">{table.description}</p>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-xl border border-border/50 overflow-hidden">
-                <div className="overflow-x-auto custom-scrollbar">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="bg-muted/80 border-b border-border/50">
-                        <th className="text-left px-4 py-2.5 font-bold text-muted-foreground uppercase tracking-wider text-[10px]">Method</th>
-                        <th className="text-left px-4 py-2.5 font-bold text-muted-foreground uppercase tracking-wider text-[10px]">Endpoint</th>
-                        <th className="text-left px-4 py-2.5 font-bold text-muted-foreground uppercase tracking-wider text-[10px] hidden sm:table-cell">Description</th>
-                        <th className="text-left px-4 py-2.5 font-bold text-muted-foreground uppercase tracking-wider text-[10px]">Used By</th>
-                        <th className="text-right px-4 py-2.5 font-bold text-muted-foreground uppercase tracking-wider text-[10px]">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {WEBHOOK_URLS.map((url, i) => (
-                        <tr key={url.path} className={`border-b border-border/30 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/20'}`}>
-                          <td className="px-4 py-2.5">
-                            <Badge className={`text-[10px] font-bold px-1.5 py-0 text-white ${url.method === 'POST' ? 'bg-emerald-600' : url.method === 'PATCH' ? 'bg-amber-600' : url.method === 'DELETE' ? 'bg-red-600' : 'bg-sky-600'}`}>
-                              {url.method}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <code className="font-mono text-[11px] font-semibold text-foreground">{url.path}</code>
-                          </td>
-                          <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">{url.desc}</td>
-                          <td className="px-4 py-2.5">
-                            <div className="flex flex-wrap gap-1">
-                              {url.usedBy.map((w) => (
-                                <Badge key={w} variant="outline" className="text-[9px] font-normal px-1.5 py-0 whitespace-nowrap">
-                                  {w}
-                                </Badge>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="px-4 py-2.5 text-right">
-                            <CopyButton text={url.path} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </motion.div>
-
-      {/* ═══ SETUP GUIDE ═══ */}
-      <motion.div variants={stagger} initial="hidden" animate="show">
-        <motion.div variants={fadeUp}>
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${NAVY}12`, border: `1.5px solid ${NAVY}30` }}>
-                  <Rocket className="h-5 w-5" style={{ color: NAVY }} />
-                </div>
-                <div>
-                  <CardTitle className="text-base font-bold">Setup Guide</CardTitle>
-                  <CardDescription className="text-xs">Step-by-step instructions to get n8n workflows running</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Accordion type="single" collapsible className="w-full">
-                {SETUP_STEPS.map((step, idx) => (
-                  <AccordionItem key={idx} value={`step-${idx}`} className="border-border/50">
-                    <AccordionTrigger className="hover:no-underline py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-black shrink-0"
-                          style={{ backgroundColor: NAVY }}
-                        >
-                          {idx + 1}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <step.icon className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm font-semibold text-left">{step.title}</span>
-                        </div>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pl-12">
-                      <div className="relative rounded-xl overflow-hidden border border-border/50">
-                        <div className="flex items-center justify-between px-4 py-2 bg-muted/80 border-b border-border/50">
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                            {idx === 0 ? 'Terminal' : idx === 1 ? 'n8n UI' : idx === 2 ? 'Environment' : idx === 3 ? 'Testing' : 'Production'}
-                          </span>
-                          <CopyButton text={step.content} label="Copy" variant="ghost" />
-                        </div>
-                        <pre className="p-4 text-xs leading-relaxed overflow-x-auto custom-scrollbar" style={{ background: 'linear-gradient(135deg, #0d1117, #161b22)' }}>
-                          <code className="text-emerald-300 font-mono whitespace-pre-wrap">{step.content}</code>
-                        </pre>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
+              <div className="space-y-1">
+                {table.keyFields.map((field) => (
+                  <div key={field} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                    <ChevronRight className="h-3 w-3 mt-0.5 shrink-0 text-muted-foreground/50" />
+                    <span className="font-mono">{field}</span>
+                  </div>
                 ))}
-              </Accordion>
-            </CardContent>
-          </Card>
-        </motion.div>
+              </div>
+            </Card>
+          ))}
+        </div>
       </motion.div>
 
-      {/* ═══ ENVIRONMENT VARIABLES QUICK REFERENCE ═══ */}
-      <motion.div variants={stagger} initial="hidden" animate="show">
-        <motion.div variants={fadeUp}>
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${NAVY}12`, border: `1.5px solid ${NAVY}30` }}>
-                  <Settings className="h-5 w-5" style={{ color: NAVY }} />
+      {/* ═══ WORKFLOWS LIST ═══ */}
+      <motion.div variants={fadeUp}>
+        <div className="flex items-center gap-2 mb-3">
+          <Zap className="h-5 w-5" style={{ color: NAVY }} />
+          <h3 className="text-base font-bold">Workflows — Business Process</h3>
+          <Badge variant="secondary" className="text-[10px]">9 Workflows</Badge>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {WORKFLOWS.map((wf) => (
+            <Card key={wf.id} className="p-4 hover:shadow-md transition-shadow group">
+              <div className="flex items-start gap-3">
+                <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${wf.color}`}>
+                  <wf.icon className="h-4.5 w-4.5" />
                 </div>
-                <div>
-                  <CardTitle className="text-base font-bold">Environment Variables Quick Reference</CardTitle>
-                  <CardDescription className="text-xs">Set these in your n8n instance for the workflows to work</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-xl border border-border/50 overflow-hidden">
-                <div className="overflow-x-auto custom-scrollbar">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="bg-muted/80 border-b border-border/50">
-                        <th className="text-left px-4 py-2.5 font-bold text-muted-foreground uppercase tracking-wider text-[10px]">Variable</th>
-                        <th className="text-left px-4 py-2.5 font-bold text-muted-foreground uppercase tracking-wider text-[10px] hidden sm:table-cell">Description</th>
-                        <th className="text-left px-4 py-2.5 font-bold text-muted-foreground uppercase tracking-wider text-[10px]">Example</th>
-                        <th className="text-left px-4 py-2.5 font-bold text-muted-foreground uppercase tracking-wider text-[10px]">Required</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        { var: 'WB_PORTAL_URL', desc: 'Base URL of the portal', example: 'https://portal.wb.gov.in', required: true },
-                        { var: 'WB_API_TOKEN', desc: 'JWT token for API authentication', example: 'eyJhbGciOi...', required: true },
-                        { var: 'WA_PHONE_NUMBER_ID', desc: 'WhatsApp Business phone number ID', example: '110234567890', required: false },
-                        { var: 'DISTRICT_ADMIN_EMAIL', desc: 'Primary district admin email', example: 'admin@wb-gov.in', required: false },
-                        { var: 'DISTRICT_ADMIN_EMAILS', desc: 'Comma-separated admin emails', example: 'a@wb.in,b@wb.in', required: false },
-                      ].map((env, i) => (
-                        <tr key={env.var} className={`border-b border-border/30 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/20'}`}>
-                          <td className="px-4 py-2.5">
-                            <code className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-bold">
-                              {env.var}
-                            </code>
-                          </td>
-                          <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">{env.desc}</td>
-                          <td className="px-4 py-2.5">
-                            <code className="font-mono text-[10px] text-muted-foreground">{env.example}</code>
-                          </td>
-                          <td className="px-4 py-2.5">
-                            {env.required ? (
-                              <Badge className="text-[9px] bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 border-0">Required</Badge>
-                            ) : (
-                              <Badge className="text-[9px] bg-muted text-muted-foreground border-0">Optional</Badge>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Info callout */}
-              <div className="mt-4 p-4 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/30">
-                <div className="flex items-start gap-2.5">
-                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
-                  <div className="text-xs text-blue-700 dark:text-blue-300">
-                    <p className="font-semibold mb-0.5">Security Note</p>
-                    <p className="text-blue-600/80 dark:text-blue-400/80">
-                      Never share your API tokens publicly. Use Docker secrets or n8n&apos;s credential management to store sensitive values securely. Rotate tokens regularly.
-                    </p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold">{wf.name}</span>
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0">#{wf.id}</Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mb-2">{wf.description}</p>
+                  <div className="space-y-1.5">
+                    <div className="flex items-start gap-1.5">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70 mt-px shrink-0">Trigger:</span>
+                      <span className="text-[11px] text-muted-foreground">{wf.trigger}</span>
+                    </div>
+                    <div className="flex items-start gap-1.5">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70 mt-px shrink-0">Data:</span>
+                      <span className="text-[11px] text-muted-foreground">{wf.data}</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+            </Card>
+          ))}
+        </div>
       </motion.div>
 
-      {/* ═══ ALL-IN-ONE DOWNLOAD ═══ */}
-      <motion.div variants={stagger} initial="hidden" animate="show">
-        <motion.div variants={fadeUp}>
-          <Card className="border-0 shadow-sm overflow-hidden" style={{ borderColor: `${NAVY}30` }}>
-            <div className="h-1 w-full" style={{ background: `linear-gradient(90deg, ${NAVY}, ${NAVY}60)` }} />
-            <CardContent className="p-6">
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                <div className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${NAVY}15`, border: `1.5px solid ${NAVY}30` }}>
-                  <Download className="h-6 w-6" style={{ color: NAVY }} />
-                </div>
-                <div className="flex-1 text-center sm:text-left">
-                  <h3 className="text-sm font-bold">Download All Workflows</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">Get all {WORKFLOWS.length} workflow JSON files bundled together for easy import</p>
-                </div>
-                <Button
-                  onClick={() => {
-                    const allWorkflows = WORKFLOWS.map((wf) => wf.json);
-                    const blob = new Blob([JSON.stringify(allWorkflows, null, 2)], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'wb-grievance-all-n8n-workflows.json';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    toast.success(`All ${WORKFLOWS.length} workflows downloaded!`);
-                  }}
-                  className="gap-2 text-sm font-semibold text-white shrink-0"
-                  style={{ backgroundColor: NAVY }}
-                >
-                  <Download className="h-4 w-4" />
-                  Download All ({WORKFLOWS.length} Workflows)
-                </Button>
+      {/* ═══ BOTTOM COPY BAR ═══ */}
+      <motion.div variants={fadeUp}>
+        <Card className="overflow-hidden" style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #1a3a7a 100%)` }}>
+          <CardContent className="p-5 sm:p-6">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+              <div className="text-white">
+                <h3 className="text-base font-bold flex items-center justify-center sm:justify-start gap-2">
+                  <Sparkles className="h-5 w-5" />
+                  Ready to Build!
+                </h3>
+                <p className="text-white/70 text-xs mt-1">
+                  Copy the complete prompt and paste it into Claude in VS Code. It has everything — database schema, business process, all 9 workflows.
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+              <Button
+                size="lg"
+                onClick={handleCopy}
+                className="gap-2 font-bold shadow-lg bg-white text-gray-900 hover:bg-gray-100"
+              >
+                {copied ? (
+                  <>
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <span className="text-green-600">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-5 w-5" />
+                    Copy Full Prompt
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
-    </div>
+
+      {/* ═══ PREVIEW DIALOG ═══ */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="p-5 pb-3 border-b border-border/50 shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: NAVY }}>
+                  <ClipboardList className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <DialogTitle className="text-sm font-bold">Prompt Preview</DialogTitle>
+                  <DialogDescription className="text-[11px]">{promptStats.words} words — Copy and paste into Claude in VS Code</DialogDescription>
+                </div>
+              </div>
+              <Button size="sm" onClick={handleCopy} className="h-8 gap-1.5 text-xs font-bold" style={{ backgroundColor: NAVY }}>
+                {copied ? <CheckCircle className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? 'Copied!' : 'Copy'}
+              </Button>
+            </div>
+          </DialogHeader>
+          <ScrollArea className="flex-1">
+            <pre className="p-5 text-xs font-mono leading-relaxed whitespace-pre-wrap text-foreground/90 bg-muted/30">
+              {CLAUDE_PROMPT}
+            </pre>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+    </motion.div>
   );
 }
