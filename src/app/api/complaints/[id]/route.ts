@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
+import { notifyN8NStatusChange, notifyN8NAssignment } from '@/lib/n8n-webhook';
 
 // GET /api/complaints/[id]
 export async function GET(
@@ -102,6 +103,9 @@ export async function PATCH(
           },
         });
       }
+
+      // Fire-and-forget: notify n8n of status change
+      notifyN8NStatusChange(id, status);
     }
 
     if (assignedToId !== undefined && assignedToId !== complaint.assignedToId) {
@@ -119,6 +123,9 @@ export async function PATCH(
             metadata: JSON.stringify({ assignedToId }),
           },
         });
+
+        // Fire-and-forget: notify n8n of assignment
+        notifyN8NAssignment(id, assignedToId);
       } else if (complaint.assignedToId) {
         await db.activityLog.create({
           data: {

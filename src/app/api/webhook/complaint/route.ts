@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { notifyN8NStatusChange } from '@/lib/n8n-webhook';
 
 // POST /api/webhook/complaint — Webhook for n8n to push complaints
 export async function POST(request: NextRequest) {
@@ -45,6 +46,9 @@ export async function POST(request: NextRequest) {
         actorName: null,
       },
     });
+
+    // Fire-and-forget: notify n8n of new complaint (for downstream workflows)
+    notifyN8NStatusChange(complaint.id, complaint.status);
 
     return NextResponse.json({
       success: true,
