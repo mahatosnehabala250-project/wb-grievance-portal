@@ -39,6 +39,7 @@ model Complaint {
   assignedToId      String?
   source            String        @default("WHATSAPP") // WHATSAPP, MANUAL, WEB
   satisfactionRating Int?
+  airtableRecordId  String?       // Tracks the Airtable record ID for bidirectional sync
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   activities        ActivityLog[]
@@ -71,7 +72,7 @@ model ActivityLog {
 }
 
 model Comment {
-  id          String   @id @default(uuid())
+  id          String   @id @default(cuid())
   complaintId String
   content     String
   actorId     String?

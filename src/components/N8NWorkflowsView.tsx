@@ -8,6 +8,7 @@ import {
   Timer, Bell, RefreshCw, Send, Database, BarChart2, Users,
   CheckCircle2, Eye, Code, Rocket, Settings, Globe, Layers,
   Hash, Tag, MessageSquare, Loader2, CircleCheck, XCircle,
+  Sparkles,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -52,12 +53,33 @@ const WORKFLOW_WHATSAPP = {
     },
     {
       parameters: {
-        jsCode: `// Parse incoming WhatsApp message\nconst msg = $input.first().json.body;\nconst complaint = {\n  citizenName: msg.profileName || msg.sender_name || 'WhatsApp User',\n  phone: msg.sender || msg.phone_number || '',\n  issue: msg.message || msg.text || 'No message provided',\n  category: guessCategory(msg.message),\n  block: msg.block || 'Unknown',\n  district: msg.district || 'Unknown',\n  urgency: 'MEDIUM',\n  source: 'WhatsApp',\n  description: msg.message || ''\n};\n\nfunction guessCategory(text) {\n  const t = (text || '').toLowerCase();\n  if (/water|পানি|jal/.test(t)) return 'Water Supply';\n  if (/road|সড়ক|রাস্তা/.test(t)) return 'Road Damage';\n  if (/electric|বিদ্যুৎ|light/.test(t)) return 'Electricity';\n  if (/sanitation|পয়ঃনিষ্কাশন/.test(t)) return 'Sanitation';\n  if (/health|স্বাস্থ্য|হাসপাতাল/.test(t)) return 'Healthcare';\n  if (/school|শিক্ষা/.test(t)) return 'Education';\n  return 'Other';\n}\n\nreturn [{ json: complaint }];`,
+        url: '={{ $env.WB_PORTAL_URL }}/api/ai/process-complaint',
+        method: 'POST',
+        sendBody: true,
+        contentType: 'json',
+        bodyParameters: {
+          parameters: [
+            { name: 'text', value: '={{ $json.body.message || $json.body.text || "No message provided" }}' },
+            { name: 'block', value: '={{ $json.body.block }}' },
+            { name: 'district', value: '={{ $json.body.district }}' },
+          ],
+        },
+        options: { timeout: 30000 },
+        continueOnFail: true,
       },
-      name: 'Parse & Categorize',
+      name: 'Call AI Brain API',
+      type: 'n8n-nodes-base.httpRequest',
+      typeVersion: 4.2,
+      position: [470, 300],
+    },
+    {
+      parameters: {
+        jsCode: `// Merge WhatsApp data with AI analysis, fallback to keyword matching if AI failed\nconst webhookData = $('WhatsApp Webhook').first().json.body;\nconst aiResult = $input.first().json;\n\nfunction guessCategory(text) {\n  const t = (text || '').toLowerCase();\n  if (/water|পানি|jal/.test(t)) return 'Water Supply';\n  if (/road|সড়ক|রাস্তা/.test(t)) return 'Road Damage';\n  if (/electric|বিদ্যুৎ|light/.test(t)) return 'Electricity';\n  if (/sanitation|পয়ঃনিষ্কাশন/.test(t)) return 'Sanitation';\n  if (/health|স্বাস্থ্য|হাসপাতাল/.test(t)) return 'Healthcare';\n  if (/school|শিক্ষা/.test(t)) return 'Education';\n  return 'Other';\n}\n\nconst aiFailed = !aiResult || !aiResult.category || aiResult.error;\nconst message = webhookData.message || webhookData.text || 'No message provided';\n\nconst complaint = {\n  citizenName: webhookData.profileName || webhookData.sender_name || 'WhatsApp User',\n  phone: webhookData.sender || webhookData.phone_number || '',\n  issue: message,\n  category: aiFailed ? guessCategory(message) : aiResult.category,\n  block: webhookData.block || 'Unknown',\n  district: webhookData.district || 'Unknown',\n  urgency: aiFailed ? 'MEDIUM' : aiResult.urgency,\n  source: 'WhatsApp',\n  description: aiFailed ? message : (aiResult.summary || message),\n  aiProcessed: !aiFailed,\n  sentiment: aiFailed ? 'unknown' : aiResult.sentiment,\n  department: aiFailed ? 'General' : aiResult.department,\n};\n\nreturn [{ json: complaint }];`,
+      },
+      name: 'AI Fallback Merge',
       type: 'n8n-nodes-base.code',
       typeVersion: 2,
-      position: [470, 300],
+      position: [690, 300],
     },
     {
       parameters: {
@@ -83,7 +105,7 @@ const WORKFLOW_WHATSAPP = {
       name: 'POST to Portal API',
       type: 'n8n-nodes-base.httpRequest',
       typeVersion: 4.2,
-      position: [690, 300],
+      position: [910, 300],
     },
     {
       parameters: {
@@ -94,7 +116,7 @@ const WORKFLOW_WHATSAPP = {
       name: 'Respond to Webhook',
       type: 'n8n-nodes-base.respondToWebhook',
       typeVersion: 1.1,
-      position: [910, 300],
+      position: [1130, 300],
     },
     {
       parameters: {
@@ -103,7 +125,7 @@ const WORKFLOW_WHATSAPP = {
       name: 'Build Confirmation',
       type: 'n8n-nodes-base.code',
       typeVersion: 2,
-      position: [1130, 300],
+      position: [1350, 300],
     },
     {
       parameters: {
@@ -114,18 +136,19 @@ const WORKFLOW_WHATSAPP = {
       name: 'Send WhatsApp Reply',
       type: 'n8n-nodes-base.whatsApp',
       typeVersion: 1.1,
-      position: [1350, 300],
+      position: [1570, 300],
     },
   ],
   connections: {
-    'WhatsApp Webhook': { main: [[{ node: 'Parse & Categorize', type: 'main', index: 0 }]] },
-    'Parse & Categorize': { main: [[{ node: 'POST to Portal API', type: 'main', index: 0 }]] },
+    'WhatsApp Webhook': { main: [[{ node: 'Call AI Brain API', type: 'main', index: 0 }]] },
+    'Call AI Brain API': { main: [[{ node: 'AI Fallback Merge', type: 'main', index: 0 }]] },
+    'AI Fallback Merge': { main: [[{ node: 'POST to Portal API', type: 'main', index: 0 }]] },
     'POST to Portal API': { main: [[{ node: 'Respond to Webhook', type: 'main', index: 0 }, { node: 'Build Confirmation', type: 'main', index: 0 }]] },
     'Build Confirmation': { main: [[{ node: 'Send WhatsApp Reply', type: 'main', index: 0 }]] },
   },
   settings: { executionOrder: 'v1', saveManualExecutions: true, callerPolicy: 'workflowsFromSameOwner', errorWorkflow: 'Error Handler' },
   meta: { instanceId: 'wb-grievance-portal' },
-  tags: [{ name: 'WhatsApp' }, { name: 'Complaint' }, { name: 'Auto-Reply' }],
+  tags: [{ name: 'WhatsApp' }, { name: 'Complaint' }, { name: 'AI' }, { name: 'Auto-Reply' }],
 };
 
 const WORKFLOW_AUTO_ASSIGN = {
@@ -635,6 +658,211 @@ function validateWorkflowConnections(workflow: Record<string, unknown>): { conne
   return { connected: orphanNodes.length === 0, orphanNodes };
 }
 
+const WORKFLOW_AI_BRAIN = {
+  name: 'AI Complaint Brain',
+  nodes: [
+    {
+      parameters: { httpMethod: 'POST', path: 'ai-process', responseMode: 'responseNode', responseData: 'allEntries' },
+      name: 'AI Brain Webhook',
+      type: 'n8n-nodes-base.webhook',
+      typeVersion: 2,
+      position: [250, 300],
+      credentials: {},
+      webhookId: 'ai-brain-trigger',
+    },
+    {
+      parameters: {
+        url: '={{ $env.WB_PORTAL_URL }}/api/ai/process-complaint',
+        method: 'POST',
+        sendBody: true,
+        contentType: 'json',
+        bodyParameters: {
+          parameters: [
+            { name: 'text', value: '={{ $json.body.text || $json.body.message || $json.body.issue }}' },
+            { name: 'block', value: '={{ $json.body.block }}' },
+            { name: 'district', value: '={{ $json.body.district }}' },
+          ],
+        },
+        options: { timeout: 30000 },
+      },
+      name: 'Call AI Brain API',
+      type: 'n8n-nodes-base.httpRequest',
+      typeVersion: 4.2,
+      position: [470, 300],
+    },
+    {
+      parameters: {
+        url: '={{ $env.WB_PORTAL_URL }}/api/ai/smart-reply',
+        method: 'POST',
+        sendBody: true,
+        contentType: 'json',
+        bodyParameters: {
+          parameters: [
+            { name: 'complaintId', value: '={{ $json.complaintId || $json.id }}' },
+          ],
+        },
+        options: { timeout: 30000 },
+      },
+      name: 'Smart Reply Generator',
+      type: 'n8n-nodes-base.httpRequest',
+      typeVersion: 4.2,
+      position: [690, 300],
+    },
+    {
+      parameters: {
+        jsCode: `// Merge AI analysis + smart reply into one object\nconst aiResult = $('Call AI Brain API').first().json;\nconst smartReply = $('Smart Reply Generator').first().json;\nconst merged = {\n  ...aiResult,\n  smartReplies: smartReply.replies || { en: '', bn: '' },\n  processedAt: new Date().toISOString(),\n};\nreturn [{ json: merged }];`,
+      },
+      name: 'Merge Results',
+      type: 'n8n-nodes-base.code',
+      typeVersion: 2,
+      position: [910, 300],
+    },
+    {
+      parameters: {
+        url: '={{ $env.WB_PORTAL_URL }}/api/integrations/airtable-sync',
+        method: 'POST',
+        sendBody: true,
+        contentType: 'json',
+        bodyParameters: {
+          parameters: [
+            { name: 'token', value: '={{ $env.AIRTABLE_TOKEN }}' },
+            { name: 'baseId', value: '={{ $env.AIRTABLE_BASE_ID }}' },
+            { name: 'tableName', value: 'Complaints' },
+          ],
+        },
+        options: { timeout: 15000 },
+        continueOnFail: true,
+      },
+      name: 'Sync to Airtable',
+      type: 'n8n-nodes-base.httpRequest',
+      typeVersion: 4.2,
+      position: [1130, 300],
+    },
+    {
+      parameters: {
+        respondWith: 'json',
+        responseBody: '={{ JSON.stringify($input.first().json) }}',
+        responseCode: 200,
+      },
+      name: 'Respond',
+      type: 'n8n-nodes-base.respondToWebhook',
+      typeVersion: 1.1,
+      position: [1350, 300],
+    },
+  ],
+  connections: {
+    'AI Brain Webhook': { main: [[{ node: 'Call AI Brain API', type: 'main', index: 0 }]] },
+    'Call AI Brain API': { main: [[{ node: 'Smart Reply Generator', type: 'main', index: 0 }]] },
+    'Smart Reply Generator': { main: [[{ node: 'Merge Results', type: 'main', index: 0 }]] },
+    'Merge Results': { main: [[{ node: 'Sync to Airtable', type: 'main', index: 0 }]] },
+    'Sync to Airtable': { main: [[{ node: 'Respond', type: 'main', index: 0 }]] },
+  },
+  settings: { executionOrder: 'v1', saveManualExecutions: true, errorWorkflow: 'Error Handler' },
+  meta: { instanceId: 'wb-grievance-portal' },
+  tags: [{ name: 'AI' }, { name: 'Complaint' }, { name: 'Smart Reply' }, { name: 'Airtable' }],
+};
+
+const WORKFLOW_AIRTABLE_SYNC = {
+  name: 'Airtable Bidirectional Sync',
+  nodes: [
+    {
+      parameters: { rule: { interval: [{ field: 'minutes', minutesInterval: 30 }] } },
+      name: 'Every 30 Minutes',
+      type: 'n8n-nodes-base.scheduleTrigger',
+      typeVersion: 1.2,
+      position: [250, 300],
+    },
+    {
+      parameters: {
+        url: '={{ $env.WB_PORTAL_URL }}/api/integrations/airtable-sync',
+        method: 'POST',
+        sendBody: true,
+        contentType: 'json',
+        bodyParameters: {
+          parameters: [
+            { name: 'token', value: '={{ $env.AIRTABLE_TOKEN }}' },
+            { name: 'baseId', value: '={{ $env.AIRTABLE_BASE_ID }}' },
+            { name: 'tableName', value: 'Complaints' },
+          ],
+        },
+        options: { timeout: 30000, continueOnFail: true },
+      },
+      name: 'Push to Airtable',
+      type: 'n8n-nodes-base.httpRequest',
+      typeVersion: 4.2,
+      position: [470, 300],
+    },
+    {
+      parameters: {
+        url: '={{ $env.WB_PORTAL_URL }}/api/integrations/airtable-sync?token={{ encodeURIComponent($env.AIRTABLE_TOKEN) }}&baseId={{ $env.AIRTABLE_BASE_ID }}&tableName=Complaints',
+        method: 'GET',
+        options: { timeout: 30000, continueOnFail: true },
+      },
+      name: 'Pull from Airtable',
+      type: 'n8n-nodes-base.httpRequest',
+      typeVersion: 4.2,
+      position: [690, 300],
+    },
+    {
+      parameters: {
+        jsCode: `// Check if any sync operations failed\nconst pushResult = $('Push to Airtable').first().json;\nconst pullResult = $('Pull from Airtable').first().json;\n\nconst pushFailed = !pushResult.success && pushResult.error;\nconst pullFailed = !pullResult.success && pullResult.error;\n\nconst hasFailure = pushFailed || pullFailed;\nconst failures = [];\nif (pushFailed) failures.push('Push: ' + pushResult.error);\nif (pullFailed) failures.push('Pull: ' + pullResult.error);\n\nreturn [{ json: {\n  hasFailure,\n  failures,\n  pushStatus: pushFailed ? 'FAILED' : 'SUCCESS',\n  pullStatus: pullFailed ? 'FAILED' : 'SUCCESS',\n  syncTimestamp: new Date().toISOString(),\n}}];`,
+      },
+      name: 'Check Sync Status',
+      type: 'n8n-nodes-base.code',
+      typeVersion: 2,
+      position: [910, 300],
+    },
+    {
+      parameters: {
+        fromEmail: 'noreply@wb-gov.in',
+        toEmail: '={{ $env.DISTRICT_ADMIN_EMAIL }}',
+        subject: '⚠️ Airtable Sync Failed — {{ $json.syncTimestamp }}',
+        text: '={{ "Airtable sync encountered errors:\\n\\n" + $json.failures.join("\\n") + "\\n\\nPush status: " + $json.pushStatus + "\\nPull status: " + $json.pullStatus + "\\n\\nPlease investigate." }}',
+        options: {},
+      },
+      name: 'Notify Admin on Failure',
+      type: 'n8n-nodes-base.emailSend',
+      typeVersion: 2.1,
+      position: [1130, 200],
+    },
+    {
+      parameters: {
+        jsCode: `const status = $input.first().json;\nconsole.log('Airtable sync completed at', status.syncTimestamp);\nconsole.log('Push:', status.pushStatus, '| Pull:', status.pullStatus);\nreturn [{ json: { message: 'Sync completed successfully', ...status } }];`,
+      },
+      name: 'Log Success',
+      type: 'n8n-nodes-base.code',
+      typeVersion: 2,
+      position: [1130, 400],
+    },
+  ],
+  connections: {
+    'Every 30 Minutes': { main: [[{ node: 'Push to Airtable', type: 'main', index: 0 }]] },
+    'Push to Airtable': { main: [[{ node: 'Pull from Airtable', type: 'main', index: 0 }]] },
+    'Pull from Airtable': { main: [[{ node: 'Check Sync Status', type: 'main', index: 0 }]] },
+    'Check Sync Status': {
+      main: [
+        [
+          {
+            node: 'Notify Admin on Failure',
+            type: 'main',
+            index: 0,
+          },
+        ],
+        [
+          {
+            node: 'Log Success',
+            type: 'main',
+            index: 0,
+          },
+        ],
+      ],
+    },
+  },
+  settings: { executionOrder: 'v1', saveManualExecutions: true, errorWorkflow: 'Error Handler' },
+  meta: { instanceId: 'wb-grievance-portal' },
+  tags: [{ name: 'Airtable' }, { name: 'Sync' }, { name: 'Integration' }, { name: 'Scheduled' }],
+};
+
 /* ══════════════════════════════════════════════════════════════
    WORKFLOW DEFINITIONS
    ══════════════════════════════════════════════════════════════ */
@@ -657,18 +885,18 @@ const WORKFLOWS: WorkflowDef[] = [
   {
     id: 'whatsapp-intake',
     name: 'WhatsApp Complaint Intake',
-    description: 'Receives WhatsApp messages from citizens, parses and categorizes complaints using keyword matching, creates tickets via portal API, and sends auto-confirmation replies.',
+    description: 'Receives WhatsApp messages from citizens, uses AI Brain to intelligently categorize and analyze complaints with keyword-matching fallback, creates tickets via portal API, and sends auto-confirmation replies.',
     triggerType: 'Webhook',
     triggerIcon: Webhook,
     color: '#25D366',
-    nodeCount: 6,
-    estimatedRunTime: '~3s',
-    tags: ['WhatsApp', 'Complaint', 'Auto-Reply', 'AI'],
-    apiEndpoints: ['POST /api/webhook/complaint'],
+    nodeCount: 7,
+    estimatedRunTime: '~5s',
+    tags: ['WhatsApp', 'Complaint', 'AI', 'Auto-Reply'],
+    apiEndpoints: ['POST /api/webhook/complaint', 'POST /api/ai/process-complaint'],
     flowSteps: [
       { label: 'Webhook', icon: Webhook },
-      { label: 'Parse', icon: Code },
-      { label: 'Categorize', icon: Layers },
+      { label: 'AI Brain', icon: Sparkles },
+      { label: 'Fallback', icon: GitBranch },
       { label: 'POST API', icon: Send },
       { label: 'Confirm', icon: CheckCircle2 },
       { label: 'Reply', icon: MessageSquare },
@@ -798,6 +1026,48 @@ const WORKFLOWS: WorkflowDef[] = [
     ],
     json: WORKFLOW_ASSIGN_NOTIFY,
   },
+  {
+    id: 'ai-brain',
+    name: 'AI Complaint Brain',
+    description: 'Receives complaint text and uses AI (LLM) to intelligently categorize, detect urgency, analyze sentiment, and route to the correct department.',
+    triggerType: 'Webhook',
+    triggerIcon: Sparkles,
+    color: '#10B981',
+    nodeCount: 6,
+    estimatedRunTime: '~5s',
+    tags: ['AI', 'Complaint', 'Smart Reply', 'NLP'],
+    apiEndpoints: ['POST /api/ai/process-complaint', 'POST /api/ai/smart-reply', 'POST /api/integrations/airtable-sync'],
+    flowSteps: [
+      { label: 'Webhook', icon: Webhook },
+      { label: 'AI Brain', icon: Sparkles },
+      { label: 'Smart Reply', icon: MessageSquare },
+      { label: 'Merge', icon: Code },
+      { label: 'Airtable', icon: Database },
+      { label: 'Respond', icon: CheckCircle2 },
+    ],
+    json: WORKFLOW_AI_BRAIN,
+  },
+  {
+    id: 'airtable-sync',
+    name: 'Airtable Bidirectional Sync',
+    description: 'Scheduled bidirectional sync between the portal database and Airtable. Pushes new complaints to Airtable and pulls status updates back.',
+    triggerType: 'Cron (30 min)',
+    triggerIcon: RefreshCw,
+    color: '#0EA5E9',
+    nodeCount: 6,
+    estimatedRunTime: '~12s',
+    tags: ['Airtable', 'Sync', 'Integration', 'Scheduled'],
+    apiEndpoints: ['POST /api/integrations/airtable-sync', 'GET /api/integrations/airtable-sync'],
+    flowSteps: [
+      { label: 'Cron', icon: Clock },
+      { label: 'Push', icon: Send },
+      { label: 'Pull', icon: Database },
+      { label: 'Check', icon: Code },
+      { label: 'Notify', icon: Mail },
+      { label: 'Log', icon: Bell },
+    ],
+    json: WORKFLOW_AIRTABLE_SYNC,
+  },
 ];
 
 /* ══════════════════════════════════════════════════════════════
@@ -811,6 +1081,10 @@ const WEBHOOK_URLS = [
   { method: 'PATCH', path: '/api/complaints/[id]/escalate', desc: 'Escalate urgency level', usedBy: ['SLA Breach Escalation'] },
   { method: 'GET', path: '/api/dashboard', desc: 'Dashboard statistics', usedBy: ['Daily Summary Report'] },
   { method: 'POST', path: '/api/auth/login', desc: 'Obtain JWT token', usedBy: ['All workflows (auth)'] },
+  { method: 'POST', path: '/api/ai/process-complaint', desc: 'AI complaint analysis (categorize, urgency, sentiment)', usedBy: ['AI Complaint Brain', 'WhatsApp Complaint Intake'] },
+  { method: 'POST', path: '/api/ai/smart-reply', desc: 'AI smart reply generation (EN/BN)', usedBy: ['AI Complaint Brain'] },
+  { method: 'POST', path: '/api/integrations/airtable-sync', desc: 'Portal to Airtable push sync', usedBy: ['AI Complaint Brain', 'Airtable Bidirectional Sync'] },
+  { method: 'GET', path: '/api/integrations/airtable-sync', desc: 'Airtable to Portal pull sync', usedBy: ['Airtable Bidirectional Sync'] },
 ];
 
 /* ══════════════════════════════════════════════════════════════
