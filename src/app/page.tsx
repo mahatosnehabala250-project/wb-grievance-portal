@@ -71,6 +71,7 @@ import { AuditLogView } from '@/components/AuditLogView';
 import { PublicStatusPage } from '@/components/PublicStatusPage';
 import IntegrationsView from '@/components/IntegrationsView';
 import N8NWorkflowsView from '@/components/N8NWorkflowsView';
+import { N8nEndpointHealth } from '@/components/N8nEndpointHealth';
 import DeploymentGuideView from '@/components/DeploymentGuideView';
 import LiveDataMonitor from '@/components/LiveDataMonitor';
 export default function HomePage() {
@@ -251,6 +252,7 @@ export default function HomePage() {
     ...(user?.role === 'ADMIN' ? [{ id: 'systemStatus' as ViewType, label: t('systemStatus'), icon: Activity }] : []),
     ...(user?.role === 'ADMIN' ? [{ id: 'integrations' as ViewType, label: 'Integrations', icon: Zap }] : []),
     ...(user?.role === 'ADMIN' ? [{ id: 'n8n' as ViewType, label: 'n8n Workflows', icon: Workflow }] : []),
+    ...(user?.role === 'ADMIN' ? [{ id: 'endpointHealth' as ViewType, label: 'Endpoint Health', icon: Activity }] : []),
     ...(user?.role === 'ADMIN' ? [{ id: 'audit' as ViewType, label: t('auditLog'), icon: History }] : []),
     ...(user?.role === 'ADMIN' ? [{ id: 'deployment' as ViewType, label: 'Deployment', icon: Server }] : []),
     ...(user?.role === 'ADMIN' ? [{ id: 'users' as ViewType, label: t('users'), icon: Users }] : []),
@@ -605,6 +607,9 @@ export default function HomePage() {
                 )}
                 {view === 'n8n' && (
                   <N8NWorkflowsView />
+                )}
+                {view === 'endpointHealth' && (
+                  <N8nEndpointHealth />
                 )}
                 {view === 'deployment' && (
                   <DeploymentGuideView />
