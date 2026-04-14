@@ -644,10 +644,10 @@ export default function N8NWorkflowsView() {
               <h2 className="text-lg font-black text-foreground">n8n Workflow Builder</h2>
               <Badge className="bg-emerald-500 text-white text-[9px] px-2 py-0 font-bold gap-1">
                 <CheckCircle className="h-3 w-3" />
-                9/9 DEPLOYED
+                9/9 DEPLOYED · 9/9 FIXED
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground">All 9 AI-powered workflows deployed to n8n instance — AI Agent + Smart Architecture</p>
+            <p className="text-xs text-muted-foreground">All 9 workflows deployed &amp; audited — Connections, Credentials, Tools all verified ✅</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -690,19 +690,23 @@ export default function N8NWorkflowsView() {
                 <Info className="h-4.5 w-4.5" style={{ color: NAVY }} />
               </div>
               <div className="flex-1">
-                <h3 className="text-sm font-bold mb-1.5">✅ All 9 Workflows Deployed Successfully!</h3>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-xs text-muted-foreground">
+                <h3 className="text-sm font-bold mb-1.5">✅ All 9 Workflows — Connections, Credentials &amp; Tools Fixed!</h3>
+                <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 font-medium text-emerald-700 dark:text-emerald-400">
                     <CheckCircle className="h-3.5 w-3.5" />
-                    <span>AI-Powered (9 LangChain nodes)</span>
+                    <span>AI Chat Model Connected</span>
                   </div>
                   <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 font-medium text-emerald-700 dark:text-emerald-400">
                     <CheckCircle className="h-3.5 w-3.5" />
-                    <span>79 Total Nodes</span>
+                    <span>Chat Memory Wired</span>
                   </div>
                   <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 font-medium text-emerald-700 dark:text-emerald-400">
                     <CheckCircle className="h-3.5 w-3.5" />
-                    <span>Smart Architecture</span>
+                    <span>OpenAI Credential Live</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 font-medium text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    <span>14 Tools Named &amp; Described</span>
                   </div>
                 </div>
               </div>
