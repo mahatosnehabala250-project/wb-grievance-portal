@@ -1,64 +1,78 @@
-# West Bengal AI Grievance Portal — n8n Workflow Specification v2.0
+# West Bengal AI Grievance Portal — n8n Workflow Specification v3.0
 
-> **Version**: 2.0.0 (Updated April 2026)
-> **Previous**: n8n-workflow-prompt.md v1.0
-> **Status**: Production-Ready Specification
+> **Version**: 3.0.0 (June 2025)
+> **Previous**: v2.0 (n8n-workflow-new.md), v1.0 (n8n-workflow-prompt.md)
+> **Status**: SDK-Based Rebuild Specification
 > **n8n Instance**: `https://n8n.srv1347095.hstgr.cloud`
+> **MCP Endpoint**: `https://n8n.srv1347095.hstgr.cloud/mcp-server/http` (JWT auth)
 > **Supabase**: `https://sxdtipaspfolrpqrwadt.supabase.co`
 > **Portal**: `https://wb-grievance-portal.vercel.app`
 
 ---
 
-## CHANGELOG — What Changed from v1.0
+## CHANGELOG — v1.0 → v2.0 → v3.0
 
-| # | Area | v1.0 (Old) | v2.0 (New) | Reason |
-|---|------|-----------|-----------|--------|
-| 1 | **WB-04** | Separate workflow "Citizen Confirmation" | **Merged into WB-01 & WB-03** | Reduces complexity — confirmation messages sent inline |
-| 2 | **Auth** | n8n calls authenticated APIs blindly | **Bypass auth — use direct Supabase REST** | n8n has service_role key, no need for JWT dance |
-| 3 | **DB Access** | n8n calls Next.js API for DB queries | **n8n queries Supabase REST API directly** | Faster, no double-hop latency, reliable |
-| 4 | **SLA Calculation** | n8n calculates SLA breach client-side | **Supabase `sla_at_risk` VIEW + API `/escalate-batch`** | DB view already exists, API handles escalation + logging |
-| 5 | **Rating** | n8n calls `/api/complaints/[id]/rate` (requires JWT) | **Direct Supabase UPDATE** | No JWT needed, service_role has full access |
-| 6 | **WhatsApp** | Generic WA node | **Meta WA Cloud API with `sendAndWait`** | Enables conversational flows |
-| 7 | **New Fields** | Not aware of `matchScore`, `riskLevel`, `pct`, `tags`, `language` | **All 5 fields documented** | Full schema alignment audit completed |
-| 8 | **Error Handling** | Basic try/catch | **Error Trigger + Stop on Error nodes + retry** | Production-grade resilience |
-| 9 | **Code Quality** | Inline expressions in node params | **Code nodes with proper JS** | n8n-skills best practice — expressions break on complex logic |
-| 10 | **N8N_WEBHOOK_URL** | Referenced but never configured | **n8n calls Supabase directly — no dependency on Next.js webhooks** | Eliminates single point of failure |
+| # | Area | v1.0 | v2.0 | v3.0 (THIS) | Reason |
+|---|------|------|------|-------------|--------|
+| 1 | **Build Method** | Manual JSON | Manual JSON via n8n-mcp.com | **n8n Workflow SDK** | SDK validates, compiles, prevents null connections |
+| 2 | **MCP Server** | None | n8n-mcp.com (3rd party) | **Instance-level MCP v1.1.0** | Official n8n MCP, 18 tools, direct SDK support |
+| 3 | **Validation** | None | Manual (failed for WB-01/02) | **`validate_workflow` tool** | Catches errors before deployment |
+| 4 | **Testing** | None | None | **`test_workflow` + `prepare_test_pin_data`** | Test with simulated data before going live |
+| 5 | **DB Access** | Next.js API only | Supabase REST direct | **Supabase REST direct (confirmed)** | service_role key, 50% faster |
+| 6 | **Error Handling** | Basic try/catch | Error Trigger nodes | **SDK `.onError()` + Error Trigger** | Production-grade |
+| 7 | **WB-04** | Separate workflow | Merged into WB-03 | **Merged into WB-03** | Reduces complexity |
+| 8 | **Credentials** | Not addressed | `newCredential('Name')` | **`newCredential()` in SDK** | Auto-assigned on creation |
+| 9 | **Existing WFs** | N/A | 5/7 deployed (2 broken) | **7/7 exist, ALL broken** | JSON approach created invalid triggers |
+| 10 | **SLA Views** | Client-side calc | Supabase `sla_at_risk` view | **Supabase views + API** | DB handles complexity |
 
 ---
 
 ## 1. ARCHITECTURE OVERVIEW
 
-### 1.1 Design Philosophy (v2.0)
+### 1.1 v3.0 Design Philosophy
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                    v2.0 ARCHITECTURE                                  │
-│                                                                      │
-│  ┌─────────────┐         ┌──────────────┐         ┌───────────────┐  │
-│  │   WhatsApp  │◄───────►│     n8n      │◄───────►│   Supabase    │  │
-│  │  (Meta API) │         │  Workflows   │         │  PostgreSQL   │  │
-│  └─────────────┘         │  WB-01 to 08 │         │   + REST API  │  │
-│                          └──────┬───────┘         └───────────────┘  │
-│                                 │                                     │
-│                                 │ (for complex ops only)              │
-│                                 ▼                                     │
-│                          ┌──────────────┐                             │
-│                          │   Next.js    │                             │
-│                          │   Portal     │                             │
-│                          │ (Vercel)     │                             │
-│                          └──────────────┘                             │
-│                                                                      │
-│  KEY CHANGE: n8n talks to Supabase DIRECTLY (not via Next.js API)   │
-│  Next.js API is used ONLY for complex multi-table operations          │
-└──────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                         v3.0 ARCHITECTURE                                   │
+│                                                                              │
+│  ┌──────────────┐        ┌─────────────────┐        ┌──────────────────┐    │
+│  │  WhatsApp    │◄──────►│      n8n        │◄──────►│    Supabase      │    │
+│  │  Meta API    │        │   Workflows      │        │   PostgreSQL     │    │
+│  │              │        │   WB-01 to WB-08 │        │   + REST API     │    │
+│  └──────────────┘        └────────┬────────┘        └──────────────────┘    │
+│                                   │                                          │
+│                    ┌──────────────┼──────────────┐                           │
+│                    ▼              ▼              ▼                           │
+│             ┌──────────┐  ┌───────────┐  ┌───────────┐                      │
+│             │ Next.js  │  │ Dashboard │  │ WhatsApp  │                      │
+│             │ Portal   │  │ Stats API │  │ Citizens  │                      │
+│             │ (Vercel) │  │           │  │           │                      │
+│             └──────────┘  └───────────┘  └───────────┘                      │
+│                                                                              │
+│  KEY: n8n MCP Server v1.1.0 provides 18 tools for SDK-based build pipeline   │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.2 n8n → Supabase Direct Access
-
-Instead of calling Next.js API routes (which require JWT auth), n8n workflows use the **Supabase REST API** directly with the `service_role` key:
+### 1.2 Build Pipeline (v3.0)
 
 ```
-POST https://sxdtipaspfolrpqrwadt.supabase.co/rest/v1/{table}
+1. get_sdk_reference      → Learn SDK patterns & syntax
+2. search_nodes           → Find needed nodes (whatsapp, http, code, etc.)
+3. get_node_types         → Get exact TypeScript parameter definitions
+4. Write SDK Code         → TypeScript using @n8n/workflow-sdk
+5. validate_workflow      → Check for errors (FIX until valid)
+6. create_workflow_from_code → Deploy to n8n
+7. prepare_test_pin_data  → Generate test data schemas
+8. test_workflow          → Test with simulated data
+9. publish_workflow       → Activate for production
+```
+
+### 1.3 n8n → Supabase Direct Access
+
+n8n workflows use **Supabase REST API** with `service_role` key:
+
+```
+GET/PATCH/POST https://sxdtipaspfolrpqrwadt.supabase.co/rest/v1/{table}
 Headers:
   apikey: <SUPABASE_SERVICE_ROLE_KEY>
   Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>
@@ -66,418 +80,511 @@ Headers:
   Prefer: return=representation
 ```
 
-**Why?**
-- `service_role` key has **full read/write access** to all tables — no auth needed
-- **50% faster** — eliminates Next.js → Supabase double-hop
-- **More reliable** — no dependency on Next.js server uptime
-- **Simpler code** — no JWT token management in n8n
+### 1.4 When n8n Calls Next.js API
 
-### 1.3 When n8n Still Calls Next.js
-
-| Next.js Endpoint | Reason n8n calls it |
+| Next.js Endpoint | Reason |
 |---|---|
-| `/api/webhook/complaint` | Creates complaint + logs activity + generates ticketNo + triggers cascades |
-| `/api/complaints/escalate-batch` | Complex multi-table operation (escalate + log activity + cascade notifications) |
-| `/api/reports/weekly` | Complex aggregation with multiple GROUP BY queries |
+| `/api/webhook/complaint` | Creates complaint + logs activity + generates ticketNo + cascades |
+| `/api/complaints/escalate-batch` | Multi-table: escalate + log activity + cascade notifications |
 
 ---
 
-## 2. SUPABASE DATABASE — Current Schema (Verified April 2026)
+## 2. N8N INSTANCE MCP — 18 Tools Reference
 
-### 2.1 Tables
+**Endpoint**: `POST https://n8n.srv1347095.hstgr.cloud/mcp-server/http`
+**Auth**: `Authorization: Bearer <JWT>` (Accept: `application/json, text/event-stream`)
+
+### 2.1 Workflow Lifecycle Tools
+
+| Tool | Purpose | Key Parameters |
+|------|---------|---------------|
+| `validate_workflow` | Validate SDK code → returns valid/errors | `code` (string) |
+| `create_workflow_from_code` | Deploy validated code to n8n | `code`, `name?`, `description?` |
+| `update_workflow` | Update existing workflow with new code | `workflowId`, `code` |
+| `publish_workflow` | Activate a workflow | `workflowId` |
+| `unpublish_workflow` | Deactivate a workflow | `workflowId` |
+| `archive_workflow` | Archive/delete a workflow | `workflowId` |
+
+### 2.2 Execution & Testing Tools
+
+| Tool | Purpose | Key Parameters |
+|------|---------|---------------|
+| `execute_workflow` | Run a workflow (webhook/chat/form input) | `workflowId`, `inputs?`, `executionMode?` |
+| `get_execution` | Get execution results | `workflowId`, `executionId`, `includeData?` |
+| `test_workflow` | Test with simulated pin data | `workflowId`, `pinData` |
+| `prepare_test_pin_data` | Generate test data schemas | `workflowId` |
+
+### 2.3 Discovery Tools
+
+| Tool | Purpose | Key Parameters |
+|------|---------|---------------|
+| `search_workflows` | Find existing workflows | `query?`, `limit?` |
+| `get_workflow_details` | Get workflow info + triggers | `workflowId` |
+| `search_nodes` | Find n8n nodes by name | `queries` (string[]) |
+| `get_node_types` | Get TypeScript type definitions | `nodeIds` (with discriminators) |
+| `get_suggested_nodes` | Curated node recommendations | `categories` (string[]) |
+| `get_sdk_reference` | SDK documentation | `section?` (patterns/expressions/etc.) |
+
+### 2.4 Organization Tools
+
+| Tool | Purpose |
+|------|---------|
+| `search_projects` | Find projects by name |
+| `search_folders` | Find folders within a project |
+
+### 2.5 Resources
+
+| URI | Description |
+|-----|-------------|
+| `n8n://workflow-sdk/reference` | Full SDK reference doc |
+
+---
+
+## 3. N8N WORKFLOW SDK — Quick Reference
+
+### 3.1 Import Statement
+
+```javascript
+import { workflow, node, trigger, sticky, placeholder, newCredential,
+         ifElse, switchCase, merge, splitInBatches, nextBatch, expr,
+         languageModel, memory, tool, outputParser, fromAi } from '@n8n/workflow-sdk';
+```
+
+### 3.2 Core Patterns
+
+**Linear Chain:**
+```javascript
+export default workflow('id', 'Workflow Name')
+  .add(startTrigger)
+  .to(processData)
+  .to(saveResult);
+```
+
+**Conditional (IF/ELSE):**
+```javascript
+const checkValid = ifElse({ version: 2.2, config: { name: 'Check', parameters: {...} } });
+export default workflow('id', 'name')
+  .add(startTrigger)
+  .to(checkValid
+    .onTrue(successPath.to(saveData))
+    .onFalse(errorHandler));
+```
+
+**Multi-way Switch:**
+```javascript
+const router = switchCase({ version: 3.2, config: { name: 'Route', parameters: {...} } });
+export default workflow('id', 'name')
+  .add(startTrigger)
+  .to(router
+    .onCase(0, pathA)
+    .onCase(1, pathB)
+    .onCase(2, pathC));  // fallback
+```
+
+**Merge (parallel → converge):**
+```javascript
+const combine = merge({ version: 3.2, config: { name: 'Combine', parameters: { mode: 'append' } } });
+export default workflow('id', 'name')
+  .add(trigger1).to(branch1.to(combine.input(0)))
+  .add(trigger2).to(branch2.to(combine.input(1)))
+  .add(combine).to(finalProcess);
+```
+
+**Multiple Triggers:**
+```javascript
+export default workflow('id', 'name')
+  .add(webhookTrigger).to(processWebhook)
+  .add(scheduleTrigger).to(processSchedule);
+```
+
+**Batch Processing:**
+```javascript
+const batch = splitInBatches({ version: 3, config: { name: 'Batch', parameters: { batchSize: 10 } } });
+export default workflow('id', 'name')
+  .add(startTrigger).to(fetchItems)
+  .to(batch
+    .onDone(finalize)
+    .onEachBatch(processItem.to(nextBatch(batch))));
+```
+
+### 3.3 Expression Rules
+
+```javascript
+// Variables MUST be inside {{ }}
+expr('Hello {{ $json.name }}')                    // ✅ Correct
+expr('Total: {{ $json.count }} items')             // ✅ Correct
+expr('{{ $now.toFormat("MMMM d, yyyy") }}')        // ✅ Correct
+
+// Access other nodes by name
+expr("{{ $('Webhook').item.json.phone }}")         // ✅ Correct
+expr('{{ $("Fetch Data").all().map(i => i.json) }}') // ✅ Correct
+
+// WRONG — never use $ outside {{ }}
+expr('Total: ' + $json.count)                       // ❌ Wrong
+```
+
+### 3.4 Credential Rules
+
+```javascript
+// ALWAYS use newCredential() for auth
+credentials: { whatsAppTriggerApi: newCredential('WhatsApp Business Account') }
+credentials: { httpHeaderAuth: newCredential('Supabase Service Role') }
+// NEVER hardcode API keys or use placeholder strings
+```
+
+### 3.5 Critical SDK Rules
+
+1. Every node MUST have `output` property with sample data
+2. Use descriptive node names (Good: "Find Block Officer"; Bad: "HTTP Request")
+3. `executeOnce: true` when a node doesn't need upstream items
+4. Expressions use `expr()` — always single/double quotes, never backticks
+5. `sticky()` for canvas notes (comments are ignored)
+
+---
+
+## 4. CURRENT DEPLOYMENT STATUS
+
+### 4.1 Existing Workflows on n8n (ALL INACTIVE — Need Rebuild)
+
+| WF | Name | ID | Status | triggerCount | Issue |
+|----|------|----|--------|-------------|-------|
+| WB-01 | WhatsApp Intake | `JtqTiQE6LJuZFl0I` | ❌ Inactive | **0** | Broken — no trigger configured (raw JSON) |
+| WB-02 | Auto-Assign | `bMnXIB6xSHRh5DkZ` | ❌ Inactive | **0** | Broken — no trigger configured (raw JSON) |
+| WB-03 | Notifications | `LN08yGeqKCqIr4uj` | ❌ Inactive | **0** | Built via raw JSON — needs SDK rebuild |
+| WB-05 | Status Check | `Eydrg83DYww48hrV` | ❌ Inactive | **0** | Built via raw JSON — needs SDK rebuild |
+| WB-06 | Rating Collection | `fMPfSmzh3Ip0aZwl` | ❌ Inactive | **0** | Built via raw JSON — needs SDK rebuild |
+| WB-07 | SLA Escalation | `6cflI9GtvV162RB9` | ❌ Inactive | **0** | Built via raw JSON — needs SDK rebuild |
+| WB-08 | Daily Report | `bTqSFtRq25l4XWEB` | ❌ Inactive | **0** | Built via raw JSON — needs SDK rebuild |
+
+### 4.2 Rebuild Strategy
+
+1. **Archive** all 7 existing workflows (they were built with raw JSON and are broken)
+2. **Rebuild** all 7 using SDK code via `create_workflow_from_code`
+3. **Validate** each workflow before creating
+4. **Test** each workflow with `prepare_test_pin_data` + `test_workflow`
+5. **Publish** after successful testing
+
+---
+
+## 5. SUPABASE DATABASE — Verified Schema
+
+### 5.1 Tables (5 tables, 2 views)
 
 | Table | @@map | Columns | Indexes |
 |-------|-------|---------|---------|
-| `User` | `users` | 16 | username(unique) |
-| `Complaint` | `complaints` | 27 | district, block, status, urgency, category, createdAt |
-| `ActivityLog` | `activity_logs` | 7 | complaintId, createdAt |
-| `Comment` | `comments` | 5 | complaintId |
-| `Feedback` | `feedback` | 7 | — |
+| User | `users` | 16 | username(unique) |
+| Complaint | `complaints` | 27 | district, block, status, urgency, category, createdAt |
+| ActivityLog | `activity_logs` | 8 | complaintId, createdAt |
+| Comment | `comments` | 5 | complaintId |
+| Feedback | `feedback` | 7 | — |
 
-### 2.2 Views
+### 5.2 Views
 
 | View | Purpose |
 |------|---------|
-| `complaint_stats` | Aggregated complaint statistics |
+| `complaint_stats` | Aggregated statistics |
 | `sla_at_risk` | SLA breach detection |
 
-### 2.3 `users` Table Columns
+### 5.3 complaints Table (27 columns — ALL verified)
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | String (CUID) | PK |
-| username | String | @unique |
-| passwordHash | String | bcrypt |
-| role | String | ADMIN, BLOCK, DISTRICT, STATE |
-| name | String | Display name |
-| block | String | Officer's block |
-| email | String? | |
-| district | String? | |
-| subdivision | String? | |
-| isActive | Boolean | default true |
-| whatsappPhone | String? | For notifications |
-| telegramChatId | String? | |
-| isDistrictHead | Boolean | default false |
-| notifyVia | String | whatsapp/telegram/both/none, default both |
-| createdAt | DateTime | |
-| updatedAt | DateTime | |
-
-### 2.4 `complaints` Table Columns
-
-| Column | Type | Notes |
-|--------|------|-------|
-| id | String (CUID) | PK |
-| ticketNo | String | @unique, format WB-01001 |
-| citizenName | String? | |
-| phone | String? | |
-| issue | String | required |
-| category | String | 10 categories |
-| village | String? | |
-| block | String | required |
-| subdivision | String? | Auto-derived |
-| district | String | required |
-| urgency | String | LOW/MEDIUM/HIGH/CRITICAL, default MEDIUM |
-| status | String | OPEN/IN_PROGRESS/RESOLVED/REJECTED, default OPEN |
-| description | String? | |
-| resolution | String? | |
-| assignedToId | String? | FK users.id |
-| assignedOfficerName | String? | |
-| source | String | WHATSAPP/MANUAL/WEB, default WHATSAPP |
-| n8nProcessed | Boolean | default false |
-| matchScore | Float? | |
-| riskLevel | String? | |
-| pct | Float? | |
-| tags | Json? | |
-| language | String | default "bn" |
-| satisfactionRating | Int? | 1-5 |
-| escalatedAt | DateTime? | |
-| resolvedAt | DateTime? | |
-| createdAt | DateTime | |
-| updatedAt | DateTime | |
+| Column | Type | Default | Notes |
+|--------|------|---------|-------|
+| id | CUID | auto | PK |
+| ticketNo | String | auto | WB-XXXXX format |
+| citizenName | String? | null | |
+| phone | String? | null | |
+| issue | String | required | |
+| category | String | — | 10 categories |
+| village | String? | null | |
+| block | String | required | |
+| subdivision | String? | auto | SUBDIVISION_MAP |
+| district | String | required | |
+| urgency | String | MEDIUM | LOW/MEDIUM/HIGH/CRITICAL |
+| status | String | OPEN | OPEN/IN_PROGRESS/RESOLVED/REJECTED |
+| description | String? | null | |
+| resolution | String? | null | |
+| assignedToId | String? | null | FK users.id |
+| assignedOfficerName | String? | null | |
+| source | String | WHATSAPP | WHATSAPP/MANUAL/WEB |
+| n8nProcessed | Boolean | false | |
+| matchScore | Float? | null | AI score 0-100 |
+| riskLevel | String? | null | |
+| pct | Float? | null | SLA breach % |
+| tags | String? | null | JSON array |
+| language | String | bn | bn/en/hi |
+| satisfactionRating | Int? | null | 1-5 |
+| escalatedAt | DateTime? | null | |
+| resolvedAt | DateTime? | null | |
+| createdAt | DateTime | now() | |
+| updatedAt | DateTime | auto | |
 
 ---
 
-## 3. N8N NODE REFERENCE (Researched via n8n-mcp)
-
-### 3.1 Critical Node Types
-
-| Node | Type (workflow JSON) | Type (search/validate) | Version | Credentials |
-|------|---------------------|----------------------|---------|-------------|
-| WhatsApp Trigger | `n8n-nodes-base.whatsAppTrigger` | `nodes-base.whatsAppTrigger` | 1 | `whatsAppTriggerApi` |
-| WhatsApp Send | `n8n-nodes-base.whatsApp` | `nodes-base.whatsApp` | 1.1 | Meta (built-in) |
-| HTTP Request | `n8n-nodes-base.httpRequest` | `nodes-base.httpRequest` | 4.4 | Optional |
-| Code (JS) | `n8n-nodes-base.code` | `nodes-base.code` | 2 | None |
-| Set | `n8n-nodes-base.set` | `nodes-base.set` | 3.4 | None |
-| Switch | `n8n-nodes-base.switch` | `nodes-base.switch` | 3.4 | None |
-| IF | `n8n-nodes-base.if` | `nodes-base.if` | 2.3 | None |
-| Webhook | `n8n-nodes-base.webhook` | `nodes-base.webhook` | 2.1 | Conditional |
-| Schedule Trigger | `n8n-nodes-base.scheduleTrigger` | `nodes-base.scheduleTrigger` | 1.3 | None |
-| Execute Workflow | `n8n-nodes-base.executeWorkflow` | `nodes-base.executeWorkflow` | 1.3 | None |
-| Execute WF Trigger | `n8n-nodes-base.executeWorkflowTrigger` | `nodes-base.executeWorkflowTrigger` | 1.1 | None |
-| Merge | `n8n-nodes-base.merge` | `nodes-base.merge` | 3.2 | None |
-| NoOp | `n8n-nodes-base.noOp` | `nodes-base.noOp` | 1 | None |
-| Postgres | `n8n-nodes-base.postgres` | `nodes-base.postgres` | 2.6 | `postgres` |
-
-### 3.2 Critical Gotchas (from n8n-skills)
-
-1. **WhatsApp Trigger**: Only ONE per Facebook App — all events through single trigger
-2. **WhatsApp Send**: `sendAndWait=true` for conversational flows; max 4096 chars
-3. **Switch**: Unmatched items **DROPPED** by default — always set `fallbackOutput`
-4. **IF**: Unmatched items go to `false` output (NOT dropped)
-5. **HTTP Request**: Default 10s timeout; use credentials type for API keys
-6. **Webhook**: Production URL ≠ Test URL; use `responseMode: "onReceived"` for async
-7. **Code**: Use `return [{ json: {...} }]` format; webhook data under `$json.body`
-8. **Set**: API type is `set` (not `setItem`); `dotNotation=true` by default
-9. **Schedule Trigger**: Must be ACTIVE for cron to run
-10. **nodeType format**: `n8n-nodes-base.X` for creation, `nodes-base.X` for search/validate
-
----
-
-## 4. WORKFLOW SPECIFICATIONS (7 Workflows)
+## 6. WORKFLOW SPECIFICATIONS (7 Workflows)
 
 ---
 
 ### WF-01: WhatsApp Intake → Create Complaint + Route
 
-**Status**: ❌ Not deployed (failed validation in v1 attempt — will fix)
 **Trigger**: WhatsApp Trigger (Meta Cloud API)
-**Credential**: `whatsAppTriggerApi`
+**Credential**: `whatsAppTriggerApi` → `newCredential('WhatsApp Business Account')`
+**Purpose**: Receive WhatsApp messages, route to status check / rating / new complaint
 
 #### Node Flow:
 
 ```
-[WhatsApp Trigger] ──► [Code: Parse & Route] ──► [Switch: messageType]
-                                                            │
-                    ┌───────────────────┼───────────────────┐
-                    ▼                   ▼                   ▼
-            [status_check]        [rating]          [new_complaint]
-                    │                   │                   │
-                    ▼                   ▼                   ▼
-            [Execute WF-05]      [Execute WF-06]   [HTTP: POST /webhook/complaint]
-                                                                 │
-                                                                 ▼
-                                                            [IF: success?]
-                                                            │           │
-                                                        [true]      [false]
-                                                            │           │
-                                                            ▼           ▼
-                                                    [WA: Confirm]  [WA: Error]
-                                                            │
-                                                            ▼
-                                                    [Execute WF-02]
+[WhatsApp Trigger] → [Code: Parse & Route] → [Switch: messageType]
+                                                       │
+                           ┌───────────────────────────┼───────────────────┐
+                           ▼                           ▼                   ▼
+                    [status_check]                [rating]          [new_complaint]
+                           │                           │                   │
+                           ▼                           ▼                   ▼
+                    [Execute WF-05]              [Execute WF-06]   [HTTP: /webhook/complaint]
+                                                                       │
+                                                                       ▼
+                                                                  [IF: success?]
+                                                                  │           │
+                                                              [true]      [false]
+                                                                  │           │
+                                                                  ▼           ▼
+                                                          [WA: Confirm]  [WA: Error]
+                                                                  │
+                                                                  ▼
+                                                          [Execute WF-02]
 ```
 
-#### Detailed Node Configuration:
+#### SDK Code Pattern:
 
-**Node 1: WhatsApp Trigger**
-- type: `n8n-nodes-base.whatsAppTrigger`
-- typeVersion: 1
-- parameters.event: `messages`
-- credentials: whatsAppTriggerApi
+```javascript
+import { workflow, node, trigger, ifElse, switchCase, expr, newCredential } from '@n8n/workflow-sdk';
 
-**Node 2: Code — Parse & Route Message**
-- type: `n8n-nodes-base.code`
-- typeVersion: 2
-- JS Logic:
-  ```javascript
-  // Extract from WA event structure
-  const body = $('WhatsApp Trigger').first().json.body || {};
-  const contacts = body.contacts || [];
-  const messages = body.messages || [];
-  const msg = messages[0] || {};
-  const contact = contacts[0] || {};
-  const text = msg.text?.body || '';
-  const waId = msg.from;  // WhatsApp ID
-  const phone = contact.wa_id || waId;
+const waTrigger = trigger({
+  type: 'n8n-nodes-base.whatsAppTrigger',
+  version: 1,
+  config: {
+    name: 'WhatsApp Trigger',
+    credentials: { whatsAppTriggerApi: newCredential('WhatsApp Business Account') },
+    position: [240, 300]
+  },
+  output: [{ body: { contacts: [{ wa_id: '919876543210' }], messages: [{ text: { body: 'WB-01001' }, from: '919876543210' }] } }]
+});
 
-  let messageType = 'new_complaint';
-  let data = {};
+const parseRoute = node({
+  type: 'n8n-nodes-base.code',
+  version: 2,
+  config: {
+    name: 'Parse & Route Message',
+    parameters: {
+      jsCode: `const body = $('WhatsApp Trigger').first().json.body || {};
+const contacts = body.contacts || [];
+const messages = body.messages || [];
+const msg = messages[0] || {};
+const contact = contacts[0] || {};
+const text = msg.text?.body || '';
+const waId = msg.from;
+const phone = contact.wa_id || waId;
 
-  // Check ticket pattern: WB-XXXXX
-  const ticketMatch = text.match(/WB-\d{5}/i);
-  if (ticketMatch) {
-    messageType = 'status_check';
-    data.ticketNo = ticketMatch[0].toUpperCase();
-  }
-  // Check rating: single digit 1-5
-  else if (/^[1-5]$/.test(text.trim())) {
-    messageType = 'rating';
-    data.rating = parseInt(text.trim());
-  }
-  else {
-    messageType = 'new_complaint';
-    data = {
-      citizenName: contact.profile?.name || '',
-      phone: phone,
-      issue: text.substring(0, 200),
-      category: 'Other',
-      block: '',
-      district: '',
-      urgency: 'MEDIUM',
-      village: '',
-      description: text,
-      language: 'bn'
-    };
-  }
+let messageType = 'new_complaint';
+let data = {};
 
-  return [{ json: { messageType, phone, waId, text, ...data } }];
-  ```
+const ticketMatch = text.match(/WB-\\d{5}/i);
+if (ticketMatch) {
+  messageType = 'status_check';
+  data.ticketNo = ticketMatch[0].toUpperCase();
+} else if (/^[1-5]$/.test(text.trim())) {
+  messageType = 'rating';
+  data.rating = parseInt(text.trim());
+} else {
+  messageType = 'new_complaint';
+  data = { citizenName: contact.profile?.name || '', phone, issue: text.substring(0, 200), category: 'Other', block: '', district: '', urgency: 'MEDIUM', village: '', description: text, language: 'bn' };
+}
 
-**Node 3: Switch — Route by Type**
-- type: `n8n-nodes-base.switch`
-- typeVersion: 3.4
-- value1: `{{ $json.messageType }}`
-- Rule 1: equals `status_check` → output 0
-- Rule 2: equals `rating` → output 1
-- fallbackOutput: 2 (→ new_complaint)
+return [{ json: { messageType, phone, waId, text, ...data } }];`
+    },
+    position: [480, 300]
+  },
+  output: [{ messageType: 'new_complaint', phone: '919876543210', waId: '919876543210', text: 'No water supply', citizenName: 'Rahul', issue: 'No water supply', category: 'Other', block: '', district: '', urgency: 'MEDIUM' }]
+});
 
-**Node 4: HTTP Request — Create Complaint**
-- type: `n8n-nodes-base.httpRequest`
-- typeVersion: 4.4
-- method: POST
-- url: `https://wb-grievance-portal.vercel.app/api/webhook/complaint`
-- body: JSON from data fields
-- timeout: 15000ms
-
-**Node 5: IF — Check Success**
-- type: `n8n-nodes-base.if`
-- typeVersion: 2.3
-- condition: `$json.success == true`
-
-**Node 6: WhatsApp — Send Confirmation**
-- type: `n8n-nodes-base.whatsApp`
-- typeVersion: 1.1
-- phoneNumberId: `1125704830617135`
-- recipientPhoneNumber: `{{ $('Parse & Route').json.phone }}`
-- Message template (Bengali + English):
-  ```
-  ✅ অভিযোগ নিবন্ধন সফল!
-  Complaint Registered Successfully!
-
-  🎫 টিকেট নং: {{ $json.ticketNo }}
-  📌 বিষয়: {{ $json.issue }}
-  📂 বিভাগ: {{ $json.category }}
-  📍 অবস্থান: {{ $json.block }}, {{ $json.district }}
-  🔴 জরুরিতা: {{ $json.urgency }}
-
-  আপনার অভিযোগ গ্রহণ করা হয়েছে।
-  Your complaint has been received.
-
-  📊 স্ট্যাটাস চেক: {{ $json.ticketNo }} লিখে পাঠান
-  ```
-
-**Node 7: WhatsApp — Send Error**
-- type: `n8n-nodes-base.whatsApp`
-- Message: `❌ দুঃখিত, অভিযোগ নিবন্ধন ব্যর্থ হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।`
-
-**Node 8: Execute Workflow — WB-02**
-- type: `n8n-nodes-base.executeWorkflow`
-- typeVersion: 1.3
-- workflowId: (resolved after WB-02 deployment)
+// ... Switch, HTTP Request, IF, WA Send nodes follow same pattern
+```
 
 ---
 
 ### WF-02: Auto-Assign Officer
 
-**Status**: ❌ Not deployed (null connection in v1 — will fix)
 **Trigger**: Execute Workflow Trigger (called from WB-01)
-**Approach**: Query Supabase directly for officer matching
+**Purpose**: Query Supabase for matching officer, assign, notify citizen
 
 #### Node Flow:
 
 ```
-[Execute WF Trigger] ──► [Supabase: Find Officers] ──► [Code: Select Best]
-                                                              │
-                                                        [Has Officer?]
-                                                        │           │
-                                                    [true]      [false]
-                                                        │           │
-                                                        ▼           ▼
-                                                [Supabase: Update]  [NoOp]
-                                                        │
-                                                        ▼
-                                                [WA: Notify Citizen]
+[Execute WF Trigger] → [HTTP: Supabase GET users] → [Code: Select Best] → [IF: Has Officer?]
+                                                                               │           │
+                                                                           [true]      [false]
+                                                                               │           │
+                                                                               ▼           ▼
+                                                                    [HTTP: Supabase    [NoOp]
+                                                                     PATCH complaints]
+                                                                               │
+                                                                               ▼
+                                                                    [WA: Notify Citizen]
 ```
 
-#### Detailed Node Configuration:
-
-**Node 1: Execute Workflow Trigger**
-- type: `n8n-nodes-base.executeWorkflowTrigger`
-- typeVersion: 1.1
-
-**Node 2: Supabase REST — Find Matching Officers**
-- type: `n8n-nodes-base.httpRequest`
-- typeVersion: 4.4
-- method: GET
-- url: `https://sxdtipaspfolrpqrwadt.supabase.co/rest/v1/users`
-- query params:
-  - `role`: `eq.BLOCK`
-  - `block`: `eq.{{ $json.block }}`
-  - `isActive`: `eq.true`
-  - `select`: `id,name,block,district,whatsappPhone,notifyVia`
-- headers:
-  - `apikey`: `<SUPABASE_SERVICE_ROLE_KEY>`
-  - `Authorization`: `Bearer <SUPABASE_SERVICE_ROLE_KEY>`
-
-**Node 3: Code — Select Best Officer**
-- Logic: Sort by least active complaints (or first available)
-  ```javascript
-  const officers = $input.first().json;
-  const list = Array.isArray(officers) ? officers : [officers];
-
-  if (list.length === 0) {
-    return [{ json: { officerId: null, officerName: null, hasOfficer: false } }];
-  }
-
-  // Pick first available (round-robin can be added later)
-  const officer = list[0];
-  return [{
-    json: {
-      officerId: officer.id,
-      officerName: officer.name,
-      officerPhone: officer.whatsappPhone,
-      hasOfficer: true
-    }
-  }];
-  ```
-
-**Node 4: IF — Has Officer?**
-- condition: `$json.hasOfficer == true`
-
-**Node 5: Supabase REST — Update Complaint**
-- type: `n8n-nodes-base.httpRequest`
-- method: PATCH
-- url: `https://sxdtipaspfolrpqrwadt.supabase.co/rest/v1/complaints?id=eq.{{ $('Execute WF Trigger').json.complaintId }}`
-- body: `{ "assignedToId": "{{ $json.officerId }}", "assignedOfficerName": "{{ $json.officerName }}" }`
-- Prefer header: `return=representation`
-
-**Node 6: WhatsApp — Notify Citizen of Assignment**
-- Message:
-  ```
-  📋 অভিজ্ঞতা আপডেট | Update on Your Complaint
-
-  🎫 টিকেট: {{ $('Execute WF Trigger').json.ticketNo }}
-  👤 দায়িত্বপ্রাপ্ত কর্মকর্তা: {{ $json.officerName }}
-  📍 ব্লক: {{ $('Execute WF Trigger').json.block }}
-
-  আপনার অভিযোগের দায়িত্ব একজন কর্মকর্তার কাছে দেওয়া হয়েছে।
-  An officer has been assigned to your complaint.
-  ```
-
-**Node 7: NoOp — No Officer Available**
-- type: `n8n-nodes-base.noOp`
+**Key Logic**: Query `users` where `role=eq.BLOCK`, `block=eq.{{block}}`, `isActive=eq.true`. Pick officer with least active complaints. PATCH `complaints` to set `assignedToId` + `assignedOfficerName`.
 
 ---
 
 ### WF-03: Citizen & Officer Notifications
 
-**Status**: ✅ Deployed (ID: `qpP2eF30FT71ygxf`) — needs enhancement
-**Trigger**: Two Webhook nodes (separate paths)
+**Trigger**: Two Webhook nodes (dual webhook workflow)
+**Purpose**: Send WhatsApp notifications for status changes, assignments, escalations
 
 #### Node Flow:
 
 ```
-[Webhook: /notify-citizen] ──► [Supabase: Get Complaint] ──► [Code: Format Message] ──► [WA: Send]
+[Webhook: /wb-notify-citizen]  → [Code: Route by source]  → [Switch]
+                                                               │
+                                              ┌────────────────┼────────────────┐
+                                              ▼                ▼                ▼
+                                       [status_change]  [sla_batch]    [escalation]
+                                              │                │                │
+                                              ▼                ▼                ▼
+                                     [Supabase: Get    [Loop: Each    [Supabase: Get
+                                      complaint]         complaint]     complaint]
+                                              │                │                │
+                                              ▼                ▼                ▼
+                                     [Code: Format]     [Code: Format]  [Code: Format]
+                                              │                │                │
+                                              ▼                ▼                ▼
+                                     [WA: Send]          [WA: Send]     [WA: Send]
 
-[Webhook: /notify-officer] ──► [Supabase: Get User] ──► [Code: Format Message] ──► [WA: Send]
+[Webhook: /wb-notify-officer]  → [Code: Route by source]  → [Switch]
+                                                               │
+                                              ┌────────────────┼────────────────┐
+                                              ▼                                 ▼
+                                       [assignment]                        [escalation]
+                                              │                                 │
+                                              ▼                                 ▼
+                                     [Supabase: Get                     [Supabase: Get
+                                      user + complaint]                  user + complaint]
+                                              │                                 │
+                                              ▼                                 ▼
+                                     [Code: Format +                    [Code: Format +
+                                      Notify Targets]                     Notify Targets]
+                                              │                                 │
+                                              ▼                                 ▼
+                                     [Loop + WA Send]                    [Loop + WA Send]
 ```
 
-#### Webhook Paths:
-- `POST /notify-citizen` — status changes, SLA alerts
-- `POST /notify-officer` — assignments, escalations
+**Key Feature**: `URGENCY_NOTIFICATION_MAP` determines additional targets:
+- CRITICAL → Block + District + District Head + Admin
+- HIGH → Block + District
+- MEDIUM/LOW → Block only
 
-#### Citizen Notification Message Templates:
+---
 
-**Status → IN_PROGRESS:**
+### WF-05: Status Check by Ticket Number
+
+**Trigger**: Execute Workflow Trigger (called from WB-01)
+**Purpose**: Citizen sends WB-XXXXX → query Supabase → reply with status
+
+#### Node Flow:
+
 ```
-🔄 স্ট্যাটাস আপডেট | Status Update
+[Execute WF Trigger] → [HTTP: Supabase GET by ticketNo] → [IF: Found?] → [Code: Format Status] → [WA: Send]
+                                                                    │
+                                                                    ▼
+                                                               [WA: Not Found]
+```
+
+---
+
+### WF-06: Rating Collection
+
+**Trigger**: Execute Workflow Trigger (called from WB-01)
+**Purpose**: Citizen replies 1-5 → find resolved complaint by phone → update rating
+
+#### Node Flow:
+
+```
+[Execute WF Trigger] → [Code: Validate 1-5] → [IF: Valid?] → [HTTP: Supabase GET resolved by phone] → [HTTP: Supabase PATCH rating] → [WA: Thank You]
+                                                        │
+                                                        ▼
+                                                   [WA: Invalid Rating]
+```
+
+**v3.0**: Direct Supabase UPDATE (no JWT needed with service_role key)
+
+---
+
+### WF-07: SLA Breach Escalation (Every 2 Hours)
+
+**Trigger**: Schedule Trigger — `0 */2 * * *` (every 2 hours)
+**Purpose**: Check SLA breaches, escalate urgency, notify admins
+
+#### Node Flow:
+
+```
+[Schedule: 2h] → [HTTP: POST /api/complaints/escalate-batch] → [IF: Has Breaches?] → [Code: Format Report] → [Supabase: Get Admins] → [Loop + WA: Send Report]
+                                                                              │
+                                                                              ▼
+                                                                         [NoOp]
+```
+
+**Why calls Next.js**: `/escalate-batch` handles multi-table transaction (escalate + log activity + set escalatedAt + cascade notifications).
+
+---
+
+### WF-08: Daily Report (9 AM IST)
+
+**Trigger**: Schedule Trigger — `0 9 * * *` (daily 9 AM IST, timezone Asia/Kolkata)
+**Purpose**: Aggregate stats, send daily report to admins + district heads
+
+#### Node Flow:
+
+```
+[Schedule: 9AM IST] → [HTTP: GET /api/dashboard] → [Code: Format Report] → [Supabase: Get Admins + District Heads] → [Loop + WA: Send Report]
+```
+
+---
+
+## 7. WHATSAPP MESSAGE TEMPLATES (Bengali + English)
+
+### 7.1 Complaint Registration (WB-01)
+```
+✅ অভিযোগ নিবন্ধন সফল!
+Complaint Registered Successfully!
+
+🎫 টিকেট নং: {{ ticketNo }}
+📌 বিষয়: {{ issue }}
+📂 বিভাগ: {{ category }}
+📍 অবস্থান: {{ block }}, {{ district }}
+🔴 জরুরিতা: {{ urgency }}
+
+আপনার অভিযোগ গ্রহণ করা হয়েছে।
+Your complaint has been received.
+
+📊 স্ট্যাটাস চেক: {{ ticketNo }} লিখে পাঠান
+```
+
+### 7.2 Officer Assignment (WB-02 → Citizen)
+```
+📋 অভিজ্ঞতা আপডেট | Update on Your Complaint
+
 🎫 টিকেট: {{ ticketNo }}
-📌 স্ট্যাটাস: 🟡 IN_PROGRESS | চলমান
-আপনার অভিযোগের কাজ শুরু হয়েছে।
+👤 দায়িত্বপ্রাপ্ত কর্মকর্তা: {{ officerName }}
+📍 ব্লক: {{ block }}
+
+আপনার অভিযোগের দায়িত্ব একজন কর্মকর্তার কাছে দেওয়া হয়েছে।
+An officer has been assigned to your complaint.
 ```
 
-**Status → RESOLVED:**
-```
-✅ অভিযোগ সমাধান | Complaint Resolved
-🎫 টিকেট: {{ ticketNo }}
-📝 সমাধান: {{ resolution }}
-
-⭐ আপনার অভিজ্ঞতা রেট করুন (Reply 1-5):
-1=খুব খারাপ 2=খারাপ 3=গড় 4=ভালো 5=খুব ভালো
-```
-
-**SLA Breach:**
-```
-⚠️ SLA লঙ্ঘন | SLA Breach Notice
-🎫 টিকেট: {{ ticketNo }}
-🔴 আপনার অভিযোগ এসক্যালেট করা হয়েছে
-```
-
-#### Officer Notification Message Templates:
-
-**New Assignment:**
+### 7.3 New Complaint to Officer (WB-03)
 ```
 🔔 নতুন অভিযোগ নিয়োগ | New Complaint Assigned
+
 🎫 টিকেট: {{ ticketNo }}
 📌 বিষয়: {{ issue }}
 📂 বিভাগ: {{ category }}
@@ -486,326 +593,15 @@ Headers:
 📞 নাগরিক: {{ citizenName }} ({{ phone }})
 
 অনুগ্রহ করে শীঘ্র ব্যবস্থা নিন।
-```
-
-**Escalation:**
-```
-🚨 এসক্যালেশন সতর্কতা | Escalation Alert
-🎫 টিকেট: {{ ticketNo }}
-⬆️ জরুরিতা: {{ previousUrgency }} → {{ newUrgency }}
-⏰ কারণ: {{ reason }}
-```
-
----
-
-### WF-05: Status Check by Ticket Number
-
-**Status**: ✅ Deployed (ID: `pdk9tjgfVaaBkZB3`) — needs enhancement
-**Trigger**: Execute Workflow Trigger (called from WB-01)
-
-#### Node Flow:
-
-```
-[Execute WF Trigger] ──► [Supabase: Query by ticketNo] ──► [IF: Found?]
-                                                            │         │
-                                                        [true]    [false]
-                                                            │         │
-                                                            ▼         ▼
-                                                    [Code: Format]   [WA: Not Found]
-                                                            │
-                                                            ▼
-                                                    [WA: Send Status]
-```
-
-#### Supabase Query:
-```
-GET /rest/v1/complaints?ticketNo=eq.{{ $json.ticketNo }}&select=*
-```
-
-#### Status Response Template:
-```
-📊 টিকেট স্ট্যাটাস | Ticket Status
-🎫 টিকেট নং: {{ ticketNo }}
-📌 বিষয়: {{ issue }}
-📂 বিভাগ: {{ category }}
-📍 অবস্থান: {{ block }}, {{ district }}
-🔴 জরুরিতা: {{ urgency }}
-📊 স্ট্যাটাস: {{ status }}
-👤 দায়িত্বপ্রাপ্ত: {{ assignedOfficerName || 'অনুনিয়োগিত' }}
-📅 দায়েরের তারিখ: {{ createdAt }}
-```
-
----
-
-### WF-06: Rating Collection
-
-**Status**: ✅ Deployed (ID: `Y5xKEFAxT8b4uBYF`) — needs fix
-**Trigger**: Execute Workflow Trigger (called from WB-01)
-**v2.0 Change**: Uses **direct Supabase UPDATE** instead of authenticated API call
-
-#### Node Flow:
-
-```
-[Execute WF Trigger] ──► [Code: Validate 1-5] ──► [IF: Valid?]
-                                                        │       │
-                                                    [true]  [false]
-                                                        │       │
-                                                        ▼       ▼
-                                                [Supabase: Query    [WA: Invalid]
-                                                resolved by phone]
-                                                        │
-                                                        ▼
-                                                [Supabase: Update
-                                                satisfactionRating]
-                                                        │
-                                                        ▼
-                                                [WA: Thank You]
-```
-
-#### v2.0 Fix:
-Instead of calling `/api/complaints/[id]/rate` (which requires JWT), n8n directly updates Supabase:
-```
-PATCH /rest/v1/complaints?id=eq.{{ complaintId }}
-Body: { "satisfactionRating": {{ rating }} }
-```
-
----
-
-### WF-07: SLA Breach Escalation (Every 2 Hours)
-
-**Status**: ✅ Deployed (ID: `sDhcmuV8G13fOB3d`) — needs enhancement
-**Trigger**: Schedule Trigger — every 2 hours
-**v2.0 Change**: Uses Next.js `/escalate-batch` API (handles complex multi-table ops)
-
-#### Node Flow:
-
-```
-[Schedule Trigger: 2h] ──► [HTTP: POST /escalate-batch] ──► [IF: Has Breaches?]
-                                                                    │         │
-                                                                [true]    [false]
-                                                                    │         │
-                                                                    ▼         ▼
-                                                            [Code: Format    [NoOp]
-                                                            Report]
-                                                                    │
-                                                                    ▼
-                                                            [Supabase: Get
-                                                            Admin Users]
-                                                                    │
-                                                                    ▼
-                                                            [WA: Send to
-                                                            Each Admin]
-```
-
-#### Why NOT direct Supabase for SLA:
-The `/escalate-batch` API:
-1. Queries `sla_at_risk` view
-2. Escalates urgency per complaint
-3. Logs `ESCALATED` activity for each
-4. Sets `escalatedAt` timestamp
-5. Cascades notifications to WB-03 (citizen + officer)
-
-This complex multi-table transaction is best handled by the Next.js API.
-
----
-
-### WF-08: Daily Report (9 AM IST)
-
-**Status**: ✅ Deployed (ID: `QAHQvApfq58lDHab`) — needs enhancement
-**Trigger**: Schedule Trigger — daily at 9:00 AM IST
-**Timezone**: Asia/Kolkata
-
-#### Node Flow:
-
-```
-[Schedule: 9AM IST] ──► [HTTP: GET /dashboard] ──► [Merge] ──► [Code: Format]
-                       [HTTP: GET /reports/weekly]            │
-                                                             ▼
-                                                     [Supabase: Get Admins
-                                                     + District Heads]
-                                                             │
-                                                             ▼
-                                                     [WA: Send Report
-                                                     to Each Admin]
-```
-
-#### Daily Report Template:
-```
-📋 WB Grievance Portal — Daily Report
-📅 {{ date }}
-
-📊 সারসংক্ষেপ | Summary:
-├ 📥 নতুন অভিযোগ: {{ newToday }}
-├ ✅ সমাধান: {{ resolved }}
-├ 🔄 চলমান: {{ inProgress }}
-├ 📤 খোলা: {{ open }}
-├ ❌ বাতিল: {{ rejected }}
-└ ⚠️ SLA লঙ্ঘন: {{ breached }}
-
-🔴 By Urgency:
-├ Critical: {{ critical }}
-├ High: {{ high }}
-├ Medium: {{ medium }}
-└ Low: {{ low }}
-
-📂 By Category:
-├ Water Supply: {{ waterSupply }}
-├ Road Damage: {{ roadDamage }}
-└ ...
-
-⭐ Avg Rating: {{ avgRating }}/5 (last 7 days)
-```
-
----
-
-## 5. SUPABASE REST API CHEAT SHEET
-
-### 5.1 Authentication Headers (ALL requests)
-```
-apikey: <SUPABASE_SERVICE_ROLE_KEY>
-Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>
-Content-Type: application/json
-Prefer: return=representation
-```
-
-### 5.2 Common Operations
-
-| Operation | Method | URL Pattern |
-|-----------|--------|-------------|
-| List | GET | `/rest/v1/{table}?column=eq.value&select=col1,col2` |
-| Get One | GET | `/rest/v1/{table}?id=eq.VALUE&select=*` |
-| Create | POST | `/rest/v1/{table}` with JSON body |
-| Update | PATCH | `/rest/v1/{table}?id=eq.VALUE` with JSON body |
-| Delete | DELETE | `/rest/v1/{table}?id=eq.VALUE` |
-| Count | GET | `/rest/v1/{table}?select=count`, Header: `Prefer: count=exact` |
-| Filter | GET | `/rest/v1/{table}?col1=eq.val&col2=gt.5&col3=like.*text*` |
-| Order | GET | `/rest/v1/{table}?order=createdAt.desc` |
-| Limit | GET | `/rest/v1/{table}?limit=10&offset=20` |
-| RPC | POST | `/rest/v1/rpc/{function_name}` with params |
-
-### 5.3 Column Name Quoting
-PostgreSQL camelCase columns need double-quoting in raw SQL but NOT in REST API:
-- REST API: `?ticketNo=eq.WB-01001` ✅
-- Raw SQL: `WHERE "ticketNo" = 'WB-01001'` ✅
-
----
-
-## 6. ENVIRONMENT VARIABLES NEEDED IN n8n
-
-| Variable | Value | Purpose |
-|----------|-------|---------|
-| `SUPABASE_URL` | `https://sxdtipaspfolrpqrwadt.supabase.co` | Supabase REST API base |
-| `SUPABASE_SERVICE_ROLE_KEY` | (from .env) | Full access to all tables |
-| `PORTAL_URL` | `https://wb-grievance-portal.vercel.app` | Next.js API base |
-| `WA_PHONE_NUMBER_ID` | `1125704830617135` | WhatsApp Business phone |
-| `WA_ACCESS_TOKEN` | (from Meta Developer Portal) | WhatsApp API access |
-
-### n8n Credentials to Configure:
-1. **Supabase** — URL + service_role key (or use HTTP Request with headers)
-2. **WhatsApp Business Cloud API** — Phone Number ID + Access Token
-3. **PostgreSQL** (optional) — Direct DB connection for complex queries
-
----
-
-## 7. DEPLOYMENT STATUS
-
-| WF | Name | ID | Status | Needs Update |
-|----|------|----|--------|-------------|
-| WB-01 | WhatsApp Intake | — | ❌ Not deployed | Full rebuild needed |
-| WB-02 | Auto-Assign | — | ❌ Not deployed | Full rebuild needed |
-| WB-03 | Notifications | `qpP2eF30FT71ygxf` | ✅ Inactive | Supabase direct access |
-| WB-05 | Status Check | `pdk9tjgfVaaBkZB3` | ✅ Inactive | Supabase direct access |
-| WB-06 | Rating Collection | `Y5xKEFAxT8b4uBYF` | ✅ Inactive | Direct Supabase UPDATE |
-| WB-07 | SLA Escalation | `sDhcmuV8G13fOB3d` | ✅ Inactive | Keep API call |
-| WB-08 | Daily Report | `QAHQvApfq58lDHab` | ✅ Inactive | Keep API call |
-
-### Next Steps:
-1. Delete WB-03, WB-05, WB-06, WB-07, WB-08 (will rebuild with improvements)
-2. Create WB-01 with fixed validation (no null connections, no disconnected nodes)
-3. Create WB-02 with Supabase direct access
-4. Rebuild WB-03 with proper dual webhook + Supabase queries
-5. Rebuild WB-05 with Supabase direct query
-6. Rebuild WB-06 with direct Supabase UPDATE
-7. Rebuild WB-07 with enhanced error handling
-8. Rebuild WB-08 with enhanced formatting
-9. Configure credentials in n8n instance
-10. Activate all workflows
-11. Test end-to-end
-
----
-
-## 8. WHATSAPP MESSAGE TEMPLATES (Complete Reference)
-
-### 8.1 Complaint Registration (WB-01)
-```
-✅ অভিযোগ নিবন্ধন সফল!
-Complaint Registered Successfully!
-
-🎫 টিকেট নং: WB-01001
-📌 বিষয়: No water supply for 3 days
-📂 বিভাগ: Water Supply | পানি সরবরাহ
-📍 অবস্থান: Krishnanagar, Nadia
-🔴 জরুরিতা: HIGH | উচ্চ
-📅 সময়: 15 Jan 2025, 10:30 AM
-
-আপনার অভিযোগ গ্রহণ করা হয়েছে। শীঘ্রই আপনার সাথে যোগাযোগ করা হবে।
-Your complaint has been received. You will be contacted soon.
-
-📊 স্ট্যাটাস চেক করতে: WB-01001 লিখে পাঠান
-```
-
-### 8.2 Officer Assignment (WB-02)
-```
-📋 অভিজ্ঞতা আপডেট | Update on Your Complaint
-
-🎫 টিকেট: WB-01001
-👤 দায়িত্বপ্রাপ্ত কর্মকর্তা: অমিত ব্যানার্জি (Block Officer)
-📍 ব্লক: Krishnanagar
-
-আপনার অভিযোগের দায়িত্ব একজন কর্মকর্তার কাছে দেওয়া হয়েছে।
-An officer has been assigned to your complaint.
-```
-
-### 8.3 New Complaint to Officer (WB-03)
-```
-🔔 নতুন অভিযোগ নিয়োগ | New Complaint Assigned
-
-🎫 টিকেট: WB-01001
-📌 বিষয়: No water supply for 3 days
-📂 বিভাগ: Water Supply
-📍 ব্লক: Krishnanagar, Nadia
-🔴 জরুরিতা: HIGH
-📞 নাগরিক: Rahul Kumar (+919876543210)
-
-অনুগ্রহ করে শীঘ্র ব্যবস্থা নিন।
 Please take action at the earliest.
-
-🔗 পোর্টালে দেখুন: https://wb-grievance-portal.vercel.app
 ```
 
-### 8.4 Status Change to Citizen (WB-03)
-
-**IN_PROGRESS:**
-```
-🔄 স্ট্যাটাস আপডেট | Status Update
-
-🎫 টিকেট: WB-01001
-📌 স্ট্যাটাস: 🟡 IN_PROGRESS | চলমান
-📝 মন্তব্য: Officer is inspecting the area
-
-আপনার অভিযোগের কাজ শুরু হয়েছে।
-Work on your complaint has started.
-```
-
-**RESOLVED:**
+### 7.4 Status Change — RESOLVED (with rating prompt)
 ```
 ✅ অভিযোগ সমাধান | Complaint Resolved
 
-🎫 টিকেট: WB-01001
-📝 সমাধান: Water supply has been restored.
-
-আপনার অভিযোগ সমাধান করা হয়েছে।
-Your complaint has been resolved.
+🎫 টিকেট: {{ ticketNo }}
+📝 সমাধান: {{ resolution }}
 
 ⭐ আপনার অভিজ্ঞতা রেট করুন (Reply 1-5):
 1 = খুব খারাপ | Very Poor
@@ -815,123 +611,37 @@ Your complaint has been resolved.
 5 = খুব ভালো | Excellent
 ```
 
-**REJECTED:**
+### 7.5 SLA Breach to Citizen (WB-03/WB-07)
 ```
-❌ অভিযোগ বাতিল | Complaint Rejected
+⚠️ SLA লঙ্ঘন | SLA Breach Notice
 
-🎫 টিকেট: WB-01001
-📝 কারণ: Duplicate complaint
-
-বিস্তারিত জানতে আপনার ব্লক অফিসে যোগাযোগ করুন।
-Contact your block office for details.
-```
-
-### 8.5 SLA Breach Alert (WB-03/WB-07)
-
-**To Citizen:**
-```
-⚠️ SLA লঙ্ঘন বিজ্ঞপ্তি | SLA Breach Notice
-
-🎫 টিকেট: WB-01001
+🎫 টিকেট: {{ ticketNo }}
 🔴 আপনার অভিযোগ এসক্যালেট করা হয়েছে
 Your complaint has been escalated to higher priority.
-
-আমরা আপনার অভিযোগের জরুরিতা বাড়িয়েছি। শীঘ্রই ব্যবস্থা নেওয়া হবে।
 ```
 
-**To Officer:**
-```
-🚨 এসক্যালেশন সতর্কতা | Escalation Alert
-
-🎫 টিকেট: WB-01001
-📌 বিষয়: No water supply for 3 days
-⬆️ জরুরিতা পরিবর্তন: HIGH → CRITICAL
-📍 ব্লক: Krishnanagar, Nadia
-⏰ কারণ: SLA Breach — 12 ঘণ্টার সময়সীমা অতিক্রান্ত
-
-এটি একটি উচ্চ-অগ্রাধিকার এসক্যালেশন। অবিলম্বে ব্যবস্থা নিন।
-```
-
-### 8.6 Status Check Response (WB-05)
-```
-📊 টিকেট স্ট্যাটাস | Ticket Status
-
-🎫 টিকেট নং: WB-01001
-📌 বিষয়: No water supply for 3 days
-📂 বিভাগ: Water Supply | পানি সরবরাহ
-📍 অবস্থান: Krishnanagar, Nadia
-🔴 জরুরিতা: HIGH
-📊 বর্তমান স্ট্যাটাস: 🟡 IN_PROGRESS | চলমান
-👤 দায়িত্বপ্রাপ্ত: অমিত ব্যানার্জি
-📅 দায়েরের তারিখ: 15 Jan 2025
-🕐 শেষ আপডেট: 16 Jan 2025, 02:30 PM
-```
-
-### 8.7 Rating Thank You (WB-06)
-```
-🙏 ধন্যবাদ! Thank You!
-
-আপনার WB-01001 টিকেটের জন্য ⭐ 4/5 রেটিং পেয়েছি।
-We received your ⭐ 4/5 rating for ticket WB-01001.
-
-আপনার মতামত আমাদের সেবা উন্নত করতে সাহায্য করে।
-Your feedback helps us improve our service.
-
-🔗 পোর্টাল: https://wb-grievance-portal.vercel.app
-```
-
-### 8.8 Daily Report (WB-08)
+### 7.6 Daily Report (WB-08)
 ```
 📋 WB Grievance Portal — Daily Report
-📅 15 January 2025
+📅 {{ date }}
 
 📊 সারসংক্ষেপ | Summary:
-├ 📥 নতুন অভিযোগ: 12
-├ ✅ সমাধান: 8
-├ 🔄 চলমান: 45
-├ 📤 খোলা: 23
-├ ❌ বাতিল: 2
-└ ⚠️ SLA লঙ্ঘন: 3
+├ 📥 নতুন অভিযোগ: {{ newToday }}
+├ ✅ সমাধান: {{ resolved }}
+├ 🔄 চলমান: {{ inProgress }}
+├ 📤 খোলা: {{ open }}
+└ ⚠️ SLA লঙ্ঘন: {{ breached }}
 
-🔴 জরুরিতা অনুযায়ী | By Urgency:
-├ Critical: 3
-├ High: 8
-├ Medium: 25
-└ Low: 12
-
-📂 বিভাগ অনুযায়ী | By Category:
-├ Water Supply: 8
-├ Road Damage: 5
-├ Electricity: 4
-└ Other: 18
-
-⭐ গড় রেটিং: 4.2/5 (গত ৭ দিনে | last 7 days)
+⭐ গড় রেটিং: {{ avgRating }}/5 (গত ৭ দিনে)
 ```
 
 ---
 
-## 9. CATEGORIES — Bengali Translations
-
-| English | Bengali | Color |
-|---------|---------|-------|
-| Water Supply | পানি সরবরাহ | blue |
-| Road Damage | রাস্তার ক্ষয়ক্ষতি | orange |
-| Electricity | বিদ্যুৎ | yellow |
-| Sanitation | স্বাস্থ্যবিধি | green |
-| Healthcare | স্বাস্থ্যসেবা | red |
-| Education | শিক্ষা | purple |
-| Public Transport | গণপরিবহন | teal |
-| Agriculture | কৃষি | lime |
-| Housing | আবাসন | pink |
-| Other | অন্যান্য | gray |
-
----
-
-## 10. WORKFLOW CASCADE MAP (v2.0)
+## 8. WORKFLOW CASCADE MAP (v3.0)
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                    COMPLETE CASCADE MAP v2.0                          │
+│                    COMPLETE CASCADE MAP v3.0                          │
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                       │
 │  Citizen sends WhatsApp message                                       │
@@ -949,9 +659,9 @@ Your feedback helps us improve our service.
 │                                       ▼                               │
 │  ┌─────────────────────────────────────────┐                         │
 │  │  WB-02: Auto-Assign Officer             │                         │
-│  │  1. Query Supabase: officers by block   │                         │
-│  │  2. Update Supabase: assignedToId       │                         │
-│  │  3. Send WA: citizen assignment msg      │                         │
+│  │  1. Supabase: GET users (by block)       │                         │
+│  │  2. Supabase: PATCH complaints           │                         │
+│  │  3. WhatsApp: notify citizen             │                         │
 │  └─────────────────────────────────────────┘                         │
 │                                                                       │
 │  ─── CRON TRIGGERS ──────────────────────────                         │
@@ -960,53 +670,164 @@ Your feedback helps us improve our service.
 │  │  WB-07: SLA Breach (every 2h)           │                         │
 │  │  1. POST /escalate-batch → Next.js      │                         │
 │  │  2. Format breach report                 │                         │
-│  │  3. Send WA to admins                    │                         │
+│  │  3. WhatsApp → admins                    │                         │
 │  └─────────────────────────────────────────┘                         │
 │                                                                       │
 │  ┌─────────────────────────────────────────┐                         │
 │  │  WB-08: Daily Report (9 AM IST)         │                         │
-│  │  1. GET /dashboard + /reports/weekly    │                         │
+│  │  1. GET /dashboard                       │                         │
 │  │  2. Format daily summary                 │                         │
-│  │  3. Send WA to admins + district heads   │                         │
+│  │  3. WhatsApp → admins + district heads   │                         │
 │  └─────────────────────────────────────────┘                         │
 │                                                                       │
 │  ─── WEBHOOK LISTENERS (called by Next.js) ──                         │
 │                                                                       │
 │  ┌─────────────────────────────────────────┐                         │
 │  │  WB-03: Citizen & Officer Notifications │                         │
-│  │  /notify-citizen → status change msg     │                         │
-│  │  /notify-officer → assignment/esc msg    │                         │
+│  │  Webhook: /wb-notify-citizen             │                         │
+│  │  Webhook: /wb-notify-officer             │                         │
+│  │  ┌─────────────────────────────────────┐ │                         │
+│  │  │ status_change → citizen WA msg      │ │                         │
+│  │  │ sla_batch    → citizen WA batch     │ │                         │
+│  │  │ assignment   → officer WA msg       │ │                         │
+│  │  │ escalation   → officer WA alert     │ │                         │
+│  │  └─────────────────────────────────────┘ │                         │
 │  └─────────────────────────────────────────┘                         │
 │                                                                       │
+│  NEXT.js CASCADE (n8n-webhook.ts):                                     │
+│  ────────────────────────────────────                                  │
+│  New Complaint Created   → POST /wb-auto-assign    → WB-02            │
+│  Status Changed          → POST /wb-notify-citizen → WB-03            │
+│  Officer Assigned        → POST /wb-notify-officer → WB-03            │
+│  Urgency Escalated       → POST /wb-notify-officer → WB-03            │
+│  SLA Batch Escalation    → POST /wb-notify-citizen → WB-03            │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 11. TECHNICAL REQUIREMENTS
+## 9. SUPABASE REST API CHEAT SHEET
 
-### 11.1 n8n Workflow Conventions
-1. Every node must have at least one connection (no disconnected nodes)
-2. Use Code nodes instead of complex expressions (n8n-skills best practice)
-3. Webhook nodes: `responseMode: "onReceived"` for async processing
-4. Always set `fallbackOutput` on Switch nodes
-5. Use Supabase REST with service_role key — no JWT needed
-6. All timestamps in ISO 8601 format
-7. Timezone: Asia/Kolkata (IST, UTC+5:30)
-8. Max WA message: 4096 characters
+### 9.1 Auth Headers (ALL requests)
+```
+apikey: <SUPABASE_SERVICE_ROLE_KEY>
+Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>
+Content-Type: application/json
+Prefer: return=representation
+```
 
-### 11.2 Error Handling
-1. Error Trigger node on every workflow (connected to logging node)
-2. `continueOnFail: true` on HTTP Request nodes that shouldn't crash the flow
-3. Retry on Supabase timeout: 2 retries, exponential backoff
-4. Empty result handling: skip notification if no target users found
+### 9.2 Common Operations
+| Operation | Method | URL Pattern |
+|-----------|--------|-------------|
+| List | GET | `/rest/v1/{table}?column=eq.value&select=col1,col2` |
+| Get One | GET | `/rest/v1/{table}?id=eq.VALUE` |
+| Create | POST | `/rest/v1/{table}` + JSON body |
+| Update | PATCH | `/rest/v1/{table}?id=eq.VALUE` + JSON body |
+| Filter | GET | `?col1=eq.val&col2=gt.5&status=in.(OPEN,IN_PROGRESS)` |
+| Order | GET | `?order=createdAt.desc` |
+| Limit | GET | `?limit=10&offset=20` |
 
-### 11.3 Security
-1. All Supabase queries use service_role key (stored in n8n credentials)
-2. WhatsApp access token in n8n credentials (never in node parameters)
-3. No sensitive data in workflow node parameters
-4. Webhook paths should use authentication (N8N_WEBHOOK_SECRET header)
+### 9.3 Column Name Note
+REST API uses camelCase WITHOUT quotes: `?ticketNo=eq.WB-01001` ✅
 
 ---
 
-*Document generated from: n8n-mcp node research, n8n-skills best practices, project source code audit (prisma/schema.prisma, src/lib/*, src/app/api/*), and Supabase live schema verification.*
+## 10. ENVIRONMENT VARIABLES
+
+### In n8n:
+| Variable | Value |
+|----------|-------|
+| `SUPABASE_URL` | `https://sxdtipaspfolrpqrwadt.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | (from Supabase Dashboard) |
+| `PORTAL_URL` | `https://wb-grievance-portal.vercel.app` |
+| `WA_PHONE_NUMBER_ID` | `1125704830617135` |
+| `WA_ACCESS_TOKEN` | (from Meta Developer Portal) |
+
+### n8n Credentials to Configure:
+1. **WhatsApp Business Account** — Phone Number ID + Access Token
+2. **Supabase Service Role** — URL + service_role key (or HTTP headers)
+
+---
+
+## 11. CATEGORIES — Bengali Translations
+
+| English | Bengali |
+|---------|---------|
+| Water Supply | পানি সরবরাহ |
+| Road Damage | রাস্তার ক্ষয়ক্ষতি |
+| Electricity | বিদ্যুৎ |
+| Sanitation | স্বাস্থ্যবিধি |
+| Healthcare | স্বাস্থ্যসেবা |
+| Education | শিক্ষা |
+| Public Transport | গণপরিবহন |
+| Agriculture | কৃষি |
+| Housing | আবাসন |
+| Other | অন্যান্য |
+
+---
+
+## 12. URGENCY — SLA & Notification Map
+
+| Urgency | SLA | Escalation | Notification Targets |
+|---------|-----|-----------|---------------------|
+| CRITICAL | 4h | Already max → re-alert | Block + District + District Head + Admin |
+| HIGH | 12h | → CRITICAL | Block + District |
+| MEDIUM | 48h | → HIGH | Block only |
+| LOW | 120h | → HIGH | Block only |
+
+---
+
+## 13. BUILD PLAN — Step by Step
+
+### Phase 1: Cleanup
+1. Archive all 7 existing workflows via `archive_workflow`
+2. Confirm all workflows archived via `search_workflows`
+
+### Phase 2: Research (per workflow)
+1. `search_nodes` for needed node types
+2. `get_node_types` for exact TypeScript definitions
+3. Write SDK code using patterns from `get_sdk_reference`
+
+### Phase 3: Build & Deploy (per workflow)
+1. Write SDK code for workflow
+2. `validate_workflow(code)` → fix errors until valid
+3. `create_workflow_from_code(code, name, description)`
+4. `prepare_test_pin_data(workflowId)` → generate test schemas
+5. Generate realistic pin data
+6. `test_workflow(workflowId, pinData)` → verify execution
+7. `publish_workflow(workflowId)` → activate
+
+### Phase 4: Integration
+1. Configure N8N_WEBHOOK_URL in Next.js `.env`
+2. Verify cascade webhooks (n8n-webhook.ts functions)
+3. End-to-end test: WhatsApp → complaint → assign → notify
+
+### Build Order (dependency-aware):
+1. **WB-03** first (no dependencies, webhook listener)
+2. **WB-05** (Execute WF Trigger, called from WB-01)
+3. **WB-06** (Execute WF Trigger, called from WB-01)
+4. **WB-02** (Execute WF Trigger, called from WB-01)
+5. **WB-01** last (triggers WB-02, WB-05, WB-06)
+6. **WB-07** (cron, independent)
+7. **WB-08** (cron, independent)
+
+---
+
+## 14. WORKFLOW SUMMARY TABLE
+
+| WF | Name | Trigger | Nodes | Key Action |
+|----|------|---------|-------|-----------|
+| WB-01 | WhatsApp Intake + Router | WhatsApp Trigger | ~10 | Parse → Route → Create → Confirm → WB-02 |
+| WB-02 | Auto-Assign Officer | Execute WF Trigger | ~7 | Supabase query → Assign → Notify citizen |
+| WB-03 | Notifications (Dual) | 2 Webhooks | ~12 | Route by source → Format → Send WA |
+| WB-05 | Status Check | Execute WF Trigger | ~5 | Query by ticketNo → Format → Reply |
+| WB-06 | Rating Collection | Execute WF Trigger | ~6 | Validate 1-5 → Update Supabase → Thank you |
+| WB-07 | SLA Breach | Cron (2h) | ~5 | POST escalate-batch → Report → Admin WA |
+| WB-08 | Daily Report | Cron (9 AM) | ~4 | GET dashboard → Format → Admin WA |
+
+**Total: ~49 nodes across 7 workflows**
+
+---
+
+*Generated from: n8n MCP Server v1.1.0, Prisma schema v3.0, Supabase live audit, n8n-webhook.ts*
+*Last updated: June 2025*

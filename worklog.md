@@ -1,6 +1,35 @@
 # WB AI Public Support System — Worklog
 
 ---
+Task ID: 5
+Agent: Main Agent (n8n SDK Architect)
+Task: Deep review, research n8n instance MCP, create v3.0 workflow specification
+
+Work Log:
+- Tested n8n instance-level MCP endpoint at https://n8n.srv1347095.hstgr.cloud/mcp-server/http (JWT auth)
+- Successfully initialized MCP connection (protocol 2024-11-05, server v1.1.0)
+- Discovered 18 powerful MCP tools: validate_workflow, create_workflow_from_code, update_workflow, publish_workflow, search_nodes, get_node_types, test_workflow, prepare_test_pin_data, execute_workflow, get_execution, search_workflows, get_workflow_details, get_suggested_nodes, get_sdk_reference, archive_workflow, search_projects, search_folders
+- Retrieved full n8n Workflow SDK reference: workflow(), node(), trigger(), ifElse(), switchCase(), merge(), expr(), newCredential()
+- Queried existing workflows: 7 found (WB-01 through WB-08), ALL INACTIVE, ALL with triggerCount=0 (broken from raw JSON approach)
+- Confirmed deployment IDs: JtqTiQE6LJuZFl0I (WB-01), bMnXIB6xSHRh5DkZ (WB-02), LN08yGeqKCqIr4uj (WB-03), Eydrg83DYww48hrV (WB-05), fMPfSmzh3Ip0aZwl (WB-06), 6cflI9GtvV162RB9 (WB-07), bTqSFtRq25l4XWEB (WB-08)
+- Read and compared n8n-workflow-prompt.md v1.0 (1065 lines) vs n8n-workflow-new.md v2.0 (974 lines)
+- Deep-reviewed current project state: prisma/schema.prisma (5 tables), src/lib/types.ts (7 interfaces), src/lib/constants.ts, src/lib/n8n-webhook.ts (5 cascade functions), src/lib/db.ts (3-mode adapter), 26+ API endpoints
+- Schema verification: users 16/16, complaints 27/27, activity_logs 8/8, comments 5/5, feedback 7/7 — ALL MATCH
+- Key v3.0 finding: Raw JSON workflow approach (v2.0) created broken workflows — need SDK-based rebuild
+- Created comprehensive n8n-workflow-new.md v3.0 with: 14 sections, SDK code patterns, 18 MCP tool reference, cascade maps, build plan, test strategy
+
+Stage Summary:
+- **n8n Instance MCP**: Connected, tested, 18 tools confirmed working
+- **v3.0 Spec**: Complete rewrite using n8n Workflow SDK approach
+- **Key Decision**: Archive all 7 broken workflows, rebuild using create_workflow_from_code
+- **Build Pipeline**: validate → create → test → publish (4-step per workflow)
+- **Build Order**: WB-03 → WB-05 → WB-06 → WB-02 → WB-01 → WB-07 → WB-08
+- **Pending**: User approval of v3.0 plan
+- **Pending**: Archive existing workflows
+- **Pending**: Get node type definitions via get_node_types
+- **Pending**: Build all 7 workflows using SDK code
+
+---
 Task ID: 4
 Agent: Main Agent (n8n Workflow Engineer)
 Task: Deep research, audit, and deploy all n8n workflows using n8n-mcp
