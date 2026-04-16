@@ -1,6 +1,54 @@
 # WB AI Public Support System — Worklog
 
 ---
+Task ID: 7
+Agent: Main Agent (n8n SDK Builder)
+Task: Build all 8 n8n workflows using SDK code via MCP — validate → create → publish
+
+Work Log:
+- Wrote SDK code for 8 workflows in /home/z/my-project/n8n-sdk/ directory
+- Each workflow: written in TypeScript SDK syntax (@n8n/workflow-sdk)
+- Created deployment script deploy-all.sh for automated validate→create→publish pipeline
+- All 8 workflows validated successfully (zero errors)
+- All 8 workflows created and published (ACTIVE) on n8n instance
+
+Deployed Workflows (8/8 — ALL ACTIVE):
+- WB-09: Global Error Handler (5 nodes, ID: 1qHlPrlTYTutdAdT) — Error Trigger → Format → Log → Admin Alert
+- WB-05: Status Check by Ticket (5 nodes, ID: X48UstKBy4YTx2X5) — Webhook → Supabase GET → IF → Format → Reply
+- WB-06: Rating Collection (8 nodes, ID: sT9pd0LLbSR8puUq) — Webhook → Validate → GET resolved → PATCH → Thank you
+- WB-02: Auto-Assign Officer (8 nodes, ID: QH47RBvLgoKZw1pa) — Webhook → GET officers → Select → PATCH → Log → Notify
+- WB-03: Citizen & Officer Notifications (8 nodes, ID: wUPMD4UImuBoquJ0) — 2 Webhooks → Switch → Format → Batch messages
+- WB-07: SLA Breach Escalation (6 nodes, ID: H4NOSCr0AXdVEPPM) — Cron */2h → GET breached → Escalate → Admin report
+- WB-08: Daily Report (5 nodes, ID: wjPYBUJJYY0SJjap) — Cron 9AM IST → GET stats → Format → Admin report
+- WB-01: WhatsApp Intake + AI Router (15 nodes, ID: xGTInDFOiXn5IAvi) — WA Trigger → Parse → Route → AI Classify → Create → Assign
+
+Total: 60 nodes across 8 workflows, all ACTIVE
+
+n8n Dashboard URLs:
+- WB-01: https://n8n.srv1347095.hstgr.cloud/workflow/xGTInDFOiXn5IAvi
+- WB-02: https://n8n.srv1347095.hstgr.cloud/workflow/QH47RBvLgoKZw1pa
+- WB-03: https://n8n.srv1347095.hstgr.cloud/workflow/wUPMD4UImuBoquJ0
+- WB-05: https://n8n.srv1347095.hstgr.cloud/workflow/X48UstKBy4YTx2X5
+- WB-06: https://n8n.srv1347095.hstgr.cloud/workflow/sT9pd0LLbSR8puUq
+- WB-07: https://n8n.srv1347095.hstgr.cloud/workflow/H4NOSCr0AXdVEPPM
+- WB-08: https://n8n.srv1347095.hstgr.cloud/workflow/wjPYBUJJYY0SJjap
+- WB-09: https://n8n.srv1347095.hstgr.cloud/workflow/1qHlPrlTYTutdAdT
+
+Credentials needed in n8n UI:
+1. WhatsApp Business Account — for WB-01 (WhatsApp Trigger)
+2. SUPABASE_SERVICE_ROLE_KEY — env var in n8n settings (used by all HTTP Request nodes)
+
+Stage Summary:
+- **8/8 workflows BUILT and ACTIVE** (up from 0 in v2)
+- **Total: 60 nodes** across 8 workflows
+- **SDK-based build**: validate → create → publish pipeline worked perfectly
+- **WB-01 fix**: Replaced switchCase with nested ifElse (fixed "Could not find property option" publish error)
+- **Warnings**: HARDCODED_CREDENTIALS on all HTTP Request nodes — need SUPABASE_SERVICE_ROLE_KEY env var in n8n
+- **Pending**: Configure WhatsApp Business Account credential in n8n UI
+- **Pending**: Set SUPABASE_SERVICE_ROLE_KEY environment variable in n8n instance
+- **Pending**: End-to-end testing with real WhatsApp messages
+
+---
 Task ID: 6
 Agent: Senior Automation Architect (Full System Audit)
 Task: Complete architecture analysis — all 6 phases (system understanding, workflow planning, advanced design, SaaS architecture, AI layer, data pipeline)
