@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
       username: payload.username,
       role: payload.role,
       name: payload.name,
-      location: payload.location,
+      block: payload.block,
       district: payload.district,
     },
   });

@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     // Get all non-admin active users
     const officers = await db.user.findMany({
       where: { role: { in: ['STATE', 'DISTRICT', 'BLOCK'] }, isActive: true },
-      select: { id: true, username: true, name: true, role: true, location: true, district: true },
+      select: { id: true, username: true, name: true, role: true, block: true, district: true },
     });
 
     // Get complaint counts per assigned officer
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
         username: o.username,
         name: o.name,
         role: o.role,
-        location: o.location,
+        block: o.block,
         district: o.district,
         assigned,
         resolved,

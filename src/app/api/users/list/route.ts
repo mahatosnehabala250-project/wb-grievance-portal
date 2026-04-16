@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       username: true,
       name: true,
       role: true,
-      location: true,
+      block: true,
       district: true,
     },
     orderBy: [{ role: 'asc' }, { name: 'asc' }],

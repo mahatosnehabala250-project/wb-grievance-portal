@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       username: true,
       role: true,
       name: true,
-      location: true,
+      block: true,
       district: true,
       isActive: true,
       createdAt: true,
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       },
       select: {
         id: true, username: true, role: true, name: true,
-        location: true, district: true, isActive: true, createdAt: true,
+        block: true, district: true, isActive: true, createdAt: true,
       },
     });
 
@@ -106,7 +106,7 @@ export async function PATCH(request: NextRequest) {
     if (password) data.passwordHash = hashSync(password, 12);
     if (name) data.name = name;
     if (role) data.role = role;
-    if (location) data.location = location;
+    if (location) data.block = location;
     if (district !== undefined) data.district = district || null;
 
     const user = await db.user.update({
@@ -114,7 +114,7 @@ export async function PATCH(request: NextRequest) {
       data,
       select: {
         id: true, username: true, role: true, name: true,
-        location: true, district: true, isActive: true, createdAt: true,
+        block: true, district: true, isActive: true, createdAt: true,
       },
     });
 

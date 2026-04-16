@@ -39,9 +39,9 @@ export async function GET(request: NextRequest) {
       createdAt: { gte: start, lte: end },
     };
     if (payload.role === 'BLOCK') {
-      baseWhere.block = payload.location;
+      baseWhere.block = payload.block;
     } else if (payload.role === 'DISTRICT') {
-      baseWhere.district = payload.location;
+      baseWhere.district = payload.block;
     }
 
     // 1. Total new complaints this week
@@ -133,9 +133,9 @@ export async function GET(request: NextRequest) {
       createdAt: { lte: end },
     };
     if (payload.role === 'BLOCK') {
-      slaBreachWhere.block = payload.location;
+      slaBreachWhere.block = payload.block;
     } else if (payload.role === 'DISTRICT') {
-      slaBreachWhere.district = payload.location;
+      slaBreachWhere.district = payload.block;
     }
     const allOpenComplaints = await db.complaint.findMany({
       where: slaBreachWhere,
@@ -159,8 +159,8 @@ export async function GET(request: NextRequest) {
       const dayWhere: Record<string, unknown> = {
         createdAt: { gte: dayStart, lte: dayEnd },
       };
-      if (payload.role === 'BLOCK') dayWhere.block = payload.location;
-      else if (payload.role === 'DISTRICT') dayWhere.district = payload.location;
+      if (payload.role === 'BLOCK') dayWhere.block = payload.block;
+      else if (payload.role === 'DISTRICT') dayWhere.district = payload.block;
 
       const [newCount, resolvedCountResult] = await Promise.all([
         db.complaint.count({ where: dayWhere }),

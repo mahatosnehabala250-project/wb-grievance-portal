@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
 
   // Build where clause for role-based filtering
   const complaintWhere: Record<string, unknown> = {};
-  if (payload.role === 'BLOCK') complaintWhere.block = payload.location;
-  else if (payload.role === 'DISTRICT') complaintWhere.district = payload.location;
+  if (payload.role === 'BLOCK') complaintWhere.block = payload.block;
+  else if (payload.role === 'DISTRICT') complaintWhere.district = payload.block;
 
   // Build activity log where
   const activityWhere: Record<string, unknown> = {};
@@ -46,8 +46,8 @@ export async function GET(request: NextRequest) {
 
   // Webhook stats: complaints where source = 'WHATSAPP'
   const webhookWhere: Record<string, unknown> = { source: 'WHATSAPP' };
-  if (payload.role === 'BLOCK') webhookWhere.block = payload.location;
-  else if (payload.role === 'DISTRICT') webhookWhere.district = payload.location;
+  if (payload.role === 'BLOCK') webhookWhere.block = payload.block;
+  else if (payload.role === 'DISTRICT') webhookWhere.district = payload.block;
 
   const webhookCount = await db.complaint.count({
     where: webhookWhere,
@@ -69,8 +69,8 @@ export async function GET(request: NextRequest) {
   const hourWhere: Record<string, unknown> = {
     createdAt: { gte: oneHourAgo },
   };
-  if (payload.role === 'BLOCK') hourWhere.block = payload.location;
-  else if (payload.role === 'DISTRICT') hourWhere.district = payload.location;
+  if (payload.role === 'BLOCK') hourWhere.block = payload.block;
+  else if (payload.role === 'DISTRICT') hourWhere.district = payload.block;
 
   const complaintsThisHour = await db.complaint.count({
     where: hourWhere,

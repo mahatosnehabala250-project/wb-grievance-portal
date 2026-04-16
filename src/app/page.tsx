@@ -476,7 +476,7 @@ export default function HomePage() {
                   </div>
                   {/* Location Info */}
                   <div className="mt-3 pt-2.5 border-t border-border/50 flex items-center gap-3 text-[11px] text-muted-foreground">
-                    <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{user?.location}</span>
+                    <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{user?.block}</span>
                     {user?.district && (
                       <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{user.district}</span>
                     )}
@@ -865,7 +865,7 @@ export default function HomePage() {
                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[user?.role || 'BLOCK'] || 'bg-gray-100 text-gray-600'}`}>
                   {fmtRole(user?.role || '')}
                 </span>
-                <span className="text-[10px] text-muted-foreground">{user?.location}</span>
+                <span className="text-[10px] text-muted-foreground">{user?.block}</span>
               </div>
             </div>
           </div>

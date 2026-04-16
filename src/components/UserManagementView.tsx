@@ -65,7 +65,7 @@ export function UserManagementView() {
   const [filterRole, setFilterRole] = useState('');
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({ username: '', password: '', role: 'BLOCK', name: '', location: '', district: '' });
+  const [createForm, setCreateForm] = useState({ username: '', password: '', role: 'BLOCK', name: '', block: '', district: '' });
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
   const [creating, setCreating] = useState(false);
 
@@ -119,7 +119,7 @@ export function UserManagementView() {
     if (!createForm.username.trim()) e.username = 'Required';
     if (!createForm.password.trim()) e.password = 'Required';
     if (!createForm.name.trim()) e.name = 'Required';
-    if (!createForm.location.trim()) e.location = 'Required';
+    if (!createForm.block.trim()) e.block = 'Required';
     setCreateErrors(e);
     if (Object.keys(e).length) return;
 
@@ -132,7 +132,7 @@ export function UserManagementView() {
       });
       if (res.ok) {
         toast.success('User created successfully');
-        setCreateForm({ username: '', password: '', role: 'BLOCK', name: '', location: '', district: '' });
+        setCreateForm({ username: '', password: '', role: 'BLOCK', name: '', block: '', district: '' });
         setCreateErrors({});
         setCreateOpen(false);
         fetchUsers();
@@ -198,7 +198,7 @@ export function UserManagementView() {
   }, []);
 
   const getUserComplaintCount = useCallback((u: AppUser) => {
-    const key = `${u.location}-${u.district || ''}`;
+    const key = `${u.block}-${u.district || ''}`;
     return userComplaintCounts[key] || 0;
   }, [userComplaintCounts]);
 
@@ -258,7 +258,7 @@ export function UserManagementView() {
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider">Username</TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider">Name</TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider">Role</TableHead>
-                <TableHead className="text-[10px] font-bold uppercase tracking-wider">Location</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">Block</TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider">District</TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider">Complaints</TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider">Status</TableHead>
@@ -282,7 +282,7 @@ export function UserManagementView() {
                     <TableCell className="font-mono text-xs font-bold">{u.username}</TableCell>
                     <TableCell className="text-sm font-medium">{u.name}</TableCell>
                     <TableCell><RoleBadge role={u.role} /></TableCell>
-                    <TableCell className="text-xs">{u.location}</TableCell>
+                    <TableCell className="text-xs">{u.block}</TableCell>
                     <TableCell className="text-xs">{u.district || '—'}</TableCell>
                     <TableCell className="text-xs">
                       <Badge variant="secondary" className="text-[10px] font-mono">{getUserComplaintCount(u)}</Badge>
@@ -335,7 +335,7 @@ export function UserManagementView() {
                 <RoleBadge role={u.role} />
               </div>
               <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{u.location}</span>
+                <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{u.block}</span>
                 {u.district && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{u.district}</span>}
                 <span className="flex items-center gap-1"><FileText className="h-3 w-3" />{getUserComplaintCount(u)}</span>
               </div>
@@ -404,9 +404,9 @@ export function UserManagementView() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-bold uppercase tracking-widest">Location</Label>
-                <Input value={createForm.location} onChange={(e) => setCreateForm((p) => ({ ...p, location: e.target.value }))} placeholder="Block/Mandal" className="h-9 text-sm" />
-                {createErrors.location && <p className="text-red-500 text-[11px]">{createErrors.location}</p>}
+                <Label className="text-[10px] font-bold uppercase tracking-widest">Block</Label>
+                <Input value={createForm.block} onChange={(e) => setCreateForm((p) => ({ ...p, block: e.target.value }))} placeholder="Block/Mandal" className="h-9 text-sm" />
+                {createErrors.block && <p className="text-red-500 text-[11px]">{createErrors.block}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-bold uppercase tracking-widest">District</Label>

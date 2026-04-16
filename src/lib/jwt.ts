@@ -10,7 +10,7 @@ export interface JWTPayload {
   username: string;
   role: string;
   name: string;
-  location: string;
+  block: string;
   district: string | null;
 }
 

@@ -13,8 +13,8 @@ export async function GET(request: NextRequest) {
 
     // Build where clause based on role
     const where: Record<string, unknown> = {};
-    if (payload.role === 'BLOCK') where.block = payload.location;
-    else if (payload.role === 'DISTRICT') where.district = payload.location;
+    if (payload.role === 'BLOCK') where.block = payload.block;
+    else if (payload.role === 'DISTRICT') where.district = payload.block;
 
     // ─── Date Range Filter ───
     const { searchParams } = new URL(request.url);
@@ -61,8 +61,8 @@ export async function GET(request: NextRequest) {
     const monthlyMap: Record<string, { open: number; inProgress: number; resolved: number; total: number }> = {};
 
     const slaWhere: Record<string, unknown> = {};
-    if (payload.role === 'BLOCK') slaWhere.block = payload.location;
-    else if (payload.role === 'DISTRICT') slaWhere.district = payload.location;
+    if (payload.role === 'BLOCK') slaWhere.block = payload.block;
+    else if (payload.role === 'DISTRICT') slaWhere.district = payload.block;
 
     for (const c of allComplaints) {
       total++;
@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
       criticalComplaints,
       openComplaints,
       userRole: payload.role,
-      userLocation: payload.location,
+      userLocation: payload.block,
     });
   } catch (error) {
     console.error('Dashboard API error:', error);

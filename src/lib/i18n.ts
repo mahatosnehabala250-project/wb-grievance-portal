@@ -105,7 +105,7 @@ const translations: Record<Lang, Record<string, string>> = {
     received: 'Received',
     filedOn: 'Filed On',
     lastUpdate: 'Last Update',
-    location: 'Location',
+    location: 'Block',
     // Feedback
     rateExperience: 'Rate your experience',
     thankYou: 'Thank you for your feedback!',
@@ -222,7 +222,7 @@ const translations: Record<Lang, Record<string, string>> = {
     received: 'প্রাপ্ত',
     filedOn: 'দায়েরের তারিখ',
     lastUpdate: 'শেষ আপডেট',
-    location: 'অবস্থান',
+    location: 'ব্লক',
     // Feedback
     rateExperience: 'আপনার অভিজ্ঞতা রেট করুন',
     thankYou: 'আপনার মতামতের জন্য ধন্যবাদ!',

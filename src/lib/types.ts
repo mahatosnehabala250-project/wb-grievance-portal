@@ -5,7 +5,9 @@ export interface Complaint {
   phone: string | null;
   issue: string;
   category: string;
+  village: string | null;
   block: string;
+  subdivision: string | null;
   district: string;
   urgency: string;
   status: string;
@@ -13,6 +15,10 @@ export interface Complaint {
   resolution: string | null;
   assignedToId: string | null;
   source: string;
+  assignedOfficerName: string | null;
+  n8nProcessed: boolean;
+  escalatedAt: string | null;
+  resolvedAt: string | null;
   satisfactionRating: number | null;
   createdAt: string;
   updatedAt: string;
@@ -35,8 +41,14 @@ export interface AssignableUser {
   username: string;
   name: string;
   role: string;
-  location: string;
+  block: string;
+  email: string | null;
   district: string | null;
+  subdivision: string | null;
+  whatsappPhone: string | null;
+  telegramChatId: string | null;
+  isDistrictHead: boolean;
+  notifyVia: string;
 }
 
 export interface AppUser {
@@ -44,9 +56,15 @@ export interface AppUser {
   username: string;
   name: string;
   role: string;
-  location: string;
+  block: string;
+  email: string | null;
   district: string | null;
+  subdivision: string | null;
   isActive: boolean;
+  whatsappPhone: string | null;
+  telegramChatId: string | null;
+  isDistrictHead: boolean;
+  notifyVia: string;
   createdAt: string;
 }
 

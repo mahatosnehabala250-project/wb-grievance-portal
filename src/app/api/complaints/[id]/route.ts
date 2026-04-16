@@ -22,10 +22,10 @@ export async function GET(
   }
 
   // Check permission
-  if (payload.role === 'BLOCK' && complaint.block !== payload.location) {
+  if (payload.role === 'BLOCK' && complaint.block !== payload.block) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 });
   }
-  if (payload.role === 'DISTRICT' && complaint.district !== payload.location) {
+  if (payload.role === 'DISTRICT' && complaint.district !== payload.block) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 });
   }
 
@@ -51,10 +51,10 @@ export async function PATCH(
   }
 
   // Check permission
-  if (payload.role === 'BLOCK' && complaint.block !== payload.location) {
+  if (payload.role === 'BLOCK' && complaint.block !== payload.block) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 });
   }
-  if (payload.role === 'DISTRICT' && complaint.district !== payload.location) {
+  if (payload.role === 'DISTRICT' && complaint.district !== payload.block) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 });
   }
 

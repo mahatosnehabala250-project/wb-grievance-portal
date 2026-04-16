@@ -180,7 +180,7 @@ export function SettingsView() {
                   {fmtRole(user?.role || '')}
                 </span>
                 <span className="text-[11px] text-blue-200/60 flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />{user?.location}{user?.district ? `, ${user.district}` : ''}
+                  <MapPin className="h-3 w-3" />{user?.block}{user?.district ? `, ${user.district}` : ''}
                 </span>
               </div>
             </div>
@@ -217,8 +217,8 @@ export function SettingsView() {
                     <RoleBadge role={user?.role || ''} />
                   </div>
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Location</p>
-                    <p className="text-sm text-foreground">{user?.location}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Block</p>
+                    <p className="text-sm text-foreground">{user?.block}</p>
                   </div>
                   {user?.district && (
                     <div>

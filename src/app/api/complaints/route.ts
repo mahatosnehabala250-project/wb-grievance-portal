@@ -30,9 +30,9 @@ export async function GET(request: NextRequest) {
   const where: Record<string, unknown> = {};
 
   if (payload.role === 'BLOCK') {
-    where.block = payload.location;
+    where.block = payload.block;
   } else if (payload.role === 'DISTRICT') {
-    where.district = payload.location;
+    where.district = payload.block;
   }
   // ADMIN and STATE see all
 
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Block users can only create complaints for their block
-    if (payload.role === 'BLOCK' && block !== payload.location) {
+    if (payload.role === 'BLOCK' && block !== payload.block) {
       return NextResponse.json(
         { error: 'You can only create complaints for your assigned block' },
         { status: 403 }

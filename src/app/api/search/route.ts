@@ -30,9 +30,9 @@ export async function GET(request: NextRequest) {
   };
 
   if (payload.role === 'BLOCK') {
-    complaintWhere.block = payload.location;
+    complaintWhere.block = payload.block;
   } else if (payload.role === 'DISTRICT') {
-    complaintWhere.district = payload.location;
+    complaintWhere.district = payload.block;
   }
 
   // Build role-based where for users (admin only)
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     userWhere.OR = [
       { name: { contains: query } },
       { username: { contains: query } },
-      { location: { contains: query } },
+      { block: { contains: query } },
     ];
   }
 
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
       ? db.user.findMany({
           where: userWhere,
           take: 5,
-          select: { id: true, name: true, username: true, role: true, location: true, isActive: true },
+          select: { id: true, name: true, username: true, role: true, block: true, isActive: true },
         })
       : Promise.resolve([]),
   ]);

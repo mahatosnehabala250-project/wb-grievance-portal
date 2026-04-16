@@ -23,9 +23,9 @@ export async function GET(request: NextRequest) {
   const where: Record<string, unknown> = {};
 
   if (payload.role === 'BLOCK') {
-    where.block = payload.location;
+    where.block = payload.block;
   } else if (payload.role === 'DISTRICT') {
-    where.district = payload.location;
+    where.district = payload.block;
   }
 
   if (status) where.status = status;

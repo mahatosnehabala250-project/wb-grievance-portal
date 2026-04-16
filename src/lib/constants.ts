@@ -47,3 +47,61 @@ export const CATEGORY_COLORS: Record<string, string> = {
   'Housing': '#9333EA',
   'Other': '#6B7280',
 };
+
+// Urgency-based Notification Hierarchy (for n8n WF-3)
+export const URGENCY_NOTIFICATION_MAP: Record<string, { label: string; targets: string[]; color: string; description: string }> = {
+  CRITICAL: {
+    label: 'Critical',
+    targets: ['Block Officer', 'District Officer', 'District Head', 'Admin'],
+    color: '#DC2626',
+    description: 'All levels notified instantly — Block + District + Head + Admin',
+  },
+  HIGH: {
+    label: 'High',
+    targets: ['Block Officer', 'District Officer'],
+    color: '#EA580C',
+    description: 'Block + District Officer notified — fast action required',
+  },
+  MEDIUM: {
+    label: 'Medium',
+    targets: ['Block Officer'],
+    color: '#D97706',
+    description: 'Only Block Officer notified — standard processing',
+  },
+  LOW: {
+    label: 'Low',
+    targets: ['Block Officer'],
+    color: '#0284C7',
+    description: 'Only Block Officer notified — routine processing',
+  },
+};
+
+// West Bengal Subdivision Map: District → Block → Subdivision
+export const SUBDIVISION_MAP: Record<string, Record<string, string>> = {
+  'Nadia': {
+    'Krishnanagar': 'Krishnanagar Sadar',
+    'Kaliganj': 'Tehatta',
+    'Tehatta': 'Tehatta',
+  },
+  'North 24 Parganas': {
+    'Barasat': 'Barasat',
+    'Habra': 'Habra',
+    'Dunlop': 'Barrackpore',
+  },
+  'Birbhum': {
+    'Bolpur': 'Suri Sadar',
+    'Rampurhat': 'Rampurhat',
+  },
+  'Darjeeling': {
+    'Siliguri': 'Siliguri',
+    'Kurseong': 'Kurseong',
+  },
+  'Cooch Behar': {
+    'Dinhata': 'Dinhata',
+    'Mathabhanga': 'Mathabhanga',
+  },
+};
+
+export function getSubdivision(district: string, block: string): string {
+  return SUBDIVISION_MAP[district]?.[block] || block;
+}

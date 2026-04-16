@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const { citizenName, phone, issue, category, block, district, urgency, description } = body;
+    const { citizenName, phone, issue, category, block, district, urgency, description, village, subdivision } = body;
 
     if (!issue || !category || !block || !district) {
       return NextResponse.json(
@@ -20,6 +20,15 @@ export async function POST(request: NextRequest) {
     const count = await db.complaint.count();
     const ticketNo = `WB-${String(1000 + count + 1).padStart(5, '0')}`;
 
+    // Auto-derive subdivision from district+block if not provided
+    let finalSubdivision = subdivision || null;
+    if (!finalSubdivision) {
+      try {
+        const { getSubdivision } = await import('@/lib/constants');
+        finalSubdivision = getSubdivision(district, block);
+      } catch { /* constants not available, leave null */ }
+    }
+
     const complaint = await db.complaint.create({
       data: {
         ticketNo,
@@ -29,6 +38,8 @@ export async function POST(request: NextRequest) {
         category: category || 'General',
         block: block,
         district: district,
+        village: village || null,
+        subdivision: finalSubdivision,
         urgency: urgency?.toUpperCase() || 'MEDIUM',
         status: 'OPEN',
         description: description || null,
@@ -48,7 +59,6 @@ export async function POST(request: NextRequest) {
     });
 
     // ═══ CASCADE 1: Trigger WB-02 Auto-Assignment Engine ═══
-    // This tells n8n to find the best officer for this new complaint
     notifyN8NNewComplaint(complaint.id, {
       issue: complaint.issue,
       category: complaint.category,

@@ -5,7 +5,7 @@ interface User {
   username: string;
   role: 'ADMIN' | 'BLOCK' | 'DISTRICT' | 'STATE';
   name: string;
-  location: string;
+  block: string;
   district: string | null;
 }
 

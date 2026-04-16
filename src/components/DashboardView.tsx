@@ -62,7 +62,7 @@ import { useI18nStore } from '@/lib/i18n-store';
 import { StatusBadge, UrgencyBadge, RoleBadge, StatCard, MiniStat, PieLabel, LoadingSkeleton, EmptyState } from '@/components/common';
 
 interface LeaderboardEntry {
-  id: string; name: string; role: string; location: string; district: string | null;
+  id: string; name: string; role: string; block: string; district: string | null;
   assigned: number; resolved: number; resolutionRate: number;
 }
 
@@ -444,7 +444,7 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
                       {fmtRole(user?.role || '')}
                     </span>
                     <span className="text-blue-200/60 text-[11px] flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />{user?.location}{user?.district ? `, ${user.district}` : ''}
+                      <MapPin className="h-3 w-3" />{user?.block}{user?.district ? `, ${user.district}` : ''}
                     </span>
                   </div>
                   <p className="text-blue-100/50 text-[11px] mt-2">
@@ -1229,7 +1229,7 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
                             </span>
                           </div>
                           <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                            <MapPin className="h-3 w-3" />{officer.location}{officer.district ? `, ${officer.district}` : ''}
+                            <MapPin className="h-3 w-3" />{officer.block}{officer.district ? `, ${officer.district}` : ''}
                           </p>
                         </div>
                         {/* Stats */}
@@ -1415,7 +1415,7 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
                 <div className="w-1 h-4 rounded-full" style={{ background: `linear-gradient(180deg, ${NAVY}, ${NAVY}60)` }} />
                 <div>
                   <CardTitle className="text-sm font-bold">Complaints by {groupByField === 'district' ? 'District' : 'Block'}</CardTitle>
-                  <CardDescription className="text-xs">Status breakdown per location</CardDescription>
+                  <CardDescription className="text-xs">Status breakdown per block</CardDescription>
                 </div>
               </div>
               <button onClick={() => onNavigate('analytics')} className="text-muted-foreground hover:text-foreground transition-colors" title="View Details">

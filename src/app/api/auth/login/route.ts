@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       username: user.username,
       role: user.role,
       name: user.name,
-      location: user.location,
+      block: user.block,
       district: user.district,
     };
 
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
         username: user.username,
         role: user.role,
         name: user.name,
-        location: user.location,
+        block: user.block,
         district: user.district,
       },
       token,

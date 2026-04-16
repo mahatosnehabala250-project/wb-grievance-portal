@@ -24,9 +24,9 @@ export async function PATCH(request: NextRequest) {
     // Build where clause based on role
     const where: Record<string, unknown> = { id: { in: ids } };
     if (payload.role === 'BLOCK') {
-      where.block = payload.location;
+      where.block = payload.block;
     } else if (payload.role === 'DISTRICT') {
-      where.district = payload.location;
+      where.district = payload.block;
     }
 
     const result = await db.complaint.updateMany({

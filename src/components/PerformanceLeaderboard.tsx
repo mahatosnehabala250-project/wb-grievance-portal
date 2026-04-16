@@ -17,7 +17,7 @@ interface Officer {
   name: string;
   username: string;
   role: string;
-  location: string;
+  block: string;
   district: string | null;
   assigned: number;
   resolved: number;
@@ -119,7 +119,7 @@ export function PerformanceLeaderboard({ onViewAll }: LeaderboardProps) {
                     <RoleBadge role={officer.role} />
                   </div>
                   <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-                    <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" />{officer.location}</span>
+                    <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" />{officer.block}</span>
                     {officer.district && (
                       <span className="flex items-center gap-0.5"><Building2 className="h-3 w-3" />{officer.district}</span>
                     )}
