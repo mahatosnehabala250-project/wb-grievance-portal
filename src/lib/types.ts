@@ -20,9 +20,16 @@ export interface Complaint {
   escalatedAt: string | null;
   resolvedAt: string | null;
   satisfactionRating: number | null;
+  matchScore: number | null;
+  riskLevel: string | null;
+  pct: number | null;
+  tags: string[] | null;
+  language: string;
   createdAt: string;
   updatedAt: string;
   assignedUser?: { id: string; name: string; role: string } | null;
+  activities?: ActivityLogEntry[];
+  comments?: CommentEntry[];
 }
 
 export interface ActivityLogEntry {
@@ -33,6 +40,25 @@ export interface ActivityLogEntry {
   actorId: string | null;
   actorName: string | null;
   metadata: string | null;
+  createdAt: string;
+}
+
+export interface CommentEntry {
+  id: string;
+  complaintId: string;
+  content: string;
+  actorId: string | null;
+  actorName: string | null;
+  createdAt: string;
+}
+
+export interface FeedbackEntry {
+  id: string;
+  name: string;
+  email: string | null;
+  message: string;
+  category: string;
+  rating: number;
   createdAt: string;
 }
 

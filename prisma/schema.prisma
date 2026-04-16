@@ -55,6 +55,11 @@ model Complaint {
   satisfactionRating   Int?
   escalatedAt         DateTime?
   resolvedAt          DateTime?
+  matchScore          Float?         // AI matching score (0-100)
+  riskLevel           String?        // AI-predicted risk level
+  pct                 Float?         // SLA breach percentage
+  tags                String?        // JSON array stored as string
+  language            String        @default("bn") // Citizen language: bn, en, hi
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   activities        ActivityLog[]

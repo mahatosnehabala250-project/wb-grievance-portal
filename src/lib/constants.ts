@@ -48,6 +48,30 @@ export const CATEGORY_COLORS: Record<string, string> = {
   'Other': '#6B7280',
 };
 
+export const SOURCE_MAP: Record<string, { label: string; icon: string; color: string }> = {
+  WHATSAPP: { label: 'WhatsApp', icon: 'MessageCircle', color: '#25D366' },
+  WEB: { label: 'Web Portal', icon: 'Globe', color: '#0284C7' },
+  MANUAL: { label: 'Manual Entry', icon: 'ClipboardList', color: '#7C3AED' },
+};
+
+export const ACTION_MAP: Record<string, { label: string; color: string }> = {
+  CREATED: { label: 'Created', color: '#0284C7' },
+  STATUS_CHANGED: { label: 'Status Changed', color: '#2563EB' },
+  ASSIGNED: { label: 'Assigned', color: '#7C3AED' },
+  UNASSIGNED: { label: 'Unassigned', color: '#6B7280' },
+  ESCALATED: { label: 'Escalated', color: '#DC2626' },
+  RESOLVED: { label: 'Resolved', color: '#16A34A' },
+  REJECTED: { label: 'Rejected', color: '#9333EA' },
+  REOPENED: { label: 'Reopened', color: '#D97706' },
+};
+
+export const NOTIFY_VIA_MAP: Record<string, { label: string }> = {
+  whatsapp: { label: 'WhatsApp' },
+  telegram: { label: 'Telegram' },
+  both: { label: 'Both' },
+  none: { label: 'None' },
+};
+
 // Urgency-based Notification Hierarchy (for n8n WF-3)
 export const URGENCY_NOTIFICATION_MAP: Record<string, { label: string; targets: string[]; color: string; description: string }> = {
   CRITICAL: {
