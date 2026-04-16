@@ -15,6 +15,7 @@
 
 import { PrismaClient } from '@prisma/client'
 import { randomUUID } from 'crypto'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 // ═══════════════════════════════════════════════════════════════
 // TYPE DEFINITIONS
@@ -252,7 +253,6 @@ class SupabaseModelAdapter {
   // ─── Where clause: apply to Supabase query builder ───
 
   private applyWhere<Q>(query: Q, where: WhereInput): Q {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let q = query as any
     const orConditions: WhereInput[] = []
     const nestedRelations: Record<string, WhereInput> = {}
@@ -360,7 +360,6 @@ class SupabaseModelAdapter {
   // ─── OrderBy ───
 
   private applyOrderBy<Q>(query: Q, orderBy: OrderByInput): Q {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let q = query as any
     for (const [field, direction] of Object.entries(orderBy)) {
       q = q.order(field, { ascending: direction === 'asc' })
@@ -406,7 +405,6 @@ class SupabaseModelAdapter {
     let query = this.supabase.from(this.tableName).select(selectStr)
 
     // findUnique: exactly one unique field (id, username, ticketNo, etc.)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let q = query as any
     for (const [field, value] of Object.entries(args.where)) {
       q = q.eq(field, value)
@@ -482,7 +480,6 @@ class SupabaseModelAdapter {
       .update(data)
       .select(selectStr)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let q = query as any
     for (const [field, value] of Object.entries(args.where)) {
       q = q.eq(field, value)
@@ -643,21 +640,11 @@ function createPrismaClient(): PrismaClient {
 // EXPORT
 // ═══════════════════════════════════════════════════════════════
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let db: any
 
 if (mode === 'supabase') {
   console.log('[DB] Mode: Supabase REST API')
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { createClient } = require('@supabase/supabase-js')
-    db = new SupabaseDb(createClient(supabaseUrl, supabaseServiceRoleKey))
-  } catch {
-    throw new Error(
-      '[DB] @supabase/supabase-js is required for Supabase REST API mode. ' +
-      'Install it with: bun add @supabase/supabase-js'
-    )
-  }
+  db = new SupabaseDb(createSupabaseClient(supabaseUrl, supabaseServiceRoleKey))
 } else {
   const client = globalForPrisma.prisma ?? createPrismaClient()
   // Cache Prisma client globally (critical for Vercel serverless — reuses connections across invocations)
