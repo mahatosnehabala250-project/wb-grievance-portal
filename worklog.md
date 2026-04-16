@@ -1,6 +1,76 @@
 # WB AI Public Support System — Worklog
 
 ---
+Task ID: 8
+Agent: Main Agent (n8n v2 Rebuild — Native Nodes)
+Task: Rebuild all 8 workflows with native WhatsApp Send, Supabase, and AI Agent nodes
+
+Work Log:
+- Archived all 8 old v1 workflows (HTTP-based, no native nodes)
+- Researched n8n MCP for native node types: WhatsApp Send v1.1, Supabase v1, AI Agent v3.1, OpenAI Chat Model v1.3
+- Got exact TypeScript type definitions for all nodes via get_node_types
+- Got SDK reference patterns for: ai_agent_basic, ai_agent_with_tools, ai_agent_with_structured_output
+- Wrote 8 new SDK files in /home/z/my-project/n8n-sdk-v2/ with native nodes
+- Created deploy-all-v2.sh automation script
+- All 8 workflows validated, created, and published successfully
+- ALL credentials AUTO-ASSIGNED by n8n:
+  - "WhatsApp account" (whatsAppApi) → auto-linked for all WhatsApp Send nodes
+  - "wb WhatsApp OAuth account" (whatsAppTriggerApi) → auto-linked for WB-01 WhatsApp Trigger
+  - "Supabase account" (supabaseApi) → auto-linked for all Supabase nodes
+  - "OpenAI account" (openAiApi) → auto-linked for WB-01 AI Agent
+
+Deployed Workflows v2 (8/8 — ALL ACTIVE — NATIVE NODES):
+- WB-09: Global Error Handler (3 nodes, ID: exFIPvkL5UBM1t9U) — Error Trigger → Format → WhatsApp Send Alert
+- WB-05: Status Check (7 nodes, ID: o3DeJZbNpaU5Ulnv) — Webhook → Supabase GET → IF → Code Format → WhatsApp Send
+- WB-06: Rating Collection (9 nodes, ID: FjaVewMOISSddArd) — Webhook → Code Validate → Supabase GET → Supabase UPDATE → WhatsApp Send
+- WB-03: Notifications (11 nodes, ID: sBqK3dZvqt3sJU6y) — 2 Webhooks → Code Route → Supabase GET ×2 → Code Format ×2 → WhatsApp Send ×2
+- WB-02: Auto-Assign (11 nodes, ID: P2iJrMkoRQppI3fn) — Webhook → Supabase GET → Code Select → Supabase UPDATE → Supabase CREATE → WhatsApp Send ×2
+- WB-01: WhatsApp Intake + AI Router (18 nodes, ID: kILaxTBfPYELsQee) — WA Trigger → Code Parse → IF Route → AI Agent (GPT-4o Mini + Structured Output) → Supabase CREATE ×2 → WhatsApp Send → HTTP WB-02
+- WB-07: SLA Breach (7 nodes, ID: E2bZCVkxgcCH8nrc) — Schedule */2h → Supabase GET view → Code Format → Supabase GET admins → WhatsApp Send
+- WB-08: Daily Report (6 nodes, ID: UtK4c76QW6QLO0ff) — Schedule 9AM → Supabase GET view → Code Format → Supabase GET admins → WhatsApp Send
+
+Total: 72 nodes across 8 workflows, ALL ACTIVE with NATIVE NODES
+
+Native Nodes Used:
+- ✅ n8n-nodes-base.whatsApp (v1.1) — WhatsApp Send — 13 instances
+- ✅ n8n-nodes-base.whatsAppTrigger (v1) — WhatsApp Trigger — 1 instance
+- ✅ n8n-nodes-base.supabase (v1) — Supabase CRUD — 17 instances (getAll, get, create, update)
+- ✅ @n8n/n8n-nodes-langchain.agent (v3.1) — AI Agent — 1 instance (with structured output)
+- ✅ @n8n/n8n-nodes-langchain.lmChatOpenAi (v1.3) — OpenAI Chat Model — 1 instance (GPT-4o Mini)
+- ✅ @n8n/n8n-nodes-langchain.outputParserStructured (v1.3) — Structured Output — 1 instance
+
+n8n Dashboard URLs:
+- WB-01: https://n8n.srv1347095.hstgr.cloud/workflow/kILaxTBfPYELsQee
+- WB-02: https://n8n.srv1347095.hstgr.cloud/workflow/P2iJrMkoRQppI3fn
+- WB-03: https://n8n.srv1347095.hstgr.cloud/workflow/sBqK3dZvqt3sJU6y
+- WB-05: https://n8n.srv1347095.hstgr.cloud/workflow/o3DeJZbNpaU5Ulnv
+- WB-06: https://n8n.srv1347095.hstgr.cloud/workflow/FjaVewMOISSddArd
+- WB-07: https://n8n.srv1347095.hstgr.cloud/workflow/E2bZCVkxgcCH8nrc
+- WB-08: https://n8n.srv1347095.hstgr.cloud/workflow/UtK4c76QW6QLO0ff
+- WB-09: https://n8n.srv1347095.hstgr.cloud/workflow/exFIPvkL5UBM1t9U
+
+How User Reply Works (User's Question):
+1. Citizen sends WhatsApp message → Meta sends to n8n WhatsApp Trigger (WB-01)
+2. WB-01 Code node parses message → routes to: status check / rating / new complaint
+3. For new complaint: AI Agent (GPT-4o Mini) classifies → Supabase creates row → WhatsApp Send replies
+4. For status check: Calls WB-05 → Supabase queries → WhatsApp Send replies with status
+5. For rating: Calls WB-06 → Supabase finds resolved → Updates rating → WhatsApp Send thanks
+6. After complaint creation: WB-01 calls WB-02 → WB-02 finds officer → Supabase updates → WhatsApp Send notifies citizen + officer
+7. Status changes from portal → Next.js API calls WB-03 → WB-03 formats → WhatsApp Send notifies citizen
+
+Stage Summary:
+- **8/8 workflows REBUILT with NATIVE NODES** (up from HTTP-based v1)
+- **72 total nodes** across 8 workflows
+- **ALL credentials AUTO-ASSIGNED** — WhatsApp, Supabase, OpenAI all linked
+- **AI Agent Node** in WB-01 with GPT-4o Mini + Structured Output Parser for complaint classification
+- **Native WhatsApp Send Node** replaces all HTTP Request calls to Meta API (13 instances)
+- **Native Supabase Node** replaces all HTTP Request calls to Supabase REST (17 instances)
+- **Reply flow**: WhatsApp Trigger → Process → WhatsApp Send (native Meta API, not HTTP)
+- **Pending**: Set N8N_BASE_URL env var in n8n for cross-workflow webhook calls
+- **Pending**: Set ADMIN_PHONE env var in n8n for admin alerts
+- **Pending**: End-to-end test with real WhatsApp message
+
+---
 Task ID: 7
 Agent: Main Agent (n8n SDK Builder)
 Task: Build all 8 n8n workflows using SDK code via MCP — validate → create → publish
