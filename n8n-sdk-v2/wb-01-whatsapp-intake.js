@@ -97,7 +97,7 @@ const callStatusCheck = node({
     name: 'Call WB-05 Status Check',
     parameters: {
       method: 'POST',
-      url: '={{ `${$env.N8N_BASE_URL || "https://n8n.srv1347095.hstgr.cloud"}/webhook/wb-status-check` }}',
+      url: 'https://n8n.srv1347095.hstgr.cloud/webhook/wb-status-check',
       sendBody: true,
       specifyBody: 'json',
       jsonBody: '={{ JSON.stringify({ ticketNo: $json.ticketNo, phone: $json.phone }) }}'
@@ -127,7 +127,7 @@ const callRating = node({
     name: 'Call WB-06 Rating',
     parameters: {
       method: 'POST',
-      url: '={{ `${$env.N8N_BASE_URL || "https://n8n.srv1347095.hstgr.cloud"}/webhook/wb-rate` }}',
+      url: 'https://n8n.srv1347095.hstgr.cloud/webhook/wb-rate',
       sendBody: true,
       specifyBody: 'json',
       jsonBody: '={{ JSON.stringify({ phone: $json.phone, rating: $json.rating }) }}'
@@ -290,7 +290,7 @@ const sendConfirmation = node({
     parameters: {
       resource: 'message',
       operation: 'send',
-      phoneNumberId: '={{ $env.WA_PHONE_NUMBER_ID || "1125704830617135" }}',
+      phoneNumberId: '=1125704830617135',
       recipientPhoneNumber: '={{ $json.phone }}',
       messageType: 'text',
       textBody: '={{ $json.message }}'
@@ -308,7 +308,7 @@ const callAutoAssign = node({
     name: 'Trigger WB-02 Auto-Assign',
     parameters: {
       method: 'POST',
-      url: '={{ `${$env.N8N_BASE_URL || "https://n8n.srv1347095.hstgr.cloud"}/webhook/wb-auto-assign` }}',
+      url: 'https://n8n.srv1347095.hstgr.cloud/webhook/wb-auto-assign',
       sendBody: true,
       specifyBody: 'json',
       jsonBody: '={{ JSON.stringify({ complaintId: $json.complaintId, ticketNo: $json.ticketNo, issue: $("Normalize Complaint Data").first().json.issue, category: $("Normalize Complaint Data").first().json.category, block: $("Normalize Complaint Data").first().json.block, district: $("Normalize Complaint Data").first().json.district, urgency: $("Normalize Complaint Data").first().json.urgency, citizenName: $("Normalize Complaint Data").first().json.citizenName, phone: $("Normalize Complaint Data").first().json.phone }) }}'
@@ -343,7 +343,7 @@ const sendError = node({
     parameters: {
       resource: 'message',
       operation: 'send',
-      phoneNumberId: '={{ $env.WA_PHONE_NUMBER_ID || "1125704830617135" }}',
+      phoneNumberId: '=1125704830617135',
       recipientPhoneNumber: '={{ $json.phone }}',
       messageType: 'text',
       textBody: '={{ $json.message }}'
@@ -379,7 +379,7 @@ const sendClarification = node({
     parameters: {
       resource: 'message',
       operation: 'send',
-      phoneNumberId: '={{ $env.WA_PHONE_NUMBER_ID || "1125704830617135" }}',
+      phoneNumberId: '=1125704830617135',
       recipientPhoneNumber: '={{ $json.phone }}',
       messageType: 'text',
       textBody: '={{ $json.message }}'

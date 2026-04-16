@@ -156,7 +156,7 @@ const notifyCitizen = node({
     parameters: {
       resource: 'message',
       operation: 'send',
-      phoneNumberId: '={{ $env.WA_PHONE_NUMBER_ID || "1125704830617135" }}',
+      phoneNumberId: '=1125704830617135',
       recipientPhoneNumber: '={{ $json.citizenPhone }}',
       messageType: 'text',
       textBody: '={{ $json.citizenMsg }}'
@@ -176,7 +176,7 @@ const notifyOfficer = node({
     parameters: {
       resource: 'message',
       operation: 'send',
-      phoneNumberId: '={{ $env.WA_PHONE_NUMBER_ID || "1125704830617135" }}',
+      phoneNumberId: '=1125704830617135',
       recipientPhoneNumber: '={{ $json.officerPhone }}',
       messageType: 'text',
       textBody: '={{ $json.officerMsg }}'
@@ -212,8 +212,8 @@ const alertAdmin = node({
     parameters: {
       resource: 'message',
       operation: 'send',
-      phoneNumberId: '={{ $env.WA_PHONE_NUMBER_ID || "1125704830617135" }}',
-      recipientPhoneNumber: '={{ $env.ADMIN_PHONE || "919999999000" }}',
+      phoneNumberId: '=1125704830617135',
+      recipientPhoneNumber: '=919999999000',
       messageType: 'text',
       textBody: '={{ $json.message }}'
     },

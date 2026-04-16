@@ -109,7 +109,7 @@ const sendCitizen = node({
     parameters: {
       resource: 'message',
       operation: 'send',
-      phoneNumberId: '={{ $env.WA_PHONE_NUMBER_ID || "1125704830617135" }}',
+      phoneNumberId: '=1125704830617135',
       recipientPhoneNumber: '={{ $json.phone }}',
       messageType: 'text',
       textBody: '={{ $json.message }}'
@@ -210,7 +210,7 @@ const sendOfficer = node({
     parameters: {
       resource: 'message',
       operation: 'send',
-      phoneNumberId: '={{ $env.WA_PHONE_NUMBER_ID || "1125704830617135" }}',
+      phoneNumberId: '=1125704830617135',
       recipientPhoneNumber: '={{ $json.phone }}',
       messageType: 'text',
       textBody: '={{ $json.message }}'
