@@ -52,7 +52,7 @@
       "parameters": {
         "conditions": {
           "options": { "caseSensitive": true, "leftValue": "" },
-          "conditions": [{ "leftValue": "={{ $json.officerId }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty" } }]
+          "conditions": [{ "leftValue": "={{ $json.officerId }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty", "singleValue": true } }]
         }
       }
     },
@@ -100,7 +100,7 @@
     "Get Complaint Details": { "main": [[{"node":"Find Officers by Block","type":"main","index":0}]] },
     "Find Officers by Block": { "main": [[{"node":"Select Best Officer","type":"main","index":0}]] },
     "Select Best Officer": { "main": [[{"node":"Has Officer?","type":"main","index":0}]] },
-    "Has Officer?": { "main": [[{"node":"Assign Officer to Complaint","type":"main","index":0}],[{"node":null,"type":"main","index":0}]] },
+    "Has Officer?": { "main": [[{"node":"Assign Officer to Complaint","type":"main","index":0}],[]] },
     "Assign Officer to Complaint": { "main": [[{"node":"Notify Officer","type":"main","index":0}]] },
     "Notify Officer": { "main": [[]] }
   },

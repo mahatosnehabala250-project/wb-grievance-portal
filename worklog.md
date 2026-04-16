@@ -1,6 +1,45 @@
 # WB AI Public Support System — Worklog
 
 ---
+Task ID: 4
+Agent: Main Agent (n8n Workflow Engineer)
+Task: Deep research, audit, and deploy all n8n workflows using n8n-mcp
+
+Work Log:
+- Researched n8n-mcp (https://github.com/czlonkowski/n8n-mcp) — v2.47.10 MCP server
+- Researched n8n-skills (https://github.com/czlonkowski/n8n-skills) — 7 Claude Code skills
+- Verified n8n-mcp API connection: health=ok, n8n instance connected (ID: 209959ec)
+- Deep-researched 14 n8n nodes via MCP API: WhatsApp Trigger, WhatsApp Send, HTTP Request, Code, Set, Switch, IF, Webhook, Schedule Trigger, Execute Workflow, Execute WF Trigger, Merge, NoOp, Postgres
+- Discovered critical gotchas from n8n-skills: Switch drops unmatched items, IF sends to false, WA Trigger only one per app, typeVersion differences
+- Comprehensive project audit: 26 API endpoints, 5 tables, 2 views, 5 webhook cascade functions
+- Found 13 issues in current codebase (N8N_WEBHOOK_URL missing, resolvedAt never set, unauthenticated endpoints, etc.)
+- Compared old n8n-workflow-prompt.md v1.0 against current project — found 10 differences
+- Created n8n-workflow-new.md v2.0 (500+ lines) — complete rewrite with Supabase direct access architecture
+- Key v2.0 changes: n8n queries Supabase directly with service_role key (no JWT), removed WB-04 (merged), direct Supabase UPDATE for ratings, proper error handling
+- Deleted 5 old workflows from n8n instance (from previous partial deployment)
+- Built and deployed all 7 workflows via n8n-mcp create_workflow API:
+  - WB-01: WhatsApp Intake → Create Complaint (8 nodes, ID: JtqTiQE6LJuZFl0I)
+  - WB-02: Auto-Assign Officer (7 nodes, ID: bMnXIB6xSHRh5DkZ)
+  - WB-03: Citizen & Officer Notifications (7 nodes, ID: LN08yGeqKCqIr4uj)
+  - WB-05: Status Check by Ticket (6 nodes, ID: Eydrg83DYww48hrV)
+  - WB-06: Rating Collection (7 nodes, ID: fMPfSmzh3Ip0aZwl)
+  - WB-07: SLA Breach Escalation (7 nodes, ID: 6cflI9GtvV162RB9)
+  - WB-08: Daily Report (7 nodes, ID: bTqSFtRq25l4XWEB)
+- n8n-mcp daily quota (100 req) exhausted after deployment — validation deferred to next session
+- All workflows currently INACTIVE — need credentials configured + activation
+
+Stage Summary:
+- **n8n-mcp**: Successfully used for node research, workflow creation, and deployment
+- **7/7 workflows deployed** on n8n instance at n8n.srv1347095.hstgr.cloud
+- **Total nodes**: 43 nodes across 7 workflows
+- **Status**: All workflows INACTIVE — need: (1) WhatsApp credentials, (2) Supabase credentials, (3) activation
+- **n8n-workflow-new.md**: Complete v2.0 specification saved to project root
+- **Pending**: Configure credentials in n8n instance (WhatsApp, Supabase)
+- **Pending**: Activate all workflows
+- **Pending**: Test end-to-end flow
+- **Pending**: Fix codebase issues found during audit (resolvedAt, N8N_WEBHOOK_URL, etc.)
+
+---
 Task ID: 3
 Agent: Main Agent (Full-Stack Engineer Audit)
 Task: Complete Supabase ↔ Prisma ↔ Frontend schema alignment audit

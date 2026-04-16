@@ -1,9 +1,30 @@
 {
-  "wb-01-whatsapp-intake.json": null,
-  "wb-02-auto-assign.json": null,
-  "wb-03-notifications.json": null,
-  "wb-05-status-check.json": null,
-  "wb-06-rating.json": null,
-  "wb-07-sla-escalation.json": null,
-  "wb-08-daily-report.json": null
+  "wb-01-whatsapp-intake.json": {
+    "status": "SUCCESS",
+    "id": "JtqTiQE6LJuZFl0I"
+  },
+  "wb-02-auto-assign.json": {
+    "status": "FAILED",
+    "id": null
+  },
+  "wb-03-notifications.json": {
+    "status": "SUCCESS",
+    "id": "LN08yGeqKCqIr4uj"
+  },
+  "wb-05-status-check.json": {
+    "status": "SUCCESS",
+    "id": "Eydrg83DYww48hrV"
+  },
+  "wb-06-rating.json": {
+    "status": "SUCCESS",
+    "id": "fMPfSmzh3Ip0aZwl"
+  },
+  "wb-07-sla-escalation.json": {
+    "status": "SUCCESS",
+    "id": "6cflI9GtvV162RB9"
+  },
+  "wb-08-daily-report.json": {
+    "status": "SUCCESS",
+    "id": "bTqSFtRq25l4XWEB"
+  }
 }
