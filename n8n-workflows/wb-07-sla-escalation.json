@@ -1,0 +1,101 @@
+{
+  "name": "WB-07: SLA Breach Escalation (Every 2h)",
+  "nodes": [
+    {
+      "id": "wb07-001",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300],
+      "parameters": {
+        "rule": { "interval": [{ "field": "hours", "hoursInterval": 2 }] }
+      }
+    },
+    {
+      "id": "wb07-002",
+      "name": "Query Breached Complaints",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://wb-grievance-portal.vercel.app/api/complaints/escalate-batch",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"complaints\": [], \"report\": \"SLA Breach Check - Automated\" }",
+        "options": {}
+      }
+    },
+    {
+      "id": "wb07-003",
+      "name": "Has Breaches?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [750, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "" },
+          "conditions": [{ "leftValue": "={{ $json.summary.total }}", "rightValue": 0, "operator": { "type": "number", "operation": "larger" } }]
+        }
+      }
+    },
+    {
+      "id": "wb07-004",
+      "name": "Format SLA Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 200],
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst summary = data.summary || {};\nconst results = data.results || [];\nconst now = new Date().toLocaleString('en-IN', {timeZone:'Asia/Kolkata'});\nconst escalated = results.filter(r => r.success);\nlet report = '🚨 SLA Breach Report — ' + now + '\\n\\n';\nreport += '📊 সারসংক্ষেপ | Summary:\\n';\nreport += '├ মোট পরীক্ষিত: ' + (summary.total||0) + '\\n';\nreport += '├ ✅ এসক্যালেট করা হয়েছে: ' + (summary.escalated||0) + '\\n';\nreport += '├ 🔴 ইতিমধ্যে Critical: ' + (summary.alreadyCritical||0) + '\\n';\nreport += '└ ❌ ব্যর্থ: ' + (summary.failed||0) + '\\n\\n';\nif (escalated.length > 0) {\n  report += '📌 এসক্যালেটেড টিকেট | Escalated Tickets:\\n';\n  escalated.forEach(r => {\n    report += '  • ' + (r.ticketNo||r.id) + ': ' + (r.previousUrgency||'') + ' → ' + (r.newUrgency||'') + '\\n';\n  });\n}\nreturn [{ json: { report, breached: summary.total > 0 } }];"
+      }
+    },
+    {
+      "id": "wb07-005",
+      "name": "Get Admin Users",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1250, 200],
+      "parameters": {
+        "method": "GET",
+        "url": "https://wb-grievance-portal.vercel.app/api/users/list?role=ADMIN&isActive=true",
+        "options": {}
+      }
+    },
+    {
+      "id": "wb07-006",
+      "name": "Send Alert to Admins",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1500, 200],
+      "parameters": {
+        "jsCode": "const report = $('Format SLA Report').first().json.report;\nconst admins = $input.first().json.users || [];\nreturn admins.filter(u => u.notifyVia !== 'none' && u.whatsappPhone).map(u => ({ json: { phone: u.whatsappPhone, report } }));"
+      }
+    },
+    {
+      "id": "wb07-007",
+      "name": "No Breaches - End",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1000, 400],
+      "parameters": {}
+    },
+    {
+      "id": "wb07-010",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [250, 600],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": { "main": [[{"node":"Query Breached Complaints","type":"main","index":0}]] },
+    "Query Breached Complaints": { "main": [[{"node":"Has Breaches?","type":"main","index":0}]] },
+    "Has Breaches?": { "main": [[{"node":"Format SLA Report","type":"main","index":0}],[{"node":"No Breaches - End","type":"main","index":0}]] },
+    "Format SLA Report": { "main": [[{"node":"Get Admin Users","type":"main","index":0}]] },
+    "Get Admin Users": { "main": [[{"node":"Send Alert to Admins","type":"main","index":0}]] },
+    "Send Alert to Admins": { "main": [[]] },
+    "No Breaches - End": { "main": [[]] }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Asia/Kolkata" }
+}

@@ -1,0 +1,108 @@
+{
+  "name": "WB-02: Auto-Assign Officer",
+  "nodes": [
+    {
+      "id": "wb02-001",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "parameters": {}
+    },
+    {
+      "id": "wb02-002",
+      "name": "Get Complaint Details",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://wb-grievance-portal.vercel.app/api/complaints/' + $json.complaintId }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "wb02-003",
+      "name": "Find Officers by Block",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [750, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://wb-grievance-portal.vercel.app/api/users/list?role=BLOCK&block=' + encodeURIComponent($json.block) + '&isActive=true' }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "wb02-004",
+      "name": "Select Best Officer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 300],
+      "parameters": {
+        "jsCode": "const officers = $input.first().json.users || $input.first().json;\nif (!Array.isArray(officers) || officers.length === 0) {\n  return [{ json: { officerId: null, officerName: null, noOfficer: true } }];\n}\nconst officer = officers[0];\nreturn [{ json: { officerId: officer.id, officerName: officer.name, block: officer.block } }];"
+      }
+    },
+    {
+      "id": "wb02-005",
+      "name": "Has Officer?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1250, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "" },
+          "conditions": [{ "leftValue": "={{ $json.officerId }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty" } }]
+        }
+      }
+    },
+    {
+      "id": "wb02-006",
+      "name": "Assign Officer to Complaint",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1500, 200],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://wb-grievance-portal.vercel.app/api/complaints/' + $('Execute Workflow Trigger').first().json.complaintId }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ assignedToId: $json.officerId, assignedOfficerName: $json.officerName }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "wb02-007",
+      "name": "Notify Officer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1750, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.srv1347095.hstgr.cloud/webhook/notify-officer",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ complaintId: $('Execute Workflow Trigger').first().json.complaintId, assignedToId: $json.officerId, timestamp: new Date().toISOString(), source: 'assignment' }) }}",
+        "options": { "timeout": 5000 }
+      }
+    },
+    {
+      "id": "wb02-010",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [250, 600],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": { "main": [[{"node":"Get Complaint Details","type":"main","index":0}]] },
+    "Get Complaint Details": { "main": [[{"node":"Find Officers by Block","type":"main","index":0}]] },
+    "Find Officers by Block": { "main": [[{"node":"Select Best Officer","type":"main","index":0}]] },
+    "Select Best Officer": { "main": [[{"node":"Has Officer?","type":"main","index":0}]] },
+    "Has Officer?": { "main": [[{"node":"Assign Officer to Complaint","type":"main","index":0}],[{"node":null,"type":"main","index":0}]] },
+    "Assign Officer to Complaint": { "main": [[{"node":"Notify Officer","type":"main","index":0}]] },
+    "Notify Officer": { "main": [[]] }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Asia/Kolkata" }
+}

@@ -1,0 +1,109 @@
+{
+  "name": "WB-06: Rating Collection",
+  "nodes": [
+    {
+      "id": "wb06-001",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "parameters": {}
+    },
+    {
+      "id": "wb06-002",
+      "name": "Validate Rating",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 300],
+      "parameters": {
+        "jsCode": "const rating = $input.first().json.rating;\nconst phone = $input.first().json.phone;\nif (rating < 1 || rating > 5) {\n  return [{ json: { valid: false, phone } }];\n}\nreturn [{ json: { valid: true, rating, phone } }];"
+      }
+    },
+    {
+      "id": "wb06-003",
+      "name": "Valid Rating?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [750, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "" },
+          "conditions": [{ "leftValue": "={{ $json.valid }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }]
+        }
+      }
+    },
+    {
+      "id": "wb06-004",
+      "name": "Send Invalid Rating Msg",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1000, 400],
+      "parameters": {
+        "phone_number_id": "1125704830617135",
+        "recipientPhoneNumber": "={{ $json.phone }}",
+        "text": "❌ অবৈধ রেটিং। অনুগ্রহ করে 1 থেকে 5 এর মধ্যে একটি সংখ্যা পাঠান।\nInvalid rating. Please send a number between 1 and 5.",
+        "additionalFields": {}
+      },
+      "credentials": { "whatsAppBusinessCloudApi": { "id": "whatsapp-cred", "name": "WhatsApp Business Cloud API" } }
+    },
+    {
+      "id": "wb06-005",
+      "name": "Find Recent Resolved Complaint",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 200],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://wb-grievance-portal.vercel.app/api/complaints/search?phone=' + encodeURIComponent($json.phone) + '&status=RESOLVED&limit=1' }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "wb06-006",
+      "name": "Submit Rating",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1250, 200],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://wb-grievance-portal.vercel.app/api/complaints/' + $json[0].id + '/rate' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ rating: $('Validate Rating').first().json.rating }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "wb06-007",
+      "name": "Send Thank You",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1500, 200],
+      "parameters": {
+        "phone_number_id": "1125704830617135",
+        "recipientPhoneNumber": "={{ $('Validate Rating').first().json.phone }}",
+        "text": "={{ '🙏 ধন্যবাদ! Thank You!\\n\\nআপনার টিকেটের জন্য ⭐ ' + $('Validate Rating').first().json.rating + '/5 রেটিং পেয়েছি।\\nWe received your ⭐ ' + $('Validate Rating').first().json.rating + '/5 rating.\\n\\nআপনার মতামত আমাদের সেবা উন্নত করতে সাহায্য করে।\\nYour feedback helps us improve our service.' }}",
+        "additionalFields": {}
+      },
+      "credentials": { "whatsAppBusinessCloudApi": { "id": "whatsapp-cred", "name": "WhatsApp Business Cloud API" } }
+    },
+    {
+      "id": "wb06-010",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [250, 600],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": { "main": [[{"node":"Validate Rating","type":"main","index":0}]] },
+    "Validate Rating": { "main": [[{"node":"Valid Rating?","type":"main","index":0}]] },
+    "Valid Rating?": { "main": [[{"node":"Find Recent Resolved Complaint","type":"main","index":0}],[{"node":"Send Invalid Rating Msg","type":"main","index":0}]] },
+    "Find Recent Resolved Complaint": { "main": [[{"node":"Submit Rating","type":"main","index":0}]] },
+    "Submit Rating": { "main": [[{"node":"Send Thank You","type":"main","index":0}]] },
+    "Send Thank You": { "main": [[]] },
+    "Send Invalid Rating Msg": { "main": [[]] }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Asia/Kolkata" }
+}

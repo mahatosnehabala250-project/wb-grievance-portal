@@ -1,0 +1,93 @@
+{
+  "name": "WB-05: Status Check by Ticket",
+  "nodes": [
+    {
+      "id": "wb05-001",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "parameters": {}
+    },
+    {
+      "id": "wb05-002",
+      "name": "Get Complaint by Ticket",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://wb-grievance-portal.vercel.app/api/ticket/' + encodeURIComponent($json.ticketNo) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "wb05-003",
+      "name": "Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [750, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "" },
+          "conditions": [{ "leftValue": "={{ $json.success }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }]
+        }
+      }
+    },
+    {
+      "id": "wb05-004",
+      "name": "Format Status Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 200],
+      "parameters": {
+        "jsCode": "const c = $input.first().json;\nconst statusEmoji = { 'OPEN':'🔴', 'IN_PROGRESS':'🟡', 'RESOLVED':'✅', 'REJECTED':'❌' };\nconst statusBn = { 'OPEN':'খোলা', 'IN_PROGRESS':'চলমান', 'RESOLVED':'সমাধান হয়েছে', 'REJECTED':'বাতিল' };\nconst urgencyEmoji = { 'LOW':'🔵', 'MEDIUM':'🟡', 'HIGH':'🟠', 'CRITICAL':'🔴' };\nconst message = '📊 টিকেট স্ট্যাটাস | Ticket Status\\n\\n🎫 টিকেট নং: ' + c.ticketNo + '\\n📌 বিষয়: ' + c.issue + '\\n📂 বিভাগ: ' + c.category + '\\n📍 অবস্থান: ' + c.block + ', ' + c.district + '\\n🔴 জরুরিতা: ' + (urgencyEmoji[c.urgency]||'') + ' ' + c.urgency + '\\n📊 বর্তমান স্ট্যাটাস: ' + (statusEmoji[c.status]||'') + ' ' + c.status + ' | ' + (statusBn[c.status]||'') + '\\n👤 দায়িত্বপ্রাপ্ত: ' + (c.assignedOfficerName || 'অনুনিয়োগিত') + '\\n📅 দায়েরের তারিখ: ' + new Date(c.createdAt).toLocaleDateString('en-IN', {timeZone:'Asia/Kolkata'}) + '\\n🕐 শেষ আপডেট: ' + new Date(c.updatedAt).toLocaleString('en-IN', {timeZone:'Asia/Kolkata'});\nreturn [{ json: { phone: c.phone, message, ticketNo: c.ticketNo } }];"
+      }
+    },
+    {
+      "id": "wb05-005",
+      "name": "Send Status to Citizen",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1250, 200],
+      "parameters": {
+        "phone_number_id": "1125704830617135",
+        "recipientPhoneNumber": "={{ $json.phone }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "credentials": { "whatsAppBusinessCloudApi": { "id": "whatsapp-cred", "name": "WhatsApp Business Cloud API" } }
+    },
+    {
+      "id": "wb05-006",
+      "name": "Send Not Found",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1000, 400],
+      "parameters": {
+        "phone_number_id": "1125704830617135",
+        "recipientPhoneNumber": "={{ $('Execute Workflow Trigger').first().json.phone }}",
+        "text": "❌ টিকেট পাওয়া যায়নি। অনুগ্রহ করে সঠিক টিকেট নম্বর দিন।\nTicket not found. Please provide a valid ticket number.",
+        "additionalFields": {}
+      },
+      "credentials": { "whatsAppBusinessCloudApi": { "id": "whatsapp-cred", "name": "WhatsApp Business Cloud API" } }
+    },
+    {
+      "id": "wb05-010",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [250, 600],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": { "main": [[{"node":"Get Complaint by Ticket","type":"main","index":0}]] },
+    "Get Complaint by Ticket": { "main": [[{"node":"Found?","type":"main","index":0}]] },
+    "Found?": { "main": [[{"node":"Format Status Message","type":"main","index":0}],[{"node":"Send Not Found","type":"main","index":0}]] },
+    "Format Status Message": { "main": [[{"node":"Send Status to Citizen","type":"main","index":0}]] },
+    "Send Status to Citizen": { "main": [[]] },
+    "Send Not Found": { "main": [[]] }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Asia/Kolkata" }
+}

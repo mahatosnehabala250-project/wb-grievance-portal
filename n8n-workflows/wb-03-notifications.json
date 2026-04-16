@@ -1,0 +1,109 @@
+{
+  "name": "WB-03: Citizen & Officer Notifications",
+  "nodes": [
+    {
+      "id": "wb03-001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "notify-citizen",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "wb03-notify-citizen"
+    },
+    {
+      "id": "wb03-001b",
+      "name": "Officer Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 600],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "notify-officer",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "wb03-notify-officer"
+    },
+    {
+      "id": "wb03-002",
+      "name": "Get Complaint",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://wb-grievance-portal.vercel.app/api/complaints/' + $json.complaintId }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "wb03-003",
+      "name": "Format Citizen Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 300],
+      "parameters": {
+        "jsCode": "const complaint = $input.first().json;\nconst input = $('Webhook Trigger').first().json;\nconst phone = complaint.phone || '';\nconst statusMessages = {\n  'IN_PROGRESS': '🔄 স্ট্যাটাস আপডেট | Status Update\\n\\n🎫 টিকেট: ' + complaint.ticketNo + '\\n📌 স্ট্যাটাস: 🟡 IN_PROGRESS | চলমান\\n\\nআপনার অভিযোগের কাজ শুরু হয়েছে।\\nWork on your complaint has started.',\n  'RESOLVED': '✅ অভিযোগ সমাধান | Complaint Resolved\\n\\n🎫 টিকেট: ' + complaint.ticketNo + '\\n📝 সমাধান: ' + (complaint.resolution || 'Resolved') + '\\n\\nআপনার অভিযোগ সমাধান করা হয়েছে।\\nYour complaint has been resolved.\\n\\n⭐ আপনার অভিজ্ঞতা রেট করুন (Reply 1-5):\\n1 = খুব খারাপ | Very Poor\\n2 = খারাপ | Poor\\n3 = গড় | Average\\n4 = ভালো | Good\\n5 = খুব ভালো | Excellent',\n  'REJECTED': '❌ অভিযোগ বাতিল | Complaint Rejected\\n\\n🎫 টিকেট: ' + complaint.ticketNo + '\\n\\nবিস্তারিত জানতে আপনার ব্লক অফিসে যোগাযোগ করুন।\\nContact your block office for details.',\n  'OPEN': '🎫 আপনার অভিযোগ গ্রহণ করা হয়েছে | Your complaint has been received\\n\\n🎫 টিকেট: ' + complaint.ticketNo + '\\n📌 বিষয়: ' + complaint.issue + '\\n\\nশীঘ্রই ব্যবস্থা নেওয়া হবে।\\nAction will be taken soon.'\n};\nconst slaMessage = '⚠️ SLA লঙ্ঘন বিজ্ঞপ্তি | SLA Breach Notice\\n\\n🎫 টিকেট: ' + complaint.ticketNo + '\\n🔴 আপনার অভিযোগ এসক্যালেট করা হয়েছে\\nYour complaint has been escalated.';\n\nlet message = '';\nif (input.source === 'sla_breach_batch') {\n  message = slaMessage;\n} else if (input.status) {\n  message = statusMessages[input.status] || statusMessages['OPEN'];\n}\n\nreturn [{ json: { phone, message, ticketNo: complaint.ticketNo } }];"
+      }
+    },
+    {
+      "id": "wb03-004",
+      "name": "Send to Citizen",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1000, 300],
+      "parameters": {
+        "phone_number_id": "1125704830617135",
+        "recipientPhoneNumber": "={{ $json.phone }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "credentials": { "whatsAppBusinessCloudApi": { "id": "whatsapp-cred", "name": "WhatsApp Business Cloud API" } }
+    },
+    {
+      "id": "wb03-005",
+      "name": "Get Officer Details",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 600],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://wb-grievance-portal.vercel.app/api/users/list?role=BLOCK,ADMIN,DISTRICT&isActive=true' }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "wb03-006",
+      "name": "Format Officer Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 600],
+      "parameters": {
+        "jsCode": "const input = $('Officer Webhook').first().json;\nconst complaint = $input.first().json;\nconst officers = Array.isArray(complaint.users) ? complaint.users : [];\nconst assignMsg = '🔔 নতুন অভিযোগ নিয়োগ | New Complaint Assigned\\n\\n🎫 টিকেট: (pending)\\n📌 বিষয়: (pending)\\n📍 ব্লক: (pending)\\n\\nঅনুগ্রহ করে শীঘ্র ব্যবস্থা নিন।\\nPlease take action at the earliest.';\nconst escMsg = '🚨 এসক্যালেশন সতর্কতা | Escalation Alert\\n\\n🎫 টিকেট: (pending)\\n⬆️ জরুরিতা পরিবর্তন: ' + (input.previousUrgency||'') + ' → ' + (input.newUrgency||'') + '\\n⏰ কারণ: ' + (input.reason||'SLA Breach') + '\\n\\nএটি একটি উচ্চ-অগ্রাধিকার এসক্যালেশন। অবিলম্বে ব্যবস্থা নিন।\\nThis is a high-priority escalation. Take immediate action.';\n\nlet message = assignMsg;\nif (input.source === 'urgency_escalation') message = escMsg;\n\nreturn [{ json: { message, officers, complaintId: input.complaintId } }];"
+      }
+    },
+    {
+      "id": "wb03-010",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [250, 900],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{"node":"Get Complaint","type":"main","index":0}]] },
+    "Get Complaint": { "main": [[{"node":"Format Citizen Message","type":"main","index":0}]] },
+    "Format Citizen Message": { "main": [[{"node":"Send to Citizen","type":"main","index":0}]] },
+    "Send to Citizen": { "main": [[]] },
+    "Officer Webhook": { "main": [[{"node":"Get Officer Details","type":"main","index":0}]] },
+    "Get Officer Details": { "main": [[{"node":"Format Officer Message","type":"main","index":0}]] },
+    "Format Officer Message": { "main": [[]] }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Asia/Kolkata" }
+}

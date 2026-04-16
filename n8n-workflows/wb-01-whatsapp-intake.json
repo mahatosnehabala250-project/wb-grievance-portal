@@ -1,0 +1,126 @@
+{
+  "name": "WB-01: WhatsApp Intake → Create Complaint",
+  "nodes": [
+    {
+      "id": "wb01-001",
+      "name": "WhatsApp Trigger",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "parameters": { "event": "messages" },
+      "credentials": {
+        "whatsAppBusinessCloudApi": { "id": "whatsapp-cred", "name": "WhatsApp Business Cloud API" }
+      },
+      "webhookId": "wb01-trigger"
+    },
+    {
+      "id": "wb01-002",
+      "name": "Parse and Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 300],
+      "parameters": {
+        "jsCode": "const msg = $input.first().json;\nconst text = msg.body || msg.message?.text?.body || '';\nconst phone = msg.from || msg.message?.from || '';\nlet type = 'new_complaint';\nlet data = {};\nconst ticketMatch = text.match(/WB-\\d{5}/i);\nif (ticketMatch) { type = 'status_check'; data.ticketNo = ticketMatch[0].toUpperCase(); }\nelse if (/^[1-5]$/.test(text.trim())) { type = 'rating'; data.rating = parseInt(text.trim()); }\nelse { type = 'new_complaint'; data = { citizenName:'', phone: (phone.startsWith('91')?'+':'') + phone, issue:text.substring(0,200), category:'Other', block:'', district:'', urgency:'MEDIUM', village:'', description:text }; }\nreturn [{ json: { messageType:type, phone, text, ...data } }];"
+      }
+    },
+    {
+      "id": "wb01-003",
+      "name": "Route by Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [750, 300],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.messageType }}",
+        "rules": { "rules": [
+          { "value2": "status_check", "outputKey": "status_check" },
+          { "value2": "rating", "outputKey": "rating" }
+        ]},
+        "fallbackOutput": 1
+      }
+    },
+    {
+      "id": "wb01-004",
+      "name": "Create Complaint API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1050, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://wb-grievance-portal.vercel.app/api/webhook/complaint",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ citizenName:$json.citizenName, phone:$json.phone, issue:$json.issue, category:$json.category, block:$json.block, district:$json.district, urgency:$json.urgency, village:$json.village, description:$json.description }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "wb01-005",
+      "name": "Check Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1300, 200],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "" },
+          "conditions": [{ "leftValue": "={{ $json.success }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }]
+        }
+      }
+    },
+    {
+      "id": "wb01-006",
+      "name": "Send Confirmation",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1550, 100],
+      "parameters": {
+        "phone_number_id": "1125704830617135",
+        "recipientPhoneNumber": "={{ $('Parse and Route').first().json.phone }}",
+        "text": "={{ '✅ অভিযোগ নিবন্ধন সফল! Complaint Registered Successfully!\n\n🎫 টিকেট নং: ' + $json.ticketNo + '\n📌 বিষয়: ' + $json.issue + '\n📂 বিভাগ: ' + $json.category + '\n📍 অবস্থান: ' + $json.block + ', ' + $json.district + '\n🔴 জরুরিতা: ' + $json.urgency + '\n\nআপনার অভিযোগ গ্রহণ করা হয়েছে।\nYour complaint has been received.\n\n📊 স্ট্যাটাস চেক: ' + $json.ticketNo + ' লিখে পাঠান' }}",
+        "additionalFields": {}
+      },
+      "credentials": { "whatsAppBusinessCloudApi": { "id": "whatsapp-cred", "name": "WhatsApp Business Cloud API" } }
+    },
+    {
+      "id": "wb01-007",
+      "name": "Send Error Msg",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1550, 300],
+      "parameters": {
+        "phone_number_id": "1125704830617135",
+        "recipientPhoneNumber": "={{ $('Parse and Route').first().json.phone }}",
+        "text": "❌ দুঃখিত, অভিযোগ নিবন্ধন ব্যর্থ হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।\nSorry, complaint registration failed. Please try again.",
+        "additionalFields": {}
+      },
+      "credentials": { "whatsAppBusinessCloudApi": { "id": "whatsapp-cred", "name": "WhatsApp Business Cloud API" } }
+    },
+    {
+      "id": "wb01-008",
+      "name": "Execute WB-02",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1800, 100],
+      "parameters": { "workflowId": "WB-02" }
+    },
+    {
+      "id": "wb01-010",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [250, 600],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "WhatsApp Trigger": { "main": [[{"node":"Parse and Route","type":"main","index":0}]] },
+    "Parse and Route": { "main": [[{"node":"Route by Type","type":"main","index":0}]] },
+    "Route by Type": { "main": [[{"node":"Create Complaint API","type":"main","index":0}],[],[{"node":"Create Complaint API","type":"main","index":0}]] },
+    "Create Complaint API": { "main": [[{"node":"Check Success","type":"main","index":0}]] },
+    "Check Success": { "main": [[{"node":"Send Confirmation","type":"main","index":0}],[{"node":"Send Error Msg","type":"main","index":0}]] },
+    "Send Confirmation": { "main": [[{"node":"Execute WB-02","type":"main","index":0}]] },
+    "Send Error Msg": { "main": [[]] },
+    "Execute WB-02": { "main": [[]] }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Asia/Kolkata" }
+}

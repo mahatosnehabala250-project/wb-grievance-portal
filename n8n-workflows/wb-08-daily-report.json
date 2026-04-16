@@ -1,0 +1,97 @@
+{
+  "name": "WB-08: Daily Report (9 AM IST)",
+  "nodes": [
+    {
+      "id": "wb08-001",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300],
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronTrigger", "minute": 0, "hour": 9 }] }
+      }
+    },
+    {
+      "id": "wb08-002",
+      "name": "Fetch Dashboard Stats",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://wb-grievance-portal.vercel.app/api/dashboard",
+        "options": {}
+      }
+    },
+    {
+      "id": "wb08-003",
+      "name": "Fetch Weekly Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 500],
+      "parameters": {
+        "method": "GET",
+        "url": "https://wb-grievance-portal.vercel.app/api/reports/weekly",
+        "options": {}
+      }
+    },
+    {
+      "id": "wb08-004",
+      "name": "Merge Reports",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [750, 400],
+      "parameters": { "mode": "append" }
+    },
+    {
+      "id": "wb08-005",
+      "name": "Format Daily Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 400],
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst dashboard = items[0]?.json || {};\nconst weekly = items[1]?.json || {};\nconst stats = dashboard.stats || dashboard || {};\nconst now = new Date();\nconst date = now.toLocaleDateString('en-IN', {day:'numeric',month:'long',year:'numeric',timeZone:'Asia/Kolkata'});\n\nlet report = '📋 WB Grievance Portal — Daily Report\\n📅 ' + date + '\\n\\n';\nreport += '📊 সারসংক্ষেপ | Summary:\\n';\nreport += '├ 📥 নতুন অভিযোগ: ' + (stats.newToday||stats.total||0) + '\\n';\nreport += '├ ✅ সমাধান: ' + (stats.resolved||0) + '\\n';\nreport += '├ 🔄 চলমান: ' + (stats.inProgress||0) + '\\n';\nreport += '├ 📤 খোলা: ' + (stats.open||0) + '\\n';\nreport += '├ ❌ বাতিল: ' + (stats.rejected||0) + '\\n';\nreport += '└ ⚠️ SLA লঙ্ঘন: ' + (stats.breached||0) + '\\n\\n';\n\nif (stats.byUrgency) {\n  report += '🔴 জরুরিতা অনুযায়ী | By Urgency:\\n';\n  Object.entries(stats.byUrgency).forEach(([k,v]) => report += '├ ' + k + ': ' + v + '\\n');\n  report += '\\n';\n}\nif (stats.byCategory) {\n  report += '📂 বিভাগ অনুযায়ী | By Category:\\n';\n  const cats = Object.entries(stats.byCategory).sort((a,b) => b[1]-a[1]);\n  cats.slice(0,5).forEach(([k,v]) => report += '├ ' + k + ': ' + v + '\\n');\n  if (cats.length > 5) report += '└ ... and ' + (cats.length-5) + ' more\\n';\n  report += '\\n';\n}\nreport += '⭐ গড় রেটিং: ' + (stats.avgRating || 'N/A') + '/5 (গত ৭ দিনে)';\n\nreturn [{ json: { report } }];"
+      }
+    },
+    {
+      "id": "wb08-006",
+      "name": "Get Admin & District Heads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1250, 400],
+      "parameters": {
+        "method": "GET",
+        "url": "https://wb-grievance-portal.vercel.app/api/users/list?role=ADMIN,DISTRICT&isActive=true",
+        "options": {}
+      }
+    },
+    {
+      "id": "wb08-007",
+      "name": "Send Reports",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1500, 400],
+      "parameters": {
+        "jsCode": "const report = $('Format Daily Report').first().json.report;\nconst users = $input.first().json.users || [];\nreturn users.filter(u => u.notifyVia !== 'none' && u.whatsappPhone).map(u => ({ json: { phone: u.whatsappPhone, report } }));"
+      }
+    },
+    {
+      "id": "wb08-010",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [250, 700],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": { "main": [[{"node":"Fetch Dashboard Stats","type":"main","index":0},{"node":"Fetch Weekly Report","type":"main","index":0}]] },
+    "Fetch Dashboard Stats": { "main": [[{"node":"Merge Reports","type":"main","index":0}]] },
+    "Fetch Weekly Report": { "main": [[{"node":"Merge Reports","type":"main","index":0}]] },
+    "Merge Reports": { "main": [[{"node":"Format Daily Report","type":"main","index":0}]] },
+    "Format Daily Report": { "main": [[{"node":"Get Admin & District Heads","type":"main","index":0}]] },
+    "Get Admin & District Heads": { "main": [[{"node":"Send Reports","type":"main","index":0}]] },
+    "Send Reports": { "main": [[]] }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Asia/Kolkata" }
+}
