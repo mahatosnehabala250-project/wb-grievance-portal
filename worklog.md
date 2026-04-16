@@ -1,6 +1,33 @@
 # WB AI Public Support System — Worklog
 
 ---
+Task ID: 3
+Agent: Main Agent (Full-Stack Engineer Audit)
+Task: Complete Supabase ↔ Prisma ↔ Frontend schema alignment audit
+
+Work Log:
+- Queried Supabase REST API to discover ALL actual tables, columns, types, and data
+- Found 7 objects in Supabase: users(29), complaints(12), activity_logs(10), comments(4), feedback(3), complaint_stats(view), sla_at_risk(view)
+- Discovered 5 columns in Supabase complaints NOT in Prisma: matchScore, riskLevel, pct, tags, language
+- Added 5 missing columns to prisma/schema.prisma Complaint model
+- Added 5 missing fields to TypeScript Complaint interface + activities?/comments? relations
+- Added CommentEntry interface (was missing from types.ts)
+- Added FeedbackEntry interface (was missing from types.ts)
+- Added SOURCE_MAP, ACTION_MAP, NOTIFY_VIA_MAP constants to constants.ts
+- Verified announcements API uses hardcoded data (no DB table needed)
+- Verified audit-log API correctly queries activity_logs (not audit_logs)
+- Verified db.ts TABLE_NAMES matches all 5 Prisma @@map values
+- Full match matrix: users 16/16, complaints 27/27, activity_logs 8/8, comments 6/6, feedback 7/7
+- Committed as fcd6534 and pushed to GitHub
+
+Stage Summary:
+- **Schema**: 100% aligned — Supabase ↔ Prisma ↔ TypeScript all match
+- **Supabase connection**: Mode 1 active (REST API), db=connected, latency ~600ms
+- **All 5 tables + 2 views verified working**
+- **Zero discrepancies remaining**
+- **Lint**: 0 errors, 0 warnings
+
+---
 Task ID: 2
 Agent: Main Agent
 Task: Install and configure Supabase SSR client setup
