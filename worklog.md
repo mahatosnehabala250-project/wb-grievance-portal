@@ -1,6 +1,62 @@
 # WB AI Public Support System — Worklog
 
 ---
+Task ID: 10
+Agent: Main Agent (WB-01 Advanced v3.0 Builder)
+Task: Build WB-01: WhatsApp Intake + AI Router — deeply, carefully, and advanced
+
+Work Log:
+- Deep-studied ARCHITECTURE-v4.md (WB-01 section: 14 nodes), n8n-workflow-new.md (v3.0 SDK spec), types.ts (27 complaint fields), constants.ts, prisma schema
+- Analyzed existing v2 WB-01 SDK code (18 nodes) and identified all areas for advancement
+- Researched n8n MCP tools: discovered n8n-mcp.com daily quota exhausted (100/100), documented backup n8n-mcp approach
+- Designed WB-01 ADVANCED v3.0 with 24 nodes (up from 18 in v2) and 10 new advanced features
+- Wrote comprehensive SDK code in /home/z/my-project/n8n-sdk-v3/wb-01-whatsapp-intake-advanced.js
+- Fixed parenthesis balancing issue in workflow composition (6 nested IF/ELSE + chain)
+- Created deployment script /home/z/my-project/n8n-sdk-v3/deploy-wb01.sh (validate → create → publish)
+- Created dedicated WB01WorkflowDetailView.tsx component with 4 tabs (Overview, 6 Paths, Data Flow, SDK Code)
+- Integrated WB-01 view into main page.tsx (new nav item + ViewType)
+
+WB-01 ADVANCED v3.0 — 10 New Features:
+1. 6-Way Smart Router: Status Check (WB-XXXXX), Rating (1-5), Help Menu (hi/help), Stop/Unsubscribe, Too Short (<10 chars), New Complaint (default)
+2. Duplicate Detection (24h): Supabase query for recent complaints from same phone to prevent spam
+3. AI 12-Field Classification: GPT-4o Mini + Structured Output (category, urgency, sentiment, language, summary, suggested_block, suggested_district, village, keywords, confidence, department, needs_urgent_attention, is_duplicate_likely)
+4. Multi-Language Support: Auto-detects Bengali, English, Hindi from Unicode character ranges
+5. Rich Bilingual Messages: All WhatsApp messages in both Bengali + English with Government branding
+6. Interactive Message Support: Handles text, interactive list reply, and button reply types
+7. Help Menu System: Comprehensive guide for citizens with usage examples and instructions
+8. Stop/Unsubscribe: Graceful opt-out handling with confirmation
+9. Enhanced Activity Logging: Detailed metadata JSON with AI confidence, language, department
+10. Error Handling & Fallbacks: AI timeout defaults, Supabase error messages, clarification prompts
+
+SDK Code Details (24 Nodes):
+- 1x WhatsApp Trigger (n8n-nodes-base.whatsAppTrigger v1)
+- 6x IF/ELSE Router (n8n-nodes-base.ifElse v2.2) — nested 6-way routing
+- 1x AI Agent (langchain.agent v3.1) with GPT-4o Mini + Structured Output
+- 1x Chat Model (langchain.lmChatOpenAi v1.3) — gpt-4o-mini, temp 0.05
+- 1x Output Parser (langchain.outputParserStructured v1.3) — 12-field JSON schema
+- 3x Code Nodes (n8n-nodes-base.code v2) — Parse & Route, Merge & Normalize, Build messages (×7)
+- 3x Supabase Nodes (n8n-nodes-base.supabase v1) — getAll (duplicate check), create (complaint + activity)
+- 7x WhatsApp Send (n8n-nodes-base.whatsApp v1.1) — confirmation, error, clarification, help, stop, duplicate, short
+- 3x HTTP Request (n8n-nodes-base.httpRequest v4.2) — call WB-05, WB-06, WB-02 with timeouts
+- 5x Sticky Notes — architecture, error handling, AI engine, data flow documentation
+
+Frontend Component: WB01WorkflowDetailView.tsx
+- 4 tabs: Overview (features + credentials), 6 Routing Paths (expandable pipeline), Data Flow (10-step diagram), SDK Code (composition tree)
+- Animated node cards with type badges (Trigger, Code, AI, Database, Messaging, Router, HTTP)
+- Expandable detail sections showing parameters and configuration
+- Full workflow composition tree visualization
+
+Stage Summary:
+- **WB-01 ADVANCED v3.0 SDK code written**: 24 nodes, 6-way routing, AI classification, duplicate detection
+- **SDK file**: /home/z/my-project/n8n-sdk-v3/wb-01-whatsapp-intake-advanced.js
+- **Deploy script**: /home/z/my-project/n8n-sdk-v3/deploy-wb01.sh (ready to run when MCP quota resets)
+- **Frontend view**: WB01WorkflowDetailView.tsx integrated into main page (admin only)
+- **Parentheses balanced**: Verified with Python script (0 unclosed)
+- **Lint clean for WB-01**: No parsing errors in SDK file
+- **Pending**: Deploy to n8n when n8n-mcp.com daily quota resets (was 100/100 exhausted)
+- **Pending**: Test with simulated data via prepare_test_pin_data + test_workflow
+
+---
 Task ID: 9
 Agent: Main Agent (n8n Error Diagnosis & Fix)
 Task: Check errors in n8n workflows and solve them
