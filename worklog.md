@@ -1,6 +1,60 @@
 # WB AI Public Support System — Worklog
 
 ---
+Task ID: 11
+Agent: Main Agent (JS-01 Sahayak Workflow Diagnosis & Fix)
+Task: Check and fix problems in JS-01: Sahayak — Citizen AI Conversational Agent (E5ne8UJ31aiqAAal)
+
+Work Log:
+- Fetched full workflow details via n8n MCP (18 nodes, versionCounter 27, ACTIVE)
+- Validated workflow: 0 errors, 41 warnings (valid connections 17/17)
+- Checked recent executions: 5 total, 2 success (WhatsApp status pings), 4 errors
+- Analyzed all 4 error executions — ALL same root cause
+
+ERRORS FOUND:
+1. 🔴 CRITICAL: `CheckDuplicateComplaint` node — PostgreSQL error 42804
+   - Error: "Returned type timestamp(3) without time zone does not match expected type timestamp with time zone in column 4"
+   - Root Cause: Supabase RPC `check_duplicate_complaint` function return type declares column 4 as `timestamptz`, but the actual SQL query returns `timestamp(3)` (from complaints table which uses `TIMESTAMP(3)`)
+   - Impact: EVERY complaint registration attempt crashes the workflow (4/4 errors)
+   - Fix: Created /home/z/my-project/supabase-fix-js01.sql — recreates function with correct `TIMESTAMP(3)` return type
+
+2. 🟡 OUTDATED NODE VERSIONS (all HTTP Request nodes):
+   - Check Rate Limit: 4.2 → 4.4 ✅ Fixed
+   - Is Allowed: 2.2 → 2.3 ✅ Fixed
+   - Upsert Session State: 4.2 → 4.4 ✅ Fixed
+   - EmbedText: 4.2 → 4.4 ✅ Fixed
+   - SchemeKnowledgeSearch: 4.2 → 4.4 ✅ Fixed
+   - CheckDuplicateComplaint: 4.2 → 4.4 ✅ Fixed
+   - CheckComplaintStatus: 4.2 → 4.4 ✅ Fixed
+   - RegisterComplaint: 4.2 → 4.4 ✅ Fixed
+   - SaveSessionState: 4.2 → 4.4 ✅ Fixed
+
+3. 🟡 NO ERROR HANDLING ON AI TOOL NODES:
+   - All 6 httpRequestTool nodes had no `onError` property
+   - When CheckDuplicateComplaint fails, entire workflow crashes
+   - Fix: Added `onError: "continueRegularOutput"` to all 6 tool nodes ✅
+
+SQL FIX FILE CREATED: /home/z/my-project/supabase-fix-js01.sql
+- Fixes check_duplicate_complaint (correct TIMESTAMP(3) return type)
+- Creates/ensures check_rate_limit function
+- Creates/ensures conversation_sessions table (with RLS + index + trigger)
+- Creates/ensures match_schemes function (with vector support)
+- Creates/ensures scheme_knowledge table (with vector extension)
+
+n8n WORKFLOW UPDATED (9 operations applied):
+- 3 HTTP Request nodes: typeVersion upgraded
+- 6 httpRequestTool nodes: typeVersion upgraded + onError added
+- Validation: 0 errors, 26 warnings (down from 41)
+
+Stage Summary:
+- **CRITICAL FIX NEEDED**: User MUST run supabase-fix-js01.sql in Supabase Dashboard SQL Editor
+- **n8n workflow**: Updated with error handling + latest versions — won't crash on RPC errors anymore
+- **Workflow URL**: https://n8n.srv1347095.hstgr.cloud/workflow/E5ne8UJ31aiqAAal
+- **Remaining warnings**: "Node not reachable from trigger" (normal for AI tool nodes), "Community node as AI tool" (ensure N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true)
+- **Pending**: Run SQL fix in Supabase Dashboard
+- **Pending**: End-to-end test with real WhatsApp message after SQL fix
+
+---
 Task ID: 10
 Agent: Main Agent (WB-01 Advanced v3.0 Builder)
 Task: Build WB-01: WhatsApp Intake + AI Router — deeply, carefully, and advanced
