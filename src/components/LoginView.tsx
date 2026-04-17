@@ -325,10 +325,10 @@ export function LoginView() {
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { u: 'admin', p: 'admin123', r: 'ADMIN', icon: Shield, borderColor: '#0A2463', iconBg: '#0A2463' },
-                    { u: 'state_wb', p: 'state123', r: 'STATE', icon: Globe, borderColor: '#059669', iconBg: '#059669' },
-                    { u: 'district_nadia', p: 'nadia123', r: 'DISTRICT', icon: Building2, borderColor: '#d97706', iconBg: '#d97706' },
-                    { u: 'block_krishnanagar', p: 'krish123', r: 'BLOCK', icon: MapPin, borderColor: '#dc2626', iconBg: '#dc2626' },
+                    { u: 'admin', p: 'password123', r: 'ADMIN', icon: Shield, borderColor: '#0A2463', iconBg: '#0A2463' },
+                    { u: 'state_mag1', p: 'password123', r: 'STATE', icon: Globe, borderColor: '#059669', iconBg: '#059669' },
+                    { u: 'dist_nadia1', p: 'password123', r: 'DISTRICT', icon: Building2, borderColor: '#d97706', iconBg: '#d97706' },
+                    { u: 'block_krish1', p: 'password123', r: 'BLOCK', icon: MapPin, borderColor: '#dc2626', iconBg: '#dc2626' },
                   ].map((acc) => (
                     <motion.button
                       key={acc.u}
