@@ -30,6 +30,10 @@ export async function GET(request: NextRequest) {
       district: true,
       isActive: true,
       createdAt: true,
+      whatsappPhone: true,
+      telegramChatId: true,
+      email: true,
+      isDistrictHead: true,
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -49,11 +53,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { username, password, role, name, location, district } = body;
+    const { username, password, role, name, block, location, district, whatsappPhone, telegramChatId, email, isDistrictHead } = body;
 
-    if (!username || !password || !role || !name || !location) {
+    // Accept both 'block' and 'location' for backward compatibility
+    const blockValue = block || location || '';
+
+    if (!username || !password || !role || !name || !blockValue) {
       return NextResponse.json(
-        { error: 'Username, password, role, name, and location are required' },
+        { error: 'Username, password, role, name, and block are required' },
         { status: 400 }
       );
     }
@@ -69,12 +76,17 @@ export async function POST(request: NextRequest) {
         passwordHash: hashSync(password, 12),
         role,
         name,
-        location,
+        block: blockValue,
         district: district || null,
+        whatsappPhone: whatsappPhone || null,
+        telegramChatId: telegramChatId || null,
+        email: email || null,
+        isDistrictHead: isDistrictHead || false,
       },
       select: {
         id: true, username: true, role: true, name: true,
         block: true, district: true, isActive: true, createdAt: true,
+        whatsappPhone: true, telegramChatId: true, email: true,
       },
     });
 
@@ -97,7 +109,7 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { id, isActive, password, name, role, location, district } = body;
+    const { id, isActive, password, name, role, location, block, district, whatsappPhone, telegramChatId, email, isDistrictHead } = body;
 
     if (!id) return NextResponse.json({ error: 'User ID required' }, { status: 400 });
 
@@ -106,8 +118,12 @@ export async function PATCH(request: NextRequest) {
     if (password) data.passwordHash = hashSync(password, 12);
     if (name) data.name = name;
     if (role) data.role = role;
-    if (location) data.block = location;
+    if (location || block) data.block = block || location;
     if (district !== undefined) data.district = district || null;
+    if (whatsappPhone !== undefined) data.whatsappPhone = whatsappPhone || null;
+    if (telegramChatId !== undefined) data.telegramChatId = telegramChatId || null;
+    if (email !== undefined) data.email = email || null;
+    if (isDistrictHead !== undefined) data.isDistrictHead = isDistrictHead;
 
     const user = await db.user.update({
       where: { id },
@@ -115,6 +131,7 @@ export async function PATCH(request: NextRequest) {
       select: {
         id: true, username: true, role: true, name: true,
         block: true, district: true, isActive: true, createdAt: true,
+        whatsappPhone: true, telegramChatId: true, email: true, isDistrictHead: true,
       },
     });
 

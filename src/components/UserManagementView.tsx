@@ -65,7 +65,7 @@ export function UserManagementView() {
   const [filterRole, setFilterRole] = useState('');
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({ username: '', password: '', role: 'BLOCK', name: '', block: '', district: '' });
+  const [createForm, setCreateForm] = useState({ username: '', password: '', role: 'BLOCK', name: '', block: '', district: '', whatsappPhone: '', telegramChatId: '', email: '' });
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
   const [creating, setCreating] = useState(false);
 
@@ -132,7 +132,7 @@ export function UserManagementView() {
       });
       if (res.ok) {
         toast.success('User created successfully');
-        setCreateForm({ username: '', password: '', role: 'BLOCK', name: '', block: '', district: '' });
+        setCreateForm({ username: '', password: '', role: 'BLOCK', name: '', block: '', district: '', whatsappPhone: '', telegramChatId: '', email: '' });
         setCreateErrors({});
         setCreateOpen(false);
         fetchUsers();
@@ -412,6 +412,20 @@ export function UserManagementView() {
                 <Label className="text-[10px] font-bold uppercase tracking-widest">District</Label>
                 <Input value={createForm.district} onChange={(e) => setCreateForm((p) => ({ ...p, district: e.target.value }))} placeholder="District name" className="h-9 text-sm" />
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-widest">WhatsApp Number</Label>
+                <Input value={createForm.whatsappPhone} onChange={(e) => setCreateForm((p) => ({ ...p, whatsappPhone: e.target.value }))} placeholder="919876543210" className="h-9 text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-widest">Email (Optional)</Label>
+                <Input value={createForm.email} onChange={(e) => setCreateForm((p) => ({ ...p, email: e.target.value }))} placeholder="officer@gov.in" className="h-9 text-sm" type="email" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-widest">Telegram Chat ID (Optional)</Label>
+              <Input value={createForm.telegramChatId} onChange={(e) => setCreateForm((p) => ({ ...p, telegramChatId: e.target.value }))} placeholder="Get from @get_id_bot on Telegram" className="h-9 text-sm" />
             </div>
           </div>
           <DialogFooter className="gap-2 mt-3">
