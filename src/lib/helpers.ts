@@ -1,4 +1,4 @@
-import { STATUS_MAP, URGENCY_MAP, ROLE_MAP } from './constants';
+import { STATUS_MAP, URGENCY_MAP, ROLE_MAP, CATEGORY_LABELS } from './constants';
 
 export function fmtDate(s: string) {
   if (!s) return 'N/A';
@@ -12,6 +12,10 @@ export function fmtDateTime(s: string) {
 
 export function fmtStatus(status: string) {
   return STATUS_MAP[status]?.label || status;
+}
+
+export function fmtCategory(category: string) {
+  return CATEGORY_LABELS[category] || category;
 }
 
 export function fmtUrgency(urgency: string) {

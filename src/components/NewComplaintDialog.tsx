@@ -55,7 +55,7 @@ import { useTheme } from 'next-themes';
 import { useAuthStore } from '@/lib/auth-store';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Complaint, ActivityLogEntry, AssignableUser, AppUser, DashboardData, ViewType, AuditEntry } from '@/lib/types';
-import { NAVY, NAVY_DARK, STATUS_MAP, URGENCY_MAP, URGENCY_BORDER_MAP, ROLE_MAP, ROLE_COLORS, CATEGORIES, CATEGORY_COLORS } from '@/lib/constants';
+import { NAVY, NAVY_DARK, STATUS_MAP, URGENCY_MAP, URGENCY_BORDER_MAP, ROLE_MAP, ROLE_COLORS, CATEGORIES, CATEGORY_LABELS, CATEGORY_COLORS, WB_DISTRICTS, WB_DISTRICT_LIST } from '@/lib/constants';
 import { fmtDate, fmtDateTime, fmtStatus, fmtUrgency, fmtRole, safeGetLocalStorage, safeSetLocalStorage, authHeaders, getDaysOld, getSLAInfo, playNotificationSound } from '@/lib/helpers';
 import { StatusBadge, UrgencyBadge, RoleBadge, StatCard, MiniStat, PieLabel, LoadingSkeleton, EmptyState } from '@/components/common';
 
@@ -66,6 +66,9 @@ export function NewComplaintDialog({ open, onOpenChange, onCreated }: {
   const [form, setForm] = useState({ citizenName: '', phone: '', issue: '', category: '', block: '', district: '', urgency: 'MEDIUM', description: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+
+  // Dynamic blocks based on selected district
+  const availableBlocks = form.district && WB_DISTRICTS[form.district] ? WB_DISTRICTS[form.district] : [];
 
   const handleSubmit = useCallback(async () => {
     const e: Record<string, string> = {};
@@ -139,7 +142,7 @@ export function NewComplaintDialog({ open, onOpenChange, onCreated }: {
                   <SelectValue placeholder="Select..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{CATEGORY_LABELS[c] || c}</SelectItem>)}
                 </SelectContent>
               </Select>
               {errors.category && <p className="text-red-500 text-[11px]">{errors.category}</p>}
@@ -161,14 +164,32 @@ export function NewComplaintDialog({ open, onOpenChange, onCreated }: {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-[10px] font-bold uppercase tracking-widest">Block *</Label>
-              <Input value={form.block} onChange={(e) => update('block', e.target.value)} placeholder="Block name" className={`h-9 text-sm ${errors.block ? 'border-red-400' : ''}`} />
-              {errors.block && <p className="text-red-500 text-[11px]">{errors.block}</p>}
+              <Label className="text-[10px] font-bold uppercase tracking-widest">District *</Label>
+              <Select value={form.district} onValueChange={(v) => { update('district', v); update('block', ''); }}>
+                <SelectTrigger className={`h-9 text-sm w-full ${errors.district ? 'border-red-400' : ''}`}>
+                  <SelectValue placeholder="Select district..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {WB_DISTRICT_LIST.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {errors.district && <p className="text-red-500 text-[11px]">{errors.district}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[10px] font-bold uppercase tracking-widest">District *</Label>
-              <Input value={form.district} onChange={(e) => update('district', e.target.value)} placeholder="District name" className={`h-9 text-sm ${errors.district ? 'border-red-400' : ''}`} />
-              {errors.district && <p className="text-red-500 text-[11px]">{errors.district}</p>}
+              <Label className="text-[10px] font-bold uppercase tracking-widest">Block *</Label>
+              {availableBlocks.length > 0 ? (
+                <Select value={form.block} onValueChange={(v) => update('block', v)}>
+                  <SelectTrigger className={`h-9 text-sm w-full ${errors.block ? 'border-red-400' : ''}`}>
+                    <SelectValue placeholder="Select block..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {availableBlocks.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input value={form.block} onChange={(e) => update('block', e.target.value)} placeholder="Select district first" className={`h-9 text-sm ${errors.block ? 'border-red-400' : ''}`} disabled={!form.district} />
+              )}
+              {errors.block && <p className="text-red-500 text-[11px]">{errors.block}</p>}
             </div>
           </div>
           <div className="space-y-1.5">

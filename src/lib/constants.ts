@@ -2,10 +2,15 @@ export const NAVY = '#0A2463';
 export const NAVY_DARK = '#061539';
 
 export const STATUS_MAP: Record<string, { label: string; dotColor: string; bg: string; text: string; border: string }> = {
-  OPEN: { label: 'Open', dotColor: 'bg-red-500', bg: 'bg-red-50 dark:bg-red-950/40', text: 'text-red-700 dark:text-red-400', border: 'border-red-200 dark:border-red-800' },
-  IN_PROGRESS: { label: 'In Progress', dotColor: 'bg-amber-500', bg: 'bg-amber-50 dark:bg-amber-950/40', text: 'text-amber-700 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-800' },
-  RESOLVED: { label: 'Resolved', dotColor: 'bg-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800' },
-  REJECTED: { label: 'Rejected', dotColor: 'bg-gray-400', bg: 'bg-gray-50 dark:bg-gray-900/40', text: 'text-gray-600 dark:text-gray-400', border: 'border-gray-200 dark:border-gray-700' },
+  // Legacy / portal-created statuses
+  OPEN:        { label: 'Open',        dotColor: 'bg-red-500',    bg: 'bg-red-50 dark:bg-red-950/40',     text: 'text-red-700 dark:text-red-400',     border: 'border-red-200 dark:border-red-800' },
+  IN_PROGRESS: { label: 'In Progress', dotColor: 'bg-amber-500',  bg: 'bg-amber-50 dark:bg-amber-950/40', text: 'text-amber-700 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-800' },
+  RESOLVED:    { label: 'Resolved',    dotColor: 'bg-emerald-500',bg: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800' },
+  REJECTED:    { label: 'Rejected',    dotColor: 'bg-gray-400',   bg: 'bg-gray-50 dark:bg-gray-900/40',   text: 'text-gray-600 dark:text-gray-400',   border: 'border-gray-200 dark:border-gray-700' },
+  // n8n / WhatsApp pipeline statuses
+  REGISTERED:  { label: 'Registered',  dotColor: 'bg-blue-400',   bg: 'bg-blue-50 dark:bg-blue-950/40',   text: 'text-blue-700 dark:text-blue-400',   border: 'border-blue-200 dark:border-blue-800' },
+  ASSIGNED:    { label: 'Assigned',    dotColor: 'bg-violet-500', bg: 'bg-violet-50 dark:bg-violet-950/40',text: 'text-violet-700 dark:text-violet-400',border: 'border-violet-200 dark:border-violet-800' },
+  CLOSED:      { label: 'Closed',      dotColor: 'bg-slate-400',  bg: 'bg-slate-50 dark:bg-slate-900/40', text: 'text-slate-600 dark:text-slate-400', border: 'border-slate-200 dark:border-slate-700' },
 };
 
 export const URGENCY_MAP: Record<string, { label: string; bg: string; text: string; border: string; icon: boolean }> = {
@@ -30,23 +35,73 @@ export const ROLE_COLORS: Record<string, string> = {
   STATE: 'bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-300',
 };
 
+// Categories — must match DB values (set by n8n JS-02 triage)
 export const CATEGORIES = [
-  'Water Supply', 'Road Damage', 'Electricity', 'Sanitation',
-  'Healthcare', 'Education', 'Public Transport', 'Agriculture', 'Housing', 'Other',
+  'WATER', 'ROAD', 'ELECTRICITY', 'SANITATION',
+  'HEALTH', 'EDUCATION', 'RATION', 'PENSION',
+  'HOUSING', 'LAND', 'LAW_ORDER', 'OTHER',
 ];
 
-export const CATEGORY_COLORS: Record<string, string> = {
-  'Water Supply': '#0284C7',
-  'Road Damage': '#EA580C',
-  'Electricity': '#D97706',
-  'Sanitation': '#16A34A',
-  'Healthcare': '#DC2626',
-  'Education': '#7C3AED',
-  'Public Transport': '#2563EB',
-  'Agriculture': '#65A30D',
-  'Housing': '#9333EA',
-  'Other': '#6B7280',
+// Human-readable labels for categories
+export const CATEGORY_LABELS: Record<string, string> = {
+  WATER: 'Water Supply',
+  ROAD: 'Road Damage',
+  ELECTRICITY: 'Electricity',
+  SANITATION: 'Sanitation',
+  HEALTH: 'Healthcare',
+  EDUCATION: 'Education',
+  RATION: 'Ration / PDS',
+  PENSION: 'Pension',
+  HOUSING: 'Housing',
+  LAND: 'Land / Revenue',
+  LAW_ORDER: 'Law & Order',
+  OTHER: 'Other',
 };
+
+export const CATEGORY_COLORS: Record<string, string> = {
+  WATER: '#0284C7',
+  ROAD: '#EA580C',
+  ELECTRICITY: '#D97706',
+  SANITATION: '#16A34A',
+  HEALTH: '#DC2626',
+  EDUCATION: '#7C3AED',
+  RATION: '#2563EB',
+  PENSION: '#65A30D',
+  HOUSING: '#9333EA',
+  LAND: '#C2410C',
+  LAW_ORDER: '#1D4ED8',
+  OTHER: '#6B7280',
+};
+
+// All 23 West Bengal districts with their blocks
+export const WB_DISTRICTS: Record<string, string[]> = {
+  'Purba Bardhaman': ['Bardhaman Sadar North', 'Bardhaman Sadar South', 'Bhatar', 'Budbud', 'Galsi I', 'Galsi II', 'Jamalpur', 'Khandaghosh', 'Kalna I', 'Kalna II', 'Katwa I', 'Katwa II', 'Ketugram I', 'Ketugram II', 'Mangalkote', 'Memari I', 'Memari II', 'Monteswar', 'Purbasthali I', 'Purbasthali II', 'Raina I', 'Raina II'],
+  'Paschim Bardhaman': ['Andal', 'Asansol', 'Barabani', 'Faridpur-Durgapur', 'Jamuria', 'Kanksa', 'Ondal', 'Pandabeswar', 'Raniganj', 'Salanpur'],
+  'Birbhum': ['Bolpur-Sriniketan', 'Dubrajpur', 'Khoyrasol', 'Labpur', 'Labhpur', 'Mohammad Bazar', 'Murarai I', 'Murarai II', 'Nalhati I', 'Nalhati II', 'Rajnagar', 'Rampurhat I', 'Rampurhat II', 'Sainthia', 'Suri I', 'Suri II'],
+  'Bankura': ['Bankura I', 'Bankura II', 'Barjora', 'Bishnupur', 'Chhatna', 'Gangajalghati', 'Hirbandh', 'Indpur', 'Indas', 'Kotulpur', 'Mejia', 'Onda', 'Patrasaer', 'Raipur', 'Saltora', 'Santipur', 'Shepur', 'Sonamukhi', 'Taldangra', 'Vishnupur'],
+  'Purulia': ['Arsha', 'Bagmundi', 'Barabazar', 'Balarampur', 'Bandwan', 'Hura', 'Jhalda I', 'Jhalda II', 'Kashipur', 'Manbazar I', 'Manbazar II', 'Neturia', 'Para', 'Purulia I', 'Purulia II', 'Raghunathpur I', 'Raghunathpur II', 'Santuri', 'Puncha'],
+  'Jhargram': ['Binpur I', 'Binpur II', 'Gopiballavpur I', 'Gopiballavpur II', 'Jamboni', 'Jhargram', 'Nayagram', 'Sankrail'],
+  'Paschim Medinipur': ['Chandrakona I', 'Chandrakona II', 'Daspur I', 'Daspur II', 'Debra', 'Garbeta I', 'Garbeta II', 'Garbeta III', 'Ghatal', 'Keshpur', 'Kharagpur I', 'Kharagpur II', 'Narayangarh', 'Pingla', 'Sabang', 'Salbani', 'Sankrail', 'Sarenga', 'Medinipur Sadar'],
+  'Purba Medinipur': ['Bhagabanpur I', 'Bhagabanpur II', 'Contai I', 'Contai II', 'Contai III', 'Deshapran', 'Egra I', 'Egra II', 'Haldia', 'Khejuri I', 'Khejuri II', 'Mahishadal', 'Moyna', 'Nandakumar', 'Nandigram I', 'Nandigram II', 'Panskura', 'Patashpur I', 'Patashpur II', 'Ramnagar I', 'Ramnagar II', 'Sutahata', 'Tamluk'],
+  'Hooghly': ['Arambagh', 'Balagarh', 'Chanditala I', 'Chanditala II', 'Chinsurah-Magra', 'Dhaniakhali', 'Goghat I', 'Goghat II', 'Haripal', 'Jangipara', 'Khanakul I', 'Khanakul II', 'Pandua', 'Pursurah', 'Polba-Dadpur', 'Serampore-Uttarpara', 'Singur', 'Tarakeswar'],
+  'Howrah': ['Amta I', 'Amta II', 'Bagnan I', 'Bagnan II', 'Bally-Jagachha', 'Domjur', 'Jagatballavpur', 'Panchla', 'Sankrail', 'Shyampur I', 'Shyampur II', 'Udaynarayanpur', 'Uluberia I', 'Uluberia II'],
+  'Kolkata': ['Kolkata'],
+  'North 24 Parganas': ['Amdanga', 'Baduria', 'Bagdah', 'Barasat I', 'Barasat II', 'Bongaon', 'Deganga', 'Gaighata', 'Gobardanga', 'Habra I', 'Habra II', 'Haroa', 'Hasnabad', 'Hingalganj', 'Minakhan', 'Rajarhat', 'Sandeshkhali I', 'Sandeshkhali II', 'Swarupnagar', 'Barrackpore'],
+  'South 24 Parganas': ['Baruipur', 'Basanti', 'Bhangar I', 'Bhangar II', 'Bishnupur I', 'Bishnupur II', 'Budge Budge I', 'Budge Budge II', 'Canning I', 'Canning II', 'Diamond Harbour I', 'Diamond Harbour II', 'Falta', 'Gosaba', 'Jaynagar I', 'Jaynagar II', 'Kultali', 'Kulpi', 'Magrahat I', 'Magrahat II', 'Mandirbazar', 'Mathurapur I', 'Mathurapur II', 'Mograhat I', 'Mograhat II', 'Namkhana', 'Pathar Pratima', 'Sagar'],
+  'Nadia': ['Chapra', 'Hanskhali', 'Haringhata', 'Kaliganj', 'Karimpur I', 'Karimpur II', 'Krishnanagar I', 'Krishnanagar II', 'Nakasipara', 'Nakashipara', 'Ranaghat I', 'Ranaghat II', 'Santipur', 'Tehatta I', 'Tehatta II'],
+  'Murshidabad': ['Bahrampur', 'Beldanga I', 'Beldanga II', 'Berhampur', 'Bharatpur I', 'Bharatpur II', 'Domkal', 'Hariharpara', 'Jalangi', 'Jiaganj-Azimganj', 'Kandi', 'Khargram', 'Lalgola', 'Murshidabad-Jiaganj', 'Nabagram', 'Nowda', 'Raghunathganj I', 'Raghunathganj II', 'Raninagar I', 'Raninagar II', 'Sagardighi', 'Samserganj', 'Suti I', 'Suti II'],
+  'Malda': ['Bamongola', 'Chanchal I', 'Chanchal II', 'English Bazar', 'Gazole', 'Habibpur', 'Harischandrapur I', 'Harischandrapur II', 'Kaliachak I', 'Kaliachak II', 'Kaliachak III', 'Manikchak', 'Old Malda', 'Ratua I', 'Ratua II'],
+  'Uttar Dinajpur': ['Chopra', 'Goalpokhar I', 'Goalpokhar II', 'Hemtabad', 'Islampur', 'Itahar', 'Karandighi', 'Raiganj'],
+  'Dakshin Dinajpur': ['Balurghat', 'Bansihari', 'Buniadpur', 'Cumming', 'Gangarampur', 'Harirampur', 'Kushmandi', 'Tapan'],
+  'Cooch Behar': ['Cooch Behar I', 'Cooch Behar II', 'Dinhata I', 'Dinhata II', 'Mathabhanga I', 'Mathabhanga II', 'Mekhliganj', 'Sitalkuchi', 'Sitai', 'Tufanganj I', 'Tufanganj II'],
+  'Jalpaiguri': ['Alipurduar I', 'Alipurduar II', 'Dhupguri', 'Falakata', 'Kalchini', 'Kumargram', 'Madarihat-Birpara', 'Maynaguri', 'Mal', 'Nagrakata', 'Rajganj'],
+  'Darjeeling': ['Darjeeling', 'Jorebunglow-Sukhiapokhri', 'Kalimpong I', 'Kalimpong II', 'Kharibari', 'Kurseong', 'Matigara', 'Mirik', 'Naxalbari', 'Phansidewa', 'Rangli-Rangliot', 'Siliguri'],
+  'Alipurduar': ['Alipurduar I', 'Alipurduar II', 'Falakata', 'Kalchini', 'Kumargram', 'Madarihat-Birpara'],
+  'Kalimpong': ['Gorubathan', 'Kalimpong I', 'Kalimpong II'],
+};
+
+// Flat list of all districts for dropdowns
+export const WB_DISTRICT_LIST = Object.keys(WB_DISTRICTS).sort();
 
 export const SOURCE_MAP: Record<string, { label: string; icon: string; color: string }> = {
   WHATSAPP: { label: 'WhatsApp', icon: 'MessageCircle', color: '#25D366' },
@@ -102,27 +157,57 @@ export const URGENCY_NOTIFICATION_MAP: Record<string, { label: string; targets: 
 
 // West Bengal Subdivision Map: District → Block → Subdivision
 export const SUBDIVISION_MAP: Record<string, Record<string, string>> = {
+  'Purulia': {
+    'Manbazar I': 'Manbazar', 'Manbazar II': 'Manbazar', 'Purulia I': 'Purulia Sadar',
+    'Purulia II': 'Purulia Sadar', 'Jhalda I': 'Raghunathpur', 'Jhalda II': 'Raghunathpur',
+    'Raghunathpur I': 'Raghunathpur', 'Raghunathpur II': 'Raghunathpur',
+    'Arsha': 'Purulia Sadar', 'Bagmundi': 'Purulia Sadar', 'Barabazar': 'Manbazar',
+    'Bandwan': 'Manbazar', 'Hura': 'Raghunathpur', 'Kashipur': 'Raghunathpur',
+    'Neturia': 'Raghunathpur', 'Para': 'Purulia Sadar', 'Santuri': 'Raghunathpur',
+    'Puncha': 'Manbazar', 'Balarampur': 'Raghunathpur',
+  },
   'Nadia': {
-    'Krishnanagar': 'Krishnanagar Sadar',
-    'Kaliganj': 'Tehatta',
-    'Tehatta': 'Tehatta',
+    'Krishnanagar I': 'Krishnanagar Sadar', 'Krishnanagar II': 'Krishnanagar Sadar',
+    'Kaliganj': 'Tehatta', 'Tehatta I': 'Tehatta', 'Tehatta II': 'Tehatta',
+    'Ranaghat I': 'Ranaghat', 'Ranaghat II': 'Ranaghat',
+    'Santipur': 'Ranaghat', 'Karimpur I': 'Tehatta', 'Karimpur II': 'Tehatta',
+    'Hanskhali': 'Ranaghat', 'Haringhata': 'Ranaghat', 'Chapra': 'Krishnanagar Sadar',
+    'Nakasipara': 'Krishnanagar Sadar', 'Nakashipara': 'Krishnanagar Sadar',
   },
   'North 24 Parganas': {
-    'Barasat': 'Barasat',
-    'Habra': 'Habra',
-    'Dunlop': 'Barrackpore',
+    'Barasat I': 'Barasat', 'Barasat II': 'Barasat', 'Habra I': 'Habra',
+    'Habra II': 'Habra', 'Bongaon': 'Bongaon', 'Baduria': 'Bongaon',
+    'Deganga': 'Barasat', 'Rajarhat': 'Barasat', 'Barrackpore': 'Barrackpore',
+    'Gaighata': 'Bongaon', 'Gobardanga': 'Bongaon', 'Amdanga': 'Barasat',
+    'Bagdah': 'Bongaon', 'Haroa': 'Barasat', 'Hasnabad': 'Basirhat',
+    'Hingalganj': 'Basirhat', 'Minakhan': 'Basirhat', 'Sandeshkhali I': 'Basirhat',
+    'Sandeshkhali II': 'Basirhat', 'Swarupnagar': 'Basirhat',
   },
-  'Birbhum': {
-    'Bolpur': 'Suri Sadar',
-    'Rampurhat': 'Rampurhat',
+  'South 24 Parganas': {
+    'Baruipur': 'Baruipur', 'Diamond Harbour I': 'Diamond Harbour',
+    'Diamond Harbour II': 'Diamond Harbour', 'Canning I': 'Canning',
+    'Canning II': 'Canning', 'Basanti': 'Canning', 'Gosaba': 'Canning',
+    'Kultali': 'Baruipur', 'Jaynagar I': 'Baruipur', 'Jaynagar II': 'Baruipur',
+    'Mathurapur I': 'Diamond Harbour', 'Mathurapur II': 'Diamond Harbour',
+    'Sagar': 'Kakdwip', 'Namkhana': 'Kakdwip', 'Pathar Pratima': 'Kakdwip',
   },
   'Darjeeling': {
-    'Siliguri': 'Siliguri',
-    'Kurseong': 'Kurseong',
+    'Siliguri': 'Siliguri', 'Kurseong': 'Kurseong', 'Darjeeling': 'Sadar',
+    'Naxalbari': 'Siliguri', 'Kharibari': 'Siliguri', 'Matigara': 'Siliguri',
+    'Phansidewa': 'Siliguri', 'Mirik': 'Kurseong', 'Jorebunglow-Sukhiapokhri': 'Sadar',
   },
   'Cooch Behar': {
-    'Dinhata': 'Dinhata',
-    'Mathabhanga': 'Mathabhanga',
+    'Dinhata I': 'Dinhata', 'Dinhata II': 'Dinhata', 'Mathabhanga I': 'Mathabhanga',
+    'Mathabhanga II': 'Mathabhanga', 'Cooch Behar I': 'Sadar', 'Cooch Behar II': 'Sadar',
+    'Mekhliganj': 'Mekhliganj', 'Sitalkuchi': 'Mathabhanga', 'Sitai': 'Mathabhanga',
+    'Tufanganj I': 'Tufanganj', 'Tufanganj II': 'Tufanganj',
+  },
+  'Birbhum': {
+    'Bolpur-Sriniketan': 'Suri Sadar', 'Rampurhat I': 'Rampurhat', 'Rampurhat II': 'Rampurhat',
+    'Suri I': 'Suri Sadar', 'Suri II': 'Suri Sadar', 'Nalhati I': 'Rampurhat',
+    'Nalhati II': 'Rampurhat', 'Murarai I': 'Rampurhat', 'Murarai II': 'Rampurhat',
+    'Dubrajpur': 'Suri Sadar', 'Khoyrasol': 'Suri Sadar', 'Labpur': 'Suri Sadar',
+    'Mohammad Bazar': 'Suri Sadar', 'Rajnagar': 'Suri Sadar', 'Sainthia': 'Rampurhat',
   },
 };
 

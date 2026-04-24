@@ -57,7 +57,7 @@ import { useTheme } from 'next-themes';
 import { useAuthStore } from '@/lib/auth-store';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Complaint, ActivityLogEntry, AssignableUser, AppUser, DashboardData, ViewType, AuditEntry } from '@/lib/types';
-import { NAVY, NAVY_DARK, STATUS_MAP, URGENCY_MAP, URGENCY_BORDER_MAP, ROLE_MAP, ROLE_COLORS, CATEGORIES, CATEGORY_COLORS } from '@/lib/constants';
+import { NAVY, NAVY_DARK, STATUS_MAP, URGENCY_MAP, URGENCY_BORDER_MAP, ROLE_MAP, ROLE_COLORS, CATEGORIES, CATEGORY_LABELS, CATEGORY_COLORS, WB_DISTRICT_LIST } from '@/lib/constants';
 import { fmtDate, fmtDateTime, fmtStatus, fmtUrgency, fmtRole, safeGetLocalStorage, safeSetLocalStorage, authHeaders, getDaysOld, getSLAInfo, playNotificationSound } from '@/lib/helpers';
 import { StatusBadge, UrgencyBadge, RoleBadge, StatCard, MiniStat, PieLabel, LoadingSkeleton, EmptyState } from '@/components/common';
 import { ComplaintDetailDialog } from '@/components/ComplaintDetailDialog';
@@ -612,10 +612,13 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="_all">All Status</SelectItem>
+                <SelectItem value="REGISTERED">Registered</SelectItem>
                 <SelectItem value="OPEN">Open</SelectItem>
+                <SelectItem value="ASSIGNED">Assigned</SelectItem>
                 <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
                 <SelectItem value="RESOLVED">Resolved</SelectItem>
                 <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="CLOSED">Closed</SelectItem>
               </SelectContent>
             </Select>
 
@@ -638,7 +641,7 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="_all">All Categories</SelectItem>
-                {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{CATEGORY_LABELS[c] || c}</SelectItem>)}
               </SelectContent>
             </Select>
 
