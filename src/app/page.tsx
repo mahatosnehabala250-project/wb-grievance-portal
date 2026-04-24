@@ -14,7 +14,7 @@ import {
   Settings, CircleHelp, Monitor, Mail, Volume2, LayoutGrid, Keyboard,
   UserCheck, GitCompareArrows, CalendarClock, History, Tag, ClipboardList,
   AlertCircle, Info, CheckCircle2 as CheckCircleFill, Sparkles, Megaphone,
-  ArrowUp, Flame, CalendarRange, TimerReset, Server, Radio, Workflow,
+  ArrowUp, Flame, CalendarRange, TimerReset, Server, Radio, Workflow, BookOpen, BrainCircuit,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -73,6 +73,7 @@ import IntegrationsView from '@/components/IntegrationsView';
 import N8NWorkflowsView from '@/components/N8NWorkflowsView';
 import WB01WorkflowDetailView from '@/components/WB01WorkflowDetailView';
 import { IntelligenceView } from '@/components/IntelligenceView';
+import { SchemeKnowledgeView } from '@/components/SchemeKnowledgeView';
 import { N8nEndpointHealth } from '@/components/N8nEndpointHealth';
 import DeploymentGuideView from '@/components/DeploymentGuideView';
 import LiveDataMonitor from '@/components/LiveDataMonitor';
@@ -251,6 +252,7 @@ export default function HomePage() {
     { id: 'complaints' as ViewType, label: t('complaints'), icon: FileText },
     { id: 'analytics' as ViewType, label: t('analytics'), icon: BarChart2 },
     { id: 'intelligence' as ViewType, label: 'Intelligence', icon: BrainCircuit },
+    { id: 'schemes' as ViewType, label: 'Schemes', icon: BookOpen },
     { id: 'liveData' as ViewType, label: 'Live Data', icon: Radio },
     ...(user?.role === 'ADMIN' ? [{ id: 'systemStatus' as ViewType, label: t('systemStatus'), icon: Activity }] : []),
     ...(user?.role === 'ADMIN' ? [{ id: 'integrations' as ViewType, label: 'Integrations', icon: Zap }] : []),
@@ -617,6 +619,9 @@ export default function HomePage() {
                 )}
                 {view === 'intelligence' && (
                   <IntelligenceView />
+                )}
+                {view === 'schemes' && (
+                  <SchemeKnowledgeView />
                 )}
                 {view === 'endpointHealth' && (
                   <N8nEndpointHealth />
