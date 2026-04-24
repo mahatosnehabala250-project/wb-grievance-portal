@@ -114,7 +114,7 @@ export interface DashboardData {
   userLocation: string;
 }
 
-export type ViewType = 'dashboard' | 'complaints' | 'users' | 'analytics' | 'settings' | 'audit' | 'systemStatus' | 'integrations' | 'deployment' | 'liveData' | 'n8n' | 'endpointHealth' | 'wb01Workflow';
+export type ViewType = 'dashboard' | 'complaints' | 'users' | 'analytics' | 'settings' | 'audit' | 'systemStatus' | 'integrations' | 'deployment' | 'liveData' | 'n8n' | 'endpointHealth' | 'wb01Workflow' | 'intelligence';
 
 export interface AuditEntry {
   id: string; complaintId: string; ticketNo: string; action: string;

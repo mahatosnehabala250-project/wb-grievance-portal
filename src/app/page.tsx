@@ -72,6 +72,7 @@ import { PublicStatusPage } from '@/components/PublicStatusPage';
 import IntegrationsView from '@/components/IntegrationsView';
 import N8NWorkflowsView from '@/components/N8NWorkflowsView';
 import WB01WorkflowDetailView from '@/components/WB01WorkflowDetailView';
+import { IntelligenceView } from '@/components/IntelligenceView';
 import { N8nEndpointHealth } from '@/components/N8nEndpointHealth';
 import DeploymentGuideView from '@/components/DeploymentGuideView';
 import LiveDataMonitor from '@/components/LiveDataMonitor';
@@ -249,6 +250,7 @@ export default function HomePage() {
     { id: 'dashboard' as ViewType, label: t('dashboard'), icon: LayoutDashboard },
     { id: 'complaints' as ViewType, label: t('complaints'), icon: FileText },
     { id: 'analytics' as ViewType, label: t('analytics'), icon: BarChart2 },
+    { id: 'intelligence' as ViewType, label: 'Intelligence', icon: BrainCircuit },
     { id: 'liveData' as ViewType, label: 'Live Data', icon: Radio },
     ...(user?.role === 'ADMIN' ? [{ id: 'systemStatus' as ViewType, label: t('systemStatus'), icon: Activity }] : []),
     ...(user?.role === 'ADMIN' ? [{ id: 'integrations' as ViewType, label: 'Integrations', icon: Zap }] : []),
@@ -612,6 +614,9 @@ export default function HomePage() {
                 )}
                 {view === 'n8n' && (
                   <N8NWorkflowsView />
+                )}
+                {view === 'intelligence' && (
+                  <IntelligenceView />
                 )}
                 {view === 'endpointHealth' && (
                   <N8nEndpointHealth />
