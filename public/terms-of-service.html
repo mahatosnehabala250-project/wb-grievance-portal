@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>পরিষেবার শর্তাবলী — বাংলার সহায়ক</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@300;400;500;600&family=Noto+Serif+Bengali:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #1a6b3c;
+    --green-light: #2d8f55;
+    --green-pale: #e8f5ee;
+    --gold: #c8922a;
+    --gold-light: #f0c060;
+    --text: #1a1a1a;
+    --text-muted: #555;
+    --bg: #fafaf7;
+    --white: #ffffff;
+    --border: #d4e8dc;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Noto Sans Bengali', sans-serif; background: var(--bg); color: var(--text); line-height: 1.9; font-size: 15px; }
+  header { background: var(--green); color: white; padding: 0; position: relative; overflow: hidden; }
+  header::before { content: ''; position: absolute; top: -60px; right: -60px; width: 260px; height: 260px; background: rgba(255,255,255,0.04); border-radius: 50%; }
+  header::after { content: ''; position: absolute; bottom: -40px; left: 30%; width: 180px; height: 180px; background: rgba(200,146,42,0.12); border-radius: 50%; }
+  .header-inner { max-width: 860px; margin: 0 auto; padding: 52px 32px 44px; position: relative; z-index: 1; }
+  .logo-row { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+  .logo-icon { width: 48px; height: 48px; background: var(--gold-light); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
+  .logo-text { font-family: 'Noto Serif Bengali', serif; font-size: 22px; font-weight: 600; }
+  .logo-sub { font-size: 12px; opacity: 0.7; letter-spacing: 0.04em; text-transform: uppercase; margin-top: 2px; }
+  header h1 { font-family: 'Noto Serif Bengali', serif; font-size: 30px; font-weight: 600; margin-bottom: 10px; line-height: 1.3; }
+  .header-meta { font-size: 13px; opacity: 0.7; }
+  .gold-bar { height: 4px; background: linear-gradient(90deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%); }
+  .lang-toggle { display: flex; gap: 0; background: rgba(255,255,255,0.15); border-radius: 8px; padding: 3px; width: fit-content; margin-bottom: 20px; }
+  .lang-btn { background: none; border: none; color: rgba(255,255,255,0.7); font-family: 'Noto Sans Bengali', sans-serif; font-size: 13px; padding: 6px 14px; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+  .lang-btn.active { background: white; color: var(--green); font-weight: 600; }
+  main { max-width: 860px; margin: 0 auto; padding: 48px 32px 80px; }
+  .intro-box { background: var(--green-pale); border-left: 4px solid var(--green); border-radius: 0 10px 10px 0; padding: 18px 22px; margin-bottom: 44px; font-size: 14px; color: var(--green); }
+  .intro-box strong { display: block; font-size: 15px; margin-bottom: 4px; }
+  section { margin-bottom: 38px; padding-bottom: 38px; border-bottom: 1px solid var(--border); animation: fadeUp 0.5s ease both; }
+  section:last-of-type { border-bottom: none; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+  section:nth-child(1){animation-delay:.05s} section:nth-child(2){animation-delay:.10s} section:nth-child(3){animation-delay:.15s} section:nth-child(4){animation-delay:.20s} section:nth-child(5){animation-delay:.25s} section:nth-child(6){animation-delay:.30s} section:nth-child(7){animation-delay:.35s} section:nth-child(8){animation-delay:.40s} section:nth-child(9){animation-delay:.45s}
+  .section-num { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: var(--green); color: white; border-radius: 6px; font-size: 12px; font-weight: 600; margin-right: 10px; flex-shrink: 0; vertical-align: middle; }
+  h2 { font-family: 'Noto Serif Bengali', serif; font-size: 19px; font-weight: 600; color: var(--green); margin-bottom: 14px; display: flex; align-items: center; }
+  p { color: var(--text-muted); margin-bottom: 10px; font-size: 15px; }
+  ul { list-style: none; padding: 0; margin: 10px 0; }
+  ul li { padding: 6px 0 6px 22px; position: relative; color: var(--text-muted); font-size: 15px; }
+  ul li::before { content: ''; position: absolute; left: 0; top: 16px; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
+  .highlight-box { background: #fff8ec; border: 1px solid #f0c060; border-radius: 10px; padding: 16px 20px; margin-top: 12px; font-size: 14px; color: #7a5a10; }
+  .contact-card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; display: flex; align-items: center; gap: 16px; margin-top: 12px; }
+  .contact-icon { width: 44px; height: 44px; background: var(--green-pale); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .contact-label { font-size: 12px; color: var(--text-muted); }
+  .contact-value { font-size: 15px; font-weight: 600; color: var(--green); }
+  .en { display: none; }
+  footer { background: var(--green); color: rgba(255,255,255,0.7); text-align: center; padding: 24px 20px; font-size: 13px; }
+  footer strong { color: white; }
+  footer a { color: var(--gold-light); text-decoration: none; }
+  @media (max-width: 600px) { .header-inner { padding: 36px 20px 32px; } header h1 { font-size: 24px; } main { padding: 32px 20px 60px; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo-row">
+      <div class="logo-icon">🤝</div>
+      <div>
+        <div class="logo-text">বাংলার সহায়ক</div>
+        <div class="logo-sub">WhatsApp Helpline Service</div>
+      </div>
+    </div>
+    <div class="lang-toggle">
+      <button class="lang-btn active" onclick="setLang('bn')">বাংলা</button>
+      <button class="lang-btn" onclick="setLang('en')">English</button>
+    </div>
+    <h1 class="bn">পরিষেবার শর্তাবলী</h1>
+    <h1 class="en" style="display:none">Terms of Service</h1>
+    <div class="header-meta">
+      <span class="bn">সর্বশেষ আপডেট: ২৬ এপ্রিল, ২০২৬</span>
+      <span class="en" style="display:none">Last updated: April 26, 2026</span>
+    </div>
+  </div>
+</header>
+
+<div class="gold-bar"></div>
+
+<main>
+
+  <div class="intro-box">
+    <strong class="bn">বাংলার সহায়ক ব্যবহার করে আপনি এই শর্তাবলীতে সম্মত হচ্ছেন।</strong>
+    <strong class="en" style="display:none">By using Banglar Sahayak, you agree to these Terms of Service.</strong>
+    <span class="bn">অনুগ্রহ করে পরিষেবা ব্যবহার করার আগে এই শর্তাবলী মনোযোগ দিয়ে পড়ুন।</span>
+    <span class="en" style="display:none">Please read these terms carefully before using the service.</span>
+  </div>
+
+  <section>
+    <h2><span class="section-num">১</span>
+      <span class="bn">পরিষেবার বিবরণ</span>
+      <span class="en" style="display:none">Description of Service</span>
+    </h2>
+    <p class="bn">বাংলার সহায়ক একটি WhatsApp-ভিত্তিক নাগরিক সহায়তা পরিষেবা। এই পরিষেবার মাধ্যমে নাগরিকরা:</p>
+    <p class="en" style="display:none">Banglar Sahayak is a WhatsApp-based citizen assistance service. Through this service, citizens can:</p>
+    <ul>
+      <li><span class="bn">সরকারি সমস্যা ও অভিযোগ নথিভুক্ত করতে পারবেন</span><span class="en" style="display:none">Register government grievances and complaints</span></li>
+      <li><span class="bn">অভিযোগের স্ট্যাটাস ট্র্যাক করতে পারবেন</span><span class="en" style="display:none">Track the status of their complaints</span></li>
+      <li><span class="bn">সরকারি প্রকল্পের তথ্য পেতে পারবেন</span><span class="en" style="display:none">Get information about government schemes</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="section-num">২</span>
+      <span class="bn">পরিষেবা ব্যবহারের যোগ্যতা</span>
+      <span class="en" style="display:none">Eligibility</span>
+    </h2>
+    <p class="bn">এই পরিষেবা ব্যবহার করতে আপনাকে অবশ্যই:</p>
+    <p class="en" style="display:none">To use this service, you must:</p>
+    <ul>
+      <li><span class="bn">পশ্চিমবঙ্গের বাসিন্দা হতে হবে</span><span class="en" style="display:none">Be a resident of West Bengal</span></li>
+      <li><span class="bn">একটি সক্রিয় WhatsApp অ্যাকাউন্ট থাকতে হবে</span><span class="en" style="display:none">Have an active WhatsApp account</span></li>
+      <li><span class="bn">সত্য ও সঠিক তথ্য প্রদান করতে হবে</span><span class="en" style="display:none">Provide true and accurate information</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="section-num">৩</span>
+      <span class="bn">ব্যবহারকারীর দায়িত্ব</span>
+      <span class="en" style="display:none">User Responsibilities</span>
+    </h2>
+    <p class="bn">পরিষেবা ব্যবহার করার সময় আপনি সম্মত হচ্ছেন যে আপনি:</p>
+    <p class="en" style="display:none">By using the service, you agree that you will:</p>
+    <ul>
+      <li><span class="bn">সত্য ও যাচাইযোগ্য অভিযোগ দাখিল করবেন</span><span class="en" style="display:none">Submit only true and verifiable complaints</span></li>
+      <li><span class="bn">মিথ্যা, বিভ্রান্তিকর বা ক্ষতিকর তথ্য প্রদান করবেন না</span><span class="en" style="display:none">Not provide false, misleading or harmful information</span></li>
+      <li><span class="bn">পরিষেবার অপব্যবহার করবেন না</span><span class="en" style="display:none">Not misuse or abuse the service</span></li>
+      <li><span class="bn">অন্যের ব্যক্তিগত তথ্য ব্যবহার করে অভিযোগ দাখিল করবেন না</span><span class="en" style="display:none">Not file complaints using another person's personal information</span></li>
+    </ul>
+    <div class="highlight-box">
+      <span class="bn">⚠️ মিথ্যা অভিযোগ দাখিল করলে আপনার অ্যাক্সেস বন্ধ করা হতে পারে।</span>
+      <span class="en" style="display:none">⚠️ Filing false complaints may result in suspension of your access.</span>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="section-num">৪</span>
+      <span class="bn">পরিষেবার সীমাবদ্ধতা</span>
+      <span class="en" style="display:none">Service Limitations</span>
+    </h2>
+    <p class="bn">বাংলার সহায়ক একটি অভিযোগ নথিভুক্তকরণ ও ফরোয়ার্ডিং প্ল্যাটফর্ম। আমরা নিশ্চয়তা দিতে পারি না যে:</p>
+    <p class="en" style="display:none">Banglar Sahayak is a complaint registration and forwarding platform. We cannot guarantee:</p>
+    <ul>
+      <li><span class="bn">প্রতিটি অভিযোগ সমাধান হবে</span><span class="en" style="display:none">That every complaint will be resolved</span></li>
+      <li><span class="bn">সমাধান একটি নির্দিষ্ট সময়ের মধ্যে হবে</span><span class="en" style="display:none">That resolution will happen within a specific timeframe</span></li>
+      <li><span class="bn">সরকারি বিভাগ অবশ্যই পদক্ষেপ নেবে</span><span class="en" style="display:none">That government departments will necessarily take action</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="section-num">৫</span>
+      <span class="bn">বার্তা সীমা</span>
+      <span class="en" style="display:none">Message Limits</span>
+    </h2>
+    <p class="bn">পরিষেবার যথাযথ ব্যবহার নিশ্চিত করতে প্রতিটি ফোন নম্বর থেকে প্রতিদিন সর্বোচ্চ ২০টি বার্তা পাঠানো যাবে।</p>
+    <p class="en" style="display:none">To ensure proper use of the service, a maximum of 20 messages per day per phone number is allowed.</p>
+  </section>
+
+  <section>
+    <h2><span class="section-num">৬</span>
+      <span class="bn">মেধাস্বত্ব</span>
+      <span class="en" style="display:none">Intellectual Property</span>
+    </h2>
+    <p class="bn">বাংলার সহায়ক প্ল্যাটফর্মের সমস্ত বিষয়বস্তু, ডিজাইন ও প্রযুক্তি সংরক্ষিত। অনুমতি ছাড়া কোনো অংশ পুনরুৎপাদন করা যাবে না।</p>
+    <p class="en" style="display:none">All content, design and technology of the Banglar Sahayak platform is reserved. No part may be reproduced without permission.</p>
+  </section>
+
+  <section>
+    <h2><span class="section-num">৭</span>
+      <span class="bn">দায়বদ্ধতার সীমা</span>
+      <span class="en" style="display:none">Limitation of Liability</span>
+    </h2>
+    <p class="bn">বাংলার সহায়ক পরিষেবা ব্যবহার থেকে উদ্ভূত কোনো প্রত্যক্ষ বা পরোক্ষ ক্ষতির জন্য দায়ী নয়। আমরা সর্বোচ্চ প্রচেষ্টা দিয়ে কাজ করি কিন্তু নির্ভুলতার কোনো নিশ্চয়তা দিতে পারি না।</p>
+    <p class="en" style="display:none">Banglar Sahayak is not liable for any direct or indirect damages arising from use of the service. We make best efforts but cannot guarantee accuracy or completeness.</p>
+  </section>
+
+  <section>
+    <h2><span class="section-num">৮</span>
+      <span class="bn">শর্তাবলীর পরিবর্তন</span>
+      <span class="en" style="display:none">Changes to Terms</span>
+    </h2>
+    <p class="bn">আমরা যেকোনো সময় এই শর্তাবলী আপডেট করতে পারি। সর্বশেষ সংস্করণ সর্বদা এই URL-এ পাওয়া যাবে। পরিষেবা ব্যবহার অব্যাহত রাখলে আপনি আপডেট করা শর্তাবলীতে সম্মত হচ্ছেন।</p>
+    <p class="en" style="display:none">We may update these terms at any time. The latest version will always be available at this URL. Continued use of the service constitutes agreement to updated terms.</p>
+  </section>
+
+  <section>
+    <h2><span class="section-num">৯</span>
+      <span class="bn">যোগাযোগ</span>
+      <span class="en" style="display:none">Contact</span>
+    </h2>
+    <p class="bn">এই শর্তাবলী সম্পর্কে কোনো প্রশ্ন থাকলে আমাদের সাথে যোগাযোগ করুন:</p>
+    <p class="en" style="display:none">For any questions about these terms, contact us:</p>
+    <div class="contact-card">
+      <div class="contact-icon">✉️</div>
+      <div>
+        <div class="contact-label">Email</div>
+        <div class="contact-value">neurosetu@zohomail.in</div>
+      </div>
+    </div>
+    <div class="contact-card" style="margin-top:10px">
+      <div class="contact-icon">💬</div>
+      <div>
+        <div class="contact-label">WhatsApp</div>
+        <div class="contact-value">+91 94751 28733</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <strong>বাংলার সহায়ক</strong> &nbsp;·&nbsp; © ২০২৬ &nbsp;·&nbsp;
+  <a href="/privacy-policy.html">
+    <span class="bn">গোপনীয়তা নীতি</span>
+    <span class="en" style="display:none">Privacy Policy</span>
+  </a>
+</footer>
+
+<script>
+function setLang(lang) {
+  const btns = document.querySelectorAll('.lang-btn');
+  const bnEls = document.querySelectorAll('.bn');
+  const enEls = document.querySelectorAll('.en');
+  if (lang === 'en') {
+    bnEls.forEach(el => el.style.display = 'none');
+    enEls.forEach(el => el.style.display = el.tagName === 'SPAN' ? 'inline' : 'block');
+    btns[0].classList.remove('active'); btns[1].classList.add('active');
+  } else {
+    bnEls.forEach(el => el.style.display = el.tagName === 'SPAN' ? 'inline' : 'block');
+    enEls.forEach(el => el.style.display = 'none');
+    btns[0].classList.add('active'); btns[1].classList.remove('active');
+  }
+}
+</script>
+</body>
+</html>
