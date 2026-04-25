@@ -37,39 +37,64 @@ export const ROLE_COLORS: Record<string, string> = {
 
 // Categories — must match DB values (set by n8n JS-02 triage)
 export const CATEGORIES = [
-  'WATER', 'ROAD', 'ELECTRICITY', 'SANITATION',
-  'HEALTH', 'EDUCATION', 'RATION', 'PENSION',
-  'HOUSING', 'LAND', 'LAW_ORDER', 'OTHER',
+  // Infrastructure
+  'WATER', 'ELECTRICITY', 'ROAD', 'SANITATION',
+  // Health & social
+  'HEALTH', 'RATION', 'PENSION', 'HOUSING',
+  // Education & scholarship
+  'EDUCATION', 'SCHOLARSHIP',
+  // WB flagship schemes
+  'KANYASHREE', 'LAKSHMIR_BHANDAR', 'YUVASATHI',
+  'KRISHAK_BANDHU', 'SWASTHYA_SATHI', 'RUPASHREE',
+  'STUDENT_CREDIT_CARD', 'SABOOJ_SATHI', 'SHRAMSHREE', 'YUVASHREE',
+  // Land & law
+  'LAND', 'LAW_ORDER',
+  // Other
+  'OTHER',
 ];
 
 // Human-readable labels for categories
 export const CATEGORY_LABELS: Record<string, string> = {
-  WATER: 'Water Supply',
-  ROAD: 'Road Damage',
-  ELECTRICITY: 'Electricity',
-  SANITATION: 'Sanitation',
-  HEALTH: 'Healthcare',
-  EDUCATION: 'Education',
-  RATION: 'Ration / PDS',
-  PENSION: 'Pension',
-  HOUSING: 'Housing',
-  LAND: 'Land / Revenue',
-  LAW_ORDER: 'Law & Order',
-  OTHER: 'Other',
+  // Infrastructure
+  WATER:              'Water Supply',
+  ELECTRICITY:        'Electricity',
+  ROAD:               'Road / Bridge',
+  SANITATION:         'Sanitation / Drainage',
+  // Health & social
+  HEALTH:             'Healthcare',
+  RATION:             'Ration / PDS',
+  PENSION:            'Pension',
+  HOUSING:            'Housing',
+  // Education
+  EDUCATION:          'Education',
+  SCHOLARSHIP:        'Scholarship',
+  // WB schemes
+  KANYASHREE:         'Kanyashree',
+  LAKSHMIR_BHANDAR:   'Lakshmir Bhandar',
+  YUVASATHI:          'Banglar Yuva Sathi',
+  KRISHAK_BANDHU:     'Krishak Bandhu',
+  SWASTHYA_SATHI:     'Swasthya Sathi',
+  RUPASHREE:          'Rupashree',
+  STUDENT_CREDIT_CARD:'Student Credit Card',
+  SABOOJ_SATHI:       'Sabooj Sathi (Cycle)',
+  SHRAMSHREE:         'Shramshree',
+  YUVASHREE:          'Yuvashree',
+  // Land & law
+  LAND:               'Land / Revenue',
+  LAW_ORDER:          'Law & Order',
+  OTHER:              'Other',
 };
 
 export const CATEGORY_COLORS: Record<string, string> = {
-  WATER: '#0284C7',
-  ROAD: '#EA580C',
-  ELECTRICITY: '#D97706',
-  SANITATION: '#16A34A',
-  HEALTH: '#DC2626',
-  EDUCATION: '#7C3AED',
-  RATION: '#2563EB',
-  PENSION: '#65A30D',
-  HOUSING: '#9333EA',
-  LAND: '#C2410C',
-  LAW_ORDER: '#1D4ED8',
+  WATER: '#0284C7', ELECTRICITY: '#D97706', ROAD: '#EA580C',
+  SANITATION: '#16A34A', HEALTH: '#DC2626', RATION: '#2563EB',
+  PENSION: '#65A30D', HOUSING: '#9333EA', EDUCATION: '#7C3AED',
+  SCHOLARSHIP: '#0891B2', LAND: '#C2410C', LAW_ORDER: '#1D4ED8',
+  KANYASHREE: '#DB2777', LAKSHMIR_BHANDAR: '#BE185D',
+  YUVASATHI: '#7C3AED', KRISHAK_BANDHU: '#15803D',
+  SWASTHYA_SATHI: '#0F766E', RUPASHREE: '#C026D3',
+  STUDENT_CREDIT_CARD: '#1D4ED8', SABOOJ_SATHI: '#16A34A',
+  SHRAMSHREE: '#B45309', YUVASHREE: '#6D28D9',
   OTHER: '#6B7280',
 };
 
