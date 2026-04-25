@@ -1,54 +1,497 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Privacy Policy — বাংলার সহায়ক</title>
+<title>গোপনীয়তা নীতি — বাংলার সহায়ক</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@300;400;500;600&family=Noto+Serif+Bengali:wght@400;600&display=swap" rel="stylesheet">
 <style>
-  body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #333; line-height: 1.7; }
-  h1 { color: #1a1a1a; } h2 { color: #333; margin-top: 2rem; }
-  p { margin: 0.8rem 0; }
+  :root {
+    --green: #1a6b3c;
+    --green-light: #2d8f55;
+    --green-pale: #e8f5ee;
+    --gold: #c8922a;
+    --gold-light: #f0c060;
+    --text: #1a1a1a;
+    --text-muted: #555;
+    --bg: #fafaf7;
+    --white: #ffffff;
+    --border: #d4e8dc;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans Bengali', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.9;
+    font-size: 15px;
+  }
+
+  /* Header */
+  header {
+    background: var(--green);
+    color: white;
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  header::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 260px; height: 260px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 50%;
+  }
+
+  header::after {
+    content: '';
+    position: absolute;
+    bottom: -40px; left: 30%;
+    width: 180px; height: 180px;
+    background: rgba(200,146,42,0.12);
+    border-radius: 50%;
+  }
+
+  .header-inner {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 52px 32px 44px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .logo-icon {
+    width: 48px; height: 48px;
+    background: var(--gold-light);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+
+  .logo-text {
+    font-family: 'Noto Serif Bengali', serif;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  .logo-sub {
+    font-size: 12px;
+    opacity: 0.7;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  header h1 {
+    font-family: 'Noto Serif Bengali', serif;
+    font-size: 30px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    line-height: 1.3;
+  }
+
+  .header-meta {
+    font-size: 13px;
+    opacity: 0.7;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .header-meta span {
+    display: inline-block;
+    width: 4px; height: 4px;
+    background: var(--gold-light);
+    border-radius: 50%;
+  }
+
+  /* Gold bar */
+  .gold-bar {
+    height: 4px;
+    background: linear-gradient(90deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%);
+  }
+
+  /* Main content */
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 48px 32px 80px;
+  }
+
+  .intro-box {
+    background: var(--green-pale);
+    border-left: 4px solid var(--green);
+    border-radius: 0 10px 10px 0;
+    padding: 18px 22px;
+    margin-bottom: 44px;
+    font-size: 14px;
+    color: var(--green);
+  }
+
+  .intro-box strong {
+    display: block;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  section {
+    margin-bottom: 38px;
+    padding-bottom: 38px;
+    border-bottom: 1px solid var(--border);
+    animation: fadeUp 0.5s ease both;
+  }
+
+  section:last-of-type { border-bottom: none; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  section:nth-child(1) { animation-delay: 0.05s; }
+  section:nth-child(2) { animation-delay: 0.10s; }
+  section:nth-child(3) { animation-delay: 0.15s; }
+  section:nth-child(4) { animation-delay: 0.20s; }
+  section:nth-child(5) { animation-delay: 0.25s; }
+  section:nth-child(6) { animation-delay: 0.30s; }
+  section:nth-child(7) { animation-delay: 0.35s; }
+
+  .section-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+    background: var(--green);
+    color: white;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-right: 10px;
+    flex-shrink: 0;
+    vertical-align: middle;
+  }
+
+  h2 {
+    font-family: 'Noto Serif Bengali', serif;
+    font-size: 19px;
+    font-weight: 600;
+    color: var(--green);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+  }
+
+  p {
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    font-size: 15px;
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+  }
+
+  ul li {
+    padding: 6px 0 6px 22px;
+    position: relative;
+    color: var(--text-muted);
+    font-size: 15px;
+  }
+
+  ul li::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 16px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--gold);
+  }
+
+  .highlight-box {
+    background: #fff8ec;
+    border: 1px solid #f0c060;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-top: 12px;
+    font-size: 14px;
+    color: #7a5a10;
+  }
+
+  .contact-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 12px;
+  }
+
+  .contact-icon {
+    width: 44px; height: 44px;
+    background: var(--green-pale);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .contact-label { font-size: 12px; color: var(--text-muted); }
+  .contact-value { font-size: 15px; font-weight: 600; color: var(--green); }
+
+  /* Footer */
+  footer {
+    background: var(--green);
+    color: rgba(255,255,255,0.7);
+    text-align: center;
+    padding: 24px 20px;
+    font-size: 13px;
+  }
+
+  footer strong { color: white; }
+
+  /* Bengali / English toggle */
+  .lang-toggle {
+    display: flex;
+    gap: 0;
+    background: rgba(255,255,255,0.15);
+    border-radius: 8px;
+    padding: 3px;
+    width: fit-content;
+    margin-bottom: 20px;
+  }
+
+  .lang-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.7);
+    font-family: 'Noto Sans Bengali', sans-serif;
+    font-size: 13px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .lang-btn.active {
+    background: white;
+    color: var(--green);
+    font-weight: 600;
+  }
+
+  /* English content hidden by default */
+  .en { display: none; }
+  body.en-mode .bn { display: none; }
+  body.en-mode .en { display: block; }
+  body.en-mode .en-inline { display: inline; }
+  body.en-mode .bn-inline { display: none; }
+  .en-inline { display: none; }
+
+  @media (max-width: 600px) {
+    .header-inner { padding: 36px 20px 32px; }
+    header h1 { font-size: 24px; }
+    main { padding: 32px 20px 60px; }
+    h2 { font-size: 17px; }
+  }
 </style>
 </head>
 <body>
-<h1>Privacy Policy — বাংলার সহায়ক</h1>
-<p><strong>Last updated:</strong> April 25, 2026</p>
 
-<h2>1. Information We Collect</h2>
-<p>When you interact with বাংলার সহায়ক via WhatsApp, we collect:</p>
-<ul>
-  <li>Your WhatsApp phone number</li>
-  <li>Your name (as provided by you)</li>
-  <li>Your village, block, and district (as provided by you)</li>
-  <li>The nature of your complaint or query</li>
-  <li>Message timestamps</li>
-</ul>
+<header>
+  <div class="header-inner">
+    <div class="logo-row">
+      <div class="logo-icon">🤝</div>
+      <div>
+        <div class="logo-text">বাংলার সহায়ক</div>
+        <div class="logo-sub">WhatsApp Helpline Service</div>
+      </div>
+    </div>
 
-<h2>2. How We Use Your Information</h2>
-<p>Your information is used solely to:</p>
-<ul>
-  <li>Register and track your grievance complaint</li>
-  <li>Notify you about the status of your complaint</li>
-  <li>Route your complaint to the appropriate government department</li>
-  <li>Provide information about government schemes</li>
-</ul>
+    <div class="lang-toggle">
+      <button class="lang-btn active" onclick="setLang('bn')">বাংলা</button>
+      <button class="lang-btn" onclick="setLang('en')">English</button>
+    </div>
 
-<h2>3. Data Sharing</h2>
-<p>Your complaint details may be shared with relevant government departments and officials for the purpose of resolving your grievance. We do not sell or share your personal data with any third party for commercial purposes.</p>
+    <h1 class="bn">গোপনীয়তা নীতি</h1>
+    <h1 class="en" style="display:none">Privacy Policy</h1>
 
-<h2>4. Data Security</h2>
-<p>All data is stored securely. We take reasonable measures to protect your personal information from unauthorized access.</p>
+    <div class="header-meta">
+      <span class="bn">সর্বশেষ আপডেট:</span>
+      <span class="en" style="display:none">Last updated:</span>
+      &nbsp;২৫ এপ্রিল, ২০২৬
+      <span style="display:inline-block;width:4px;height:4px;background:#f0c060;border-radius:50%;margin:0 4px;vertical-align:middle"></span>
+      বাংলার সহায়ক
+    </div>
+  </div>
+</header>
 
-<h2>5. Data Retention</h2>
-<p>Complaint data is retained for a period necessary to resolve your grievance and for record-keeping purposes as required by applicable law.</p>
+<div class="gold-bar"></div>
 
-<h2>6. Your Rights</h2>
-<p>You may request deletion of your personal data by contacting us. We will process such requests within 30 days.</p>
+<main>
 
-<h2>7. Contact</h2>
-<p>For any privacy-related queries, contact us at: <strong>banglar.sahayak@gmail.com</strong></p>
+  <div class="intro-box">
+    <strong class="bn">আপনার গোপনীয়তা আমাদের কাছে গুরুত্বপূর্ণ।</strong>
+    <strong class="en" style="display:none">Your privacy matters to us.</strong>
+    <span class="bn">বাংলার সহায়ক WhatsApp-এর মাধ্যমে নাগরিক সেবা প্রদান করে। এই নীতিটি ব্যাখ্যা করে যে আমরা কোন তথ্য সংগ্রহ করি এবং কীভাবে ব্যবহার করি।</span>
+    <span class="en" style="display:none">Banglar Sahayak provides citizen services via WhatsApp. This policy explains what information we collect and how we use it.</span>
+  </div>
 
-<h2>8. Changes to This Policy</h2>
-<p>We may update this policy from time to time. The latest version will always be available at this URL.</p>
+  <!-- Section 1 -->
+  <section>
+    <h2><span class="section-num">১</span>
+      <span class="bn">আমরা কী তথ্য সংগ্রহ করি</span>
+      <span class="en" style="display:none">Information We Collect</span>
+    </h2>
+    <p class="bn">আপনি যখন বাংলার সহায়ক-এ WhatsApp-এর মাধ্যমে বার্তা পাঠান, আমরা নিম্নলিখিত তথ্য সংগ্রহ করি:</p>
+    <p class="en" style="display:none">When you interact with Banglar Sahayak via WhatsApp, we collect:</p>
+    <ul>
+      <li><span class="bn">আপনার WhatsApp ফোন নম্বর</span><span class="en" style="display:none">Your WhatsApp phone number</span></li>
+      <li><span class="bn">আপনার নাম (আপনার দেওয়া)</span><span class="en" style="display:none">Your name (as provided by you)</span></li>
+      <li><span class="bn">আপনার গ্রাম, ব্লক ও জেলার নাম</span><span class="en" style="display:none">Your village, block and district name</span></li>
+      <li><span class="bn">আপনার অভিযোগ বা সমস্যার বিবরণ</span><span class="en" style="display:none">Details of your complaint or problem</span></li>
+      <li><span class="bn">বার্তার সময় ও তারিখ</span><span class="en" style="display:none">Message timestamps</span></li>
+    </ul>
+  </section>
+
+  <!-- Section 2 -->
+  <section>
+    <h2><span class="section-num">২</span>
+      <span class="bn">তথ্য ব্যবহারের উদ্দেশ্য</span>
+      <span class="en" style="display:none">How We Use Your Information</span>
+    </h2>
+    <p class="bn">আপনার তথ্য শুধুমাত্র নিম্নলিখিত উদ্দেশ্যে ব্যবহার করা হয়:</p>
+    <p class="en" style="display:none">Your information is used only for the following purposes:</p>
+    <ul>
+      <li><span class="bn">অভিযোগ নিবন্ধন ও ট্র্যাক করা</span><span class="en" style="display:none">Registering and tracking your grievance</span></li>
+      <li><span class="bn">অভিযোগের অবস্থা সম্পর্কে আপনাকে অবহিত করা</span><span class="en" style="display:none">Notifying you about your complaint status</span></li>
+      <li><span class="bn">সঠিক সরকারি বিভাগে অভিযোগ পাঠানো</span><span class="en" style="display:none">Routing your complaint to the right department</span></li>
+      <li><span class="bn">সরকারি প্রকল্পের তথ্য প্রদান করা</span><span class="en" style="display:none">Providing government scheme information</span></li>
+    </ul>
+  </section>
+
+  <!-- Section 3 -->
+  <section>
+    <h2><span class="section-num">৩</span>
+      <span class="bn">তথ্য শেয়ার করা</span>
+      <span class="en" style="display:none">Data Sharing</span>
+    </h2>
+    <p class="bn">আপনার অভিযোগের তথ্য শুধুমাত্র সংশ্লিষ্ট সরকারি দপ্তর বা কর্মকর্তার সাথে শেয়ার করা হতে পারে। আমরা কোনো বাণিজ্যিক উদ্দেশ্যে তৃতীয় পক্ষের সাথে আপনার ব্যক্তিগত তথ্য বিক্রি বা শেয়ার করি না।</p>
+    <p class="en" style="display:none">Your complaint details may be shared with relevant government departments for grievance resolution only. We do not sell or share your personal data with any third party for commercial purposes.</p>
+    <div class="highlight-box">
+      <span class="bn">⚠️ আপনার তথ্য কখনও বিক্রি করা হয় না বা বিজ্ঞাপনের উদ্দেশ্যে ব্যবহার করা হয় না।</span>
+      <span class="en" style="display:none">⚠️ Your data is never sold or used for advertising purposes.</span>
+    </div>
+  </section>
+
+  <!-- Section 4 -->
+  <section>
+    <h2><span class="section-num">৪</span>
+      <span class="bn">তথ্য সুরক্ষা</span>
+      <span class="en" style="display:none">Data Security</span>
+    </h2>
+    <p class="bn">সমস্ত তথ্য নিরাপদভাবে সংরক্ষিত হয়। অননুমোদিত অ্যাক্সেস থেকে আপনার ব্যক্তিগত তথ্য রক্ষা করতে আমরা যুক্তিসঙ্গত সুরক্ষা ব্যবস্থা গ্রহণ করি।</p>
+    <p class="en" style="display:none">All data is stored securely. We take reasonable measures to protect your personal information from unauthorized access, including encrypted databases and secure servers.</p>
+  </section>
+
+  <!-- Section 5 -->
+  <section>
+    <h2><span class="section-num">৫</span>
+      <span class="bn">তথ্য সংরক্ষণ</span>
+      <span class="en" style="display:none">Data Retention</span>
+    </h2>
+    <p class="bn">অভিযোগের তথ্য সমাধান প্রক্রিয়া সম্পন্ন হওয়া এবং আইনগত প্রয়োজনীয়তা পূরণের জন্য প্রয়োজনীয় সময় পর্যন্ত সংরক্ষণ করা হয়।</p>
+    <p class="en" style="display:none">Complaint data is retained for the period necessary to resolve your grievance and for record-keeping as required by applicable law.</p>
+  </section>
+
+  <!-- Section 6 -->
+  <section>
+    <h2><span class="section-num">৬</span>
+      <span class="bn">আপনার অধিকার</span>
+      <span class="en" style="display:none">Your Rights</span>
+    </h2>
+    <p class="bn">আপনি আপনার ব্যক্তিগত তথ্য মুছে দেওয়ার অনুরোধ করতে পারেন। আমরা ৩০ দিনের মধ্যে এই অনুরোধ প্রক্রিয়া করব।</p>
+    <p class="en" style="display:none">You may request deletion of your personal data. We will process such requests within 30 days.</p>
+  </section>
+
+  <!-- Section 7 -->
+  <section>
+    <h2><span class="section-num">৭</span>
+      <span class="bn">যোগাযোগ</span>
+      <span class="en" style="display:none">Contact Us</span>
+    </h2>
+    <p class="bn">গোপনীয়তা সংক্রান্ত যেকোনো প্রশ্নের জন্য আমাদের সাথে যোগাযোগ করুন:</p>
+    <p class="en" style="display:none">For any privacy-related queries, contact us:</p>
+    <div class="contact-card">
+      <div class="contact-icon">✉️</div>
+      <div>
+        <div class="contact-label">Email</div>
+        <div class="contact-value">banglar.sahayak@gmail.com</div>
+      </div>
+    </div>
+    <div class="contact-card" style="margin-top:10px">
+      <div class="contact-icon">💬</div>
+      <div>
+        <div class="contact-label">WhatsApp</div>
+        <div class="contact-value">+91 94751 28733</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 8 -->
+  <section>
+    <h2><span class="section-num">৮</span>
+      <span class="bn">নীতির পরিবর্তন</span>
+      <span class="en" style="display:none">Policy Changes</span>
+    </h2>
+    <p class="bn">আমরা সময়ে সময়ে এই নীতি আপডেট করতে পারি। সর্বশেষ সংস্করণ সর্বদা এই URL-এ পাওয়া যাবে।</p>
+    <p class="en" style="display:none">We may update this policy from time to time. The latest version will always be available at this URL.</p>
+  </section>
+
+</main>
+
+<footer>
+  <strong>বাংলার সহায়ক</strong> &nbsp;·&nbsp;
+  © ২০২৬ &nbsp;·&nbsp;
+  <span class="bn">সমস্ত অধিকার সংরক্ষিত</span>
+  <span class="en" style="display:none">All rights reserved</span>
+</footer>
+
+<script>
+function setLang(lang) {
+  const body = document.body;
+  const btns = document.querySelectorAll('.lang-btn');
+  const bnEls = document.querySelectorAll('.bn');
+  const enEls = document.querySelectorAll('.en');
+
+  if (lang === 'en') {
+    bnEls.forEach(el => el.style.display = 'none');
+    enEls.forEach(el => el.style.display = el.tagName === 'SPAN' ? 'inline' : 'block');
+    btns[0].classList.remove('active');
+    btns[1].classList.add('active');
+  } else {
+    bnEls.forEach(el => el.style.display = el.tagName === 'SPAN' ? 'inline' : 'block');
+    enEls.forEach(el => el.style.display = 'none');
+    btns[0].classList.add('active');
+    btns[1].classList.remove('active');
+  }
+}
+</script>
+
 </body>
 </html>
