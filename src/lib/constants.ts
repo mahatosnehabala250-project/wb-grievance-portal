@@ -186,10 +186,10 @@ export const WB_DISTRICTS: Record<string, string[]> = {
     'Patashpur II', 'Ramnagar I', 'Ramnagar II', 'Sutahata', 'Tamluk',
   ],
   'Purulia': [
-    'Arsha', 'Bagmundi', 'Balarampur', 'Barabazar', 'Bandwan',
-    'Hura', 'Jhalda I', 'Jhalda II', 'Kashipur', 'Manbazar I',
-    'Manbazar II', 'Neturia', 'Para', 'Puncha', 'Purulia I',
-    'Purulia II', 'Raghunathpur I', 'Raghunathpur II', 'Santuri',
+    'Arsha', 'Baghmundi', 'Balarampur', 'Barabazar', 'Bundwan',
+    'Hura', 'Joypur', 'Jhalda I', 'Jhalda II', 'Kashipur',
+    'Manbazar I', 'Manbazar II', 'Neturia', 'Para', 'Puncha',
+    'Purulia I', 'Purulia II', 'Raghunathpur I', 'Raghunathpur II',
   ],
   'South 24 Parganas': [
     'Baruipur', 'Basanti', 'Bhangar I', 'Bhangar II',
