@@ -74,34 +74,140 @@ export const CATEGORY_COLORS: Record<string, string> = {
 };
 
 // All 23 West Bengal districts with their blocks
+// Exact 23 official WB districts (alphabetical) with all blocks
+// DB ticket codes: ALI BAN BIR COO DAK DAR HOO HOW JAL JHA KAL KOL MAL MUR NAD NOR PWB PWM PEB PEM PUR SOU UTD
 export const WB_DISTRICTS: Record<string, string[]> = {
-  'Purba Bardhaman': ['Bardhaman Sadar North', 'Bardhaman Sadar South', 'Bhatar', 'Budbud', 'Galsi I', 'Galsi II', 'Jamalpur', 'Khandaghosh', 'Kalna I', 'Kalna II', 'Katwa I', 'Katwa II', 'Ketugram I', 'Ketugram II', 'Mangalkote', 'Memari I', 'Memari II', 'Monteswar', 'Purbasthali I', 'Purbasthali II', 'Raina I', 'Raina II'],
-  'Paschim Bardhaman': ['Andal', 'Asansol', 'Barabani', 'Faridpur-Durgapur', 'Jamuria', 'Kanksa', 'Ondal', 'Pandabeswar', 'Raniganj', 'Salanpur'],
-  'Birbhum': ['Bolpur-Sriniketan', 'Dubrajpur', 'Khoyrasol', 'Labpur', 'Labhpur', 'Mohammad Bazar', 'Murarai I', 'Murarai II', 'Nalhati I', 'Nalhati II', 'Rajnagar', 'Rampurhat I', 'Rampurhat II', 'Sainthia', 'Suri I', 'Suri II'],
-  'Bankura': ['Bankura I', 'Bankura II', 'Barjora', 'Bishnupur', 'Chhatna', 'Gangajalghati', 'Hirbandh', 'Indpur', 'Indas', 'Kotulpur', 'Mejia', 'Onda', 'Patrasaer', 'Raipur', 'Saltora', 'Santipur', 'Shepur', 'Sonamukhi', 'Taldangra', 'Vishnupur'],
-  'Purulia': ['Arsha', 'Bagmundi', 'Barabazar', 'Balarampur', 'Bandwan', 'Hura', 'Jhalda I', 'Jhalda II', 'Kashipur', 'Manbazar I', 'Manbazar II', 'Neturia', 'Para', 'Purulia I', 'Purulia II', 'Raghunathpur I', 'Raghunathpur II', 'Santuri', 'Puncha'],
-  'Jhargram': ['Binpur I', 'Binpur II', 'Gopiballavpur I', 'Gopiballavpur II', 'Jamboni', 'Jhargram', 'Nayagram', 'Sankrail'],
-  'Paschim Medinipur': ['Chandrakona I', 'Chandrakona II', 'Daspur I', 'Daspur II', 'Debra', 'Garbeta I', 'Garbeta II', 'Garbeta III', 'Ghatal', 'Keshpur', 'Kharagpur I', 'Kharagpur II', 'Narayangarh', 'Pingla', 'Sabang', 'Salbani', 'Sankrail', 'Sarenga', 'Medinipur Sadar'],
-  'Purba Medinipur': ['Bhagabanpur I', 'Bhagabanpur II', 'Contai I', 'Contai II', 'Contai III', 'Deshapran', 'Egra I', 'Egra II', 'Haldia', 'Khejuri I', 'Khejuri II', 'Mahishadal', 'Moyna', 'Nandakumar', 'Nandigram I', 'Nandigram II', 'Panskura', 'Patashpur I', 'Patashpur II', 'Ramnagar I', 'Ramnagar II', 'Sutahata', 'Tamluk'],
-  'Hooghly': ['Arambagh', 'Balagarh', 'Chanditala I', 'Chanditala II', 'Chinsurah-Magra', 'Dhaniakhali', 'Goghat I', 'Goghat II', 'Haripal', 'Jangipara', 'Khanakul I', 'Khanakul II', 'Pandua', 'Pursurah', 'Polba-Dadpur', 'Serampore-Uttarpara', 'Singur', 'Tarakeswar'],
-  'Howrah': ['Amta I', 'Amta II', 'Bagnan I', 'Bagnan II', 'Bally-Jagachha', 'Domjur', 'Jagatballavpur', 'Panchla', 'Sankrail', 'Shyampur I', 'Shyampur II', 'Udaynarayanpur', 'Uluberia I', 'Uluberia II'],
-  'Kolkata': ['Kolkata'],
-  'North 24 Parganas': ['Amdanga', 'Baduria', 'Bagdah', 'Barasat I', 'Barasat II', 'Bongaon', 'Deganga', 'Gaighata', 'Gobardanga', 'Habra I', 'Habra II', 'Haroa', 'Hasnabad', 'Hingalganj', 'Minakhan', 'Rajarhat', 'Sandeshkhali I', 'Sandeshkhali II', 'Swarupnagar', 'Barrackpore'],
-  'South 24 Parganas': ['Baruipur', 'Basanti', 'Bhangar I', 'Bhangar II', 'Bishnupur I', 'Bishnupur II', 'Budge Budge I', 'Budge Budge II', 'Canning I', 'Canning II', 'Diamond Harbour I', 'Diamond Harbour II', 'Falta', 'Gosaba', 'Jaynagar I', 'Jaynagar II', 'Kultali', 'Kulpi', 'Magrahat I', 'Magrahat II', 'Mandirbazar', 'Mathurapur I', 'Mathurapur II', 'Mograhat I', 'Mograhat II', 'Namkhana', 'Pathar Pratima', 'Sagar'],
-  'Nadia': ['Chapra', 'Hanskhali', 'Haringhata', 'Kaliganj', 'Karimpur I', 'Karimpur II', 'Krishnanagar I', 'Krishnanagar II', 'Nakasipara', 'Nakashipara', 'Ranaghat I', 'Ranaghat II', 'Santipur', 'Tehatta I', 'Tehatta II'],
-  'Murshidabad': ['Bahrampur', 'Beldanga I', 'Beldanga II', 'Berhampur', 'Bharatpur I', 'Bharatpur II', 'Domkal', 'Hariharpara', 'Jalangi', 'Jiaganj-Azimganj', 'Kandi', 'Khargram', 'Lalgola', 'Murshidabad-Jiaganj', 'Nabagram', 'Nowda', 'Raghunathganj I', 'Raghunathganj II', 'Raninagar I', 'Raninagar II', 'Sagardighi', 'Samserganj', 'Suti I', 'Suti II'],
-  'Malda': ['Bamongola', 'Chanchal I', 'Chanchal II', 'English Bazar', 'Gazole', 'Habibpur', 'Harischandrapur I', 'Harischandrapur II', 'Kaliachak I', 'Kaliachak II', 'Kaliachak III', 'Manikchak', 'Old Malda', 'Ratua I', 'Ratua II'],
-  'Uttar Dinajpur': ['Chopra', 'Goalpokhar I', 'Goalpokhar II', 'Hemtabad', 'Islampur', 'Itahar', 'Karandighi', 'Raiganj'],
-  'Dakshin Dinajpur': ['Balurghat', 'Bansihari', 'Buniadpur', 'Cumming', 'Gangarampur', 'Harirampur', 'Kushmandi', 'Tapan'],
-  'Cooch Behar': ['Cooch Behar I', 'Cooch Behar II', 'Dinhata I', 'Dinhata II', 'Mathabhanga I', 'Mathabhanga II', 'Mekhliganj', 'Sitalkuchi', 'Sitai', 'Tufanganj I', 'Tufanganj II'],
-  'Jalpaiguri': ['Alipurduar I', 'Alipurduar II', 'Dhupguri', 'Falakata', 'Kalchini', 'Kumargram', 'Madarihat-Birpara', 'Maynaguri', 'Mal', 'Nagrakata', 'Rajganj'],
-  'Darjeeling': ['Darjeeling', 'Jorebunglow-Sukhiapokhri', 'Kalimpong I', 'Kalimpong II', 'Kharibari', 'Kurseong', 'Matigara', 'Mirik', 'Naxalbari', 'Phansidewa', 'Rangli-Rangliot', 'Siliguri'],
-  'Alipurduar': ['Alipurduar I', 'Alipurduar II', 'Falakata', 'Kalchini', 'Kumargram', 'Madarihat-Birpara'],
-  'Kalimpong': ['Gorubathan', 'Kalimpong I', 'Kalimpong II'],
+  'Alipurduar': [
+    'Alipurduar I', 'Alipurduar II', 'Falakata', 'Kalchini',
+    'Kumargram', 'Madarihat-Birpara',
+  ],
+  'Bankura': [
+    'Bankura I', 'Bankura II', 'Barjora', 'Bishnupur', 'Chhatna',
+    'Gangajalghati', 'Hirbandh', 'Indas', 'Indpur', 'Kotulpur',
+    'Mejia', 'Onda', 'Patrasaer', 'Raipur', 'Saltora',
+    'Sonamukhi', 'Taldangra', 'Vishnupur',
+  ],
+  'Birbhum': [
+    'Bolpur-Sriniketan', 'Dubrajpur', 'Khoyrasol', 'Labpur',
+    'Mohammad Bazar', 'Murarai I', 'Murarai II', 'Nalhati I',
+    'Nalhati II', 'Rajnagar', 'Rampurhat I', 'Rampurhat II',
+    'Sainthia', 'Suri I', 'Suri II',
+  ],
+  'Cooch Behar': [
+    'Cooch Behar I', 'Cooch Behar II', 'Dinhata I', 'Dinhata II',
+    'Mathabhanga I', 'Mathabhanga II', 'Mekhliganj', 'Sitalkuchi',
+    'Sitai', 'Tufanganj I', 'Tufanganj II',
+  ],
+  'Dakshin Dinajpur': [
+    'Balurghat', 'Bansihari', 'Buniadpur', 'Gangarampur',
+    'Harirampur', 'Kushmandi', 'Tapan',
+  ],
+  'Darjeeling': [
+    'Darjeeling', 'Jorebunglow-Sukhiapokhri', 'Kharibari',
+    'Kurseong', 'Matigara', 'Mirik', 'Naxalbari',
+    'Phansidewa', 'Rangli-Rangliot', 'Siliguri',
+  ],
+  'Hooghly': [
+    'Arambagh', 'Balagarh', 'Chanditala I', 'Chanditala II',
+    'Chinsurah-Magra', 'Dhaniakhali', 'Goghat I', 'Goghat II',
+    'Haripal', 'Jangipara', 'Khanakul I', 'Khanakul II',
+    'Pandua', 'Polba-Dadpur', 'Pursurah', 'Serampore-Uttarpara',
+    'Singur', 'Tarakeswar',
+  ],
+  'Howrah': [
+    'Amta I', 'Amta II', 'Bagnan I', 'Bagnan II', 'Bally-Jagachha',
+    'Domjur', 'Jagatballavpur', 'Panchla', 'Sankrail',
+    'Shyampur I', 'Shyampur II', 'Udaynarayanpur',
+    'Uluberia I', 'Uluberia II',
+  ],
+  'Jalpaiguri': [
+    'Dhupguri', 'Jalpaiguri', 'Maynaguri', 'Mal',
+    'Nagrakata', 'Rajganj',
+  ],
+  'Jhargram': [
+    'Binpur I', 'Binpur II', 'Gopiballavpur I', 'Gopiballavpur II',
+    'Jamboni', 'Jhargram', 'Nayagram', 'Sankrail',
+  ],
+  'Kalimpong': [
+    'Gorubathan', 'Kalimpong I', 'Kalimpong II',
+  ],
+  'Kolkata': [
+    'Kolkata',
+  ],
+  'Malda': [
+    'Bamongola', 'Chanchal I', 'Chanchal II', 'English Bazar',
+    'Gazole', 'Habibpur', 'Harischandrapur I', 'Harischandrapur II',
+    'Kaliachak I', 'Kaliachak II', 'Kaliachak III', 'Manikchak',
+    'Old Malda', 'Ratua I', 'Ratua II',
+  ],
+  'Murshidabad': [
+    'Bahrampur', 'Beldanga I', 'Beldanga II', 'Bharatpur I',
+    'Bharatpur II', 'Domkal', 'Hariharpara', 'Jalangi',
+    'Jiaganj-Azimganj', 'Kandi', 'Khargram', 'Lalgola',
+    'Murshidabad-Jiaganj', 'Nabagram', 'Nowda',
+    'Raghunathganj I', 'Raghunathganj II', 'Raninagar I',
+    'Raninagar II', 'Sagardighi', 'Samserganj', 'Suti I', 'Suti II',
+  ],
+  'Nadia': [
+    'Chapra', 'Hanskhali', 'Haringhata', 'Kaliganj',
+    'Karimpur I', 'Karimpur II', 'Krishnanagar I', 'Krishnanagar II',
+    'Nakashipara', 'Ranaghat I', 'Ranaghat II', 'Santipur',
+    'Tehatta I', 'Tehatta II',
+  ],
+  'North 24 Parganas': [
+    'Amdanga', 'Baduria', 'Bagdah', 'Barasat I', 'Barasat II',
+    'Barrackpore', 'Bongaon', 'Deganga', 'Gaighata', 'Gobardanga',
+    'Habra I', 'Habra II', 'Haroa', 'Hasnabad', 'Hingalganj',
+    'Minakhan', 'Rajarhat', 'Sandeshkhali I', 'Sandeshkhali II',
+    'Swarupnagar',
+  ],
+  'Paschim Bardhaman': [
+    'Andal', 'Asansol', 'Barabani', 'Faridpur-Durgapur',
+    'Jamuria', 'Kanksa', 'Ondal', 'Pandabeswar', 'Raniganj', 'Salanpur',
+  ],
+  'Paschim Medinipur': [
+    'Chandrakona I', 'Chandrakona II', 'Daspur I', 'Daspur II',
+    'Debra', 'Garbeta I', 'Garbeta II', 'Garbeta III', 'Ghatal',
+    'Keshpur', 'Kharagpur I', 'Kharagpur II', 'Medinipur Sadar',
+    'Narayangarh', 'Pingla', 'Sabang', 'Salbani',
+  ],
+  'Purba Bardhaman': [
+    'Bardhaman Sadar North', 'Bardhaman Sadar South', 'Bhatar',
+    'Budbud', 'Galsi I', 'Galsi II', 'Jamalpur', 'Kalna I', 'Kalna II',
+    'Katwa I', 'Katwa II', 'Ketugram I', 'Ketugram II', 'Khandaghosh',
+    'Mangalkote', 'Memari I', 'Memari II', 'Monteswar',
+    'Purbasthali I', 'Purbasthali II', 'Raina I', 'Raina II',
+  ],
+  'Purba Medinipur': [
+    'Bhagabanpur I', 'Bhagabanpur II', 'Contai I', 'Contai II',
+    'Contai III', 'Deshapran', 'Egra I', 'Egra II', 'Haldia',
+    'Khejuri I', 'Khejuri II', 'Mahishadal', 'Moyna', 'Nandakumar',
+    'Nandigram I', 'Nandigram II', 'Panskura', 'Patashpur I',
+    'Patashpur II', 'Ramnagar I', 'Ramnagar II', 'Sutahata', 'Tamluk',
+  ],
+  'Purulia': [
+    'Arsha', 'Bagmundi', 'Balarampur', 'Barabazar', 'Bandwan',
+    'Hura', 'Jhalda I', 'Jhalda II', 'Kashipur', 'Manbazar I',
+    'Manbazar II', 'Neturia', 'Para', 'Puncha', 'Purulia I',
+    'Purulia II', 'Raghunathpur I', 'Raghunathpur II', 'Santuri',
+  ],
+  'South 24 Parganas': [
+    'Baruipur', 'Basanti', 'Bhangar I', 'Bhangar II',
+    'Bishnupur I', 'Bishnupur II', 'Budge Budge I', 'Budge Budge II',
+    'Canning I', 'Canning II', 'Diamond Harbour I', 'Diamond Harbour II',
+    'Falta', 'Gosaba', 'Jaynagar I', 'Jaynagar II', 'Kultali',
+    'Kulpi', 'Magrahat I', 'Magrahat II', 'Mandirbazar',
+    'Mathurapur I', 'Mathurapur II', 'Mograhat I', 'Mograhat II',
+    'Namkhana', 'Pathar Pratima', 'Sagar',
+  ],
+  'Uttar Dinajpur': [
+    'Chopra', 'Goalpokhar I', 'Goalpokhar II', 'Hemtabad',
+    'Islampur', 'Itahar', 'Karandighi', 'Raiganj',
+  ],
 };
 
-// Flat list of all districts for dropdowns
-export const WB_DISTRICT_LIST = Object.keys(WB_DISTRICTS).sort();
+// Flat list of all 23 official WB districts for dropdowns (already alphabetical)
+export const WB_DISTRICT_LIST = Object.keys(WB_DISTRICTS);
 
 export const SOURCE_MAP: Record<string, { label: string; icon: string; color: string }> = {
   WHATSAPP: { label: 'WhatsApp', icon: 'MessageCircle', color: '#25D366' },
