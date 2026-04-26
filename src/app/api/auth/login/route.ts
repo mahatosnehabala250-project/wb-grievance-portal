@@ -1,6 +1,8 @@
+export const runtime = 'nodejs';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { compareSync } from 'bcryptjs';
+import bcrypt from 'bcryptjs';
 import { signToken, JWTPayload } from '@/lib/jwt';
 
 export async function POST(request: NextRequest) {
@@ -31,7 +33,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const isValid = compareSync(password, user.passwordHash);
+    const isValid = bcrypt.compareSync(password, user.passwordHash);
     if (!isValid) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
