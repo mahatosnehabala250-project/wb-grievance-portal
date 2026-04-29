@@ -345,3 +345,8 @@ export const SUBDIVISION_MAP: Record<string, Record<string, string>> = {
 export function getSubdivision(district: string, block: string): string {
   return SUBDIVISION_MAP[district]?.[block] || block;
 }
+
+// Citizen profile — location only, name is ALWAYS asked fresh
+// Saved: village, block, district, language
+// NOT saved: name (privacy — family shares one number)
+export const CITIZEN_PROFILE_FIELDS = ['village', 'block', 'district', 'language'] as const;
