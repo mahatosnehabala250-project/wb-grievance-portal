@@ -196,24 +196,17 @@ export function LoginView() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              Government of West Bengal
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+              বাংলার সহায়ক
             </h1>
-            {/* Government of India sub-line with emblem */}
-            <p className="text-blue-200/60 text-[11px] mt-1 font-medium flex items-center justify-center gap-1.5">
-              <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-white/10 border border-white/20">
-                <span className="text-[8px]">wheel</span>
-              </span>
-              Government of India
+            <p className="text-blue-200/70 text-sm mt-1.5 font-semibold tracking-wide">
+              Banglar Sahayak
             </p>
-            <p className="text-blue-200/80 text-sm mt-1.5 font-medium">
-              AI Public Support System
+            <p className="text-blue-200/50 text-xs mt-1 font-medium tracking-wider uppercase">
+              West Bengal Public Grievance Portal
             </p>
-            <p className="text-blue-300/40 text-xs mt-0.5 font-medium tracking-wider">
-              e-Governance Initiative
-            </p>
-            <p className="text-blue-300/50 text-base mt-1 font-medium tracking-wide">
-              পশ্চিমবঙ্গ সরকার
+            <p className="text-blue-300/40 text-[11px] mt-0.5 font-medium">
+              পশ্চিমবঙ্গ সরকার — নাগরিক সেবা পোর্টাল
             </p>
           </motion.div>
           <div className="h-0.5 w-24 bg-gradient-to-r from-transparent via-white/30 to-transparent mx-auto mt-4 rounded-full" />
@@ -325,10 +318,10 @@ export function LoginView() {
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { u: 'admin', p: 'password123', r: 'ADMIN', icon: Shield, borderColor: '#0A2463', iconBg: '#0A2463' },
-                    { u: 'state_mag1', p: 'password123', r: 'STATE', icon: Globe, borderColor: '#059669', iconBg: '#059669' },
-                    { u: 'dist_nadia1', p: 'password123', r: 'DISTRICT', icon: Building2, borderColor: '#d97706', iconBg: '#d97706' },
-                    { u: 'block_krish1', p: 'password123', r: 'BLOCK', icon: MapPin, borderColor: '#dc2626', iconBg: '#dc2626' },
+                    { u: 'admin', p: 'Admin@1234', r: 'ADMIN', icon: Shield, borderColor: '#0A2463', iconBg: '#0A2463' },
+                    { u: 'state_wb1', p: 'Admin@1234', r: 'STATE', icon: Globe, borderColor: '#059669', iconBg: '#059669' },
+                    { u: 'dist_purulia1', p: 'Admin@1234', r: 'DISTRICT', icon: Building2, borderColor: '#d97706', iconBg: '#d97706' },
+                    { u: 'block_manbazar1', p: 'Admin@1234', r: 'BLOCK', icon: MapPin, borderColor: '#dc2626', iconBg: '#dc2626' },
                   ].map((acc) => (
                     <motion.button
                       key={acc.u}
@@ -375,13 +368,13 @@ export function LoginView() {
           className="text-center text-[11px] mt-3"
         >
           <span className="shimmer-text">Powered by</span>{' '}
-          <span className="text-blue-200/50">Government of West Bengal</span>
+          <span className="text-blue-200/50">Government of West Bengal — বাংলার সহায়ক</span>
           <span className="text-blue-200/30 mx-1">&middot;</span>
-          <span className="text-blue-200/30">&copy; 2025</span>
+          <span className="text-blue-200/30">&copy; 2026</span>
         </motion.p>
         {/* National e-Governance Plan powered-by text */}
         <p className="text-center text-[9px] mt-1 text-blue-300/30 tracking-wide">
-          Powered by National e-Governance Plan
+          বাংলার সহায়ক — নাগরিকের পাশে সর্বদা
         </p>
       </div>
       {/* Global animation keyframes */}
