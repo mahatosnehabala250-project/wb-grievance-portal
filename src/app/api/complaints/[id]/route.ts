@@ -168,7 +168,8 @@ export async function PATCH(
 
     return NextResponse.json({ complaint: updated, success: true });
   } catch (error) {
-    console.error('Update complaint error:', error);
-    return NextResponse.json({ error: 'Failed to update complaint' }, { status: 500 });
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error('Update complaint error:', errMsg);
+    return NextResponse.json({ error: 'Failed to update complaint', detail: errMsg }, { status: 500 });
   }
 }
