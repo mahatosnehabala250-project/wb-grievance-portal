@@ -704,7 +704,10 @@ export default function HomePage() {
                   <span className="text-white/30">|</span>
                   <span className="flex items-center gap-1 text-white/50 hover:text-white/80 transition-colors cursor-pointer"><Mail className="h-3 w-3" />Support</span>
                 </div>
-                <p className="text-[10px] text-white/30">&copy; 2025 Government of West Bengal &mdash; All Rights Reserved</p>
+                <p className="text-[10px] text-white/30">&copy; 2026 Government of West Bengal &mdash; All Rights Reserved</p>
+                <p className="text-[10px] text-white/20">
+                  Powered by <span className="text-white/40 font-semibold">NeuroSetu AI</span>
+                </p>
               </div>
             </div>
           </div>

@@ -122,6 +122,9 @@ export function LoginView() {
           </p>
           <p className="pl-8">পশ্চিমবঙ্গ সরকার — নাগরিক সেবা পোর্টাল</p>
           <p className="pl-8 mt-2 text-white/15">© 2026 — All Rights Reserved</p>
+          <p className="pl-8 mt-1 text-white/20 text-[10px]">
+            Technology by <span className="text-white/35 font-semibold">NeuroSetu AI</span>
+          </p>
         </div>
       </div>
 
@@ -283,12 +286,19 @@ export function LoginView() {
           </div>
 
           {/* Footer note */}
-          <p className="text-center text-[11px] text-slate-400 mt-6 flex items-center justify-center gap-1.5">
-            <Shield className="h-3 w-3" />
-            Secured by বাংলার সহায়ক
-            <span className="text-slate-300">·</span>
-            Government of West Bengal
-          </p>
+          <div className="text-center mt-6 space-y-1">
+            <p className="text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
+              <Shield className="h-3 w-3" />
+              Secured by বাংলার সহায়ক
+              <span className="text-slate-300">·</span>
+              Government of West Bengal
+            </p>
+            <p className="text-[10px] text-slate-300">
+              Powered by{' '}
+              <span className="font-semibold text-slate-400">NeuroSetu AI</span>
+              {' '}— AI-Powered Governance Solutions
+            </p>
+          </div>
         </motion.div>
       </div>
 
