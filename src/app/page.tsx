@@ -73,6 +73,7 @@ import IntegrationsView from '@/components/IntegrationsView';
 import N8NWorkflowsView from '@/components/N8NWorkflowsView';
 import WB01WorkflowDetailView from '@/components/WB01WorkflowDetailView';
 import { IntelligenceView } from '@/components/IntelligenceView';
+import { ChatDashboard } from '@/components/ChatDashboard';
 import { SchemeKnowledgeView } from '@/components/SchemeKnowledgeView';
 import { N8nEndpointHealth } from '@/components/N8nEndpointHealth';
 import DeploymentGuideView from '@/components/DeploymentGuideView';
@@ -250,6 +251,7 @@ export default function HomePage() {
   const navItems = [
     { id: 'dashboard' as ViewType, label: t('dashboard'), icon: LayoutDashboard },
     { id: 'complaints' as ViewType, label: t('complaints'), icon: FileText },
+    { id: 'chat' as ViewType, label: 'WhatsApp Chats', icon: MessageSquare },
     { id: 'analytics' as ViewType, label: t('analytics'), icon: BarChart2 },
     { id: 'intelligence' as ViewType, label: 'Intelligence', icon: BrainCircuit },
     { id: 'schemes' as ViewType, label: 'Schemes', icon: BookOpen },
@@ -616,6 +618,9 @@ export default function HomePage() {
                 )}
                 {view === 'n8n' && (
                   <N8NWorkflowsView />
+                )}
+                {view === 'chat' && (
+                  <ChatDashboard />
                 )}
                 {view === 'intelligence' && (
                   <IntelligenceView />
