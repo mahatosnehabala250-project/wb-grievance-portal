@@ -507,7 +507,7 @@ export default function HomePage() {
 
       {/* ═══ ANNOUNCEMENT BANNER ═══ */}
       <AnnouncementBanner
-        message="Portal maintenance scheduled for June 15, 2025 (Saturday) from 2:00 AM to 6:00 AM IST. Please save your work before then."
+        message="বাংলার সহায়ক পোর্টালে আপনাকে স্বাগতম। অভিযোগ ব্যবস্থাপনা ড্যাশবোর্ড সক্রিয় আছে।"
         type="warning"
       />
 

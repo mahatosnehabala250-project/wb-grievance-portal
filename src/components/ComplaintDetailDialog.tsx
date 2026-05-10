@@ -608,12 +608,16 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
           <div className="grid grid-cols-2 gap-2.5">
             {[
               { label: 'Category', val: complaint.category },
+              { label: 'Priority', val: fmtUrgency(complaint.urgency) },
+              { label: 'Village', val: (complaint as any).village || '—' },
               { label: 'Block', val: complaint.block },
               { label: 'District', val: complaint.district },
+              { label: 'Gram Panchayat', val: (complaint as any).pct || '—' },
               { label: 'Filed On', val: fmtDateTime(complaint.createdAt) },
               { label: 'Updated', val: fmtDateTime(complaint.updatedAt) },
-              { label: 'Priority', val: fmtUrgency(complaint.urgency) },
-            ].map((f) => (
+              { label: 'Email Sent', val: (complaint as any).email_sent_at ? '✅ ' + fmtDateTime((complaint as any).email_sent_at) : '—' },
+              { label: 'Email Reply', val: (complaint as any).email_reply_received ? '✅ Received' : '⏳ Pending' },
+            ].filter(f => f.val !== '—' || ['Village','Gram Panchayat'].includes(f.label) === false).map((f) => (
               <div key={f.label} className="p-3 rounded-xl bg-muted/50 border border-border/50">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">{f.label}</p>
                 <p className="text-sm font-medium text-foreground">{f.val}</p>
