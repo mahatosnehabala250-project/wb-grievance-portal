@@ -14,7 +14,7 @@ import {
   Settings, CircleHelp, Monitor, Mail, Volume2, LayoutGrid, Keyboard,
   UserCheck, GitCompareArrows, CalendarClock, History, Tag, ClipboardList,
   AlertCircle, Info, CheckCircle2 as CheckCircleFill, Sparkles, Megaphone,
-  ArrowUp, Flame, CalendarRange, TimerReset, Server, Radio, Workflow, BookOpen, BrainCircuit,
+  ArrowUp, Flame, CalendarRange, TimerReset, Server, Radio, Workflow, BookOpen, BrainCircuit, Heart,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -74,6 +74,7 @@ import N8NWorkflowsView from '@/components/N8NWorkflowsView';
 import WB01WorkflowDetailView from '@/components/WB01WorkflowDetailView';
 import { IntelligenceView } from '@/components/IntelligenceView';
 import { ChatDashboard } from '@/components/ChatDashboard';
+import { RaktaSahayakView } from '@/components/RaktaSahayakView';
 import { SchemeKnowledgeView } from '@/components/SchemeKnowledgeView';
 import { N8nEndpointHealth } from '@/components/N8nEndpointHealth';
 import DeploymentGuideView from '@/components/DeploymentGuideView';
@@ -252,6 +253,7 @@ export default function HomePage() {
     { id: 'dashboard' as ViewType, label: t('dashboard'), icon: LayoutDashboard },
     { id: 'complaints' as ViewType, label: t('complaints'), icon: FileText },
     { id: 'chat' as ViewType, label: 'WhatsApp Chats', icon: MessageSquare },
+    { id: 'rakta' as ViewType, label: 'রক্ত সহায়ক', icon: Heart },
     { id: 'analytics' as ViewType, label: t('analytics'), icon: BarChart2 },
     { id: 'intelligence' as ViewType, label: 'Intelligence', icon: BrainCircuit },
     { id: 'schemes' as ViewType, label: 'Schemes', icon: BookOpen },
@@ -621,6 +623,9 @@ export default function HomePage() {
                 )}
                 {view === 'chat' && (
                   <ChatDashboard />
+                )}
+                {view === 'rakta' && (
+                  <RaktaSahayakView />
                 )}
                 {view === 'intelligence' && (
                   <IntelligenceView />
