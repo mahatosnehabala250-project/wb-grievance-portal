@@ -1,0 +1,75 @@
+# Cursor IDE Rules for JanSeva Project
+
+You are working on JanSeva (West Bengal AI Public Support System) — a Next.js 16 + Supabase + n8n project for citizen grievances and blood donor matching.
+
+## ALWAYS Read First
+- `PROJECT_CONTEXT.md` — Full project bootstrap
+- `AGENTS.md` — AI working rules
+- `.ai-context/CURRENT_STATE.md` — Current focus
+- `.kiro/specs/sahayak-multi-agent-router/requirements.md` — Active spec
+
+## Tech Stack
+- Next.js 16, React, TypeScript (strict), Tailwind, shadcn/ui
+- Supabase (PostgreSQL 17, Auth, Storage, Realtime)
+- Prisma ORM
+- n8n self-hosted (workflows prefixed `JS-`)
+- Google Gemini for LLM
+- WhatsApp Business API
+
+## Code Style
+- Strict TypeScript — no `any`
+- Server Components by default; mark `'use client'` only when needed
+- Tailwind utility classes; reuse shadcn/ui components
+- Conventional Commits: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`
+- Imports: external → internal (`@/*`) → types
+- Error handling: try/catch with structured logging
+
+## Critical Rules
+1. NEVER hardcode secrets — use `process.env.X` and `.env.example`
+2. NEVER delete from `donation_history` — immutable audit trail
+3. ALWAYS use cascade engine (JS-15B) for blood donor notifications — never broadcast directly
+4. ALWAYS run pre-donation health screening before marking donor accepted
+5. ALWAYS check `conversation_sessions.last_intent` for routing — never let the LLM guess
+6. Mask donor phone numbers in non-admin views (e.g., `98XXX XX234`)
+7. Medical compliance per Indian NACO/NBTC + WHO guidelines
+
+## File Structure
+- `src/app/` — Next.js App Router (pages + API routes)
+- `src/app/api/` — API endpoints, organized by resource
+- `src/components/` — React components
+- `src/components/ui/` — shadcn/ui components
+- `src/hooks/` — React hooks
+- `src/lib/` — utilities, Supabase client, helpers
+- `prisma/` — Prisma schema and migrations
+- `n8n-workflows/` — n8n workflow JSON definitions
+- `n8n-sdk-v3/` — n8n deployment SDK
+- `.ai-context/` — Documentation for AI tools
+- `.kiro/specs/` — Active feature specs
+- `skills/` — Reusable code generation patterns
+
+## Naming
+- n8n workflows: `JS-NN: Name` (e.g., `JS-01: Sahayak Multi-Agent`)
+- Ticket IDs: `WB-YYYY-XXXXX` (e.g., `WB-2026-00123`)
+- DB tables: `snake_case`, plural (`blood_donors`)
+- Components: `PascalCase` (`ComplaintCard.tsx`)
+- API routes: `/api/<resource>/<action>` (`/api/complaints/register`)
+
+## Build / Test
+```bash
+npm run dev      # development
+npm run build    # production build
+npm run lint     # eslint
+```
+
+## Communication
+- WhatsApp messages: Hinglish + Bengali support, conversational
+- UI: English primary with Bengali/Hindi translations on citizen pages
+- Code/docs: English
+- Comments: explain WHY, not WHAT
+
+## When Implementing New Features
+1. Check active spec in `.kiro/specs/`
+2. Match existing patterns in `src/`
+3. Add to `.ai-context/CURRENT_STATE.md`
+4. Run lint + build before committing
+5. Push to feature branch (`feat/<name>`)
