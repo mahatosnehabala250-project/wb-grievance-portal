@@ -84,6 +84,7 @@ async function main() {
   console.log('\n=== PHASE 2: Build & Deploy New Workflows ===\n');
 
   const workflowDir = path.join(__dirname, 'n8n-workflows');
+  const codeNodesDir = path.join(workflowDir, 'code-nodes');
   const files = [
     'wb-01-whatsapp-intake.json',
     'wb-02-auto-assign.json',
@@ -91,8 +92,19 @@ async function main() {
     'wb-05-status-check.json',
     'wb-06-rating.json',
     'wb-07-sla-escalation.json',
-    'wb-08-daily-report.json'
+    'wb-08-daily-report.json',
+    'JS-01v2.json'
   ];
+
+  // ─── Code Node Injection Map ─────────────────────────────────────────────
+  // Maps node names in JS-01v2.json to their external code-node source files.
+  // At deploy time, the placeholder jsCode in these nodes is replaced with the
+  // actual file contents from n8n-workflows/code-nodes/.
+  const CODE_NODE_INJECTIONS = {
+    'Prepare Context': 'prepare-context.js',
+    'CEO Router': 'ceo-router.js',
+    'Status Code': 'status-info.js'
+  };
 
   const results = {};
 
@@ -105,6 +117,95 @@ async function main() {
     }
 
     const wf = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+
+    // ─── Inject external code-node bodies for JS-01v2 ────────────────────
+    if (file === 'JS-01v2.json') {
+      for (const [nodeName, codeFile] of Object.entries(CODE_NODE_INJECTIONS)) {
+        const codeFilePath = path.join(codeNodesDir, codeFile);
+        if (fs.existsSync(codeFilePath)) {
+          const codeBody = fs.readFileSync(codeFilePath, 'utf-8');
+          const node = wf.nodes.find(n => n.name === nodeName);
+          if (node && node.parameters) {
+            node.parameters.jsCode = codeBody;
+            console.log(`   💉 Injected ${codeFile} → "${nodeName}" node`);
+          } else {
+            console.log(`   ⚠️ Node "${nodeName}" not found in workflow — skipping injection`);
+          }
+        } else {
+          console.log(`   ⚠️ Code file not found: ${codeFilePath} — skipping injection for "${nodeName}"`);
+        }
+      }
+
+      // ─── Prompt Injection: AI Agent system messages ──────────────────────
+      // Maps AI Agent node names to their prompt source files under
+      // n8n-workflows/prompts/. At deploy time, the placeholder systemMessage
+      // in each agent node is replaced with the actual prompt file contents.
+      const PROMPT_INJECTIONS = {
+        'Complaint Agent': 'complaint.md',
+        'Blood Agent': 'blood.md',
+        'Donor Agent': 'donor.md',
+      };
+
+      const promptsDir = path.join(workflowDir, 'prompts');
+
+      for (const [nodeName, promptFile] of Object.entries(PROMPT_INJECTIONS)) {
+        const promptFilePath = path.join(promptsDir, promptFile);
+        if (fs.existsSync(promptFilePath)) {
+          const promptContent = fs.readFileSync(promptFilePath, 'utf-8');
+          const node = wf.nodes.find(n => n.name === nodeName);
+          if (node && node.parameters && node.parameters.options) {
+            node.parameters.options.systemMessage = promptContent;
+            console.log(`   💉 Injected prompt ${promptFile} → "${nodeName}" systemMessage`);
+          } else {
+            console.log(`   ⚠️ Node "${nodeName}" not found or missing options — skipping prompt injection`);
+          }
+        } else {
+          console.log(`   ⚠️ Prompt file not found: ${promptFilePath} — skipping injection for "${nodeName}"`);
+        }
+      }
+
+      // ─── Info Prompt Injection: Status Code node ─────────────────────────
+      // Injects the info.md content into the Status Code node's jsCode as a
+      // template literal variable so the code node can reference scheme info
+      // without a separate file read at runtime.
+      const infoPromptPath = path.join(promptsDir, 'info.md');
+      if (fs.existsSync(infoPromptPath)) {
+        const infoContent = fs.readFileSync(infoPromptPath, 'utf-8');
+        const statusNode = wf.nodes.find(n => n.name === 'Status Code');
+        if (statusNode && statusNode.parameters) {
+          // Prepend the info content as an escaped template literal variable
+          const escapedInfo = infoContent.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+          const infoVariable = `const INFO_PROMPT = \`${escapedInfo}\`;\n\n`;
+          statusNode.parameters.jsCode = infoVariable + statusNode.parameters.jsCode;
+          console.log(`   💉 Injected info.md → "Status Code" node as INFO_PROMPT variable`);
+        } else {
+          console.log(`   ⚠️ Node "Status Code" not found — skipping info.md injection`);
+        }
+      } else {
+        console.log(`   ⚠️ Prompt file not found: ${infoPromptPath} — skipping info.md injection`);
+      }
+
+      // ─── Scheme Summaries Injection: Status Code node ────────────────────
+      // Injects the scheme_summaries.md content into the Status Code node's
+      // jsCode as a SCHEME_SUMMARIES template literal variable for Phase 1
+      // inlined Gemini prompts (INFO_USE_EMBEDDINGS=false).
+      const schemeSummariesPath = path.join(promptsDir, 'scheme_summaries.md');
+      if (fs.existsSync(schemeSummariesPath)) {
+        const schemeContent = fs.readFileSync(schemeSummariesPath, 'utf-8');
+        const statusNodeForSchemes = wf.nodes.find(n => n.name === 'Status Code');
+        if (statusNodeForSchemes && statusNodeForSchemes.parameters) {
+          const escapedSchemes = schemeContent.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+          const schemeVariable = `const SCHEME_SUMMARIES = \`${escapedSchemes}\`;\n\n`;
+          statusNodeForSchemes.parameters.jsCode = schemeVariable + statusNodeForSchemes.parameters.jsCode;
+          console.log(`   💉 Injected scheme_summaries.md → "Status Code" node as SCHEME_SUMMARIES variable`);
+        } else {
+          console.log(`   ⚠️ Node "Status Code" not found — skipping scheme_summaries.md injection`);
+        }
+      } else {
+        console.log(`   ⚠️ Prompt file not found: ${schemeSummariesPath} — skipping scheme_summaries.md injection`);
+      }
+    }
+
     console.log(`\n📦 ${wf.name}`);
     console.log(`   Nodes: ${wf.nodes.length}`);
 

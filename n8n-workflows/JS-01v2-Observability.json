@@ -1,0 +1,170 @@
+{
+  "name": "JS-01v2-Observability: Fire-and-Forget Logger",
+  "nodes": [
+    {
+      "id": "obs-001",
+      "name": "HTTP Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 400],
+      "parameters": {
+        "path": "js01v2-observability",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "webhookId": "js01v2-observability-trigger"
+    },
+    {
+      "id": "obs-002",
+      "name": "Route by Kind",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [550, 400],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.body?.kind || $json.kind }}",
+        "rules": {
+          "rules": [
+            { "value2": "routing_decision", "outputKey": "routing_decision" },
+            { "value2": "agent_invocation", "outputKey": "agent_invocation" }
+          ]
+        },
+        "fallbackOutput": "extra"
+      }
+    },
+    {
+      "id": "obs-003",
+      "name": "Log Routing Decision",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 250],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/routing/log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-N8N-SECRET", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ session_id: ($json.body?.payload || $json.payload)?.session_id || '', message_text: (($json.body?.payload || $json.payload)?.message_text || '').substring(0, 200), last_intent_before: ($json.body?.payload || $json.payload)?.last_intent_before || null, agent_dispatched: ($json.body?.payload || $json.payload)?.agent_dispatched || null, reason: ($json.body?.payload || $json.payload)?.reason || '', trace_id: ($json.body?.payload || $json.payload)?.trace_id || null }) }}",
+        "options": {
+          "timeout": 5000,
+          "allowUnauthorizedCerts": false
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "obs-004",
+      "name": "Log Agent Invocation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 550],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/agent-invocations/log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-N8N-SECRET", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ session_id: ($json.body?.payload || $json.payload)?.session_id || '', agent: ($json.body?.payload || $json.payload)?.agent_dispatched || ($json.body?.payload || $json.payload)?.agent || '', started_at: ($json.body?.payload || $json.payload)?.agent_started_at || null, completed_at: ($json.body?.payload || $json.payload)?.agent_completed_at || null, tokens_used: ($json.body?.payload || $json.payload)?.tokens_used || null, tools_called: ($json.body?.payload || $json.payload)?.tools_called || [], success: ($json.body?.payload || $json.payload)?.success !== undefined ? ($json.body?.payload || $json.payload)?.success : true, error_message: ($json.body?.payload || $json.payload)?.error_message || null, trace_id: ($json.body?.payload || $json.payload)?.trace_id || null }) }}",
+        "options": {
+          "timeout": 5000,
+          "allowUnauthorizedCerts": false
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "obs-005",
+      "name": "End OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1200, 400],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, logged: true }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "obs-006",
+      "name": "Fallback Unknown Kind",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [900, 700],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error: 'Unknown kind. Expected routing_decision or agent_invocation.' }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    }
+  ],
+  "connections": {
+    "HTTP Trigger": {
+      "main": [
+        [{ "node": "Route by Kind", "type": "main", "index": 0 }]
+      ]
+    },
+    "Route by Kind": {
+      "main": [
+        [{ "node": "Log Routing Decision", "type": "main", "index": 0 }],
+        [{ "node": "Log Agent Invocation", "type": "main", "index": 0 }],
+        [{ "node": "Fallback Unknown Kind", "type": "main", "index": 0 }]
+      ]
+    },
+    "Log Routing Decision": {
+      "main": [
+        [{ "node": "End OK", "type": "main", "index": 0 }]
+      ]
+    },
+    "Log Agent Invocation": {
+      "main": [
+        [{ "node": "End OK", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": true,
+    "errorWorkflow": "JS-08-Watchdog"
+  },
+  "meta": {
+    "description": "Fire-and-forget sub-workflow invoked asynchronously by JS-01v2 after the reply is sent. Logs routing decisions and agent invocations WITHOUT blocking the main reply path. Failures are caught by continueOnFail and JS-08 Watchdog — they never propagate back to the citizen reply.",
+    "requirements": ["18.14", "18.16"],
+    "invokedBy": "JS-01v2 (executeWorkflow async, no wait)",
+    "payload": {
+      "kind": "routing_decision | agent_invocation",
+      "payload": {
+        "session_id": "phone",
+        "message_text": "...",
+        "last_intent_before": "...",
+        "agent_dispatched": "complaint",
+        "reason": "idle_keyword:complaint",
+        "trace_id": "uuid",
+        "agent_started_at": "iso",
+        "agent_completed_at": "iso",
+        "tokens_used": null,
+        "tools_called": ["ValidateBlock"],
+        "success": true,
+        "error_message": null
+      }
+    }
+  }
+}

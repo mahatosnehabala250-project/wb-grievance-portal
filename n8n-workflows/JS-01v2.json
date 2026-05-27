@@ -1,0 +1,260 @@
+{
+  "name": "JS-01v2: Sahayak Multi-Agent Router",
+  "nodes": [
+    {
+      "id": "js01v2-001",
+      "name": "WhatsApp Trigger",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [250, 400],
+      "parameters": { "event": "messages" },
+      "credentials": {
+        "whatsAppBusinessCloudApi": { "id": "TODO_WHATSAPP_CRED_ID", "name": "WhatsApp Business Cloud API" }
+      },
+      "webhookId": "js01v2-trigger"
+    },
+    {
+      "id": "js01v2-002",
+      "name": "Parse Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 400],
+      "parameters": {
+        "jsCode": "// Parse Message Code Node — extracts phone, text, trace_id from WhatsApp webhook payload\n// TODO: Inject from n8n-workflows/code-nodes/parse-message.js if created\nconst crypto = require('crypto');\nconst msg = $input.first().json;\nconst body = msg.body || msg.entry?.[0]?.changes?.[0]?.value?.messages?.[0] || {};\nconst text = body.text?.body || body.body || '';\nconst phone = body.from || msg.from || '';\nconst trace_id = crypto.randomUUID();\n\nreturn [{ json: { phone, message: { text, original_text: text }, trace_id, raw: msg } }];"
+      }
+    },
+    {
+      "id": "js01v2-003",
+      "name": "Upsert Session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [750, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/sessions/save",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-N8N-SECRET", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ session_id: $json.phone, message_text: $json.message.text }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "js01v2-004",
+      "name": "Prepare Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 400],
+      "parameters": {
+        "jsCode": "// PLACEHOLDER — injected at deploy time from n8n-workflows/code-nodes/prepare-context.js\nreturn [$input.first()];"
+      }
+    },
+    {
+      "id": "js01v2-005",
+      "name": "CEO Router",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 400],
+      "parameters": {
+        "jsCode": "// PLACEHOLDER — injected at deploy time from n8n-workflows/code-nodes/ceo-router.js\nreturn [{ json: { ...$json, agent: 'welcome', reason: 'placeholder' } }];"
+      }
+    },
+    {
+      "id": "js01v2-006",
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1500, 400],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.agent }}",
+        "rules": {
+          "rules": [
+            { "value2": "complaint", "outputKey": "complaint" },
+            { "value2": "blood", "outputKey": "blood" },
+            { "value2": "donor", "outputKey": "donor" },
+            { "value2": "info", "outputKey": "info" },
+            { "value2": "welcome", "outputKey": "welcome" }
+          ]
+        },
+        "fallbackOutput": "extra"
+      }
+    },
+    {
+      "id": "js01v2-007",
+      "name": "Complaint Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [1800, 100],
+      "parameters": {
+        "text": "={{ $json.message.text }}",
+        "options": {
+          "systemMessage": "// TODO: Load from n8n-workflows/prompts/complaint.md at deploy time"
+        }
+      },
+      "credentials": {
+        "googleGeminiApi": { "id": "TODO_GEMINI_CRED_ID", "name": "Google Gemini" }
+      }
+    },
+    {
+      "id": "js01v2-008",
+      "name": "Blood Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [1800, 300],
+      "parameters": {
+        "text": "={{ $json.message.text }}",
+        "options": {
+          "systemMessage": "// TODO: Load from n8n-workflows/prompts/blood.md at deploy time"
+        }
+      },
+      "credentials": {
+        "googleGeminiApi": { "id": "TODO_GEMINI_CRED_ID", "name": "Google Gemini" }
+      }
+    },
+    {
+      "id": "js01v2-009",
+      "name": "Donor Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [1800, 500],
+      "parameters": {
+        "text": "={{ $json.message.text }}",
+        "options": {
+          "systemMessage": "// TODO: Load from n8n-workflows/prompts/donor.md at deploy time"
+        }
+      },
+      "credentials": {
+        "googleGeminiApi": { "id": "TODO_GEMINI_CRED_ID", "name": "Google Gemini" }
+      }
+    },
+    {
+      "id": "js01v2-010",
+      "name": "Status Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1800, 700],
+      "parameters": {
+        "jsCode": "// Status / Info Code Node — ticket lookup + scheme info\n// TODO: Implement per task 7.3\nconst text = $json.message?.text || '';\nreturn [{ json: { ...$json, reply: `Status check for: ${text}` } }];"
+      }
+    },
+    {
+      "id": "js01v2-011",
+      "name": "Welcome Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1800, 900],
+      "parameters": {
+        "jsCode": "// Welcome Code Node — greeting response\nconst reply = '🙏 নমস্কার! আমি সহায়ক (Sahayak)।\\n\\nI can help you with:\\n1️⃣ File a complaint (অভিযোগ)\\n2️⃣ Request blood (রক্তের অনুরোধ)\\n3️⃣ Register as donor (দাতা নিবন্ধন)\\n4️⃣ Check complaint status\\n5️⃣ Scheme information\\n\\nPlease type your need or say Hi!';\nreturn [{ json: { ...$json, reply } }];"
+      }
+    },
+    {
+      "id": "js01v2-012",
+      "name": "Fallback Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1800, 1100],
+      "parameters": {
+        "jsCode": "// Fallback Code Node — default branch when Switch has no match\nconst reply = 'I\\'m sorry, I didn\\'t understand that. Please try again or type \"Hi\" to see available options.';\nreturn [{ json: { ...$json, reply } }];"
+      }
+    },
+    {
+      "id": "js01v2-013",
+      "name": "Send Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2100, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/{{ $env.WHATSAPP_PHONE_NUMBER_ID || 'TODO_PHONE_NUMBER_ID' }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer {{ $env.WHATSAPP_ACCESS_TOKEN || 'TODO_ACCESS_TOKEN' }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $json.phone, type: 'text', text: { body: $json.reply || $json.output || 'Something went wrong. Please try again.' } }) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "WhatsApp Trigger": {
+      "main": [
+        [{ "node": "Parse Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse Message": {
+      "main": [
+        [{ "node": "Upsert Session", "type": "main", "index": 0 }]
+      ]
+    },
+    "Upsert Session": {
+      "main": [
+        [{ "node": "Prepare Context", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Context": {
+      "main": [
+        [{ "node": "CEO Router", "type": "main", "index": 0 }]
+      ]
+    },
+    "CEO Router": {
+      "main": [
+        [{ "node": "Switch", "type": "main", "index": 0 }]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [{ "node": "Complaint Agent", "type": "main", "index": 0 }],
+        [{ "node": "Blood Agent", "type": "main", "index": 0 }],
+        [{ "node": "Donor Agent", "type": "main", "index": 0 }],
+        [{ "node": "Status Code", "type": "main", "index": 0 }],
+        [{ "node": "Welcome Code", "type": "main", "index": 0 }],
+        [{ "node": "Fallback Code", "type": "main", "index": 0 }]
+      ]
+    },
+    "Complaint Agent": {
+      "main": [
+        [{ "node": "Send Reply", "type": "main", "index": 0 }]
+      ]
+    },
+    "Blood Agent": {
+      "main": [
+        [{ "node": "Send Reply", "type": "main", "index": 0 }]
+      ]
+    },
+    "Donor Agent": {
+      "main": [
+        [{ "node": "Send Reply", "type": "main", "index": 0 }]
+      ]
+    },
+    "Status Code": {
+      "main": [
+        [{ "node": "Send Reply", "type": "main", "index": 0 }]
+      ]
+    },
+    "Welcome Code": {
+      "main": [
+        [{ "node": "Send Reply", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fallback Code": {
+      "main": [
+        [{ "node": "Send Reply", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

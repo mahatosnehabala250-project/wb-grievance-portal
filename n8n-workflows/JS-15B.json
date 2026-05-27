@@ -1,0 +1,480 @@
+{
+  "name": "JS-15B: Donor Cascade Engine",
+  "nodes": [
+    {
+      "id": "js15b-001",
+      "name": "HTTP Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 500],
+      "parameters": {
+        "path": "js15b-cascade",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "js15b-trigger"
+    },
+    {
+      "id": "js15b-002",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 500],
+      "parameters": {
+        "jsCode": "// Validate incoming payload from JS-15 or /api/n8n/cascade-trigger\nconst body = $input.first().json.body || $input.first().json;\nconst blood_request_id = body.blood_request_id;\nconst urgency = body.urgency || 'routine';\n\nif (!blood_request_id) {\n  throw new Error('Missing blood_request_id in cascade trigger payload');\n}\n\nif (!['routine', 'urgent', 'critical'].includes(urgency)) {\n  throw new Error(`Invalid urgency: ${urgency}. Must be routine|urgent|critical`);\n}\n\nreturn [{ json: { blood_request_id, urgency } }];"
+      }
+    },
+    {
+      "id": "js15b-003",
+      "name": "Switch on Urgency",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [750, 500],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.urgency }}",
+        "rules": {
+          "rules": [
+            { "value2": "routine", "outputKey": "routine" },
+            { "value2": "urgent", "outputKey": "urgent" },
+            { "value2": "critical", "outputKey": "critical" }
+          ]
+        },
+        "fallbackOutput": "extra"
+      }
+    },
+    {
+      "id": "js15b-010",
+      "name": "Routine Wait 30min",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1050, 200],
+      "parameters": {
+        "amount": 30,
+        "unit": "minutes"
+      }
+    },
+    {
+      "id": "js15b-011",
+      "name": "Routine Check Fulfilled T2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 200],
+      "parameters": {
+        "jsCode": "// Check if blood request is already fulfilled before Tier 2\n// Reads blood_requests row and checks donors_confirmed_count >= units_needed\nconst blood_request_id = $json.blood_request_id;\nconst urgency = $json.urgency;\nconst API_BASE = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';\nconst SECRET = $env.N8N_WEBHOOK_SECRET;\n\ntry {\n  const res = await fetch(`${API_BASE}/api/blood-requests/${blood_request_id}`, {\n    headers: { 'X-N8N-SECRET': SECRET }\n  });\n  const data = await res.json();\n  const req = data.data || data;\n  \n  if (req.donors_confirmed_count >= req.units_needed) {\n    // Fulfilled — stop cascade\n    return [];\n  }\n  \n  return [{ json: { blood_request_id, urgency, tier: 2, scope: 'block', count: 5, blood_group: req.blood_group, district: req.district, block: req.block, units_needed: req.units_needed } }];\n} catch (err) {\n  // On error, continue cascade (fail-open for donor safety)\n  return [{ json: { blood_request_id, urgency, tier: 2, scope: 'block', count: 5 } }];\n}"
+      }
+    },
+    {
+      "id": "js15b-012",
+      "name": "Routine Tier 2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1550, 200],
+      "parameters": {
+        "jsCode": "// Tier 2 (routine): next 5 same-block donors\n// Internal sequence:\n// 1. Read blood_requests row (fulfilled check done in prior node)\n// 2. Read cascade_notifications (already-notified set)\n// 3. Call find_matching_donors (exclude notified)\n// 4. Slice top-5 for this tier\n// 5. INSERT cascade_notifications rows ON CONFLICT DO NOTHING\n// 6. INSERT blood_donor_responses (pending)\n// 7. Send WhatsApp HAAN/NAHI buttons\n// 8. UPDATE blood_requests cascade_tier = 2\n\nconst { blood_request_id, urgency, blood_group, district, block, units_needed } = $json;\nconst API_BASE = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';\nconst SECRET = $env.N8N_WEBHOOK_SECRET;\nconst TIER = 2;\nconst COUNT = 5;\nconst SCOPE = 'block';\n\ntry {\n  // Find matching donors excluding already-notified\n  const findRes = await fetch(`${API_BASE}/api/blood-requests/find-donors`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, scope: SCOPE, exclude_notified: true, limit: COUNT })\n  });\n  const donors = (await findRes.json()).data || [];\n  \n  if (donors.length === 0) {\n    return [{ json: { blood_request_id, urgency, tier: TIER, donors_notified: 0 } }];\n  }\n  \n  // Insert cascade_notifications + blood_donor_responses + send WhatsApp\n  const notifyRes = await fetch(`${API_BASE}/api/n8n/cascade-notify-batch`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, tier: TIER, donor_ids: donors.map(d => d.id) })\n  });\n  \n  // Update cascade_tier\n  await fetch(`${API_BASE}/api/blood-requests/update-cascade-tier`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, cascade_tier: TIER })\n  });\n  \n  return [{ json: { blood_request_id, urgency, tier: TIER, donors_notified: donors.length, completed: true } }];\n} catch (err) {\n  return [{ json: { blood_request_id, urgency, tier: TIER, error: err.message } }];\n}"
+      }
+    },
+    {
+      "id": "js15b-013",
+      "name": "Routine Wait 2hr",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1800, 200],
+      "parameters": {
+        "amount": 2,
+        "unit": "hours"
+      }
+    },
+    {
+      "id": "js15b-014",
+      "name": "Routine Check Fulfilled T3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2050, 200],
+      "parameters": {
+        "jsCode": "// Check if blood request is already fulfilled before Tier 3\nconst blood_request_id = $json.blood_request_id;\nconst urgency = $json.urgency;\nconst API_BASE = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';\nconst SECRET = $env.N8N_WEBHOOK_SECRET;\n\ntry {\n  const res = await fetch(`${API_BASE}/api/blood-requests/${blood_request_id}`, {\n    headers: { 'X-N8N-SECRET': SECRET }\n  });\n  const data = await res.json();\n  const req = data.data || data;\n  \n  if (req.donors_confirmed_count >= req.units_needed) {\n    return []; // Fulfilled — stop cascade\n  }\n  \n  return [{ json: { blood_request_id, urgency, tier: 3, scope: 'district', count: 10, blood_group: req.blood_group, district: req.district, units_needed: req.units_needed } }];\n} catch (err) {\n  return [{ json: { blood_request_id, urgency, tier: 3, scope: 'district', count: 10 } }];\n}"
+      }
+    },
+    {
+      "id": "js15b-015",
+      "name": "Routine Tier 3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2300, 200],
+      "parameters": {
+        "jsCode": "// Tier 3 (routine): next 10 district-wide donors\n// Same internal sequence as Tier 2 but scope=district, count=10\nconst { blood_request_id, urgency } = $json;\nconst API_BASE = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';\nconst SECRET = $env.N8N_WEBHOOK_SECRET;\nconst TIER = 3;\nconst COUNT = 10;\nconst SCOPE = 'district';\n\ntry {\n  const findRes = await fetch(`${API_BASE}/api/blood-requests/find-donors`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, scope: SCOPE, exclude_notified: true, limit: COUNT })\n  });\n  const donors = (await findRes.json()).data || [];\n  \n  if (donors.length === 0) {\n    return [{ json: { blood_request_id, urgency, tier: TIER, donors_notified: 0 } }];\n  }\n  \n  const notifyRes = await fetch(`${API_BASE}/api/n8n/cascade-notify-batch`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, tier: TIER, donor_ids: donors.map(d => d.id) })\n  });\n  \n  await fetch(`${API_BASE}/api/blood-requests/update-cascade-tier`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, cascade_tier: TIER })\n  });\n  \n  return [{ json: { blood_request_id, urgency, tier: TIER, donors_notified: donors.length, completed: true } }];\n} catch (err) {\n  return [{ json: { blood_request_id, urgency, tier: TIER, error: err.message } }];\n}"
+      }
+    },
+    {
+      "id": "js15b-016",
+      "name": "Routine Wait 6hr",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2550, 200],
+      "parameters": {
+        "amount": 6,
+        "unit": "hours"
+      }
+    },
+    {
+      "id": "js15b-017",
+      "name": "Routine Check Fulfilled T4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2800, 200],
+      "parameters": {
+        "jsCode": "// Check if blood request is already fulfilled before Tier 4\nconst blood_request_id = $json.blood_request_id;\nconst urgency = $json.urgency;\nconst API_BASE = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';\nconst SECRET = $env.N8N_WEBHOOK_SECRET;\n\ntry {\n  const res = await fetch(`${API_BASE}/api/blood-requests/${blood_request_id}`, {\n    headers: { 'X-N8N-SECRET': SECRET }\n  });\n  const data = await res.json();\n  const req = data.data || data;\n  \n  if (req.donors_confirmed_count >= req.units_needed) {\n    return []; // Fulfilled — stop cascade\n  }\n  \n  return [{ json: { blood_request_id, urgency, tier: 4, scope: 'adjacent', count: 0, blood_group: req.blood_group, district: req.district, units_needed: req.units_needed } }];\n} catch (err) {\n  return [{ json: { blood_request_id, urgency, tier: 4, scope: 'adjacent', count: 0 } }];\n}"
+      }
+    },
+    {
+      "id": "js15b-018",
+      "name": "Routine Tier 4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3050, 200],
+      "parameters": {
+        "jsCode": "// Tier 4 (routine): adjacent districts — all matching donors\n// scope=adjacent, count=0 (all matching)\nconst { blood_request_id, urgency } = $json;\nconst API_BASE = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';\nconst SECRET = $env.N8N_WEBHOOK_SECRET;\nconst TIER = 4;\nconst SCOPE = 'adjacent';\n\ntry {\n  const findRes = await fetch(`${API_BASE}/api/blood-requests/find-donors`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, scope: SCOPE, exclude_notified: true, limit: 999 })\n  });\n  const donors = (await findRes.json()).data || [];\n  \n  if (donors.length === 0) {\n    return [{ json: { blood_request_id, urgency, tier: TIER, donors_notified: 0 } }];\n  }\n  \n  await fetch(`${API_BASE}/api/n8n/cascade-notify-batch`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, tier: TIER, donor_ids: donors.map(d => d.id) })\n  });\n  \n  await fetch(`${API_BASE}/api/blood-requests/update-cascade-tier`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, cascade_tier: TIER })\n  });\n  \n  return [{ json: { blood_request_id, urgency, tier: TIER, donors_notified: donors.length, completed: true } }];\n} catch (err) {\n  return [{ json: { blood_request_id, urgency, tier: TIER, error: err.message } }];\n}"
+      }
+    },
+    {
+      "id": "js15b-020",
+      "name": "Urgent Wait 15min",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1050, 500],
+      "parameters": {
+        "amount": 15,
+        "unit": "minutes"
+      }
+    },
+    {
+      "id": "js15b-021",
+      "name": "Urgent Check Fulfilled T2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 500],
+      "parameters": {
+        "jsCode": "// Check if blood request is already fulfilled before Tier 2 (urgent)\nconst blood_request_id = $json.blood_request_id;\nconst urgency = $json.urgency;\nconst API_BASE = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';\nconst SECRET = $env.N8N_WEBHOOK_SECRET;\n\ntry {\n  const res = await fetch(`${API_BASE}/api/blood-requests/${blood_request_id}`, {\n    headers: { 'X-N8N-SECRET': SECRET }\n  });\n  const data = await res.json();\n  const req = data.data || data;\n  \n  if (req.donors_confirmed_count >= req.units_needed) {\n    return []; // Fulfilled — stop cascade\n  }\n  \n  return [{ json: { blood_request_id, urgency, tier: 2, scope: 'block', count: 10, blood_group: req.blood_group, district: req.district, block: req.block, units_needed: req.units_needed } }];\n} catch (err) {\n  return [{ json: { blood_request_id, urgency, tier: 2, scope: 'block', count: 10 } }];\n}"
+      }
+    },
+    {
+      "id": "js15b-022",
+      "name": "Urgent Tier 2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1550, 500],
+      "parameters": {
+        "jsCode": "// Tier 2 (urgent): next 10 same-block donors\nconst { blood_request_id, urgency } = $json;\nconst API_BASE = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';\nconst SECRET = $env.N8N_WEBHOOK_SECRET;\nconst TIER = 2;\nconst COUNT = 10;\nconst SCOPE = 'block';\n\ntry {\n  const findRes = await fetch(`${API_BASE}/api/blood-requests/find-donors`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, scope: SCOPE, exclude_notified: true, limit: COUNT })\n  });\n  const donors = (await findRes.json()).data || [];\n  \n  if (donors.length === 0) {\n    return [{ json: { blood_request_id, urgency, tier: TIER, donors_notified: 0 } }];\n  }\n  \n  await fetch(`${API_BASE}/api/n8n/cascade-notify-batch`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, tier: TIER, donor_ids: donors.map(d => d.id) })\n  });\n  \n  await fetch(`${API_BASE}/api/blood-requests/update-cascade-tier`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, cascade_tier: TIER })\n  });\n  \n  return [{ json: { blood_request_id, urgency, tier: TIER, donors_notified: donors.length, completed: true } }];\n} catch (err) {\n  return [{ json: { blood_request_id, urgency, tier: TIER, error: err.message } }];\n}"
+      }
+    },
+    {
+      "id": "js15b-023",
+      "name": "Urgent Wait 1hr",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1800, 500],
+      "parameters": {
+        "amount": 1,
+        "unit": "hours"
+      }
+    },
+    {
+      "id": "js15b-024",
+      "name": "Urgent Check Fulfilled T3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2050, 500],
+      "parameters": {
+        "jsCode": "// Check if blood request is already fulfilled before Tier 3 (urgent)\nconst blood_request_id = $json.blood_request_id;\nconst urgency = $json.urgency;\nconst API_BASE = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';\nconst SECRET = $env.N8N_WEBHOOK_SECRET;\n\ntry {\n  const res = await fetch(`${API_BASE}/api/blood-requests/${blood_request_id}`, {\n    headers: { 'X-N8N-SECRET': SECRET }\n  });\n  const data = await res.json();\n  const req = data.data || data;\n  \n  if (req.donors_confirmed_count >= req.units_needed) {\n    return []; // Fulfilled — stop cascade\n  }\n  \n  return [{ json: { blood_request_id, urgency, tier: 3, scope: 'district', count: 20, blood_group: req.blood_group, district: req.district, units_needed: req.units_needed } }];\n} catch (err) {\n  return [{ json: { blood_request_id, urgency, tier: 3, scope: 'district', count: 20 } }];\n}"
+      }
+    },
+    {
+      "id": "js15b-025",
+      "name": "Urgent Tier 3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2300, 500],
+      "parameters": {
+        "jsCode": "// Tier 3 (urgent): next 20 district-wide donors\nconst { blood_request_id, urgency } = $json;\nconst API_BASE = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';\nconst SECRET = $env.N8N_WEBHOOK_SECRET;\nconst TIER = 3;\nconst COUNT = 20;\nconst SCOPE = 'district';\n\ntry {\n  const findRes = await fetch(`${API_BASE}/api/blood-requests/find-donors`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, scope: SCOPE, exclude_notified: true, limit: COUNT })\n  });\n  const donors = (await findRes.json()).data || [];\n  \n  if (donors.length === 0) {\n    return [{ json: { blood_request_id, urgency, tier: TIER, donors_notified: 0 } }];\n  }\n  \n  await fetch(`${API_BASE}/api/n8n/cascade-notify-batch`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, tier: TIER, donor_ids: donors.map(d => d.id) })\n  });\n  \n  await fetch(`${API_BASE}/api/blood-requests/update-cascade-tier`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, cascade_tier: TIER })\n  });\n  \n  return [{ json: { blood_request_id, urgency, tier: TIER, donors_notified: donors.length, completed: true } }];\n} catch (err) {\n  return [{ json: { blood_request_id, urgency, tier: TIER, error: err.message } }];\n}"
+      }
+    },
+    {
+      "id": "js15b-030",
+      "name": "Critical Tier 1 SOS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 800],
+      "parameters": {
+        "jsCode": "// Tier 1 (critical): SOS all-district fan-out — ALL matching donors\n// For critical urgency, Tier 1 is the SOS broadcast to entire district\n// scope=district, count=0 (all matching donors)\nconst { blood_request_id, urgency } = $json;\nconst API_BASE = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';\nconst SECRET = $env.N8N_WEBHOOK_SECRET;\nconst TIER = 1;\nconst SCOPE = 'district';\n\ntry {\n  const findRes = await fetch(`${API_BASE}/api/blood-requests/find-donors`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, scope: SCOPE, exclude_notified: true, limit: 999 })\n  });\n  const donors = (await findRes.json()).data || [];\n  \n  if (donors.length === 0) {\n    return [{ json: { blood_request_id, urgency, tier: TIER, donors_notified: 0 } }];\n  }\n  \n  await fetch(`${API_BASE}/api/n8n/cascade-notify-batch`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, tier: TIER, donor_ids: donors.map(d => d.id) })\n  });\n  \n  await fetch(`${API_BASE}/api/blood-requests/update-cascade-tier`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, cascade_tier: TIER })\n  });\n  \n  return [{ json: { blood_request_id, urgency, tier: TIER, donors_notified: donors.length, completed: true } }];\n} catch (err) {\n  return [{ json: { blood_request_id, urgency, tier: TIER, error: err.message } }];\n}"
+      }
+    },
+    {
+      "id": "js15b-031",
+      "name": "Critical Wait 30min",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1300, 800],
+      "parameters": {
+        "amount": 30,
+        "unit": "minutes"
+      }
+    },
+    {
+      "id": "js15b-032",
+      "name": "Critical Check Fulfilled T2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1550, 800],
+      "parameters": {
+        "jsCode": "// Check if blood request is already fulfilled before Tier 2 (critical)\nconst blood_request_id = $json.blood_request_id;\nconst urgency = $json.urgency;\nconst API_BASE = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';\nconst SECRET = $env.N8N_WEBHOOK_SECRET;\n\ntry {\n  const res = await fetch(`${API_BASE}/api/blood-requests/${blood_request_id}`, {\n    headers: { 'X-N8N-SECRET': SECRET }\n  });\n  const data = await res.json();\n  const req = data.data || data;\n  \n  if (req.donors_confirmed_count >= req.units_needed) {\n    return []; // Fulfilled — stop cascade\n  }\n  \n  return [{ json: { blood_request_id, urgency, tier: 2, scope: 'adjacent', count: 0, blood_group: req.blood_group, district: req.district, units_needed: req.units_needed } }];\n} catch (err) {\n  return [{ json: { blood_request_id, urgency, tier: 2, scope: 'adjacent', count: 0 } }];\n}"
+      }
+    },
+    {
+      "id": "js15b-033",
+      "name": "Critical Tier 2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1800, 800],
+      "parameters": {
+        "jsCode": "// Tier 2 (critical): adjacent districts — ALL matching donors\nconst { blood_request_id, urgency } = $json;\nconst API_BASE = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';\nconst SECRET = $env.N8N_WEBHOOK_SECRET;\nconst TIER = 2;\nconst SCOPE = 'adjacent';\n\ntry {\n  const findRes = await fetch(`${API_BASE}/api/blood-requests/find-donors`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, scope: SCOPE, exclude_notified: true, limit: 999 })\n  });\n  const donors = (await findRes.json()).data || [];\n  \n  if (donors.length === 0) {\n    return [{ json: { blood_request_id, urgency, tier: TIER, donors_notified: 0 } }];\n  }\n  \n  await fetch(`${API_BASE}/api/n8n/cascade-notify-batch`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, tier: TIER, donor_ids: donors.map(d => d.id) })\n  });\n  \n  await fetch(`${API_BASE}/api/blood-requests/update-cascade-tier`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'X-N8N-SECRET': SECRET },\n    body: JSON.stringify({ blood_request_id, cascade_tier: TIER })\n  });\n  \n  return [{ json: { blood_request_id, urgency, tier: TIER, donors_notified: donors.length, completed: true } }];\n} catch (err) {\n  return [{ json: { blood_request_id, urgency, tier: TIER, error: err.message } }];\n}"
+      }
+    },
+    {
+      "id": "js15b-040",
+      "name": "Cascade End",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [3300, 500],
+      "parameters": {}
+    },
+    {
+      "id": "js15b-050",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [750, 700],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, message: 'Cascade triggered', blood_request_id: $json.blood_request_id, urgency: $json.urgency }) }}"
+      }
+    },
+    {
+      "id": "js15b-060",
+      "name": "Tier Logic - Read Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [250, 1200],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/blood-requests/{{ $json.blood_request_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-N8N-SECRET", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" }
+          ]
+        },
+        "options": {}
+      },
+      "notes": "Shared reference node — each tier Code Node calls this pattern internally via HTTP Request"
+    },
+    {
+      "id": "js15b-061",
+      "name": "Tier Logic - Find Donors",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 1200],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/blood-requests/find-donors",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-N8N-SECRET", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ blood_request_id: $json.blood_request_id, scope: $json.scope, exclude_notified: true, limit: $json.count || 999 }) }}",
+        "options": {}
+      },
+      "notes": "Shared reference — find matching donors excluding already-notified"
+    },
+    {
+      "id": "js15b-062",
+      "name": "Tier Logic - Notify Donors WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [750, 1200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/{{ $env.WHATSAPP_PHONE_NUMBER_ID || 'TODO_PHONE_NUMBER_ID' }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer {{ $env.WHATSAPP_ACCESS_TOKEN || 'TODO_ACCESS_TOKEN' }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $json.donor_phone, type: 'interactive', interactive: { type: 'button', header: { type: 'text', text: '🩸 Blood Request Alert' }, body: { text: $json.notification_message || 'A patient needs ' + $json.blood_group + ' blood. Can you donate? Reply HAAN (Yes) or NAHI (No).' }, action: { buttons: [{ type: 'reply', reply: { id: 'HAAN_' + $json.blood_request_id, title: 'HAAN ✅' } }, { type: 'reply', reply: { id: 'NAHI_' + $json.blood_request_id, title: 'NAHI ❌' } }] } } }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "TODO_WHATSAPP_AUTH_CRED_ID", "name": "WhatsApp Bearer Token" }
+      },
+      "notes": "Shared reference — WhatsApp HAAN/NAHI interactive button template"
+    },
+    {
+      "id": "js15b-063",
+      "name": "Tier Logic - Update Cascade Tier",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 1200],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/blood-requests/update-cascade-tier",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-N8N-SECRET", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ blood_request_id: $json.blood_request_id, cascade_tier: $json.tier }) }}",
+        "options": {}
+      },
+      "notes": "Shared reference — UPDATE blood_requests SET cascade_tier = N"
+    }
+  ],
+  "connections": {
+    "HTTP Trigger": {
+      "main": [
+        [
+          { "node": "Validate Input", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          { "node": "Switch on Urgency", "type": "main", "index": 0 },
+          { "node": "Respond OK", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Switch on Urgency": {
+      "main": [
+        [{ "node": "Routine Wait 30min", "type": "main", "index": 0 }],
+        [{ "node": "Urgent Wait 15min", "type": "main", "index": 0 }],
+        [{ "node": "Critical Tier 1 SOS", "type": "main", "index": 0 }]
+      ]
+    },
+    "Routine Wait 30min": {
+      "main": [
+        [{ "node": "Routine Check Fulfilled T2", "type": "main", "index": 0 }]
+      ]
+    },
+    "Routine Check Fulfilled T2": {
+      "main": [
+        [{ "node": "Routine Tier 2", "type": "main", "index": 0 }]
+      ]
+    },
+    "Routine Tier 2": {
+      "main": [
+        [{ "node": "Routine Wait 2hr", "type": "main", "index": 0 }]
+      ]
+    },
+    "Routine Wait 2hr": {
+      "main": [
+        [{ "node": "Routine Check Fulfilled T3", "type": "main", "index": 0 }]
+      ]
+    },
+    "Routine Check Fulfilled T3": {
+      "main": [
+        [{ "node": "Routine Tier 3", "type": "main", "index": 0 }]
+      ]
+    },
+    "Routine Tier 3": {
+      "main": [
+        [{ "node": "Routine Wait 6hr", "type": "main", "index": 0 }]
+      ]
+    },
+    "Routine Wait 6hr": {
+      "main": [
+        [{ "node": "Routine Check Fulfilled T4", "type": "main", "index": 0 }]
+      ]
+    },
+    "Routine Check Fulfilled T4": {
+      "main": [
+        [{ "node": "Routine Tier 4", "type": "main", "index": 0 }]
+      ]
+    },
+    "Routine Tier 4": {
+      "main": [
+        [{ "node": "Cascade End", "type": "main", "index": 0 }]
+      ]
+    },
+    "Urgent Wait 15min": {
+      "main": [
+        [{ "node": "Urgent Check Fulfilled T2", "type": "main", "index": 0 }]
+      ]
+    },
+    "Urgent Check Fulfilled T2": {
+      "main": [
+        [{ "node": "Urgent Tier 2", "type": "main", "index": 0 }]
+      ]
+    },
+    "Urgent Tier 2": {
+      "main": [
+        [{ "node": "Urgent Wait 1hr", "type": "main", "index": 0 }]
+      ]
+    },
+    "Urgent Wait 1hr": {
+      "main": [
+        [{ "node": "Urgent Check Fulfilled T3", "type": "main", "index": 0 }]
+      ]
+    },
+    "Urgent Check Fulfilled T3": {
+      "main": [
+        [{ "node": "Urgent Tier 3", "type": "main", "index": 0 }]
+      ]
+    },
+    "Urgent Tier 3": {
+      "main": [
+        [{ "node": "Cascade End", "type": "main", "index": 0 }]
+      ]
+    },
+    "Critical Tier 1 SOS": {
+      "main": [
+        [{ "node": "Critical Wait 30min", "type": "main", "index": 0 }]
+      ]
+    },
+    "Critical Wait 30min": {
+      "main": [
+        [{ "node": "Critical Check Fulfilled T2", "type": "main", "index": 0 }]
+      ]
+    },
+    "Critical Check Fulfilled T2": {
+      "main": [
+        [{ "node": "Critical Tier 2", "type": "main", "index": 0 }]
+      ]
+    },
+    "Critical Tier 2": {
+      "main": [
+        [{ "node": "Cascade End", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "description": "JS-15B: Donor Cascade Engine — Tiered donor notification workflow triggered by JS-15 (via HTTP webhook). Handles routine/urgent/critical urgency levels with progressive tier escalation and wait nodes between tiers. Each tier checks fulfillment before notifying the next batch of donors.",
+    "templateCredsSetupCompleted": false
+  }
+}
