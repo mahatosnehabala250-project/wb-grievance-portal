@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ function maskPhone(phone: string): string {
   return phone.slice(0, 4) + '••••••' + phone.slice(-2);
 }
 
-export default function DonorVerifyOtpPage() {
+function DonorVerifyOtpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const phone = searchParams.get('phone') || '';
@@ -208,5 +208,21 @@ export default function DonorVerifyOtpPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+
+export default function DonorVerifyOtpPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-red-50 to-white">
+        <div className="text-center space-y-2">
+          <div className="text-4xl animate-pulse">🩸</div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    }>
+      <DonorVerifyOtpContent />
+    </Suspense>
   );
 }
