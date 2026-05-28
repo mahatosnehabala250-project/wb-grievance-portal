@@ -185,6 +185,25 @@
         "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $json.phone, type: 'text', text: { body: $json.reply || $json.output || 'Something went wrong. Please try again.' } }) }}",
         "options": {}
       }
+    },
+    {
+      "id": "js01v2-014",
+      "name": "Fire Observability",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2350, 400],
+      "parameters": {
+        "jsCode": "// Fire Observability — async fire-and-forget call to JS-01v2-Observability sub-workflow\n// Builds the observability payload from $json and fires an HTTP POST.\n// Uses a short timeout and catches errors silently so observability never blocks the reply path.\n\nconst baseUrl = $env.N8N_BASE_URL || $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';\nconst webhookPath = `${baseUrl}/webhook/js01v2-observability`;\n\n// Build the routing_decision payload from the current execution context\nconst payload = {\n  kind: 'routing_decision',\n  payload: {\n    session_id: $json.phone || null,\n    message_text: ($json.message?.text || '').substring(0, 200),\n    last_intent_before: $json.prev_last_intent || $json.session?.last_intent || null,\n    agent_dispatched: $json.agent || null,\n    reason: $json.reason || '',\n    trace_id: $json.trace_id || null\n  }\n};\n\n// Fire-and-forget: send the POST but do NOT await the response.\n// Errors are caught silently — observability must never block the reply path.\ntry {\n  $http.request({\n    method: 'POST',\n    url: webhookPath,\n    body: payload,\n    json: true,\n    timeout: 3000,\n    headers: { 'Content-Type': 'application/json' }\n  }).catch(() => { /* silent — observability failure is non-fatal */ });\n} catch (e) {\n  // Silent catch — observability must never throw\n}\n\n// Return the original $json unchanged so the workflow can end cleanly\nreturn [{ json: $json }];"
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "js01v2-015",
+      "name": "End",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [2600, 400],
+      "parameters": {}
     }
   ],
   "connections": {
@@ -251,6 +270,16 @@
     "Fallback Code": {
       "main": [
         [{ "node": "Send Reply", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Reply": {
+      "main": [
+        [{ "node": "Fire Observability", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fire Observability": {
+      "main": [
+        [{ "node": "End", "type": "main", "index": 0 }]
       ]
     }
   },

@@ -4,14 +4,19 @@
  * Position in workflow: Switch Node "info" branch
  * This file is self-contained. No require/import — runs in n8n's sandboxed VM.
  *
- * Responsibility (Req 11.1–11.4):
+ * Responsibility (Req 11.1–11.5):
  *   a) Check if message matches ticket pattern (WB-YYYY-XXXXX) → query complaints table
  *   b) If ticket found → return formatted status response
  *   c) If no ticket → check INFO_USE_EMBEDDINGS flag via API
  *   d) When flag is false (Phase 1): use INFO_PROMPT variable (injected by deploy script
  *      from info.md) + SCHEME_SUMMARIES (injected from scheme_summaries.md) to build a
  *      Gemini prompt with scheme summaries inlined, call Gemini API, return answer
- *   e) Help fallback when neither matches
+ *   e) When flag is true (Phase 2, v1.1): embed user's question via OpenAI
+ *      (text-embedding-3-small, 768 dims) → vector search scheme_knowledge via
+ *      match_scheme_knowledge RPC (threshold 0.7, limit 3) → augment Gemini prompt
+ *      with retrieved context → return answer. Falls back to Phase 1 if no results
+ *      or embedding fails.
+ *   f) Help fallback when neither matches
  *
  * Inputs:
  *   $json.message.text — raw incoming WhatsApp message body
@@ -104,6 +109,65 @@ function helpMessage(lang) {
   return `🙏 Namaste! Main JanSeva Sahayak hoon. Main in cheezon mein madad kar sakta hoon:\n\n📝 **Complaint register karein** — "mera road kharab hai" ya koi bhi samasya batayein\n🩸 **Blood chahiye** — "blood chahiye" type karein\n💉 **Donor banna hai** — "donor banna hai" type karein\n🔍 **Ticket status** — Apna ticket number bhejein (WB-YYYY-XXXXX)\nℹ️ **Scheme info** — Kisi bhi sarkari yojana ke baare mein poochein\n\nKya madad chahiye?`;
 }
 
+// ─── Helper: Phase 1 — Inlined scheme summaries + Gemini call ────────────────
+// Extracted as a reusable function so Phase 2 can fall back to it cleanly.
+
+async function runPhase1(msgText, lang) {
+  const langInstruction = lang === 'bn'
+    ? 'Respond in Bengali (বাংলা).'
+    : lang === 'en'
+      ? 'Respond in English.'
+      : 'Respond in Hindi (हिन्दी).';
+
+  const systemPrompt = [
+    'You are JanSeva Sahayak, the West Bengal AI Public Support System information assistant.',
+    langInstruction,
+    'Answer the citizen\'s question using ONLY the scheme information provided below.',
+    'Keep your answer concise (under 500 characters) and suitable for WhatsApp.',
+    'If the question is about a scheme not in the list, say you don\'t have that information and suggest visiting the Block Development Office or Duare Sarkar camp.',
+    'Do NOT invent or fabricate any scheme details.',
+    '',
+    '--- SCHEME INFORMATION ---',
+    SCHEME_SUMMARIES || INFO_PROMPT,
+    '--- END SCHEME INFORMATION ---',
+  ].join('\n');
+
+  const userPrompt = `Citizen's question: "${msgText}"`;
+
+  try {
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+    const geminiResponse = await $http.request({
+      method: 'POST',
+      url: geminiUrl,
+      headers: { 'Content-Type': 'application/json' },
+      body: {
+        contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: 512, topP: 0.8 },
+      },
+    });
+
+    if (
+      geminiResponse &&
+      geminiResponse.body &&
+      geminiResponse.body.candidates &&
+      geminiResponse.body.candidates.length > 0
+    ) {
+      const candidate = geminiResponse.body.candidates[0];
+      const reply = (candidate.content && candidate.content.parts && candidate.content.parts[0])
+        ? candidate.content.parts[0].text
+        : helpMessage(lang);
+      return [{ json: { ...$json, reply } }];
+    }
+  } catch (err) {
+    console.warn('[Status/Info] Phase 1 Gemini API call failed:', err.message || err);
+  }
+
+  // Gemini failed — return help message
+  const reply = helpMessage(lang);
+  return [{ json: { ...$json, reply } }];
+}
+
 // ─── Main Logic ──────────────────────────────────────────────────────────────
 
 async function run() {
@@ -160,7 +224,6 @@ async function run() {
   }
 
   // ─── Step D: Phase 1 — Inlined scheme summaries + Gemini call ────────────
-  // (Phase 2 with embeddings is gated by INFO_USE_EMBEDDINGS=true — not implemented here)
   if (!useEmbeddings) {
     // Check if the message looks like a scheme/info query
     const infoKeywords = /\b(scheme|yojana|prakalpa|sarkari|government|pension|scholarship|health|hospital|farmer|kisan|housing|transport|bicycle|tablet|laptop|stipend|disability|widow|senior|marriage|education|girl|student)\b/i;
@@ -178,82 +241,155 @@ async function run() {
       return [{ json: { ...$json, reply } }];
     }
 
-    // Build Gemini prompt with scheme summaries inlined
-    const langInstruction = language === 'bn'
-      ? 'Respond in Bengali (বাংলা).'
-      : language === 'en'
-        ? 'Respond in English.'
-        : 'Respond in Hindi (हिन्दी).';
-
-    const systemPrompt = [
-      'You are JanSeva Sahayak, the West Bengal AI Public Support System information assistant.',
-      langInstruction,
-      'Answer the citizen\'s question using ONLY the scheme information provided below.',
-      'Keep your answer concise (under 500 characters) and suitable for WhatsApp.',
-      'If the question is about a scheme not in the list, say you don\'t have that information and suggest visiting the Block Development Office or Duare Sarkar camp.',
-      'Do NOT invent or fabricate any scheme details.',
-      '',
-      '--- SCHEME INFORMATION ---',
-      SCHEME_SUMMARIES || INFO_PROMPT,
-      '--- END SCHEME INFORMATION ---',
-    ].join('\n');
-
-    const userPrompt = `Citizen's question: "${messageText}"`;
-
-    // Call Gemini API via $http.request
-    try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-
-      const geminiResponse = await $http.request({
-        method: 'POST',
-        url: geminiUrl,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: {
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: systemPrompt + '\n\n' + userPrompt }
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 512,
-            topP: 0.8,
-          },
-        },
-      });
-
-      if (
-        geminiResponse &&
-        geminiResponse.body &&
-        geminiResponse.body.candidates &&
-        geminiResponse.body.candidates.length > 0
-      ) {
-        const candidate = geminiResponse.body.candidates[0];
-        const reply = (candidate.content && candidate.content.parts && candidate.content.parts[0])
-          ? candidate.content.parts[0].text
-          : helpMessage(language);
-
-        return [{ json: { ...$json, reply } }];
-      }
-    } catch (err) {
-      // Gemini call failed — return help fallback
-      console.warn('[Status/Info] Gemini API call failed:', err.message || err);
-    }
-
-    // Gemini failed — return help message
-    const reply = helpMessage(language);
-    return [{ json: { ...$json, reply } }];
+    // Use the Phase 1 helper
+    return await runPhase1(messageText, language);
   }
 
-  // ─── Phase 2 placeholder (INFO_USE_EMBEDDINGS=true) ──────────────────────
-  // Phase 2 implementation (vector search + embeddings) is gated behind task 7.5.
-  // For now, if flag is true but Phase 2 is not yet implemented, fall back to Phase 1.
-  // This ensures the flag flip never produces empty answers.
+  // ─── Phase 2 (INFO_USE_EMBEDDINGS=true) — Vector search + Gemini RAG ─────
+  // Step 1: Verify scheme_knowledge has at least 1 embedded row (safety gate)
+  let hasEmbeddings = false;
+  try {
+    const countRes = await $http.request({
+      method: 'GET',
+      url: `${API_BASE_URL}/rest/v1/scheme_knowledge?select=id&embedding=not.is.null&limit=1`,
+      headers: {
+        'apikey': $env.SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${$env.SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    hasEmbeddings = countRes && countRes.body && countRes.body.length >= 1;
+  } catch (err) {
+    // If we can't verify, fall back to Phase 1
+    hasEmbeddings = false;
+  }
+
+  if (!hasEmbeddings) {
+    // Fall back to Phase 1 (curated summaries) when scheme_knowledge has no embeddings
+    return await runPhase1(messageText, language);
+  }
+
+  // Step 2: Embed the user's question using OpenAI embeddings API (text-embedding-3-small, 768 dimensions)
+  let embedding;
+  try {
+    const embeddingRes = await $http.request({
+      method: 'POST',
+      url: 'https://api.openai.com/v1/embeddings',
+      headers: {
+        'Authorization': `Bearer ${$env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: {
+        model: 'text-embedding-3-small',
+        input: messageText,
+        dimensions: 768,
+      },
+    });
+    embedding = embeddingRes.body.data[0].embedding;
+  } catch (err) {
+    console.warn('[Status/Info] OpenAI embedding call failed, falling back to Phase 1:', err.message || err);
+    // Fall back to Phase 1 (inlined summaries) if embedding fails
+    return await runPhase1(messageText, language);
+  }
+
+  // Step 3: Query scheme_knowledge table using vector similarity search (cosine distance < 0.3, limit 3)
+  let searchResults = [];
+  try {
+    const searchRes = await $http.request({
+      method: 'POST',
+      url: `${API_BASE_URL}/rest/v1/rpc/match_scheme_knowledge`,
+      headers: {
+        'apikey': $env.SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${$env.SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: {
+        query_embedding: embedding,
+        match_threshold: 0.7,
+        match_count: 3,
+      },
+    });
+    searchResults = (searchRes && searchRes.body) ? searchRes.body : [];
+  } catch (err) {
+    console.warn('[Status/Info] Vector search RPC failed, falling back to Phase 1:', err.message || err);
+    // Fall back to Phase 1 (inlined summaries) if vector search fails
+    return await runPhase1(messageText, language);
+  }
+
+  // If no results above threshold, fall back to Phase 1 curated summaries
+  if (!searchResults || searchResults.length === 0) {
+    return await runPhase1(messageText, language);
+  }
+
+  // Step 4: Build Gemini prompt with retrieved context from vector search
+  const retrievedContext = searchResults.map((row, i) => {
+    const title = row.title || row.scheme_name || `Result ${i + 1}`;
+    const content = row.content || row.summary || '';
+    const similarity = row.similarity ? ` (relevance: ${(row.similarity * 100).toFixed(1)}%)` : '';
+    return `### ${title}${similarity}\n${content}`;
+  }).join('\n\n');
+
+  const langInstruction = language === 'bn'
+    ? 'Respond in Bengali (বাংলা).'
+    : language === 'en'
+      ? 'Respond in English.'
+      : 'Respond in Hindi (हिन्दी).';
+
+  const systemPrompt = [
+    'You are JanSeva Sahayak, the West Bengal AI Public Support System information assistant.',
+    langInstruction,
+    'Answer the citizen\'s question using ONLY the scheme information retrieved below.',
+    'Keep your answer concise (under 500 characters) and suitable for WhatsApp.',
+    'If the retrieved information does not answer the question, say you don\'t have that information and suggest visiting the Block Development Office or Duare Sarkar camp.',
+    'Do NOT invent or fabricate any scheme details.',
+    '',
+    '--- RETRIEVED SCHEME INFORMATION ---',
+    retrievedContext,
+    '--- END RETRIEVED SCHEME INFORMATION ---',
+  ].join('\n');
+
+  const userPrompt = `Citizen's question: "${messageText}"`;
+
+  // Step 5: Call Gemini API and return the answer
+  try {
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+    const geminiResponse = await $http.request({
+      method: 'POST',
+      url: geminiUrl,
+      headers: { 'Content-Type': 'application/json' },
+      body: {
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: systemPrompt + '\n\n' + userPrompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 512,
+          topP: 0.8,
+        },
+      },
+    });
+
+    if (
+      geminiResponse &&
+      geminiResponse.body &&
+      geminiResponse.body.candidates &&
+      geminiResponse.body.candidates.length > 0
+    ) {
+      const candidate = geminiResponse.body.candidates[0];
+      const reply = (candidate.content && candidate.content.parts && candidate.content.parts[0])
+        ? candidate.content.parts[0].text
+        : helpMessage(language);
+      return [{ json: { ...$json, reply } }];
+    }
+  } catch (err) {
+    console.warn('[Status/Info] Phase 2 Gemini API call failed:', err.message || err);
+  }
+
+  // Final fallback — Gemini failed
   const reply = helpMessage(language);
   return [{ json: { ...$json, reply } }];
 }
