@@ -8,10 +8,6 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   reactStrictMode: false,
-  // Disable Turbopack for production builds (fixes workspace root detection issue)
-  experimental: {
-    turbo: undefined,
-  },
 };
 
 export default nextConfig;
