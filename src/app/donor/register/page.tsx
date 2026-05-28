@@ -116,12 +116,6 @@ export default function DonorRegisterPage() {
             </div>
           </div>
 
-          <div className="bg-green-500/20 border border-green-500/30 rounded-xl p-4 mb-6">
-            <p className="text-green-300 text-sm">
-              ✅ আপনার WhatsApp-এ একটি confirmation message যাবে।
-            </p>
-          </div>
-
           <p className="text-red-400 text-xs">
             বাংলার সহায়ক — NeuroSetu AI
           </p>
