@@ -37,12 +37,7 @@ export function LoginView() {
     window.open('/terms-of-service.html', '_blank');
   }, []);
 
-  const demoAccounts = [
-    { u: 'admin',          p: 'Admin@1234', r: 'ADMIN',    icon: Shield,    color: '#0A2463' },
-    { u: 'state_wb1',      p: 'Admin@1234', r: 'STATE',    icon: Globe,     color: '#065F46' },
-    { u: 'dist_purulia1',  p: 'Admin@1234', r: 'DISTRICT', icon: Building2, color: '#92400E' },
-    { u: 'block_manbazar1',p: 'Admin@1234', r: 'BLOCK',    icon: MapPin,    color: '#7F1D1D' },
-  ];
+
 
   return (
     <div className="min-h-screen flex" style={{ fontFamily: "'Noto Sans Bengali', 'Inter', sans-serif" }}>
@@ -254,35 +249,7 @@ export function LoginView() {
               </div>
             </form>
 
-            {/* Demo accounts */}
-            <div className="mt-6 pt-5 border-t border-slate-100 dark:border-gray-800">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 text-center">
-                Demo Accounts — Click to fill
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {demoAccounts.map((acc) => (
-                  <motion.button
-                    key={acc.u}
-                    type="button"
-                    onClick={() => { setUsername(acc.u); setPassword(acc.p); if (error) clearError(); }}
-                    className="text-left p-2.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800 hover:bg-white dark:hover:bg-gray-750 hover:shadow-sm transition-all group"
-                    style={{ borderLeftWidth: '3px', borderLeftColor: acc.color }}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: acc.color }}>
-                        <acc.icon className="h-3.5 w-3.5 text-white" />
-                      </div>
-                      <div className="min-w-0">
-                        <code className="text-[10px] font-mono text-slate-700 dark:text-slate-300 truncate block">{acc.u}</code>
-                        <RoleBadge role={acc.r} />
-                      </div>
-                    </div>
-                  </motion.button>
-                ))}
-              </div>
-            </div>
+
           </div>
 
           {/* Footer note */}
