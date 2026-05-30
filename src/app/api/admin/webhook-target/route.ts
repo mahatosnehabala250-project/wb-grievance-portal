@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
   if ('error' in auth && auth.error) return auth.error;
 
   const { data, error } = await supabase
-    .from('n8n_webhook_config')
+    .from('system_config')
     .select('value, updated_at')
     .eq('key', 'active_workflow')
     .single();
@@ -98,7 +98,7 @@ export async function PATCH(request: NextRequest) {
 
   // Update the active_workflow row
   const { data, error } = await supabase
-    .from('n8n_webhook_config')
+    .from('system_config')
     .update({ value: target })
     .eq('key', 'active_workflow')
     .select('value, updated_at')
