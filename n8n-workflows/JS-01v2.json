@@ -11,12 +11,15 @@
         400
       ],
       "parameters": {
-        "event": "messages"
+        "updates": [
+          "messages"
+        ],
+        "options": {}
       },
       "credentials": {
         "whatsAppTriggerApi": {
-          "id": "TODO_WHATSAPP_CRED_ID",
-          "name": "WhatsApp Business Cloud API"
+          "id": "Fg5TDpKq0VhrfU1a",
+          "name": "wb WhatsApp OAuth account"
         }
       },
       "webhookId": "js01v2-trigger"
@@ -559,13 +562,13 @@
         160
       ],
       "parameters": {
-        "modelName": "models/gemini-2.5-flash",
+        "modelName": "gemini-3.1-flash-lite",
         "options": {}
       },
       "credentials": {
         "googlePalmApi": {
-          "id": "TODO_GEMINI_CRED_ID",
-          "name": "Google Gemini"
+          "id": "GZKueH9lQUzyB0GK",
+          "name": "Google Gemini(PaLM) Api account"
         }
       }
     },
@@ -579,13 +582,13 @@
         520
       ],
       "parameters": {
-        "modelName": "models/gemini-2.5-flash",
+        "modelName": "gemini-3.1-flash-lite",
         "options": {}
       },
       "credentials": {
         "googlePalmApi": {
-          "id": "TODO_GEMINI_CRED_ID",
-          "name": "Google Gemini"
+          "id": "GZKueH9lQUzyB0GK",
+          "name": "Google Gemini(PaLM) Api account"
         }
       }
     },
@@ -599,13 +602,13 @@
         880
       ],
       "parameters": {
-        "modelName": "models/gemini-2.5-flash",
+        "modelName": "gemini-3.1-flash-lite",
         "options": {}
       },
       "credentials": {
         "googlePalmApi": {
-          "id": "TODO_GEMINI_CRED_ID",
-          "name": "Google Gemini"
+          "id": "GZKueH9lQUzyB0GK",
+          "name": "Google Gemini(PaLM) Api account"
         }
       }
     },
@@ -1144,32 +1147,25 @@
     {
       "id": "js01v2-013",
       "name": "Send Reply",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
       "position": [
         2500,
         360
       ],
+      "webhookId": "js01v2-send-reply",
       "parameters": {
-        "method": "POST",
-        "url": "=https://graph.facebook.com/v21.0/{{ $env.WHATSAPP_PHONE_NUMBER_ID || 'TODO_PHONE_NUMBER_ID' }}/messages",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $env.WHATSAPP_ACCESS_TOKEN || 'TODO_ACCESS_TOKEN' }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: ($json.phone || $('Parse Message').first().json.phone), type: 'text', text: { body: ($json.reply || $json.output || 'Something went wrong. Please try again.') } }) }}",
-        "options": {}
+        "operation": "send",
+        "phoneNumberId": "1012737268598799",
+        "recipientPhoneNumber": "={{ $('Parse Message').first().json.phone }}",
+        "textBody": "={{ $json.reply || $json.output || 'Sorry, please try again.' }}",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "whatsAppApi": {
+          "id": "fULNO4Dc7f5xXnxn",
+          "name": "WhatsApp account"
+        }
       }
     },
     {
