@@ -1,0 +1,24 @@
+-- ============================================================================
+-- Cron: refresh-session-token-stats.sql
+-- Schedule: Hourly (recommended: top of every hour, '0 * * * *')
+-- Purpose:  Recompute the daily mean / stddev of per-session token usage so the
+--           token-budget outlier detector on /dashboard/system-health stays
+--           current. Refreshes the mv_session_token_stats materialized view
+--           created in migration 20260201_005.
+--
+-- Requirements: 30.7 — Design §v1.1.11
+--
+-- Usage with pg_cron (if available):
+--   SELECT cron.schedule('refresh-session-token-stats', '0 * * * *',
+--     $$REFRESH MATERIALIZED VIEW mv_session_token_stats$$
+--   );
+--
+-- Usage with Vercel cron / external scheduler:
+--   POST /api/cron/refresh-token-stats (calls this SQL via supabase-js)
+--
+-- Note: the materialized view carries a UNIQUE index on (day), so this may be
+-- upgraded to REFRESH MATERIALIZED VIEW CONCURRENTLY once the view is large
+-- enough that the brief ACCESS EXCLUSIVE lock becomes noticeable.
+-- ============================================================================
+
+REFRESH MATERIALIZED VIEW mv_session_token_stats;

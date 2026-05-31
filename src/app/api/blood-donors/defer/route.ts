@@ -1,13 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
+import { Pool } from 'pg';
+import { withIdempotency } from '@/lib/idempotency/middleware';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
+// pg Pool used exclusively for the idempotency middleware DB client.
+const idempotencyPool = new Pool({
+  connectionString: process.env.DATABASE_URL || process.env.DIRECT_URL,
+});
+
 /** Valid deferral types */
 const VALID_TYPES = ['temporary', 'permanent'] as const;
 type DeferralType = (typeof VALID_TYPES)[number];
+
+const ENDPOINT = '/api/blood-donors/defer';
 
 /**
  * POST /api/blood-donors/defer
@@ -25,6 +34,9 @@ type DeferralType = (typeof VALID_TYPES)[number];
  *   - Stores permanent_reason in permanent_deferral_reason_enc as UTF-8 bytes
  *     (v1: plain text in bytea column; TODO: proper pgp_sym_encrypt via pgcrypto)
  *
+ * Wrapped with idempotency middleware (Req 28.1–28.4): an optional
+ * `Idempotency-Key` header dedupes retries for 24 hours.
+ *
  * Request body:
  * {
  *   donor_id: string (uuid, required),
@@ -36,10 +48,19 @@ type DeferralType = (typeof VALID_TYPES)[number];
  *
  * Response: { ok: true, data: { donor_id, deferral_until?, permanently_deferred } }
  *
- * @see Requirements 7.7, 8.1, NFR Security
+ * @see Requirements 7.7, 8.1, 28.1–28.4, NFR Security
  * @see Design §API Endpoint Contracts, §Medical Compliance
  */
 export async function POST(request: NextRequest) {
+  return withIdempotency(
+    request,
+    ENDPOINT,
+    () => handleDefer(request),
+    idempotencyPool,
+  );
+}
+
+async function handleDefer(request: NextRequest): Promise<Response> {
   try {
     // ─── Parse body first to determine auth path ───
     let body: {

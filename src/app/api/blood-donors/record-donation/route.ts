@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { Pool } from 'pg';
+import { withIdempotency } from '@/lib/idempotency/middleware';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
+// pg Pool used exclusively for the idempotency middleware DB client.
+const idempotencyPool = new Pool({
+  connectionString: process.env.DATABASE_URL || process.env.DIRECT_URL,
+});
+
 /** Valid donation types per donation_history CHECK constraint. */
 const VALID_DONATION_TYPES = ['whole_blood', 'platelets', 'plasma', 'double_red'] as const;
+
+const ENDPOINT = '/api/blood-donors/record-donation';
 
 /**
  * POST /api/blood-donors/record-donation
@@ -20,6 +29,9 @@ const VALID_DONATION_TYPES = ['whole_blood', 'platelets', 'plasma', 'double_red'
  *
  * After insert, reads back the donor's updated fields and checks yearly cap.
  * Fires a certificate generation job (fire-and-forget).
+ *
+ * Wrapped with idempotency middleware (Req 28.1–28.4): an optional
+ * `Idempotency-Key` header dedupes retries for 24 hours.
  *
  * Auth: X-N8N-SECRET header must match N8N_WEBHOOK_SECRET env var.
  *
@@ -38,6 +50,15 @@ const VALID_DONATION_TYPES = ['whole_blood', 'platelets', 'plasma', 'double_red'
  * Returns: { ok: true, data: { donation_id, next_eligible_date, total_donations, cap_reached } }
  */
 export async function POST(request: NextRequest) {
+  return withIdempotency(
+    request,
+    ENDPOINT,
+    () => handleRecordDonation(request),
+    idempotencyPool,
+  );
+}
+
+async function handleRecordDonation(request: NextRequest): Promise<Response> {
   try {
     // ─── Auth: verify n8n webhook secret ───
     const secret = request.headers.get('x-n8n-secret');

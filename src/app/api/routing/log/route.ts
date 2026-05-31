@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createTraceLogger } from '@/lib/trace/logger';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -15,10 +16,13 @@ const VALID_AGENTS = ['complaint', 'blood', 'donor', 'info', 'welcome'] as const
  *
  * Auth: X-N8N-SECRET header must match N8N_WEBHOOK_SECRET env var.
  *
- * Body: { session_id, message_text, last_intent_before, agent_dispatched, reason, trace_id }
+ * Body: { session_id, message_text, last_intent_before, agent_dispatched, reason, trace_id,
+ *         classifier_used?, confidence? }
  *
  * - message_text is truncated to 200 chars (PII minimization).
  * - agent_dispatched must be null or one of: complaint, blood, donor, info, welcome.
+ * - classifier_used (boolean, default false): whether the Gemini Flash classifier was consulted (Req 20.7).
+ * - confidence (numeric 0-1, default null): classifier confidence; 1 when rule-only path fires (Req 20.7).
  *
  * Returns: { ok: true, data: { id } } on success.
  */
@@ -44,6 +48,8 @@ export async function POST(request: NextRequest) {
       agent_dispatched,
       reason,
       trace_id,
+      classifier_used,
+      confidence,
     } = body;
 
     // ─── Validation ───
@@ -79,6 +85,14 @@ export async function POST(request: NextRequest) {
       ? String(message_text).slice(0, 200)
       : null;
 
+    // Trace logger: this route receives the canonical trace_id in its body
+    // (the CEO Router forwards $json.trace_id), so prefer it over the header,
+    // falling back to X-Trace-Id / a fresh uuid7 (Req 27.4, Design §v1.1.8).
+    const log = createTraceLogger(request, {
+      route: '/api/routing/log',
+      traceId: typeof trace_id === 'string' ? trace_id : undefined,
+    });
+
     // ─── Insert into routing_decisions ───
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
@@ -90,20 +104,28 @@ export async function POST(request: NextRequest) {
         last_intent_before: last_intent_before || null,
         agent_dispatched: agent_dispatched || null,
         reason: reason || null,
-        trace_id: trace_id || null,
+        trace_id: log.traceId,
+        // Req 20.7: write classifier_used and confidence on every routing_decisions row
+        classifier_used: typeof classifier_used === 'boolean' ? classifier_used : false,
+        confidence: typeof confidence === 'number' ? confidence : null,
         created_at: new Date().toISOString(),
       })
       .select('id')
       .single();
 
     if (error) {
-      console.error('[routing/log] Supabase insert error:', error);
+      log.error('routing_decision_insert_failed', { session_id, err: error.message });
       return NextResponse.json(
         { ok: false, error: 'Failed to log routing decision', details: error.message },
         { status: 500 }
       );
     }
 
+    log.info('routing_decision_logged', {
+      id: data.id,
+      session_id,
+      agent_dispatched: agent_dispatched || null,
+    });
     return NextResponse.json({ ok: true, data: { id: data.id } });
   } catch (error) {
     console.error('[routing/log] Error:', error);

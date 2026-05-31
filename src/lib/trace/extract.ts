@@ -2,9 +2,20 @@
  * Trace ID extraction + propagation helpers (task 25.2).
  *
  * Every n8n HTTP-tool node stamps `X-Trace-Id: <trace_id>` on outbound requests
- * (Design §v1.1.8). Vercel route handlers read it back so all DB writes and
- * structured logs for that request carry the same `trace_id`, enabling the
+ * (Design §v1.1.8). Vercel `/api/*` route handlers read it back so all DB writes
+ * and structured logs for that request carry the same `trace_id`, enabling the
  * `GET /api/trace/[id]` timeline view (task 25.5).
+ *
+ * The canonical contract (Design §v1.1.8 / Req 27.3, 27.4):
+ *
+ *   export function extractTraceId(req: Request): string {
+ *     const h = req.headers.get('X-Trace-Id');
+ *     return h && isUuid7(h) ? h : uuid7();
+ *   }
+ *
+ * i.e. read the inbound header; if present and a valid UUIDv7, reuse it so the
+ * trace is continuous; otherwise mint a fresh `uuid7()` so the request still has
+ * a usable id. `extractTraceId` therefore always returns a string.
  *
  * Header names are case-insensitive per HTTP semantics. The standard `Headers`
  * object handles this for us; for a plain object we scan keys case-insensitively.
@@ -13,11 +24,12 @@
  * @see .kiro/specs/sahayak-multi-agent-router/requirements.md — Requirements 27.3, 27.4
  */
 
-import { uuidv7, isUuid7 } from './uuid7';
+import { uuid7, isUuid7 } from './uuid7';
 
-/** Accepted header sources. */
-export type HeaderSource = Headers | Record<string, string> | Request;
+/** Accepted header sources: a `Request`, a `Headers`, or a plain header map. */
+export type HeaderSource = Request | Headers | Record<string, string>;
 
+/** Inbound header name (lowercased for case-insensitive comparison). */
 const TRACE_HEADER = 'x-trace-id';
 /** Canonical capitalization for outbound headers. */
 const TRACE_HEADER_OUT = 'X-Trace-Id';
@@ -27,7 +39,7 @@ const TRACE_HEADER_OUT = 'X-Trace-Id';
  * Returns null when the header is absent.
  */
 function readHeader(source: HeaderSource, name: string): string | null {
-  // `Request` — delegate to its Headers.
+  // `Request` — delegate to its Headers (`.get()` is case-insensitive).
   if (typeof Request !== 'undefined' && source instanceof Request) {
     return source.headers.get(name);
   }
@@ -50,38 +62,30 @@ function readHeader(source: HeaderSource, name: string): string | null {
 }
 
 /**
- * Extract the inbound `X-Trace-Id` header value.
+ * Extract the trace id for an inbound request, generating one if needed.
  *
- * Returns the trimmed header value if present (regardless of format — callers
- * that require a strict UUIDv7 can validate with `isUuid7`), or `null` when the
- * header is missing or blank.
+ * Reads the `X-Trace-Id` header; if it is present and a valid UUIDv7 the value
+ * is reused (so the trace stays continuous across the n8n → Vercel hop), and a
+ * fresh `uuid7()` is minted otherwise. Always returns a usable trace id.
  *
- * Use {@link extractOrCreateTraceId} instead when you need a guaranteed id at a
- * pipeline entry point (it mints a fresh UUIDv7 on miss per Design §v1.1.8).
+ * Matches the Design §v1.1.8 route-handler contract `extractTraceId(req: Request)`.
+ * Also accepts a `Headers` instance or a plain header map for convenience and
+ * testability — these are non-breaking supersets of the documented signature.
  *
- * @param headers A `Headers`, plain header object, or `Request`.
+ * @param source A `Request`, `Headers`, or plain header object.
  */
-export function extractTraceId(headers: HeaderSource): string | null {
-  const raw = readHeader(headers, TRACE_HEADER);
-  if (raw == null) return null;
-  const trimmed = raw.trim();
-  return trimmed.length > 0 ? trimmed : null;
+export function extractTraceId(source: HeaderSource): string {
+  const raw = readHeader(source, TRACE_HEADER);
+  const h = raw == null ? null : raw.trim();
+  return h && isUuid7(h) ? h : uuid7();
 }
 
 /**
- * Extract a valid `X-Trace-Id`, or generate a fresh UUIDv7 when it is missing
- * or malformed. This matches the Design §v1.1.8 route-handler contract:
- *
- *   const h = req.headers.get('X-Trace-Id');
- *   return h && isUuid7(h) ? h : uuid7();
- *
- * Always returns a usable trace id. Use this at request entry points where a
- * downstream write requires a non-null `trace_id`.
+ * Back-compat alias for {@link extractTraceId}. The "extract or create" semantics
+ * are now the default behavior of `extractTraceId` itself (per Design §v1.1.8),
+ * so this simply forwards. Retained so callers referencing either name compile.
  */
-export function extractOrCreateTraceId(headers: HeaderSource): string {
-  const existing = extractTraceId(headers);
-  return existing && isUuid7(existing) ? existing : uuidv7();
-}
+export const extractOrCreateTraceId = extractTraceId;
 
 /**
  * Build an outbound headers object that carries the given `trace_id`.
@@ -89,6 +93,8 @@ export function extractOrCreateTraceId(headers: HeaderSource): string {
  * Copies any provided base headers (case-insensitively dropping a pre-existing
  * trace header so we don't emit duplicates) and sets the canonical
  * `X-Trace-Id` key. Returns a fresh plain object suitable for `fetch`.
+ *
+ * Used by HTTP-tool callers (task 25.3) to propagate the trace id downstream.
  *
  * @param headers  Optional base headers to merge (`Headers` or plain object).
  * @param traceId  The trace id to attach.

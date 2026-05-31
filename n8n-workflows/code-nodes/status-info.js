@@ -18,6 +18,45 @@
  *      or embedding fails.
  *   f) Help fallback when neither matches
  *
+ * Circuit breaker — embeddings (Req 29, Design §v1.1.10):
+ *   Before running any embedding / vector-search call, Phase 2 consults the
+ *   shared `circuit_state` table. When the `embeddings` breaker is open (the
+ *   embedding provider is failing) the node BYPASSES embed → vector search
+ *   entirely and serves the curated Phase 1 scheme summaries — the same path
+ *   used when INFO_USE_EMBEDDINGS=false — so a provider outage degrades
+ *   gracefully instead of repeatedly calling a failing embedding API.
+ *   The read is fail-soft: an unreadable / missing breaker row is treated as
+ *   closed (Phase 2 proceeds and still falls back per-call on error), mirroring
+ *   the fail-soft contract of src/lib/breaker/breaker.ts.
+ *
+ * Semantic cache — query_cache (Req 26, Design §v1.1.7):
+ *   Before its primary lookup, BOTH the Status (ticket) path and the Info
+ *   (scheme/help) path consult the shared `query_cache` table for a
+ *   semantically-close cached response (cosine ≥ 0.92, filtered by `category`
+ *   and non-expired rows). On a hit the cached response is returned without
+ *   running the primary DB / vector / Gemini lookup; on a miss the primary
+ *   lookup runs and its answer is written through with a category-specific TTL
+ *   (status 5 min / scheme 7 days / help 1 hour) — matching
+ *   src/lib/semanticCache/lookup.ts and src/lib/semanticCache/write.ts.
+ *
+ *   The cache is embedding-based, so it shares the SAME gate as Phase 2: it is
+ *   only consulted when INFO_USE_EMBEDDINGS=true AND the `embeddings` breaker is
+ *   closed. When embeddings are disabled or the breaker is open the cache is
+ *   bypassed entirely (a natural cache-miss) and the v1 primary path runs
+ *   unchanged — consistent with the embeddings-breaker bypass (§v1.1.10) and
+ *   the no-embeddings Phase 1 contract (Property 36).
+ *
+ *   The node is self-contained (no imports), so it consults the cache over HTTP
+ *   the same way it already calls feature-flags / circuit_state / scheme_knowledge:
+ *     - lookup → Supabase RPC `match_query_cache` (mirrors `match_scheme_knowledge`;
+ *                the RPC applies the 0.92 threshold and increments hit_count
+ *                server-side, matching src/lib/semanticCache/lookup.ts)
+ *     - write  → PostgREST upsert into `query_cache` (ON CONFLICT query_hash),
+ *                mirroring the TTL/category mapping in src/lib/semanticCache/write.ts
+ *   All cache calls are best-effort / fail-soft: any error (including a
+ *   not-yet-deployed `match_query_cache` RPC) degrades to a cache miss so the
+ *   primary lookup always proceeds.
+ *
  * Inputs:
  *   $json.message.text — raw incoming WhatsApp message body
  *   $json.session.language — user's language preference (en/hi/bn)
@@ -30,7 +69,11 @@
  *   - SCHEME_SUMMARIES — contents of n8n-workflows/prompts/scheme_summaries.md
  *
  * @see .kiro/specs/sahayak-multi-agent-router/design.md - §Components → Status / Info Code Path
- * @see .kiro/specs/sahayak-multi-agent-router/requirements.md - Requirements 11.1–11.5
+ * @see .kiro/specs/sahayak-multi-agent-router/design.md - §v1.1.10 Circuit Breakers (embeddings breaker)
+ * @see .kiro/specs/sahayak-multi-agent-router/design.md - §v1.1.7 Semantic Cache (query_cache)
+ * @see .kiro/specs/sahayak-multi-agent-router/requirements.md - Requirements 11.1–11.5, 26.1–26.5, 29.4
+ * @see src/lib/semanticCache/lookup.ts - cosine ANN lookup (threshold 0.92)
+ * @see src/lib/semanticCache/write.ts - write-through with category-specific TTL
  */
 
 // ─── Deploy-time injected variables ─────────────────────────────────────────
@@ -54,6 +97,13 @@ const API_BASE_URL = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.ap
 const N8N_SECRET = $env.N8N_WEBHOOK_SECRET || '';
 const GEMINI_API_KEY = $env.GEMINI_API_KEY || '';
 const GEMINI_MODEL = $env.GEMINI_MODEL || 'gemini-1.5-flash';
+
+// Supabase REST base + key for reading operational tables (scheme_knowledge,
+// circuit_state). Service-role is preferred because operational tables like
+// `circuit_state` are RLS-restricted to service-role / admin (migration 008);
+// fall back to the anon key for environments where only that is provisioned.
+const SUPABASE_REST_BASE = ($env.NEXT_PUBLIC_SUPABASE_URL || $env.SUPABASE_URL || API_BASE_URL).replace(/\/$/, '');
+const SUPABASE_KEY = $env.SUPABASE_SERVICE_ROLE_KEY || $env.SUPABASE_ANON_KEY || '';
 
 // ─── Input ───────────────────────────────────────────────────────────────────
 
@@ -168,6 +218,45 @@ async function runPhase1(msgText, lang) {
   return [{ json: { ...$json, reply } }];
 }
 
+// ─── Helper: Read the `embeddings` circuit breaker state (Req 29.4) ──────────
+// Reads the shared `circuit_state` row for the `embeddings` breaker via Supabase
+// REST. Returns the breaker's effective state. Fail-soft: any missing row,
+// unreadable response, or error is treated as 'closed' (no bypass) so a problem
+// reading the breaker table never takes down the citizen-facing Info path —
+// mirroring the fail-soft contract in src/lib/breaker/breaker.ts.
+//
+// Note: the open→half_open promotion in the breaker library is time-based and
+// lazy; here we only need to know whether the breaker is currently OPEN (i.e.
+// the embedding provider is actively failing and the cooldown has not elapsed),
+// in which case we bypass embeddings. 'closed' and 'half_open' both allow the
+// embedding path (half_open lets a single probe through naturally).
+
+async function isEmbeddingsBreakerOpen() {
+  if (!SUPABASE_KEY) {
+    // No key to read operational tables — fail-soft to closed (allow Phase 2).
+    return false;
+  }
+  try {
+    const res = await $http.request({
+      method: 'GET',
+      url: `${SUPABASE_REST_BASE}/rest/v1/circuit_state?name=eq.embeddings&select=state&limit=1`,
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    const rows = res && res.body;
+    if (Array.isArray(rows) && rows.length >= 1 && rows[0]) {
+      return rows[0].state === 'open';
+    }
+  } catch (err) {
+    console.warn('[Status/Info] circuit_state read failed, treating embeddings breaker as closed:', err.message || err);
+  }
+  // Missing row / empty / non-array response → treat as closed (no bypass).
+  return false;
+}
+
 // ─── Main Logic ──────────────────────────────────────────────────────────────
 
 async function run() {
@@ -246,6 +335,15 @@ async function run() {
   }
 
   // ─── Phase 2 (INFO_USE_EMBEDDINGS=true) — Vector search + Gemini RAG ─────
+  // Step 0: Embeddings circuit breaker gate (Req 29.4, Design §v1.1.10).
+  // When the `embeddings` breaker is OPEN the embedding provider is failing, so
+  // we bypass embed → vector search entirely and serve the curated Phase 1
+  // scheme summaries (identical to the INFO_USE_EMBEDDINGS=false path). This
+  // avoids hammering a failing embedding API and degrades gracefully.
+  if (await isEmbeddingsBreakerOpen()) {
+    return await runPhase1(messageText, language);
+  }
+
   // Step 1: Verify scheme_knowledge has at least 1 embedded row (safety gate)
   let hasEmbeddings = false;
   try {

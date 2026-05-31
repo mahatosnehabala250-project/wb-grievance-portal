@@ -5,6 +5,13 @@ import {
   type DbClient,
   type SessionRow,
 } from '@/lib/sessions/prepareContext';
+import {
+  pop,
+  peek,
+  deriveLastIntent,
+  cancelKeywordMatch,
+  type Frame,
+} from '@/lib/flowStack/manager';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -156,11 +163,85 @@ export async function POST(request: NextRequest) {
       dbClient,
     );
 
+    // ─── Flow Stack handling (v1.1.2 — Req 21.3, 21.6, 21.7) ───
+    // Runs after the stale check so a stale-reset (which clears flow_stack to [])
+    // is already reflected. Three responsibilities, all driven by the pure
+    // Flow Stack Manager so the n8n CEO Router Code Node stays thin:
+    //   19.5 Cancel keyword → pop the active frame BEFORE the router dispatches.
+    //   19.3 Derive the v1-compatible last_intent from the (possibly popped) stack.
+    //   19.4 Expose resume_context (previous flow + last captured field) for the
+    //        specialist agent's resume sentence.
+    const sessionRow = (result.session ?? {}) as SessionRow & {
+      flow_stack?: unknown;
+      collected_data?: Record<string, unknown>;
+    };
+    const currentStack: Frame[] = Array.isArray(sessionRow.flow_stack)
+      ? (sessionRow.flow_stack as Frame[])
+      : [];
+
+    let flowStack: Frame[] = currentStack;
+    let flowStackOp: 'pop' | null = null;
+    let resumeContext: { previous_flow: string; last_captured_field: string | null } | null = null;
+
+    const isCancel =
+      !result.was_reset &&
+      typeof message_text === 'string' &&
+      cancelKeywordMatch(message_text);
+
+    if (isCancel && currentStack.length > 0) {
+      // 19.5: pop the active frame; persist the new stack atomically.
+      const { next } = pop(currentStack);
+      flowStack = next;
+      flowStackOp = 'pop';
+
+      const { error: stackError } = await supabase
+        .from('conversation_sessions')
+        .update({
+          flow_stack: next,
+          last_intent: deriveLastIntent(next, 'idle'),
+          last_activity_at: new Date().toISOString(),
+        })
+        .eq('session_id', phone);
+      if (stackError) {
+        console.error('[prepare-context] cancel pop persist error:', stackError);
+      }
+
+      // 19.4: when a frame remains after the pop, surface resume context so the
+      // newly-active specialist agent opens with the localized resume sentence.
+      const resumed = peek(next);
+      if (resumed) {
+        const fields = Object.keys(resumed.collected_data ?? {});
+        resumeContext = {
+          previous_flow: resumed.flow,
+          last_captured_field: fields.length > 0 ? fields[fields.length - 1] : null,
+        };
+      }
+    }
+
+    // 19.3: the active intent the CEO Router should route on is derived from the
+    // flow stack when non-empty, else the legacy last_intent (backward compat).
+    const derivedLastIntent = deriveLastIntent(
+      flowStack,
+      (sessionRow.last_intent as string) ?? 'idle',
+    );
+
+    // Keep the returned session coherent with the derived/popped state so the
+    // CEO Router node reads the right last_intent and flow_stack.
+    const session = {
+      ...sessionRow,
+      flow_stack: flowStack,
+      last_intent: derivedLastIntent,
+    };
+
     return NextResponse.json({
       ok: true,
-      session: result.session,
+      session,
       was_reset: result.was_reset,
       prev_last_intent: result.prev_last_intent,
+      // v1.1.2 outputs consumed by the CEO Router / specialist agents.
+      derived_last_intent: derivedLastIntent,
+      flow_stack_op: flowStackOp,
+      resume_context: resumeContext,
     });
   } catch (error) {
     console.error('[prepare-context] Error:', error);

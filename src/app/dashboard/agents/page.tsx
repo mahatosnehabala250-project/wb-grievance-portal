@@ -2,6 +2,7 @@
 
 import { AgentCard, AgentInfo } from '@/components/admin/AgentCard';
 import { CEORouterTester } from '@/components/admin/CEORouterTester';
+import { CacheHitRateWidget } from '@/components/admin/v1_1/CacheHitRateWidget';
 import { Separator } from '@/components/ui/separator';
 
 /**
@@ -57,10 +58,11 @@ const AGENTS: AgentInfo[] = [
 ];
 
 /**
- * Agent Configuration page — lists all 4 specialist agents
- * and includes the CEO Router test runner at the bottom.
+ * Agent Configuration page — lists all 4 specialist agents,
+ * shows the Semantic Cache hit-rate widget, and includes the CEO Router
+ * test runner at the bottom.
  *
- * @see Requirements 15.1, 15.2, 15.3
+ * @see Requirements 15.1, 15.2, 15.3, 26.6
  */
 export default function AgentsPage() {
   return (
@@ -78,6 +80,21 @@ export default function AgentsPage() {
         {AGENTS.map((agent) => (
           <AgentCard key={agent.id} agent={agent} />
         ))}
+      </div>
+
+      <Separator />
+
+      {/* Semantic Cache hit-rate widget (Req 26.6 — Design §v1.1.7) */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-xl font-semibold">Semantic Cache</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Cache hit rate per category over the last 24 hours and 7 days. Hits are served from
+            <code className="mx-1 rounded bg-muted px-1 py-0.5 text-xs">query_cache</code>
+            without calling Gemini or the primary lookup.
+          </p>
+        </div>
+        <CacheHitRateWidget />
       </div>
 
       <Separator />

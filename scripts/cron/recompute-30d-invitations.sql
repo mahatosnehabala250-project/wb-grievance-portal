@@ -1,0 +1,21 @@
+-- ============================================================================
+-- Cron: recompute-30d-invitations.sql
+-- Schedule: Nightly (recommended: 03:00 UTC via pg_cron or Vercel cron)
+-- Purpose:  Recompute blood_donors.invitations_last_30d from the actual count
+--           of cascade_notifications inside the trailing 30-day window. The
+--           trg_donor_invitation_counter trigger only increments the counter,
+--           so this job decrements invitations that have aged past 30 days,
+--           keeping the donor-fairness anti-burnout penalty accurate.
+--
+-- Requirements: 23.5 — Design §v1.1.4
+--
+-- Usage with pg_cron (if available):
+--   SELECT cron.schedule('recompute-30d-invitations', '0 3 * * *',
+--     $$SELECT decrement_30d_invitations()$$
+--   );
+--
+-- Usage with Vercel cron / external scheduler:
+--   POST /api/cron/recompute-invitations (calls this SQL via supabase-js)
+-- ============================================================================
+
+SELECT decrement_30d_invitations();

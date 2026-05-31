@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createTraceLogger } from '@/lib/trace/logger';
 
 // POST /api/n8n/sms/send — SMS sending stub for n8n (WB-03)
 // For now just logs and returns success (SMS gateway not configured yet)
 export async function POST(request: NextRequest) {
+  // Trace logger: carries the inbound X-Trace-Id (or a fresh uuid7) on every
+  // line so outbound-send attempts are reconstructable (Req 27.4, Design §v1.1.8).
+  const log = createTraceLogger(request, { route: '/api/n8n/sms/send' });
   try {
     const body = await request.json();
     const { to, message } = body;
@@ -14,9 +18,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Log the SMS for audit trail
-    console.log(`[n8n:sms] SMS stub — to: ${to}, message: "${message.substring(0, 100)}..."`);
-    console.log(`[n8n:sms] SMS gateway not configured yet. Message logged but not sent.`);
+    // Log the SMS for audit trail (trace-tagged; message body intentionally omitted).
+    log.info('sms_stub_logged', {
+      to,
+      message_chars: String(message).length,
+      gateway_configured: false,
+    });
 
     return NextResponse.json({
       success: true,
@@ -26,7 +33,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('[n8n] SMS send error:', error);
+    log.error('sms_send_error', { err: error });
     return NextResponse.json(
       { error: 'Failed to send SMS', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

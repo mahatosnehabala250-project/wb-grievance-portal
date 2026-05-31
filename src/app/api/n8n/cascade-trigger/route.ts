@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createTraceLogger } from '@/lib/trace/logger';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,6 +32,9 @@ const supabase = createClient(
  * Requirements: 5.5, 5.9 — Design §API Endpoint Contracts
  */
 export async function POST(request: NextRequest) {
+  // Trace logger: binds the request's trace_id (X-Trace-Id header or fresh
+  // uuid7) once, so every log line below carries it (Req 27.4, Design §v1.1.8).
+  const log = createTraceLogger(request, { route: '/api/n8n/cascade-trigger' });
   try {
     // ─── Auth: verify n8n webhook secret ───
     const secret = request.headers.get('x-n8n-secret');
@@ -98,7 +102,7 @@ export async function POST(request: NextRequest) {
       .eq('id', blood_request_id);
 
     if (updateError) {
-      console.error('[n8n/cascade-trigger] Failed to update cascade_tier:', updateError);
+      log.error('cascade_tier_update_failed', { blood_request_id, err: updateError.message });
       return NextResponse.json(
         { ok: false, error: 'Failed to update cascade tier', details: updateError.message },
         { status: 500 }
@@ -119,13 +123,18 @@ export async function POST(request: NextRequest) {
           cascade_tier: 1,
         }),
       }).catch((err) => {
-        console.error('[n8n/cascade-trigger] JS-15B webhook fire-and-forget failed:', err);
+        log.error('js15b_webhook_failed', { blood_request_id, err });
       });
     } else {
-      console.warn('[n8n/cascade-trigger] JS15B_WEBHOOK_URL not configured, skipping webhook trigger');
+      log.warn('js15b_webhook_url_missing', { blood_request_id });
     }
 
     // ─── Return success ───
+    log.info('cascade_triggered', {
+      blood_request_id,
+      cascade_tier: 1,
+      triggered: !!js15bWebhookUrl,
+    });
     return NextResponse.json({
       ok: true,
       data: {
@@ -135,7 +144,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[n8n/cascade-trigger] Error:', error);
+    log.error('cascade_trigger_error', { err: error });
     return NextResponse.json(
       { ok: false, error: 'Internal server error' },
       { status: 500 }

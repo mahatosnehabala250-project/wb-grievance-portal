@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Bot, Activity, TrendingUp, Clock } from 'lucide-react';
+import Link from 'next/link';
+import { Bot, Activity, TrendingUp, Clock, GitBranch } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -321,9 +322,18 @@ export default function AgentRoutingPage() {
             {selectedDecision.trace_id && (
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Trace ID</p>
-                <p className="text-xs font-mono text-muted-foreground">
-                  {selectedDecision.trace_id}
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs font-mono text-muted-foreground">
+                    {selectedDecision.trace_id}
+                  </p>
+                  <Link
+                    href={`/dashboard/agent-routing/${encodeURIComponent(selectedDecision.trace_id)}`}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    <GitBranch className="h-3.5 w-3.5" />
+                    View trace timeline
+                  </Link>
+                </div>
               </div>
             )}
 

@@ -3,5 +3,35 @@
     "src/app/api/**/*.ts": {
       "maxDuration": 30
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/idempotency-cleanup",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/classifier-calibration",
+      "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/cron/bandit-trainer",
+      "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/whatsapp-outbox-drainer",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/sos-queue-drainer",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/cascade-override-expiry",
+      "schedule": "15 * * * *"
+    },
+    {
+      "path": "/api/cron/decrement-invitations",
+      "schedule": "45 3 * * *"
+    }
+  ]
 }

@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
+import { Pool } from 'pg';
+import { withIdempotency } from '@/lib/idempotency/middleware';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+// pg Pool used exclusively for the idempotency middleware DB client.
+const idempotencyPool = new Pool({
+  connectionString: process.env.DATABASE_URL || process.env.DIRECT_URL,
+});
+
+const ENDPOINT = '/api/blood/generate-certificate';
 
 /**
  * POST /api/blood/generate-certificate
@@ -12,6 +21,9 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
  * and returns a signed URL (7-day expiry) plus a public verify URL.
  *
  * Called internally by the record-donation endpoint (fire-and-forget).
+ *
+ * Wrapped with idempotency middleware (Req 28.1–28.4): an optional
+ * `Idempotency-Key` header dedupes retries for 24 hours.
  *
  * Auth: X-N8N-SECRET header must match N8N_WEBHOOK_SECRET env var.
  *
@@ -32,6 +44,15 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
  * }
  */
 export async function POST(request: NextRequest) {
+  return withIdempotency(
+    request,
+    ENDPOINT,
+    () => handleGenerateCertificate(request),
+    idempotencyPool,
+  );
+}
+
+async function handleGenerateCertificate(request: NextRequest): Promise<Response> {
   try {
     // ─── Auth: verify n8n webhook secret ───
     const secret = request.headers.get('x-n8n-secret');

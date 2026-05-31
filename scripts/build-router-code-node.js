@@ -70,8 +70,16 @@ const output = `/**
  * Source: src/lib/router/ceoRouter.ts
  *
  * This file is self-contained. No require/import — runs in n8n's sandboxed VM.
- * Input: $json.session, $json.message (or $json.parsed)
+ * Input: $json.session, $json.message (or $json.parsed), $json.trace_id
  * Output: [{ json: { ...$json, ...decision } }]
+ *
+ * Hybrid wiring (Design §v1.1.1, task 18.6): runs the v1 deterministic rules
+ * first; when no confident rule fires AND the session is not in a hot-state AND
+ * rule-only routing is not forced, it calls the REMOTE classifier endpoint
+ * (POST /api/router/classify — cache → Gemini Flash; the classifier itself is
+ * NOT bundled here, Req 20.2). confidence < 0.6 routes to agent='clarification'
+ * (Req 20.5). Every decision stamps classifier_used + confidence for the Logger
+ * (Req 20.7). Fail-soft: any classifier error falls back to the rule decision.
  */
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -224,16 +232,107 @@ function decide(session, message, now) {
   return { agent: 'welcome', reason: 'unknown_no_state', rulesEvaluated: rulesEvaluated };
 }
 
-// ─── n8n Code Node Entry Point ───────────────────────────────────────────────
+// ─── Hybrid wiring (v1.1.1, task 18.6) ────────────────────────────────────────
+// Hot-state bypass list (Req 20.6): the classifier MUST NOT be consulted when
+// last_intent is one of these — the v1 rule decision is returned immediately.
+const HOT_STATES = [
+  'donor_pending_response',
+  'seeker_confirming',
+  'complaint_confirming',
+  'donor_confirming',
+];
+
+// Remote classifier endpoint (Design §v1.1.15). The CEO Router Code Node calls
+// /api/router/classify (cache → Gemini Flash) — the classifier itself is NOT
+// bundled into this node (Req 20.2, task 18.6). Fail-soft: any error falls back
+// to the v1 rule decision so the router never blocks a citizen-facing reply.
+async function remoteClassify(message, language, traceId) {
+  const apiBase = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';
+  const secret = $env.N8N_WEBHOOK_SECRET || '';
+  if (!secret) return null; // no secret configured — skip classifier (fail-soft)
+  try {
+    const resp = await $http.request({
+      method: 'POST',
+      url: apiBase + '/api/router/classify',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-N8N-SECRET': secret,
+        'X-Trace-Id': traceId || '',
+      },
+      body: { message: message, language: language || 'en', trace_id: traceId || '' },
+      timeout: 5000,
+      json: true,
+    });
+    const payload = (resp && resp.data) ? resp.data : resp;
+    if (payload && payload.ok && payload.data) return payload.data;
+    return null;
+  } catch (err) {
+    // Fail-soft — fall back to the rule decision.
+    return null;
+  }
+}
+
+// ─── n8n Code Node Entry Point (Hybrid CEO Router — Req 20.1, 20.5, 20.6) ─────
 // $json is the input item from the previous node (Prepare Context).
-// Expected shape: { session: { last_intent, last_activity_at, language }, message: { text, original_text }, ... }
+// Expected shape: { session: { last_intent, last_activity_at, language }, message: { text, original_text }, trace_id, ... }
+//
+// Algorithm (mirrors src/lib/router/ceoRouter.ts decideHybrid):
+//   1. Run v1 decide(...) first.
+//   2. Return the rule decision immediately (classifier_used=false, confidence=1) when:
+//      - the rule fired confidently (reason !== 'unknown_no_state'), OR
+//      - last_intent is in HOT_STATES (Req 20.6), OR
+//      - $json.rule_only_routing === true (BudgetGuard / breaker degradation, Req 29.3/30.4).
+//   3. Otherwise call /api/router/classify (cache → Gemini Flash).
+//   4. confidence < 0.6 → agent='clarification' (Req 20.5).
+//   5. Else dispatch to the classifier's agent.
+// classifier_used + confidence are stamped on the output for the Logger (Req 20.7).
 
 const session = $json.session || {};
 const message = $json.message || $json.parsed || {};
 
-const decision = decide(session, message);
+const ruleDecision = decide(session, message);
+const lastIntent = (session && session.last_intent) || 'idle';
+const ruleOnly = $json.rule_only_routing === true;
+const ruleWasConfident = ruleDecision.reason !== 'unknown_no_state';
+const isHotState = HOT_STATES.indexOf(lastIntent) !== -1;
 
-return [{ json: { ...$json, ...decision } }];
+let decision;
+if (ruleDecision.agent === 'cancel' || ruleWasConfident || isHotState || ruleOnly) {
+  // Rule-only path — no classifier call.
+  decision = Object.assign({}, ruleDecision, { classifier_used: false, confidence: 1, from_cache: false });
+} else {
+  // No confident rule fired — consult the remote classifier (cache → Gemini Flash).
+  const language = (session && session.language) || 'en';
+  const classifier = await remoteClassify(message.text || '', language, $json.trace_id);
+
+  if (!classifier) {
+    // Classifier unavailable — fail soft to the v1 rule decision (welcome fallback).
+    decision = Object.assign({}, ruleDecision, { classifier_used: false, confidence: 1, from_cache: false });
+  } else if (typeof classifier.confidence === 'number' && classifier.confidence < 0.6) {
+    // Low confidence → clarification micro-agent (Req 20.5).
+    decision = {
+      agent: 'clarification',
+      reason: 'low_confidence',
+      rulesEvaluated: ruleDecision.rulesEvaluated.concat(['classifier_low_confidence']),
+      classifier_used: true,
+      confidence: classifier.confidence,
+      from_cache: classifier.fromCache === true,
+    };
+  } else {
+    // Classifier confident — dispatch to its agent.
+    decision = {
+      agent: classifier.agent,
+      reason: classifier.rationale || ('classified_as_' + classifier.agent),
+      rulesEvaluated: ruleDecision.rulesEvaluated.concat(['classifier']),
+      intent_hint: classifier.secondary_agent || undefined,
+      classifier_used: true,
+      confidence: typeof classifier.confidence === 'number' ? classifier.confidence : 1,
+      from_cache: classifier.fromCache === true,
+    };
+  }
+}
+
+return [{ json: Object.assign({}, $json, decision) }];
 `;
 
 // --- Write output ---

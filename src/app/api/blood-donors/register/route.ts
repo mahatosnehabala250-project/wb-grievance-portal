@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { Pool } from 'pg';
+import { withIdempotency } from '@/lib/idempotency/middleware';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+// pg Pool used exclusively for the idempotency middleware DB client.
+const idempotencyPool = new Pool({
+  connectionString: process.env.DATABASE_URL || process.env.DIRECT_URL,
+});
 
 /** Valid blood groups per Indian NACO/NBTC standards */
 const VALID_BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
@@ -12,6 +19,8 @@ const VALID_GENDERS = ['male', 'female', 'other'] as const;
 
 /** Valid donation types */
 const VALID_DONATION_TYPES = ['whole_blood', 'platelets', 'plasma', 'double_red'] as const;
+
+const ENDPOINT = '/api/blood-donors/register';
 
 /**
  * Calculate the next eligible donation date based on gender and donation type.
@@ -72,6 +81,9 @@ function calculateAge(dateOfBirth: string): number {
  * Called by the Donor Agent (n8n) to register a new blood donor with
  * medical eligibility fields.
  *
+ * Wrapped with idempotency middleware (Req 28.1–28.4): an optional
+ * `Idempotency-Key` header dedupes retries for 24 hours.
+ *
  * Auth: X-N8N-SECRET header must match N8N_WEBHOOK_SECRET env var.
  *
  * Request body:
@@ -102,6 +114,15 @@ function calculateAge(dateOfBirth: string): number {
  * Returns: { ok: true, data: { id, phone, name, blood_group, next_eligible_date } }
  */
 export async function POST(request: NextRequest) {
+  return withIdempotency(
+    request,
+    ENDPOINT,
+    () => handleRegister(request),
+    idempotencyPool,
+  );
+}
+
+async function handleRegister(request: NextRequest): Promise<Response> {
   try {
     // ─── Auth: verify n8n webhook secret ───
     const secret = request.headers.get('x-n8n-secret');

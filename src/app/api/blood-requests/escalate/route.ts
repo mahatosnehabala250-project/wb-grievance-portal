@@ -1,13 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
 import { createClient } from '@supabase/supabase-js';
+import { Pool } from 'pg';
+import { withIdempotency } from '@/lib/idempotency/middleware';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// pg Pool used exclusively for the idempotency middleware DB client.
+const idempotencyPool = new Pool({
+  connectionString: process.env.DATABASE_URL || process.env.DIRECT_URL,
+});
+
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || '';
+
+const ENDPOINT = '/api/blood-requests/escalate';
 
 /**
  * POST /api/blood-requests/escalate
@@ -20,6 +29,9 @@ const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || '';
  * - `sos`: Sets urgency to 'critical', resets cascade_tier to 1, and
  *   triggers JS-15 SOS fan-out to all matching donors in the district.
  *
+ * Wrapped with idempotency middleware (Req 28.1–28.4): an optional
+ * `Idempotency-Key` header dedupes retries for 24 hours.
+ *
  * Auth: Admin JWT (Bearer token).
  *
  * Request body:
@@ -30,9 +42,18 @@ const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || '';
  *
  * Response: { ok: true, data: { blood_request_id, new_cascade_tier, mode } }
  *
- * Requirements: 16.4 — Design §API Endpoint Contracts
+ * Requirements: 16.4, 28.1–28.4 — Design §API Endpoint Contracts
  */
 export async function POST(request: NextRequest) {
+  return withIdempotency(
+    request,
+    ENDPOINT,
+    () => handleEscalate(request),
+    idempotencyPool,
+  );
+}
+
+async function handleEscalate(request: NextRequest): Promise<Response> {
   try {
     // ─── Auth: admin JWT ───
     const token = getTokenFromRequest(request);

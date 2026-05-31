@@ -53,6 +53,10 @@ const messageText = ($json.message && $json.message.text)
 
 let wasReset = false;
 let prevLastIntent = session.last_intent || null;
+// v1.1.2 Flow Stack outputs (Req 21.3/21.4/21.6), populated from the API response.
+let resumeContext = null;
+let flowStackOp = null;
+let derivedLastIntent = session.last_intent || 'idle';
 
 const nowMs = Date.now();
 const nowIso = new Date(nowMs).toISOString();
@@ -107,6 +111,12 @@ try {
     }
     wasReset = apiResult.was_reset ?? wasReset;
     prevLastIntent = apiResult.prev_last_intent ?? prevLastIntent;
+    // v1.1.2 Flow Stack outputs (Req 21.3/21.4/21.6) — forwarded downstream.
+    resumeContext = apiResult.resume_context ?? null;
+    flowStackOp = apiResult.flow_stack_op ?? null;
+    if (typeof apiResult.derived_last_intent === 'string') {
+      derivedLastIntent = apiResult.derived_last_intent;
+    }
   }
 } catch (err) {
   // If the API call fails, we still proceed with the in-memory computation.
@@ -126,6 +136,12 @@ return [{
     session: session,
     was_reset: wasReset,
     prev_last_intent: prevLastIntent,
+    // v1.1.2 Flow Stack (Req 21.3/21.4/21.6): the CEO Router routes on
+    // derived_last_intent; specialist agents open with the resume sentence when
+    // resume_context is present after a cancel-pop.
+    derived_last_intent: derivedLastIntent,
+    flow_stack_op: flowStackOp,
+    resume_context: resumeContext,
     // Convenience fields for downstream nodes (e.g., conditional routing/log nodes)
     _stale_reset_log: wasReset ? {
       session_id: phone,

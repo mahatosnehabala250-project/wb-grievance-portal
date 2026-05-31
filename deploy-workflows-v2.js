@@ -103,7 +103,17 @@ async function main() {
   const CODE_NODE_INJECTIONS = {
     'Prepare Context': 'prepare-context.js',
     'CEO Router': 'ceo-router.js',
-    'Status Code': 'status-info.js'
+    'Status Code': 'status-info.js',
+    // Task 18.4 — Clarification Micro-Agent (Switch agent='clarification' branch)
+    'Clarification': 'clarification-agent.js',
+    // Task 23.3 — Output Guardrail between each specialist agent and Send Reply
+    'Guardrail - Complaint': 'guardrail.js',
+    'Guardrail - Blood': 'guardrail.js',
+    'Guardrail - Donor': 'guardrail.js',
+    // Task 27.4 — Gemini-substitute Code Nodes (circuit breaker pre-check)
+    'Gemini Check - Complaint': 'gemini-substitute.js',
+    'Gemini Check - Blood': 'gemini-substitute.js',
+    'Gemini Check - Donor': 'gemini-substitute.js'
   };
 
   const results = {};
@@ -140,6 +150,13 @@ async function main() {
       // Maps AI Agent node names to their prompt source files under
       // n8n-workflows/prompts/. At deploy time, the placeholder systemMessage
       // in each agent node is replaced with the actual prompt file contents.
+      //
+      // NOTE (task 28.4): the compact variants (<agent>.compact.md) are NOT
+      // injected here. They are registered into `agent_prompt_versions` by
+      // `npm run register:prompts` and selected at runtime by the v1.1.14
+      // prompt loader when the v1.1.11 BudgetGuard sets compact_mode (Req 30.5).
+      // The full <agent>.md injected below is the default systemMessage used
+      // when a session is not in compact mode.
       const PROMPT_INJECTIONS = {
         'Complaint Agent': 'complaint.md',
         'Blood Agent': 'blood.md',

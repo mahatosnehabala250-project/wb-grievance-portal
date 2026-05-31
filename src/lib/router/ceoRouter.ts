@@ -1,11 +1,15 @@
 /**
- * CEO Router (rule-based, no AI).
+ * CEO Router (rule-based, no AI) + Hybrid CEO Router (v1.1).
  *
  * Pure deterministic function that decides which specialist agent should
  * handle an incoming WhatsApp message. Reads only the inputs it is given —
  * no I/O, no LLM, no DB. Designed to run in < 50 ms inside the n8n Code Node.
  *
- * Decision precedence (Requirements 2.1 - 2.13):
+ * Decision precedence (Requirements 2.1 - 2.13, 21.6):
+ *   0. Cancel keyword check (Req 21.6): if message matches the cancel-keyword
+ *      pattern, return { agent: 'cancel', reason: 'cancel_keyword' } immediately
+ *      so the caller (n8n CEO Router Code Node) can pop the flow stack and
+ *      resume the next frame or fall through to idle routing.
  *   1. Defensive stale belt: now - last_activity_at > 30 min AND last_intent
  *      !== 'idle' → treat as if last_intent='idle'. The real stale-session
  *      reset happens upstream in Prepare Context (task 2.5); this re-check
@@ -21,13 +25,26 @@
  *      be misclassified.
  *   7. Default fallback → welcome with reason='unknown_no_state'.
  *
+ * v1.1 Hybrid Router (`decideHybrid`):
+ *   Runs v1 `decide(...)` first. If the rule fires confidently (any decision
+ *   other than the default 'unknown_no_state' fallback), or the session is in
+ *   a hot-state that must never see the classifier (HOT_STATES), or
+ *   opts.ruleOnlyRouting is true, the rule decision is returned immediately.
+ *   Otherwise, `lookupOrClassify` is called (cache → Gemini Flash). If the
+ *   classifier confidence is < 0.6, the decision routes to 'clarification'.
+ *
  * @see .kiro/specs/sahayak-multi-agent-router/design.md - §CEO Router pseudocode
+ * @see .kiro/specs/sahayak-multi-agent-router/design.md - §v1.1.1 Hybrid CEO Router
+ * @see .kiro/specs/sahayak-multi-agent-router/design.md - §v1.1.2 Flow Stack and Multi-Intent
  * @see .kiro/specs/sahayak-multi-agent-router/design.md - §Components → Prepare Context
- * @see .kiro/specs/sahayak-multi-agent-router/requirements.md - Requirements 2.1 - 2.13
+ * @see .kiro/specs/sahayak-multi-agent-router/requirements.md - Requirements 2.1 - 2.13, 20.1, 20.5, 20.6, 21.6
  */
 
+import { lookupOrClassify, DbClient, Lang } from './cache';
+import { cancelKeywordMatch, deriveLastIntent, peek, type Frame } from '../flowStack/manager';
+
 export interface RouterDecision {
-  agent: 'complaint' | 'blood' | 'donor' | 'info' | 'welcome';
+  agent: 'complaint' | 'blood' | 'donor' | 'info' | 'welcome' | 'cancel';
   reason: string;
   /** Ordered list of rule names evaluated; last entry is the matched rule. */
   rulesEvaluated: string[];
@@ -169,6 +186,15 @@ export function decide(
     ? new Date(session.last_activity_at).getTime()
     : 0;
 
+  // Rule 0: cancel keyword check — MUST run before all other rules (Req 21.6).
+  // If the message matches the cancel-keyword pattern, return immediately so the
+  // caller (n8n CEO Router Code Node) can pop the flow stack and resume the next
+  // frame or fall through to idle routing.
+  rulesEvaluated.push('cancel_keyword');
+  if (cancelKeywordMatch(text)) {
+    return { agent: 'cancel', reason: 'cancel_keyword', rulesEvaluated };
+  }
+
   // Rule 1: defensive stale belt — never throws (Req 1.6, Req 2.x defensive)
   rulesEvaluated.push('stale_belt');
   if (
@@ -229,4 +255,192 @@ export function decide(
   // Rule 7: default fallback (Req 2.12 default; Reliability NFR)
   rulesEvaluated.push('default_fallback');
   return { agent: 'welcome', reason: 'unknown_no_state', rulesEvaluated };
+}
+
+// ─── v1.1 Hybrid CEO Router ───────────────────────────────────────────────────
+
+/**
+ * Hot-state bypass list (Req 20.6, Design §v1.1.1).
+ *
+ * When `session.last_intent` is one of these values the classifier MUST NOT be
+ * invoked — the v1 rule decision is returned immediately. These are high-stakes
+ * states where ambiguity is impossible and latency is critical.
+ */
+export const HOT_STATES: ReadonlySet<string> = new Set([
+  'donor_pending_response',
+  'seeker_confirming',
+  'complaint_confirming',
+  'donor_confirming',
+]);
+
+/**
+ * Extended decision type returned by `decideHybrid`.
+ *
+ * Adds `classifierUsed` and `confidence` fields required by Req 20.7 so the
+ * caller can write them to `routing_decisions`. When the rule path fires,
+ * `classifierUsed` is `false` and `confidence` is `1` (fully confident).
+ * When the clarification path fires, `agent` is `'clarification'`.
+ */
+export interface HybridRouterDecision extends RouterDecision {
+  /** Extended agent set — adds 'clarification' for the low-confidence path. */
+  agent: RouterDecision['agent'] | 'clarification';
+  /** Whether the Gemini Flash classifier was consulted (Req 20.7). */
+  classifierUsed: boolean;
+  /** Classifier confidence in [0, 1]; 1 when rule-only path fires (Req 20.7). */
+  confidence: number;
+  /** Classifier latency in ms; 0 when rule-only path fires (Req 20.8). */
+  classifierLatencyMs: number;
+  /** Classifier token cost; 0 when rule-only path fires (Req 20.8). */
+  classifierTokens: number;
+  /** Whether the decision was served from the classifier cache (Req 20.4). */
+  fromCache: boolean;
+}
+
+/**
+ * Options for `decideHybrid`.
+ */
+export interface DecideHybridOpts {
+  /**
+   * When `true`, skip the classifier entirely and return the v1 rule decision
+   * regardless of confidence. Used by BudgetGuard (Req 30.4) and circuit
+   * breakers (Req 29.3) when the classifier is unavailable or the session has
+   * exhausted its token budget.
+   */
+  ruleOnlyRouting?: boolean;
+}
+
+/**
+ * Hybrid CEO Router — v1.1 entry point (Req 20.1, Design §v1.1.1).
+ *
+ * Algorithm:
+ *   1. Run v1 `decide(session, message, now)` first (Req 20.1).
+ *   2. If the rule fired confidently (reason !== 'unknown_no_state')
+ *      OR `session.last_intent` is in HOT_STATES (Req 20.6)
+ *      OR `opts.ruleOnlyRouting === true` (Req 29.3, 30.4)
+ *      → return the rule decision immediately with `classifierUsed: false`.
+ *   3. Otherwise call `lookupOrClassify(message.text, language, traceId, db)`
+ *      (cache hit → no Gemini call; miss → Gemini Flash + write-through).
+ *   4. If `confidence < 0.6` (Req 20.5) → return `{ agent: 'clarification', ... }`.
+ *   5. Else return the classifier decision.
+ *
+ * The v1 `decide(...)` export is preserved unchanged for backward compatibility.
+ *
+ * @param session  Session row (same shape as `decide`).
+ * @param message  Message inputs (same shape as `decide`).
+ * @param opts     Optional routing overrides.
+ * @param db       Injectable pg-style DB client for `lookupOrClassify`. When
+ *                 omitted (e.g., in tests that only exercise the rule path),
+ *                 the classifier path will throw — callers that may reach the
+ *                 classifier MUST supply a db client.
+ * @param now      Injectable clock for deterministic tests (defaults to `new Date()`).
+ */
+export async function decideHybrid(
+  session: SessionInput,
+  message: MessageInput,
+  opts: DecideHybridOpts = {},
+  db?: DbClient,
+  now: Date = new Date(),
+): Promise<HybridRouterDecision> {
+  // Step 1: run v1 rule-based router.
+  const ruleDecision = decide(session, message, now);
+
+  // Step 1a: cancel keyword path (Req 21.6) — if decide() returned 'cancel',
+  // the message matched the cancel-keyword pattern. Return immediately with
+  // classifierUsed:false and confidence:1 so the caller can pop the flow stack.
+  if (ruleDecision.agent === 'cancel') {
+    return {
+      ...ruleDecision,
+      classifierUsed: false,
+      confidence: 1,
+      classifierLatencyMs: 0,
+      classifierTokens: 0,
+      fromCache: false,
+    };
+  }
+
+  // Step 2a: hot-state bypass — classifier must never see these states (Req 20.6).
+  const lastIntent = session?.last_intent ?? 'idle';
+  if (HOT_STATES.has(lastIntent)) {
+    return {
+      ...ruleDecision,
+      classifierUsed: false,
+      confidence: 1,
+      classifierLatencyMs: 0,
+      classifierTokens: 0,
+      fromCache: false,
+    };
+  }
+
+  // Step 2b: rule fired confidently — any reason other than the default fallback.
+  const ruleWasConfident = ruleDecision.reason !== 'unknown_no_state';
+  if (ruleWasConfident) {
+    return {
+      ...ruleDecision,
+      classifierUsed: false,
+      confidence: 1,
+      classifierLatencyMs: 0,
+      classifierTokens: 0,
+      fromCache: false,
+    };
+  }
+
+  // Step 2c: caller requested rule-only routing (BudgetGuard / circuit breaker).
+  if (opts.ruleOnlyRouting === true) {
+    return {
+      ...ruleDecision,
+      classifierUsed: false,
+      confidence: 1,
+      classifierLatencyMs: 0,
+      classifierTokens: 0,
+      fromCache: false,
+    };
+  }
+
+  // Step 3: no confident rule fired — call the classifier (cache → Gemini Flash).
+  if (!db) {
+    throw new Error(
+      'decideHybrid: db client is required when the classifier path may be reached',
+    );
+  }
+
+  const language: Lang = (session?.language as Lang) ?? 'en';
+  // traceId is not available on SessionInput; callers that need trace correlation
+  // should pass it via a wrapper. We use a stable placeholder here so the cache
+  // key (which is keyed on the message hash, not the traceId) is unaffected.
+  const traceId = 'hybrid-router';
+
+  const classifierResult = await lookupOrClassify(
+    message.text,
+    language,
+    traceId,
+    db,
+  );
+
+  // Step 4: low-confidence → clarification micro-agent (Req 20.5).
+  if (classifierResult.confidence < 0.6) {
+    return {
+      agent: 'clarification',
+      reason: 'low_confidence',
+      rulesEvaluated: [...ruleDecision.rulesEvaluated, 'classifier_low_confidence'],
+      classifierUsed: true,
+      confidence: classifierResult.confidence,
+      classifierLatencyMs: 0, // latency not surfaced by lookupOrClassify; callers use agent_invocations
+      classifierTokens: 0,
+      fromCache: classifierResult.fromCache,
+    };
+  }
+
+  // Step 5: classifier confident — return its decision.
+  const classifierAgent = classifierResult.agent as RouterDecision['agent'];
+  return {
+    agent: classifierAgent,
+    reason: classifierResult.rationale,
+    rulesEvaluated: [...ruleDecision.rulesEvaluated, 'classifier'],
+    intent_hint: classifierResult.secondary_agent ?? undefined,
+    classifierUsed: true,
+    confidence: classifierResult.confidence,
+    classifierLatencyMs: 0,
+    classifierTokens: 0,
+    fromCache: classifierResult.fromCache,
+  };
 }

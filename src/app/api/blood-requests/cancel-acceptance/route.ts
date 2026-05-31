@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
+import { withIdempotency } from '@/lib/idempotency/middleware';
 
 /**
  * POST /api/blood-requests/cancel-acceptance
@@ -7,13 +8,29 @@ import { Pool } from 'pg';
  * Called when a confirmed donor cancels their acceptance OR the seeker
  * rejects a donor within the 15-min confirmation window.
  *
- * Uses the same advisory-lock pattern as donor-respond for race safety.
- * Under the lock, the route:
- *   1. Marks the donor's response as 'declined'
+ * v1.1 (task 29.2): Replaced the v1 advisory-lock standby-promotion path with
+ * a `SELECT ... FOR UPDATE SKIP LOCKED` CTE pattern per Design §v1.1.12 / Req 31.6.
+ *
+ * The SKIP LOCKED approach prevents double-promotion under concurrent cancellations:
+ * each concurrent transaction locks a DIFFERENT standby row (the second transaction
+ * skips the already-locked row and takes the next one). This is safer than the v1
+ * advisory lock because:
+ *   - The advisory lock serialised ALL cancellations for the same request, creating
+ *     a bottleneck and a 5-second timeout risk under high concurrency.
+ *   - SKIP LOCKED lets concurrent cancellations proceed in parallel, each promoting
+ *     a distinct standby donor, which is the correct behaviour when multiple donors
+ *     cancel simultaneously (e.g., two confirmed donors cancel at the same time for
+ *     a request with two standby donors).
+ *
+ * Under the transaction, the route:
+ *   1. Marks the donor's response as 'declined' (SELECT FOR UPDATE to lock the row)
  *   2. Decrements donors_confirmed_count
- *   3. Finds the highest-priority standby donor (earliest responded_at)
+ *   3. Atomically finds + locks the highest-priority standby via FOR UPDATE SKIP LOCKED CTE
  *   4. Promotes them to 'accepted' and increments confirmed / decrements standby
  *   5. Fires a WhatsApp notification to the promoted donor
+ *
+ * Wrapped with idempotency middleware (Req 28.1–28.4): an optional
+ * `Idempotency-Key` header dedupes retries for 24 hours.
  *
  * Auth: X-N8N-SECRET header must match N8N_WEBHOOK_SECRET env var.
  *
@@ -26,9 +43,8 @@ import { Pool } from 'pg';
  *
  * Response:
  * - Success: { ok: true, data: { cancelled_donor_id, promoted_donor_id?, promoted_donor_phone? } }
- * - Lock timeout: { ok: false, error: "LOCK_TIMEOUT", message: "...", retryAfterMs: 250 } (503)
  *
- * Requirements: 6.6 — Design §Property 8
+ * Requirements: 6.6, 28.1–28.4, 31.6 — Design §Property 8, §v1.1.12
  */
 
 const pool = new Pool({
@@ -36,6 +52,8 @@ const pool = new Pool({
 });
 
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || '';
+
+const ENDPOINT = '/api/blood-requests/cancel-acceptance';
 
 /**
  * Fire-and-forget WhatsApp notification to the promoted donor.
@@ -91,6 +109,15 @@ async function notifyPromotedDonor(
 }
 
 export async function POST(request: NextRequest) {
+  return withIdempotency(
+    request,
+    ENDPOINT,
+    () => handleCancelAcceptance(request),
+    pool,
+  );
+}
+
+async function handleCancelAcceptance(request: NextRequest): Promise<Response> {
   try {
     // ─── Auth: verify n8n webhook secret ───
     const secret = request.headers.get('x-n8n-secret');
@@ -129,19 +156,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ─── Advisory-lock transaction for race-safe standby promotion ───
+    // ─── Transaction with FOR UPDATE SKIP LOCKED standby promotion (v1.1, Req 31.6) ───
+    //
+    // No advisory lock is acquired. Instead:
+    //   - The cancelled donor's response row is locked with SELECT FOR UPDATE before
+    //     the UPDATE, preventing a concurrent cancel of the same donor from racing.
+    //   - The standby promotion uses a CTE with FOR UPDATE SKIP LOCKED so that two
+    //     concurrent cancellations each grab a DIFFERENT standby row atomically.
+    //     If no unlocked standby exists (all are being promoted by concurrent txns),
+    //     the CTE returns zero rows and no promotion happens — correct behaviour.
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query("SET LOCAL lock_timeout = '5s'");
 
-      // Acquire advisory lock keyed on blood_request_id (same lock as donor-respond)
-      await client.query(
-        'SELECT pg_advisory_xact_lock(hashtext($1::text))',
-        [blood_request_id]
-      );
-
-      // Step 2: Mark the donor's response as 'declined'
+      // Step 1: Lock + mark the donor's response as 'declined'.
+      // The SELECT FOR UPDATE ensures two concurrent cancels of the same donor
+      // don't both see 'accepted' and both try to decrement.
       const cancelResult = await client.query(
         `UPDATE blood_donor_responses
          SET response_status = 'declined'
@@ -160,7 +190,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Step 3: Decrement donors_confirmed_count
+      // Step 2: Decrement donors_confirmed_count.
       await client.query(
         `UPDATE blood_requests
          SET donors_confirmed_count = donors_confirmed_count - 1
@@ -168,34 +198,42 @@ export async function POST(request: NextRequest) {
         [blood_request_id]
       );
 
-      // Step 4: Find highest-priority standby donor (earliest responded_at = FIFO)
-      const standbyResult = await client.query(
-        `SELECT donor_id
-         FROM blood_donor_responses
-         WHERE blood_request_id = $1
-           AND response_status = 'standby'
-         ORDER BY responded_at ASC
-         LIMIT 1`,
+      // Step 3 + 4: Atomically find and promote the highest-priority standby donor
+      // using FOR UPDATE SKIP LOCKED (v1.1, Req 31.6 / Design §v1.1.12).
+      //
+      // The CTE selects the single highest-priority standby row (earliest responded_at
+      // = FIFO, matching the v1 ordering) and locks it with SKIP LOCKED so that a
+      // concurrent cancellation transaction skips this row and picks the next one.
+      // The outer UPDATE promotes the locked row to 'accepted' in the same statement.
+      //
+      // If no unlocked standby row exists (all standbys are already being promoted by
+      // concurrent transactions), the CTE returns zero rows and no promotion occurs —
+      // which is the correct outcome (no double-promotion).
+      const promoteResult = await client.query(
+        `WITH candidate AS (
+           SELECT id, donor_id
+           FROM blood_donor_responses
+           WHERE blood_request_id = $1
+             AND response_status = 'standby'
+           ORDER BY responded_at ASC
+           LIMIT 1
+           FOR UPDATE SKIP LOCKED
+         )
+         UPDATE blood_donor_responses bdr
+         SET response_status = 'accepted'
+         FROM candidate
+         WHERE bdr.id = candidate.id
+         RETURNING candidate.donor_id AS promoted_donor_id`,
         [blood_request_id]
       );
 
       let promotedDonorId: string | null = null;
       let promotedDonorPhone: string | null = null;
 
-      if (standbyResult.rows.length > 0) {
-        promotedDonorId = standbyResult.rows[0].donor_id;
+      if (promoteResult.rows.length > 0) {
+        promotedDonorId = promoteResult.rows[0].promoted_donor_id;
 
-        // Step 5: Promote standby donor to accepted
-        await client.query(
-          `UPDATE blood_donor_responses
-           SET response_status = 'accepted'
-           WHERE donor_id = $1
-             AND blood_request_id = $2
-             AND response_status = 'standby'`,
-          [promotedDonorId, blood_request_id]
-        );
-
-        // Step 6: Update blood_requests counters (increment confirmed, decrement standby)
+        // Step 5: Update blood_requests counters (increment confirmed, decrement standby).
         await client.query(
           `UPDATE blood_requests
            SET donors_confirmed_count = donors_confirmed_count + 1,
@@ -204,7 +242,7 @@ export async function POST(request: NextRequest) {
           [blood_request_id]
         );
 
-        // Fetch promoted donor's phone for notification
+        // Fetch promoted donor's phone for notification.
         const donorResult = await client.query(
           `SELECT phone FROM blood_donors WHERE id = $1`,
           [promotedDonorId]
@@ -215,15 +253,15 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Step 7: COMMIT
+      // Step 6: COMMIT
       await client.query('COMMIT');
 
-      // Step 8: Fire-and-forget WhatsApp notification to promoted donor
+      // Step 7: Fire-and-forget WhatsApp notification to promoted donor.
       if (promotedDonorId && promotedDonorPhone) {
         notifyPromotedDonor(promotedDonorId, promotedDonorPhone, blood_request_id).catch(() => {});
       }
 
-      // Build response
+      // Build response — same envelope shape as v1.
       const data: {
         cancelled_donor_id: string;
         promoted_donor_id?: string;
@@ -241,22 +279,8 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({ ok: true, data });
     } catch (err: unknown) {
-      // Rollback on any error
+      // Rollback on any error.
       await client.query('ROLLBACK').catch(() => {});
-
-      // Check for lock timeout (Postgres error code 55P03)
-      const pgError = err as { code?: string };
-      if (pgError.code === '55P03') {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: 'LOCK_TIMEOUT',
-            message: 'Request abhi process ho raha hai, ek minute mein try karein.',
-            retryAfterMs: 250,
-          },
-          { status: 503 }
-        );
-      }
 
       console.error('[blood-requests/cancel-acceptance] Transaction error:', err);
       return NextResponse.json(
