@@ -96,9 +96,11 @@ for (const it of items) {
   }
 }
 
-// Defensive: if nothing parsed, still emit a single empty item so downstream
-// nodes fail gracefully rather than the workflow stopping with 0 items.
+// If nothing parsed (e.g. WhatsApp delivery/read status callbacks, which carry
+// no user message), return an EMPTY array. n8n then stops this branch cleanly —
+// downstream nodes (Upsert Session etc.) are NOT executed, so a status callback
+// no longer produces a spurious "session_id is required" 400 error.
 if (out.length === 0) {
-  return [{ json: { phone: '', message: { text: '', original_text: '' }, trace_id: uuid7(), skip: true } }];
+  return [];
 }
 return out;
