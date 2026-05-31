@@ -225,7 +225,10 @@ async function logViolation(fields) {
 const item = $input.first().json;
 const session = item.session || {};
 const lang = normalizeLang(session.language || 'hi');
-const originalReply = item.reply || '';
+// AI Agent nodes emit their text on `$json.output`; code-node branches and the
+// Gemini-substitute set `$json.reply`. Read both so the guardrail actually
+// inspects the AI agent's real reply (not an empty string).
+const originalReply = item.reply || item.output || '';
 
 const result = runGuardrail(originalReply, lang, DEFAULT_MAX_CHARS);
 
@@ -245,7 +248,10 @@ if (result.action !== 'pass') {
 return [{
   json: {
     ...item,
+    // Write the guardrailed text to BOTH fields so the Send Reply node (which
+    // reads `$json.reply || $json.output`) always sends the checked version.
     reply: result.reply,
+    output: result.reply,
     guardrail_action: result.action,
     guardrail_violations: result.violations,
     guardrail_blocked: result.action === 'blocked',
