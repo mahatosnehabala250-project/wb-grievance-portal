@@ -52,8 +52,24 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
-    console.log('[cron/data-retention] done:', JSON.stringify(data));
-    return NextResponse.json({ ok: true, data });
+
+    // Phase 2: bound the rate-limit event log. Rows older than the largest
+    // bucket window (blood_request_create = 24h) are always expired and can
+    // never be counted again, so they are safe to purge. Best-effort: a
+    // failure here must not fail the DPDP retention run.
+    let rateLimitPurged: number | null = null;
+    try {
+      const { count } = await supabase
+        .from('rate_limit_events')
+        .delete({ count: 'exact' })
+        .lt('created_at', new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString());
+      rateLimitPurged = count ?? null;
+    } catch (purgeErr) {
+      console.error('[cron/data-retention] rate_limit_events purge failed (non-fatal):', purgeErr);
+    }
+
+    console.log('[cron/data-retention] done:', JSON.stringify({ ...(data as object ?? {}), rateLimitPurged }));
+    return NextResponse.json({ ok: true, data: { ...(data as object ?? {}), rate_limit_events_purged: rateLimitPurged } });
   } catch (err) {
     console.error('[cron/data-retention] Error:', err);
     return NextResponse.json({ ok: false, error: 'Internal server error' }, { status: 500 });
