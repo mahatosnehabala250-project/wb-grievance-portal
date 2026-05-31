@@ -6,10 +6,18 @@
       "name": "WhatsApp Trigger",
       "type": "n8n-nodes-base.whatsAppTrigger",
       "typeVersion": 1,
-      "position": [250, 400],
-      "parameters": { "event": "messages" },
+      "position": [
+        250,
+        400
+      ],
+      "parameters": {
+        "event": "messages"
+      },
       "credentials": {
-        "whatsAppTriggerApi": { "id": "TODO_WHATSAPP_CRED_ID", "name": "WhatsApp Business Cloud API" }
+        "whatsAppTriggerApi": {
+          "id": "TODO_WHATSAPP_CRED_ID",
+          "name": "WhatsApp Business Cloud API"
+        }
       },
       "webhookId": "js01v2-trigger"
     },
@@ -18,7 +26,10 @@
       "name": "Parse Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [470, 400],
+      "position": [
+        470,
+        400
+      ],
       "parameters": {
         "jsCode": "// Parse Message Code Node — FIRST node in JS-01v2 (Design v1.1.8 / Req 27.1, 27.3).\n// Extracts phone + text from the WhatsApp webhook payload and assigns ONE trace_id\n// (UUIDv7) per inbound message, propagated on $json.trace_id so every downstream node\n// (Upsert Session, Prepare Context, CEO Router, Logger) and every outbound Vercel /api\n// call (X-Trace-Id header) carries it.\n//\n// Self-contained (n8n sandbox: no import/require). UUIDv7 logic is ported inline from\n// src/lib/trace/uuid7.ts; inbound-reuse mirrors src/lib/trace/extract.ts: if the upstream\n// webhook already supplied a valid UUIDv7 trace id, reuse it so the trace stays continuous,\n// otherwise mint a fresh one.\n\nconst UUID7_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\n\nfunction isUuid7(s) {\n  return typeof s === 'string' && UUID7_RE.test(s);\n}\n\nfunction randomBytes(out) {\n  const g = (typeof globalThis !== 'undefined') ? globalThis : {};\n  if (g.crypto && typeof g.crypto.getRandomValues === 'function') {\n    g.crypto.getRandomValues(out);\n    return out;\n  }\n  for (let i = 0; i < out.length; i++) out[i] = Math.floor(Math.random() * 256);\n  return out;\n}\n\nconst HEX = [];\nfor (let i = 0; i < 256; i++) HEX.push((i + 256).toString(16).slice(1));\n\nfunction uuid7(now) {\n  if (now == null) now = Date.now();\n  const b = new Uint8Array(16);\n  const ts = Math.max(0, Math.floor(now));\n  b[0] = Math.floor(ts / 1099511627776) & 255;\n  b[1] = Math.floor(ts / 4294967296) & 255;\n  b[2] = Math.floor(ts / 16777216) & 255;\n  b[3] = Math.floor(ts / 65536) & 255;\n  b[4] = Math.floor(ts / 256) & 255;\n  b[5] = ts & 255;\n  const rand = randomBytes(new Uint8Array(10));\n  for (let i = 0; i < 10; i++) b[6 + i] = rand[i];\n  b[6] = (b[6] & 15) | 112;\n  b[8] = (b[8] & 63) | 128;\n  return (\n    HEX[b[0]] + HEX[b[1]] + HEX[b[2]] + HEX[b[3]] + '-' +\n    HEX[b[4]] + HEX[b[5]] + '-' +\n    HEX[b[6]] + HEX[b[7]] + '-' +\n    HEX[b[8]] + HEX[b[9]] + '-' +\n    HEX[b[10]] + HEX[b[11]] + HEX[b[12]] + HEX[b[13]] + HEX[b[14]] + HEX[b[15]]\n  );\n}\n\n// Read an inbound trace id case-insensitively from headers / body (extract.ts semantics).\nfunction inboundTraceId(m) {\n  const out = [];\n  const headers = m.headers || m.header || (m.body && m.body.headers);\n  if (headers && typeof headers === 'object') {\n    for (const k of Object.keys(headers)) {\n      if (k.toLowerCase() === 'x-trace-id') out.push(headers[k]);\n    }\n  }\n  out.push(m.trace_id, m.body && m.body.trace_id);\n  for (const c of out) {\n    const v = (c == null) ? '' : String(c).trim();\n    if (isUuid7(v)) return v;\n  }\n  return null;\n}\n\nconst msg = $input.first().json;\nconst body = msg.body || msg.entry?.[0]?.changes?.[0]?.value?.messages?.[0] || {};\nconst rawText = body.text?.body || body.body || body.button?.text || '';\nconst phone = body.from || msg.from || '';\nconst trace_id = inboundTraceId(msg) || uuid7();\n\nreturn [{ json: { phone, message: { text: (rawText || '').toLowerCase(), original_text: rawText }, trace_id, raw: msg } }];"
       }
@@ -28,16 +39,28 @@
       "name": "Upsert Session",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [690, 400],
+      "position": [
+        690,
+        400
+      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/sessions/save",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Content-Type", "value": "application/json" },
-            { "name": "X-N8N-SECRET", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "X-Trace-Id", "value": "={{ $json.trace_id }}" }
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-SECRET",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "X-Trace-Id",
+              "value": "={{ $json.trace_id }}"
+            }
           ]
         },
         "sendBody": true,
@@ -51,7 +74,10 @@
       "name": "Prepare Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [910, 400],
+      "position": [
+        910,
+        400
+      ],
       "parameters": {
         "jsCode": "// PLACEHOLDER — injected at deploy time from n8n-workflows/code-nodes/prepare-context.js\n// (deploy-workflows-v2.js CODE_NODE_INJECTIONS map: 'Prepare Context' -> prepare-context.js)\nreturn [$input.first()];"
       }
@@ -61,7 +87,10 @@
       "name": "CEO Router",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1130, 400],
+      "position": [
+        1130,
+        400
+      ],
       "parameters": {
         "jsCode": "// PLACEHOLDER — injected at deploy time from n8n-workflows/code-nodes/ceo-router.js\n// (deploy-workflows-v2.js CODE_NODE_INJECTIONS map: 'CEO Router' -> ceo-router.js)\n// Output contract consumed by Switch Node: $json.agent in {complaint,blood,donor,info,welcome}\nreturn [{ json: { ...$json, agent: 'welcome', reason: 'placeholder' } }];"
       }
@@ -70,31 +99,176 @@
       "id": "js01v2-006",
       "name": "Switch",
       "type": "n8n-nodes-base.switch",
-      "typeVersion": 3,
-      "position": [1360, 400],
+      "typeVersion": 3.4,
+      "position": [
+        1360,
+        400
+      ],
       "parameters": {
-        "dataType": "string",
-        "value1": "={{ $json.agent }}",
+        "mode": "rules",
         "rules": {
-          "rules": [
-            { "value2": "complaint", "outputKey": "complaint" },
-            { "value2": "blood", "outputKey": "blood" },
-            { "value2": "donor", "outputKey": "donor" },
-            { "value2": "info", "outputKey": "info" },
-            { "value2": "welcome", "outputKey": "welcome" },
-            { "value2": "clarification", "outputKey": "clarification" }
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cond-complaint",
+                    "leftValue": "={{ .agent }}",
+                    "rightValue": "complaint",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "complaint"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cond-blood",
+                    "leftValue": "={{ .agent }}",
+                    "rightValue": "blood",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "blood"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cond-donor",
+                    "leftValue": "={{ .agent }}",
+                    "rightValue": "donor",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "donor"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cond-info",
+                    "leftValue": "={{ .agent }}",
+                    "rightValue": "info",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "info"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cond-welcome",
+                    "leftValue": "={{ .agent }}",
+                    "rightValue": "welcome",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "welcome"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cond-clarification",
+                    "leftValue": "={{ .agent }}",
+                    "rightValue": "clarification",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "clarification"
+            }
           ]
         },
-        "fallbackOutput": "extra"
+        "options": {
+          "fallbackOutput": "extra"
+        }
       },
-      "notes": "Only branching point in the workflow (Design \u00a7JS-01v2 Node Map). Routes on $json.agent from CEO Router. Default (fallback) output -> Fallback Code (Reliability NFR). Complaint/Blood/Donor branches now flow through Gemini Check before the AI Agent (task 27.4). clarification branch added (task 18.4, Design \u00a7v1.1.1, Req 20.5)."
+      "notes": "Only branching point in the workflow (Design §JS-01v2 Node Map). Routes on $json.agent from CEO Router. Default (fallback) output -> Fallback Code (Reliability NFR). Complaint/Blood/Donor branches now flow through Gemini Check before the AI Agent (task 27.4). clarification branch added (task 18.4, Design §v1.1.1, Req 20.5)."
     },
     {
       "id": "js01v2-gemini-check-complaint",
       "name": "Gemini Check - Complaint",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1560, 0],
+      "position": [
+        1560,
+        0
+      ],
       "parameters": {
         "jsCode": "// PLACEHOLDER — injected at deploy time from n8n-workflows/code-nodes/gemini-substitute.js\n// (deploy-workflows-v2.js CODE_NODE_INJECTIONS map: 'Gemini Check - Complaint' -> gemini-substitute.js)\n// Task 27.4 — Design §v1.1.10 Circuit Breakers (Req 29.2, 29.3)\n// Reads circuit_state.gemini; if open, sets $json.gemini_open=true and $json.reply=<template>.\n// The downstream IF node routes to Send Reply (open) or Complaint Agent (closed).\nreturn [{ json: { ...$json, gemini_open: false } }];"
       },
@@ -105,7 +279,10 @@
       "name": "Gemini Check - Blood",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1560, 360],
+      "position": [
+        1560,
+        360
+      ],
       "parameters": {
         "jsCode": "// PLACEHOLDER — injected at deploy time from n8n-workflows/code-nodes/gemini-substitute.js\n// (deploy-workflows-v2.js CODE_NODE_INJECTIONS map: 'Gemini Check - Blood' -> gemini-substitute.js)\n// Task 27.4 — Design §v1.1.10 Circuit Breakers (Req 29.2, 29.3)\nreturn [{ json: { ...$json, gemini_open: false } }];"
       },
@@ -116,7 +293,10 @@
       "name": "Gemini Check - Donor",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1560, 720],
+      "position": [
+        1560,
+        720
+      ],
       "parameters": {
         "jsCode": "// PLACEHOLDER — injected at deploy time from n8n-workflows/code-nodes/gemini-substitute.js\n// (deploy-workflows-v2.js CODE_NODE_INJECTIONS map: 'Gemini Check - Donor' -> gemini-substitute.js)\n// Task 27.4 — Design §v1.1.10 Circuit Breakers (Req 29.2, 29.3)\nreturn [{ json: { ...$json, gemini_open: false } }];"
       },
@@ -127,16 +307,26 @@
       "name": "IF Gemini Open - Complaint",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1620, 0],
+      "position": [
+        1620,
+        0
+      ],
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "gemini-open-complaint",
               "leftValue": "={{ $json.gemini_open }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "equals" }
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
@@ -150,16 +340,26 @@
       "name": "IF Gemini Open - Blood",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1620, 360],
+      "position": [
+        1620,
+        360
+      ],
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "gemini-open-blood",
               "leftValue": "={{ $json.gemini_open }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "equals" }
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
@@ -173,16 +373,26 @@
       "name": "IF Gemini Open - Donor",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1620, 720],
+      "position": [
+        1620,
+        720
+      ],
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "gemini-open-donor",
               "leftValue": "={{ $json.gemini_open }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "equals" }
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
@@ -196,7 +406,10 @@
       "name": "Complaint Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
-      "position": [1700, 0],
+      "position": [
+        1700,
+        0
+      ],
       "parameters": {
         "promptType": "define",
         "text": "={{ $json.message.original_text }}",
@@ -211,7 +424,10 @@
       "name": "Blood Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
-      "position": [1700, 360],
+      "position": [
+        1700,
+        360
+      ],
       "parameters": {
         "promptType": "define",
         "text": "={{ $json.message.original_text }}",
@@ -226,7 +442,10 @@
       "name": "Donor Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
-      "position": [1700, 720],
+      "position": [
+        1700,
+        720
+      ],
       "parameters": {
         "promptType": "define",
         "text": "={{ $json.message.original_text }}",
@@ -241,7 +460,10 @@
       "name": "Status Code",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1700, 1080],
+      "position": [
+        1700,
+        1080
+      ],
       "parameters": {
         "jsCode": "// PLACEHOLDER — injected at deploy time from n8n-workflows/code-nodes/status-info.js\n// (deploy-workflows-v2.js CODE_NODE_INJECTIONS map: 'Status Code' -> status-info.js)\n// Also receives INFO_PROMPT + SCHEME_SUMMARIES prepended at deploy time.\nconst text = $json.message?.original_text || $json.message?.text || '';\nreturn [{ json: { ...$json, reply: `Status check for: ${text}` } }];"
       }
@@ -251,9 +473,12 @@
       "name": "Welcome Code",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1700, 1240],
+      "position": [
+        1700,
+        1240
+      ],
       "parameters": {
-        "jsCode": "// Welcome Code Node — greeting response\nconst reply = '\ud83d\ude4f \u09a8\u09ae\u09b8\u09cd\u0995\u09be\u09b0! \u0986\u09ae\u09bf \u09b8\u09b9\u09be\u09df\u0995 (Sahayak)\u0964\\n\\nI can help you with:\\n1\ufe0f\u20e3 File a complaint (\u0985\u09ad\u09bf\u09af\u09cb\u0997)\\n2\ufe0f\u20e3 Request blood (\u09b0\u0995\u09cd\u09a4\u09c7\u09b0 \u0985\u09a8\u09c1\u09b0\u09cb\u09a7)\\n3\ufe0f\u20e3 Register as donor (\u09a6\u09be\u09a4\u09be \u09a8\u09bf\u09ac\u09a8\u09cd\u09a7\u09a8)\\n4\ufe0f\u20e3 Check complaint status\\n5\ufe0f\u20e3 Scheme information\\n\\nPlease type your need or say Hi!';\nreturn [{ json: { ...$json, reply } }];"
+        "jsCode": "// Welcome Code Node — greeting response\nconst reply = '🙏 নমস্কার! আমি সহায়ক (Sahayak)।\\n\\nI can help you with:\\n1️⃣ File a complaint (অভিযোগ)\\n2️⃣ Request blood (রক্তের অনুরোধ)\\n3️⃣ Register as donor (দাতা নিবন্ধন)\\n4️⃣ Check complaint status\\n5️⃣ Scheme information\\n\\nPlease type your need or say Hi!';\nreturn [{ json: { ...$json, reply } }];"
       }
     },
     {
@@ -261,17 +486,23 @@
       "name": "Fallback Code",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1700, 1400],
+      "position": [
+        1700,
+        1400
+      ],
       "parameters": {
-        "jsCode": "// Fallback Code Node — Switch DEFAULT branch (Reliability NFR).\n// Catches any CEO Router output that does not match the configured agents.\n// Should never fire if Property 1 (CEO Router determinism) holds.\nconst reply = 'I\\'m sorry, I didn\\'t understand that. Please try again or type \"Hi\" to see available options.\\n\\n\u0915\u094d\u0937\u092e\u093e \u0915\u0930\u0947\u0902, \u092e\u0948\u0902 \u0938\u092e\u091d \u0928\u0939\u0940\u0902 \u092a\u093e\u092f\u093e\u0964 \u0915\u0943\u092a\u092f\u093e \"Hi\" \u0932\u093f\u0916\u0947\u0902\u0964';\nreturn [{ json: { ...$json, reply, reason: 'switch_default_fallback' } }];"
+        "jsCode": "// Fallback Code Node — Switch DEFAULT branch (Reliability NFR).\n// Catches any CEO Router output that does not match the configured agents.\n// Should never fire if Property 1 (CEO Router determinism) holds.\nconst reply = 'I\\'m sorry, I didn\\'t understand that. Please try again or type \"Hi\" to see available options.\\n\\nक्षमा करें, मैं समझ नहीं पाया। कृपया \"Hi\" लिखें।';\nreturn [{ json: { ...$json, reply, reason: 'switch_default_fallback' } }];"
       }
     },
     {
-      "id": "js01v2-013",
+      "id": "js01v2-clarification",
       "name": "Clarification",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1700, 1560],
+      "position": [
+        1700,
+        1560
+      ],
       "parameters": {
         "jsCode": "// PLACEHOLDER — injected at deploy time from n8n-workflows/code-nodes/clarification-agent.js\n// (deploy-workflows-v2.js CODE_NODE_INJECTIONS map: 'Clarification' -> clarification-agent.js)\n// Clarification Micro-Agent (Design §v1.1.1, Req 20.5): runs when the Switch\n// routes agent='clarification' (decideHybrid confidence < 0.6). Sends a\n// localized WhatsApp interactive list and writes a routing_decisions row\n// (reason='clarification_*'). Returns [{ json: { ...$json, reply, interactive } }].\nreturn [{ json: { ...$json, reply: $json.reply || 'Please choose an option.', reason: 'clarification_sent' } }];"
       }
@@ -281,7 +512,10 @@
       "name": "Guardrail - Complaint",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1960, 360],
+      "position": [
+        1960,
+        360
+      ],
       "parameters": {
         "jsCode": "// PLACEHOLDER — injected at deploy time from n8n-workflows/code-nodes/guardrail.js\n// (deploy-workflows-v2.js CODE_NODE_INJECTIONS map: 'Guardrail - Complaint' -> guardrail.js)\n// Output Guardrail (Design §v1.1.6, Req 25): checks the Complaint Agent reply,\n// repairs/substitutes as needed, logs non-OK actions to /api/guardrail/log.\nreturn [{ json: { ...$json, guardrail_action: 'pass' } }];"
       },
@@ -292,7 +526,10 @@
       "name": "Guardrail - Blood",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1960, 520],
+      "position": [
+        1960,
+        520
+      ],
       "parameters": {
         "jsCode": "// PLACEHOLDER — injected at deploy time from n8n-workflows/code-nodes/guardrail.js\n// (deploy-workflows-v2.js CODE_NODE_INJECTIONS map: 'Guardrail - Blood' -> guardrail.js)\nreturn [{ json: { ...$json, guardrail_action: 'pass' } }];"
       },
@@ -303,7 +540,10 @@
       "name": "Guardrail - Donor",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1960, 720],
+      "position": [
+        1960,
+        720
+      ],
       "parameters": {
         "jsCode": "// PLACEHOLDER — injected at deploy time from n8n-workflows/code-nodes/guardrail.js\n// (deploy-workflows-v2.js CODE_NODE_INJECTIONS map: 'Guardrail - Donor' -> guardrail.js)\nreturn [{ json: { ...$json, guardrail_action: 'pass' } }];"
       },
@@ -314,13 +554,19 @@
       "name": "Gemini - Complaint",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
-      "position": [1480, 160],
+      "position": [
+        1480,
+        160
+      ],
       "parameters": {
         "modelName": "models/gemini-2.5-flash",
         "options": {}
       },
       "credentials": {
-        "googlePalmApi": { "id": "TODO_GEMINI_CRED_ID", "name": "Google Gemini" }
+        "googlePalmApi": {
+          "id": "TODO_GEMINI_CRED_ID",
+          "name": "Google Gemini"
+        }
       }
     },
     {
@@ -328,13 +574,19 @@
       "name": "Gemini - Blood",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
-      "position": [1480, 520],
+      "position": [
+        1480,
+        520
+      ],
       "parameters": {
         "modelName": "models/gemini-2.5-flash",
         "options": {}
       },
       "credentials": {
-        "googlePalmApi": { "id": "TODO_GEMINI_CRED_ID", "name": "Google Gemini" }
+        "googlePalmApi": {
+          "id": "TODO_GEMINI_CRED_ID",
+          "name": "Google Gemini"
+        }
       }
     },
     {
@@ -342,13 +594,19 @@
       "name": "Gemini - Donor",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
-      "position": [1480, 880],
+      "position": [
+        1480,
+        880
+      ],
       "parameters": {
         "modelName": "models/gemini-2.5-flash",
         "options": {}
       },
       "credentials": {
-        "googlePalmApi": { "id": "TODO_GEMINI_CRED_ID", "name": "Google Gemini" }
+        "googlePalmApi": {
+          "id": "TODO_GEMINI_CRED_ID",
+          "name": "Google Gemini"
+        }
       }
     },
     {
@@ -356,7 +614,10 @@
       "name": "Complaint: ValidateBlock",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [1620, 160],
+      "position": [
+        1620,
+        160
+      ],
       "parameters": {
         "toolDescription": "Verify that a block name exists in the West Bengal administrative hierarchy. Call after the user provides their block name. Send JSON with the block and district.",
         "method": "POST",
@@ -365,9 +626,21 @@
         "specifyHeaders": "keypair",
         "parametersHeaders": {
           "values": [
-            { "name": "Content-Type", "valueProvider": "fieldValue", "value": "application/json" },
-            { "name": "X-N8N-SECRET", "valueProvider": "fieldValue", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "X-Trace-Id", "valueProvider": "fieldValue", "value": "={{ $json.trace_id }}" }
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-SECRET",
+              "valueProvider": "fieldValue",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "X-Trace-Id",
+              "valueProvider": "fieldValue",
+              "value": "={{ $json.trace_id }}"
+            }
           ]
         },
         "sendBody": true,
@@ -379,7 +652,10 @@
       "name": "Complaint: CheckDuplicate",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [1760, 160],
+      "position": [
+        1760,
+        160
+      ],
       "parameters": {
         "toolDescription": "Check if a similar complaint already exists for this phone + category + block. Call before final registration after all fields are collected.",
         "method": "POST",
@@ -388,9 +664,21 @@
         "specifyHeaders": "keypair",
         "parametersHeaders": {
           "values": [
-            { "name": "Content-Type", "valueProvider": "fieldValue", "value": "application/json" },
-            { "name": "X-N8N-SECRET", "valueProvider": "fieldValue", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "X-Trace-Id", "valueProvider": "fieldValue", "value": "={{ $json.trace_id }}" }
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-SECRET",
+              "valueProvider": "fieldValue",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "X-Trace-Id",
+              "valueProvider": "fieldValue",
+              "value": "={{ $json.trace_id }}"
+            }
           ]
         },
         "sendBody": true,
@@ -402,7 +690,10 @@
       "name": "Complaint: RegisterComplaint",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [1900, 160],
+      "position": [
+        1900,
+        160
+      ],
       "parameters": {
         "toolDescription": "Submit the complaint and receive a ticket number (WB-YYYY-XXXXX). Call ONLY after the citizen confirms all details.",
         "method": "POST",
@@ -411,9 +702,21 @@
         "specifyHeaders": "keypair",
         "parametersHeaders": {
           "values": [
-            { "name": "Content-Type", "valueProvider": "fieldValue", "value": "application/json" },
-            { "name": "X-N8N-SECRET", "valueProvider": "fieldValue", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "X-Trace-Id", "valueProvider": "fieldValue", "value": "={{ $json.trace_id }}" }
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-SECRET",
+              "valueProvider": "fieldValue",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "X-Trace-Id",
+              "valueProvider": "fieldValue",
+              "value": "={{ $json.trace_id }}"
+            }
           ]
         },
         "sendBody": true,
@@ -425,7 +728,10 @@
       "name": "Complaint: SaveSessionState",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [2040, 160],
+      "position": [
+        2040,
+        160
+      ],
       "parameters": {
         "toolDescription": "Persist current session state (last_intent, collected_data, language). Call after every turn where you collect or update information.",
         "method": "POST",
@@ -434,9 +740,21 @@
         "specifyHeaders": "keypair",
         "parametersHeaders": {
           "values": [
-            { "name": "Content-Type", "valueProvider": "fieldValue", "value": "application/json" },
-            { "name": "X-N8N-SECRET", "valueProvider": "fieldValue", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "X-Trace-Id", "valueProvider": "fieldValue", "value": "={{ $json.trace_id }}" }
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-SECRET",
+              "valueProvider": "fieldValue",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "X-Trace-Id",
+              "valueProvider": "fieldValue",
+              "value": "={{ $json.trace_id }}"
+            }
           ]
         },
         "sendBody": true,
@@ -448,7 +766,10 @@
       "name": "Blood: CreateBloodRequest",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [1620, 520],
+      "position": [
+        1620,
+        520
+      ],
       "parameters": {
         "toolDescription": "Submit a new blood request to the system. Call after the seeker confirms all request details (blood_group, units, hospital, urgency, contact_phone, district, block).",
         "method": "POST",
@@ -457,9 +778,21 @@
         "specifyHeaders": "keypair",
         "parametersHeaders": {
           "values": [
-            { "name": "Content-Type", "valueProvider": "fieldValue", "value": "application/json" },
-            { "name": "X-N8N-SECRET", "valueProvider": "fieldValue", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "X-Trace-Id", "valueProvider": "fieldValue", "value": "={{ $json.trace_id }}" }
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-SECRET",
+              "valueProvider": "fieldValue",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "X-Trace-Id",
+              "valueProvider": "fieldValue",
+              "value": "={{ $json.trace_id }}"
+            }
           ]
         },
         "sendBody": true,
@@ -471,7 +804,10 @@
       "name": "Blood: DonorRespond",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [1760, 520],
+      "position": [
+        1760,
+        520
+      ],
       "parameters": {
         "toolDescription": "Record a donor's HAAN (yes) or NAHI (no) response to a pending blood request. Call when the donor sends a positive/negative response.",
         "method": "POST",
@@ -480,9 +816,21 @@
         "specifyHeaders": "keypair",
         "parametersHeaders": {
           "values": [
-            { "name": "Content-Type", "valueProvider": "fieldValue", "value": "application/json" },
-            { "name": "X-N8N-SECRET", "valueProvider": "fieldValue", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "X-Trace-Id", "valueProvider": "fieldValue", "value": "={{ $json.trace_id }}" }
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-SECRET",
+              "valueProvider": "fieldValue",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "X-Trace-Id",
+              "valueProvider": "fieldValue",
+              "value": "={{ $json.trace_id }}"
+            }
           ]
         },
         "sendBody": true,
@@ -494,7 +842,10 @@
       "name": "Blood: SeekerConfirm",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [1900, 520],
+      "position": [
+        1900,
+        520
+      ],
       "parameters": {
         "toolDescription": "Handle the seeker's 15-minute confirmation callback from JS-16. Call when session.last_intent === 'seeker_confirming'.",
         "method": "POST",
@@ -503,9 +854,21 @@
         "specifyHeaders": "keypair",
         "parametersHeaders": {
           "values": [
-            { "name": "Content-Type", "valueProvider": "fieldValue", "value": "application/json" },
-            { "name": "X-N8N-SECRET", "valueProvider": "fieldValue", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "X-Trace-Id", "valueProvider": "fieldValue", "value": "={{ $json.trace_id }}" }
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-SECRET",
+              "valueProvider": "fieldValue",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "X-Trace-Id",
+              "valueProvider": "fieldValue",
+              "value": "={{ $json.trace_id }}"
+            }
           ]
         },
         "sendBody": true,
@@ -517,7 +880,10 @@
       "name": "Blood: SaveSessionState",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [2040, 520],
+      "position": [
+        2040,
+        520
+      ],
       "parameters": {
         "toolDescription": "Persist current session state (last_intent, collected_data, language). Call after every turn.",
         "method": "POST",
@@ -526,9 +892,21 @@
         "specifyHeaders": "keypair",
         "parametersHeaders": {
           "values": [
-            { "name": "Content-Type", "valueProvider": "fieldValue", "value": "application/json" },
-            { "name": "X-N8N-SECRET", "valueProvider": "fieldValue", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "X-Trace-Id", "valueProvider": "fieldValue", "value": "={{ $json.trace_id }}" }
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-SECRET",
+              "valueProvider": "fieldValue",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "X-Trace-Id",
+              "valueProvider": "fieldValue",
+              "value": "={{ $json.trace_id }}"
+            }
           ]
         },
         "sendBody": true,
@@ -540,7 +918,10 @@
       "name": "Donor: RegisterDonor",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [1540, 880],
+      "position": [
+        1540,
+        880
+      ],
       "parameters": {
         "toolDescription": "Register a new blood donor in the system. Call after all registration fields are collected and confirmed (naam, blood_group, gender, date_of_birth, weight_kg, district, block).",
         "method": "POST",
@@ -549,9 +930,21 @@
         "specifyHeaders": "keypair",
         "parametersHeaders": {
           "values": [
-            { "name": "Content-Type", "valueProvider": "fieldValue", "value": "application/json" },
-            { "name": "X-N8N-SECRET", "valueProvider": "fieldValue", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "X-Trace-Id", "valueProvider": "fieldValue", "value": "={{ $json.trace_id }}" }
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-SECRET",
+              "valueProvider": "fieldValue",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "X-Trace-Id",
+              "valueProvider": "fieldValue",
+              "value": "={{ $json.trace_id }}"
+            }
           ]
         },
         "sendBody": true,
@@ -563,7 +956,10 @@
       "name": "Donor: UpdateDonorStatus",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [1660, 880],
+      "position": [
+        1660,
+        880
+      ],
       "parameters": {
         "toolDescription": "Update donor availability for PAUSE or RESUME commands. Pass command = 'PAUSE' or 'RESUME'.",
         "method": "POST",
@@ -572,9 +968,21 @@
         "specifyHeaders": "keypair",
         "parametersHeaders": {
           "values": [
-            { "name": "Content-Type", "valueProvider": "fieldValue", "value": "application/json" },
-            { "name": "X-N8N-SECRET", "valueProvider": "fieldValue", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "X-Trace-Id", "valueProvider": "fieldValue", "value": "={{ $json.trace_id }}" }
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-SECRET",
+              "valueProvider": "fieldValue",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "X-Trace-Id",
+              "valueProvider": "fieldValue",
+              "value": "={{ $json.trace_id }}"
+            }
           ]
         },
         "sendBody": true,
@@ -586,7 +994,10 @@
       "name": "Donor: CheckDuplicate",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [1780, 880],
+      "position": [
+        1780,
+        880
+      ],
       "parameters": {
         "toolDescription": "Check if this phone number is already registered as a donor. Call before RegisterDonor.",
         "method": "POST",
@@ -595,9 +1006,21 @@
         "specifyHeaders": "keypair",
         "parametersHeaders": {
           "values": [
-            { "name": "Content-Type", "valueProvider": "fieldValue", "value": "application/json" },
-            { "name": "X-N8N-SECRET", "valueProvider": "fieldValue", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "X-Trace-Id", "valueProvider": "fieldValue", "value": "={{ $json.trace_id }}" }
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-SECRET",
+              "valueProvider": "fieldValue",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "X-Trace-Id",
+              "valueProvider": "fieldValue",
+              "value": "={{ $json.trace_id }}"
+            }
           ]
         },
         "sendBody": true,
@@ -609,7 +1032,10 @@
       "name": "Donor: RecordDonation",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [1900, 880],
+      "position": [
+        1900,
+        880
+      ],
       "parameters": {
         "toolDescription": "Record a completed donation with details (donated_date, donation_type, hospital, units). Call after the DONATED command and details are collected.",
         "method": "POST",
@@ -618,9 +1044,21 @@
         "specifyHeaders": "keypair",
         "parametersHeaders": {
           "values": [
-            { "name": "Content-Type", "valueProvider": "fieldValue", "value": "application/json" },
-            { "name": "X-N8N-SECRET", "valueProvider": "fieldValue", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "X-Trace-Id", "valueProvider": "fieldValue", "value": "={{ $json.trace_id }}" }
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-SECRET",
+              "valueProvider": "fieldValue",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "X-Trace-Id",
+              "valueProvider": "fieldValue",
+              "value": "={{ $json.trace_id }}"
+            }
           ]
         },
         "sendBody": true,
@@ -632,7 +1070,10 @@
       "name": "Donor: DeferDonor",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [2020, 880],
+      "position": [
+        2020,
+        880
+      ],
       "parameters": {
         "toolDescription": "Apply a temporary or permanent deferral. Call after the DEFER command and reason/duration are collected. Send reason and deferral_until.",
         "method": "POST",
@@ -641,9 +1082,21 @@
         "specifyHeaders": "keypair",
         "parametersHeaders": {
           "values": [
-            { "name": "Content-Type", "valueProvider": "fieldValue", "value": "application/json" },
-            { "name": "X-N8N-SECRET", "valueProvider": "fieldValue", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "X-Trace-Id", "valueProvider": "fieldValue", "value": "={{ $json.trace_id }}" }
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-SECRET",
+              "valueProvider": "fieldValue",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "X-Trace-Id",
+              "valueProvider": "fieldValue",
+              "value": "={{ $json.trace_id }}"
+            }
           ]
         },
         "sendBody": true,
@@ -655,7 +1108,10 @@
       "name": "Donor: SaveSessionState",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [2140, 880],
+      "position": [
+        2140,
+        880
+      ],
       "parameters": {
         "toolDescription": "Persist current session state (last_intent, collected_data, language). Call after every turn.",
         "method": "POST",
@@ -664,9 +1120,21 @@
         "specifyHeaders": "keypair",
         "parametersHeaders": {
           "values": [
-            { "name": "Content-Type", "valueProvider": "fieldValue", "value": "application/json" },
-            { "name": "X-N8N-SECRET", "valueProvider": "fieldValue", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "X-Trace-Id", "valueProvider": "fieldValue", "value": "={{ $json.trace_id }}" }
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-SECRET",
+              "valueProvider": "fieldValue",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "X-Trace-Id",
+              "valueProvider": "fieldValue",
+              "value": "={{ $json.trace_id }}"
+            }
           ]
         },
         "sendBody": true,
@@ -678,15 +1146,24 @@
       "name": "Send Reply",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2500, 360],
+      "position": [
+        2500,
+        360
+      ],
       "parameters": {
         "method": "POST",
         "url": "=https://graph.facebook.com/v21.0/{{ $env.WHATSAPP_PHONE_NUMBER_ID || 'TODO_PHONE_NUMBER_ID' }}/messages",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $env.WHATSAPP_ACCESS_TOKEN || 'TODO_ACCESS_TOKEN' }}" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WHATSAPP_ACCESS_TOKEN || 'TODO_ACCESS_TOKEN' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -700,235 +1177,541 @@
       "name": "Fire Observability",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2750, 360],
+      "position": [
+        2750,
+        360
+      ],
       "parameters": {
         "jsCode": "// Fire Observability — async fire-and-forget logging AFTER the reply is sent.\n// Logs BOTH a routing_decision and an agent_invocation to the JS-01v2-Observability\n// sub-workflow webhook (which routes by 'kind' and writes to routing_decisions /\n// agent_invocations). Decoupled from the reply path so observability cost cannot\n// extend p95 reply latency (Req 18.14, 18.16, NFR Reliability).\n//\n// Routing context is read from the CEO Router node ($('CEO Router')) so the payload\n// is correct regardless of which Switch branch (agent or code) actually ran.\n\nconst baseUrl = $env.N8N_BASE_URL || $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';\nconst webhookPath = `${baseUrl}/webhook/js01v2-observability`;\n\nlet ctx = {};\ntry { ctx = $('CEO Router').first().json || {}; } catch (e) { ctx = $json || {}; }\n\nconst sessionId = ctx.phone || $json.phone || null;\nconst agent = ctx.agent || $json.agent || null;\nconst traceId = ctx.trace_id || $json.trace_id || null;\nconst messageText = (ctx.message?.text || $json.message?.text || '').substring(0, 200);\nconst lastIntentBefore = ctx.prev_last_intent || ctx.session?.last_intent || null;\nconst replyText = $json.reply || $json.output || '';\n\nfunction fire(payload) {\n  try {\n    $http.request({\n      method: 'POST',\n      url: webhookPath,\n      body: payload,\n      json: true,\n      timeout: 3000,\n      headers: { 'Content-Type': 'application/json' }\n    }).catch(() => { /* silent — observability failure is non-fatal */ });\n  } catch (e) { /* silent — observability must never throw */ }\n}\n\n// 1) routing_decision log\nfire({\n  kind: 'routing_decision',\n  payload: {\n    session_id: sessionId,\n    message_text: messageText,\n    last_intent_before: lastIntentBefore,\n    agent_dispatched: agent,\n    reason: ctx.reason || $json.reason || '',\n    trace_id: traceId\n  }\n});\n\n// 2) agent_invocation log (Log to agent_invocations — task 7.2)\nfire({\n  kind: 'agent_invocation',\n  payload: {\n    session_id: sessionId,\n    agent: agent,\n    started_at: ctx.agent_started_at || null,\n    completed_at: new Date().toISOString(),\n    tokens_used: $json.tokenUsage?.totalTokens || null,\n    tools_called: $json.tools_called || [],\n    success: !!replyText,\n    error_message: replyText ? null : 'empty_reply',\n    trace_id: traceId\n  }\n});\n\n// Return original $json unchanged so the workflow ends cleanly\nreturn [{ json: $json }];"
       },
       "continueOnFail": true,
-      "notes": "Fire-and-forget side branch (Design \u00a7Observability). Fires routing_decision + agent_invocation logs to JS-01v2-Observability. continueOnFail=true so logging failures never break the reply path."
+      "notes": "Fire-and-forget side branch (Design §Observability). Fires routing_decision + agent_invocation logs to JS-01v2-Observability. continueOnFail=true so logging failures never break the reply path."
     },
     {
       "id": "js01v2-015",
       "name": "End",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [3000, 360],
+      "position": [
+        3000,
+        360
+      ],
       "parameters": {}
     }
   ],
   "connections": {
     "WhatsApp Trigger": {
       "main": [
-        [{ "node": "Parse Message", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Parse Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Parse Message": {
       "main": [
-        [{ "node": "Upsert Session", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Upsert Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Upsert Session": {
       "main": [
-        [{ "node": "Prepare Context", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Prepare Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Prepare Context": {
       "main": [
-        [{ "node": "CEO Router", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "CEO Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "CEO Router": {
       "main": [
-        [{ "node": "Switch", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Switch": {
       "main": [
-        [{ "node": "Gemini Check - Complaint", "type": "main", "index": 0 }],
-        [{ "node": "Gemini Check - Blood", "type": "main", "index": 0 }],
-        [{ "node": "Gemini Check - Donor", "type": "main", "index": 0 }],
-        [{ "node": "Status Code", "type": "main", "index": 0 }],
-        [{ "node": "Welcome Code", "type": "main", "index": 0 }],
-        [{ "node": "Clarification", "type": "main", "index": 0 }],
-        [{ "node": "Fallback Code", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Gemini Check - Complaint",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gemini Check - Blood",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gemini Check - Donor",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Status Code",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Welcome Code",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clarification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallback Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Gemini Check - Complaint": {
       "main": [
-        [{ "node": "IF Gemini Open - Complaint", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "IF Gemini Open - Complaint",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Gemini Check - Blood": {
       "main": [
-        [{ "node": "IF Gemini Open - Blood", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "IF Gemini Open - Blood",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Gemini Check - Donor": {
       "main": [
-        [{ "node": "IF Gemini Open - Donor", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "IF Gemini Open - Donor",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "IF Gemini Open - Complaint": {
       "main": [
-        [{ "node": "Send Reply", "type": "main", "index": 0 }],
-        [{ "node": "Complaint Agent", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Complaint Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "IF Gemini Open - Blood": {
       "main": [
-        [{ "node": "Send Reply", "type": "main", "index": 0 }],
-        [{ "node": "Blood Agent", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Blood Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "IF Gemini Open - Donor": {
       "main": [
-        [{ "node": "Send Reply", "type": "main", "index": 0 }],
-        [{ "node": "Donor Agent", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Donor Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Complaint Agent": {
       "main": [
-        [{ "node": "Guardrail - Complaint", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Guardrail - Complaint",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Blood Agent": {
       "main": [
-        [{ "node": "Guardrail - Blood", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Guardrail - Blood",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Donor Agent": {
       "main": [
-        [{ "node": "Guardrail - Donor", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Guardrail - Donor",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Guardrail - Complaint": {
       "main": [
-        [{ "node": "Send Reply", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Guardrail - Blood": {
       "main": [
-        [{ "node": "Send Reply", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Guardrail - Donor": {
       "main": [
-        [{ "node": "Send Reply", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Status Code": {
       "main": [
-        [{ "node": "Send Reply", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Welcome Code": {
       "main": [
-        [{ "node": "Send Reply", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Fallback Code": {
       "main": [
-        [{ "node": "Send Reply", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Clarification": {
       "main": [
-        [{ "node": "Send Reply", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Gemini - Complaint": {
       "ai_languageModel": [
-        [{ "node": "Complaint Agent", "type": "ai_languageModel", "index": 0 }]
+        [
+          {
+            "node": "Complaint Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
       ]
     },
     "Gemini - Blood": {
       "ai_languageModel": [
-        [{ "node": "Blood Agent", "type": "ai_languageModel", "index": 0 }]
+        [
+          {
+            "node": "Blood Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
       ]
     },
     "Gemini - Donor": {
       "ai_languageModel": [
-        [{ "node": "Donor Agent", "type": "ai_languageModel", "index": 0 }]
+        [
+          {
+            "node": "Donor Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
       ]
     },
     "Complaint: ValidateBlock": {
       "ai_tool": [
-        [{ "node": "Complaint Agent", "type": "ai_tool", "index": 0 }]
+        [
+          {
+            "node": "Complaint Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
       ]
     },
     "Complaint: CheckDuplicate": {
       "ai_tool": [
-        [{ "node": "Complaint Agent", "type": "ai_tool", "index": 0 }]
+        [
+          {
+            "node": "Complaint Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
       ]
     },
     "Complaint: RegisterComplaint": {
       "ai_tool": [
-        [{ "node": "Complaint Agent", "type": "ai_tool", "index": 0 }]
+        [
+          {
+            "node": "Complaint Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
       ]
     },
     "Complaint: SaveSessionState": {
       "ai_tool": [
-        [{ "node": "Complaint Agent", "type": "ai_tool", "index": 0 }]
+        [
+          {
+            "node": "Complaint Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
       ]
     },
     "Blood: CreateBloodRequest": {
       "ai_tool": [
-        [{ "node": "Blood Agent", "type": "ai_tool", "index": 0 }]
+        [
+          {
+            "node": "Blood Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
       ]
     },
     "Blood: DonorRespond": {
       "ai_tool": [
-        [{ "node": "Blood Agent", "type": "ai_tool", "index": 0 }]
+        [
+          {
+            "node": "Blood Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
       ]
     },
     "Blood: SeekerConfirm": {
       "ai_tool": [
-        [{ "node": "Blood Agent", "type": "ai_tool", "index": 0 }]
+        [
+          {
+            "node": "Blood Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
       ]
     },
     "Blood: SaveSessionState": {
       "ai_tool": [
-        [{ "node": "Blood Agent", "type": "ai_tool", "index": 0 }]
+        [
+          {
+            "node": "Blood Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
       ]
     },
     "Donor: RegisterDonor": {
       "ai_tool": [
-        [{ "node": "Donor Agent", "type": "ai_tool", "index": 0 }]
+        [
+          {
+            "node": "Donor Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
       ]
     },
     "Donor: UpdateDonorStatus": {
       "ai_tool": [
-        [{ "node": "Donor Agent", "type": "ai_tool", "index": 0 }]
+        [
+          {
+            "node": "Donor Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
       ]
     },
     "Donor: CheckDuplicate": {
       "ai_tool": [
-        [{ "node": "Donor Agent", "type": "ai_tool", "index": 0 }]
+        [
+          {
+            "node": "Donor Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
       ]
     },
     "Donor: RecordDonation": {
       "ai_tool": [
-        [{ "node": "Donor Agent", "type": "ai_tool", "index": 0 }]
+        [
+          {
+            "node": "Donor Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
       ]
     },
     "Donor: DeferDonor": {
       "ai_tool": [
-        [{ "node": "Donor Agent", "type": "ai_tool", "index": 0 }]
+        [
+          {
+            "node": "Donor Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
       ]
     },
     "Donor: SaveSessionState": {
       "ai_tool": [
-        [{ "node": "Donor Agent", "type": "ai_tool", "index": 0 }]
+        [
+          {
+            "node": "Donor Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
       ]
     },
     "Send Reply": {
       "main": [
-        [{ "node": "Fire Observability", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Fire Observability",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Fire Observability": {
       "main": [
-        [{ "node": "End", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "End",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
@@ -941,8 +1724,25 @@
   },
   "meta": {
     "description": "JS-01v2 Multi-Agent Router. Rule-based CEO Router (Code Node, no LLM) dispatches each WhatsApp message via a single Switch Node to one of four specialist AI Agents (Complaint, Blood, Donor) + Status/Info Code path + Welcome Code, with a default Fallback branch (Reliability NFR). Each agent has a Google Gemini model, agent-level memory DISABLED, and a restricted tool set. Observability writes (routing_decisions + agent_invocations) are fire-and-forget after the reply. JS-08 Watchdog wired as the global error workflow.",
-    "requirements": ["3.1", "3.2", "4.1", "4.2", "7.1", "7.2", "11.1", "12.1", "12.2", "12.3", "12.4", "12.5", "NFR Reliability"],
-    "design": ["\u00a7JS-01v2 Node Map", "\u00a7Specialist Agents"],
+    "requirements": [
+      "3.1",
+      "3.2",
+      "4.1",
+      "4.2",
+      "7.1",
+      "7.2",
+      "11.1",
+      "12.1",
+      "12.2",
+      "12.3",
+      "12.4",
+      "12.5",
+      "NFR Reliability"
+    ],
+    "design": [
+      "§JS-01v2 Node Map",
+      "§Specialist Agents"
+    ],
     "errorTrigger": "JS-08-Watchdog (global error workflow, registered via settings.errorWorkflow)"
   }
 }

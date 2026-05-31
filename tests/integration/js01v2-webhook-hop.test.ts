@@ -60,8 +60,9 @@ interface N8nNode {
   type: string;
   parameters: {
     jsCode?: string;
-    rules?: { rules?: SwitchRule[] };
+    rules?: { rules?: SwitchRule[]; values?: Array<{ outputKey?: string; renameOutput?: boolean }> };
     fallbackOutput?: string;
+    options?: { fallbackOutput?: string };
   } & Record<string, unknown>;
 }
 
@@ -140,9 +141,31 @@ function parseMessage(rawText: string, phone: string) {
 }
 
 /**
+ * The ordered list of Switch rule output keys, tolerant of both the v3
+ * (`rules.rules[].outputKey`) and v3.4 (`rules.values[].outputKey`) formats.
+ */
+function switchOutputKeys(): string[] {
+  const params = switchNode.parameters.rules ?? {};
+  if (Array.isArray(params.values)) {
+    return params.values.map((v) => v.outputKey ?? '');
+  }
+  if (Array.isArray(params.rules)) {
+    return params.rules.map((r) => r.outputKey);
+  }
+  return [];
+}
+
+/** Whether the Switch declares a fallback (default) output, in either format. */
+function switchHasFallback(): boolean {
+  return Boolean(
+    switchNode.parameters.fallbackOutput || switchNode.parameters.options?.fallbackOutput,
+  );
+}
+
+/**
  * Resolve the Switch Node exactly as n8n would: match `$json.agent` against each
- * configured rule's `value2`; the matched rule's connection-output index maps to
- * a concrete branch node. An unmatched agent falls through to the default
+ * configured rule's output key; the matched rule's connection-output index maps
+ * to a concrete branch node. An unmatched agent falls through to the default
  * (fallback) output, which is the connection-output appended after all rules.
  */
 function switchRoute(agent: string): {
@@ -150,18 +173,18 @@ function switchRoute(agent: string): {
   branchNode: string;
   isDefault: boolean;
 } {
-  const rules = switchNode.parameters.rules?.rules ?? [];
+  const keys = switchOutputKeys();
   const switchTargets = workflow.connections['Switch']?.main ?? [];
-  const idx = rules.findIndex((r) => r.value2 === agent);
+  const idx = keys.indexOf(agent);
 
   if (idx === -1) {
     // Default / fallback output is the one after the last configured rule.
-    const fallbackBranch = switchTargets[rules.length]?.[0]?.node;
+    const fallbackBranch = switchTargets[keys.length]?.[0]?.node;
     return { outputKey: null, branchNode: fallbackBranch, isDefault: true };
   }
 
   const branchNode = switchTargets[idx]?.[0]?.node;
-  return { outputKey: rules[idx].outputKey, branchNode, isDefault: false };
+  return { outputKey: keys[idx], branchNode, isDefault: false };
 }
 
 /** Execute a Code Node body that only depends on `$json` (Welcome/Status/Fallback). */
@@ -226,17 +249,16 @@ describe('JS-01v2 graph — the webhook hop is wired end-to-end', () => {
 
   it('Switch is the single branching point with the configured agent outputs + one default branch', () => {
     expect(switchNode.type).toBe('n8n-nodes-base.switch');
-    const rules = switchNode.parameters.rules?.rules ?? [];
+    const keys = switchOutputKeys();
     // The five CEO Router agents plus the v1.1 clarification branch (Design §v1.1.1)
     // are configured as Switch rules, in order.
     const EXPECTED_RULES = [...ROUTER_AGENTS, 'clarification'];
-    expect(rules.map((r) => r.value2)).toEqual(EXPECTED_RULES);
-    expect(rules.map((r) => r.outputKey)).toEqual(EXPECTED_RULES);
+    expect(keys).toEqual(EXPECTED_RULES);
     // A default (fallback) output exists for any unmatched agent (Reliability NFR).
-    expect(switchNode.parameters.fallbackOutput).toBeTruthy();
+    expect(switchHasFallback()).toBe(true);
     // N configured branches + 1 default branch are all connected.
     const switchTargets = workflow.connections['Switch']?.main ?? [];
-    expect(switchTargets.length).toBe(rules.length + 1);
+    expect(switchTargets.length).toBe(keys.length + 1);
   });
 
   it('each Switch branch routes to its expected node and every branch feeds Send Reply', () => {
@@ -396,9 +418,7 @@ describe('JS-01v2 hop — representative inbound messages route to the expected 
   it('CEO Router only emits agents the Switch is configured to handle (contract holds)', () => {
     // The Switch default branch is defensive; it should never fire for the
     // agents decide() can produce. Confirm the agent set is exactly covered.
-    const configured = new Set(
-      (switchNode.parameters.rules?.rules ?? []).map((r) => r.value2)
-    );
+    const configured = new Set(switchOutputKeys());
     for (const agent of ROUTER_AGENTS) {
       expect(configured.has(agent)).toBe(true);
     }
