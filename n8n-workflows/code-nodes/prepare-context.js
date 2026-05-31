@@ -42,10 +42,19 @@ const N8N_SECRET = 'REPLACE_WITH_N8N_WEBHOOK_SECRET';
 //   $json.message   — { text, original_text } from Parse Message
 //   $json.parsed    — alternative location for message data
 
-const phone = $json.phone || ($json.parsed && $json.parsed.phone) || '';
-const traceId = $json.trace_id || ($json.parsed && $json.parsed.trace_id) || null;
+// NOTE: the Upsert Session HTTP node REPLACES $json with the API response
+// ({ ok, data, session }), so $json.phone / $json.message / $json.trace_id are
+// GONE here. We MUST re-read them from the Parse Message node directly,
+// otherwise the CEO Router sees an empty message and always routes to welcome.
+let parsed = {};
+try { parsed = $('Parse Message').first().json || {}; } catch (e) { parsed = {}; }
+
+const phone = $json.phone || parsed.phone || ($json.parsed && $json.parsed.phone) || '';
+const traceId = $json.trace_id || parsed.trace_id || ($json.parsed && $json.parsed.trace_id) || null;
 const session = $json.session || {};
-const messageText = ($json.message && $json.message.text)
+const messageObj = ($json.message && $json.message.text != null) ? $json.message
+  : (parsed.message || { text: '', original_text: '' });
+const messageText = (messageObj && messageObj.text)
   || ($json.parsed && $json.parsed.text)
   || '';
 
@@ -133,6 +142,11 @@ try {
 return [{
   json: {
     ...$json,
+    // Re-attach the fields Upsert Session dropped (phone/message/trace_id) so the
+    // CEO Router can route on the real message text and Send Reply has the phone.
+    phone: phone,
+    message: messageObj,
+    trace_id: traceId,
     session: session,
     was_reset: wasReset,
     prev_last_intent: prevLastIntent,
