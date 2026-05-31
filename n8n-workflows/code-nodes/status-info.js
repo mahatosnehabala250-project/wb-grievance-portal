@@ -93,17 +93,17 @@ if (typeof SCHEME_SUMMARIES === 'undefined') {
 
 const TICKET_RE = /\bWB-\d{4}-\d{5}\b/i;
 
-const API_BASE_URL = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';
-const N8N_SECRET = $env.N8N_WEBHOOK_SECRET || '';
-const GEMINI_API_KEY = $env.GEMINI_API_KEY || '';
-const GEMINI_MODEL = $env.GEMINI_MODEL || 'gemini-1.5-flash';
+const API_BASE_URL = 'https://wb-grievance-portal.vercel.app';
+const N8N_SECRET = 'REPLACE_WITH_N8N_WEBHOOK_SECRET';
+const GEMINI_API_KEY = '';
+const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 
 // Supabase REST base + key for reading operational tables (scheme_knowledge,
 // circuit_state). Service-role is preferred because operational tables like
 // `circuit_state` are RLS-restricted to service-role / admin (migration 008);
 // fall back to the anon key for environments where only that is provisioned.
-const SUPABASE_REST_BASE = ($env.NEXT_PUBLIC_SUPABASE_URL || $env.SUPABASE_URL || API_BASE_URL).replace(/\/$/, '');
-const SUPABASE_KEY = $env.SUPABASE_SERVICE_ROLE_KEY || $env.SUPABASE_ANON_KEY || '';
+const SUPABASE_REST_BASE = 'https://sxdtipaspfolrpqrwadt.supabase.co'.replace(/\/$/, '');
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4ZHRpcGFzcGZvbHJwcXJ3YWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMDU2MTAsImV4cCI6MjA5MTU4MTYxMH0.18iFpk1gBByljIqRdRJx_ltrado1paCavMyYwIY_Q30';
 
 // ─── Input ───────────────────────────────────────────────────────────────────
 
@@ -351,8 +351,8 @@ async function run() {
       method: 'GET',
       url: `${API_BASE_URL}/rest/v1/scheme_knowledge?select=id&embedding=not.is.null&limit=1`,
       headers: {
-        'apikey': $env.SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${$env.SUPABASE_ANON_KEY}`,
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4ZHRpcGFzcGZvbHJwcXJ3YWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMDU2MTAsImV4cCI6MjA5MTU4MTYxMH0.18iFpk1gBByljIqRdRJx_ltrado1paCavMyYwIY_Q30',
+        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4ZHRpcGFzcGZvbHJwcXJ3YWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMDU2MTAsImV4cCI6MjA5MTU4MTYxMH0.18iFpk1gBByljIqRdRJx_ltrado1paCavMyYwIY_Q30`,
         'Content-Type': 'application/json',
       },
     });
@@ -374,7 +374,7 @@ async function run() {
       method: 'POST',
       url: 'https://api.openai.com/v1/embeddings',
       headers: {
-        'Authorization': `Bearer ${$env.OPENAI_API_KEY}`,
+        'Authorization': `Bearer `,
         'Content-Type': 'application/json',
       },
       body: {
@@ -397,8 +397,8 @@ async function run() {
       method: 'POST',
       url: `${API_BASE_URL}/rest/v1/rpc/match_scheme_knowledge`,
       headers: {
-        'apikey': $env.SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${$env.SUPABASE_ANON_KEY}`,
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4ZHRpcGFzcGZvbHJwcXJ3YWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMDU2MTAsImV4cCI6MjA5MTU4MTYxMH0.18iFpk1gBByljIqRdRJx_ltrado1paCavMyYwIY_Q30',
+        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4ZHRpcGFzcGZvbHJwcXJ3YWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMDU2MTAsImV4cCI6MjA5MTU4MTYxMH0.18iFpk1gBByljIqRdRJx_ltrado1paCavMyYwIY_Q30`,
         'Content-Type': 'application/json',
       },
       body: {

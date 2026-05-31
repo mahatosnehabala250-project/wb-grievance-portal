@@ -182,8 +182,8 @@ const HOT_STATES = [
 // bundled into this node (Req 20.2, task 18.6). Fail-soft: any error falls back
 // to the v1 rule decision so the router never blocks a citizen-facing reply.
 async function remoteClassify(message, language, traceId) {
-  const apiBase = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';
-  const secret = $env.N8N_WEBHOOK_SECRET || '';
+  const apiBase = 'https://wb-grievance-portal.vercel.app';
+  const secret = 'REPLACE_WITH_N8N_WEBHOOK_SECRET';
   if (!secret) return null; // no secret configured — skip classifier (fail-soft)
   try {
     const resp = await $http.request({

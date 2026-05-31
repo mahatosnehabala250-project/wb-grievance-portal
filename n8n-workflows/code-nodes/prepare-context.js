@@ -30,8 +30,8 @@ const STALE_MS = 30 * 60 * 1000; // 30 minutes in milliseconds
 // These are set as workflow-level static data or environment variables in n8n.
 // $env is available in n8n Code Nodes for reading environment variables.
 
-const API_BASE_URL = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';
-const N8N_SECRET = $env.N8N_WEBHOOK_SECRET || '';
+const API_BASE_URL = 'https://wb-grievance-portal.vercel.app';
+const N8N_SECRET = 'REPLACE_WITH_N8N_WEBHOOK_SECRET';
 
 // ─── Input ───────────────────────────────────────────────────────────────────
 // $json is the input item from the previous node (Upsert Session).

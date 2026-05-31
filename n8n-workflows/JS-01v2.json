@@ -48,7 +48,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/sessions/save",
+        "url": "=https://wb-grievance-portal.vercel.app/api/sessions/save",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -58,7 +58,7 @@
             },
             {
               "name": "X-N8N-SECRET",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "=REPLACE_WITH_N8N_WEBHOOK_SECRET"
             },
             {
               "name": "X-Trace-Id",
@@ -624,7 +624,7 @@
       "parameters": {
         "toolDescription": "Verify that a block name exists in the West Bengal administrative hierarchy. Call after the user provides their block name. Send JSON with the block and district.",
         "method": "POST",
-        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/complaints/validate-block",
+        "url": "=https://wb-grievance-portal.vercel.app/api/complaints/validate-block",
         "sendHeaders": true,
         "specifyHeaders": "keypair",
         "parametersHeaders": {
@@ -637,7 +637,7 @@
             {
               "name": "X-N8N-SECRET",
               "valueProvider": "fieldValue",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "=REPLACE_WITH_N8N_WEBHOOK_SECRET"
             },
             {
               "name": "X-Trace-Id",
@@ -662,7 +662,7 @@
       "parameters": {
         "toolDescription": "Check if a similar complaint already exists for this phone + category + block. Call before final registration after all fields are collected.",
         "method": "POST",
-        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/complaints/check-duplicate",
+        "url": "=https://wb-grievance-portal.vercel.app/api/complaints/check-duplicate",
         "sendHeaders": true,
         "specifyHeaders": "keypair",
         "parametersHeaders": {
@@ -675,7 +675,7 @@
             {
               "name": "X-N8N-SECRET",
               "valueProvider": "fieldValue",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "=REPLACE_WITH_N8N_WEBHOOK_SECRET"
             },
             {
               "name": "X-Trace-Id",
@@ -700,7 +700,7 @@
       "parameters": {
         "toolDescription": "Submit the complaint and receive a ticket number (WB-YYYY-XXXXX). Call ONLY after the citizen confirms all details.",
         "method": "POST",
-        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/complaints/register",
+        "url": "=https://wb-grievance-portal.vercel.app/api/complaints/register",
         "sendHeaders": true,
         "specifyHeaders": "keypair",
         "parametersHeaders": {
@@ -713,7 +713,7 @@
             {
               "name": "X-N8N-SECRET",
               "valueProvider": "fieldValue",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "=REPLACE_WITH_N8N_WEBHOOK_SECRET"
             },
             {
               "name": "X-Trace-Id",
@@ -738,7 +738,7 @@
       "parameters": {
         "toolDescription": "Persist current session state (last_intent, collected_data, language). Call after every turn where you collect or update information.",
         "method": "POST",
-        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/sessions/save",
+        "url": "=https://wb-grievance-portal.vercel.app/api/sessions/save",
         "sendHeaders": true,
         "specifyHeaders": "keypair",
         "parametersHeaders": {
@@ -751,7 +751,7 @@
             {
               "name": "X-N8N-SECRET",
               "valueProvider": "fieldValue",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "=REPLACE_WITH_N8N_WEBHOOK_SECRET"
             },
             {
               "name": "X-Trace-Id",
@@ -776,7 +776,7 @@
       "parameters": {
         "toolDescription": "Submit a new blood request to the system. Call after the seeker confirms all request details (blood_group, units, hospital, urgency, contact_phone, district, block).",
         "method": "POST",
-        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/blood-requests/create",
+        "url": "=https://wb-grievance-portal.vercel.app/api/blood-requests/create",
         "sendHeaders": true,
         "specifyHeaders": "keypair",
         "parametersHeaders": {
@@ -789,7 +789,7 @@
             {
               "name": "X-N8N-SECRET",
               "valueProvider": "fieldValue",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "=REPLACE_WITH_N8N_WEBHOOK_SECRET"
             },
             {
               "name": "X-Trace-Id",
@@ -814,7 +814,7 @@
       "parameters": {
         "toolDescription": "Record a donor's HAAN (yes) or NAHI (no) response to a pending blood request. Call when the donor sends a positive/negative response.",
         "method": "POST",
-        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/blood-requests/donor-respond",
+        "url": "=https://wb-grievance-portal.vercel.app/api/blood-requests/donor-respond",
         "sendHeaders": true,
         "specifyHeaders": "keypair",
         "parametersHeaders": {
@@ -827,7 +827,7 @@
             {
               "name": "X-N8N-SECRET",
               "valueProvider": "fieldValue",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "=REPLACE_WITH_N8N_WEBHOOK_SECRET"
             },
             {
               "name": "X-Trace-Id",
@@ -852,7 +852,7 @@
       "parameters": {
         "toolDescription": "Handle the seeker's 15-minute confirmation callback from JS-16. Call when session.last_intent === 'seeker_confirming'.",
         "method": "POST",
-        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/blood-requests/seeker-confirm",
+        "url": "=https://wb-grievance-portal.vercel.app/api/blood-requests/seeker-confirm",
         "sendHeaders": true,
         "specifyHeaders": "keypair",
         "parametersHeaders": {
@@ -865,7 +865,7 @@
             {
               "name": "X-N8N-SECRET",
               "valueProvider": "fieldValue",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "=REPLACE_WITH_N8N_WEBHOOK_SECRET"
             },
             {
               "name": "X-Trace-Id",
@@ -890,7 +890,7 @@
       "parameters": {
         "toolDescription": "Persist current session state (last_intent, collected_data, language). Call after every turn.",
         "method": "POST",
-        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/sessions/save",
+        "url": "=https://wb-grievance-portal.vercel.app/api/sessions/save",
         "sendHeaders": true,
         "specifyHeaders": "keypair",
         "parametersHeaders": {
@@ -903,7 +903,7 @@
             {
               "name": "X-N8N-SECRET",
               "valueProvider": "fieldValue",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "=REPLACE_WITH_N8N_WEBHOOK_SECRET"
             },
             {
               "name": "X-Trace-Id",
@@ -928,7 +928,7 @@
       "parameters": {
         "toolDescription": "Register a new blood donor in the system. Call after all registration fields are collected and confirmed (naam, blood_group, gender, date_of_birth, weight_kg, district, block).",
         "method": "POST",
-        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/blood-donors/register",
+        "url": "=https://wb-grievance-portal.vercel.app/api/blood-donors/register",
         "sendHeaders": true,
         "specifyHeaders": "keypair",
         "parametersHeaders": {
@@ -941,7 +941,7 @@
             {
               "name": "X-N8N-SECRET",
               "valueProvider": "fieldValue",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "=REPLACE_WITH_N8N_WEBHOOK_SECRET"
             },
             {
               "name": "X-Trace-Id",
@@ -966,7 +966,7 @@
       "parameters": {
         "toolDescription": "Update donor availability for PAUSE or RESUME commands. Pass command = 'PAUSE' or 'RESUME'.",
         "method": "POST",
-        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/blood-donors/update-status",
+        "url": "=https://wb-grievance-portal.vercel.app/api/blood-donors/update-status",
         "sendHeaders": true,
         "specifyHeaders": "keypair",
         "parametersHeaders": {
@@ -979,7 +979,7 @@
             {
               "name": "X-N8N-SECRET",
               "valueProvider": "fieldValue",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "=REPLACE_WITH_N8N_WEBHOOK_SECRET"
             },
             {
               "name": "X-Trace-Id",
@@ -1004,7 +1004,7 @@
       "parameters": {
         "toolDescription": "Check if this phone number is already registered as a donor. Call before RegisterDonor.",
         "method": "POST",
-        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/complaints/check-duplicate",
+        "url": "=https://wb-grievance-portal.vercel.app/api/complaints/check-duplicate",
         "sendHeaders": true,
         "specifyHeaders": "keypair",
         "parametersHeaders": {
@@ -1017,7 +1017,7 @@
             {
               "name": "X-N8N-SECRET",
               "valueProvider": "fieldValue",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "=REPLACE_WITH_N8N_WEBHOOK_SECRET"
             },
             {
               "name": "X-Trace-Id",
@@ -1042,7 +1042,7 @@
       "parameters": {
         "toolDescription": "Record a completed donation with details (donated_date, donation_type, hospital, units). Call after the DONATED command and details are collected.",
         "method": "POST",
-        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/blood-donors/record-donation",
+        "url": "=https://wb-grievance-portal.vercel.app/api/blood-donors/record-donation",
         "sendHeaders": true,
         "specifyHeaders": "keypair",
         "parametersHeaders": {
@@ -1055,7 +1055,7 @@
             {
               "name": "X-N8N-SECRET",
               "valueProvider": "fieldValue",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "=REPLACE_WITH_N8N_WEBHOOK_SECRET"
             },
             {
               "name": "X-Trace-Id",
@@ -1080,7 +1080,7 @@
       "parameters": {
         "toolDescription": "Apply a temporary or permanent deferral. Call after the DEFER command and reason/duration are collected. Send reason and deferral_until.",
         "method": "POST",
-        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/blood-donors/defer",
+        "url": "=https://wb-grievance-portal.vercel.app/api/blood-donors/defer",
         "sendHeaders": true,
         "specifyHeaders": "keypair",
         "parametersHeaders": {
@@ -1093,7 +1093,7 @@
             {
               "name": "X-N8N-SECRET",
               "valueProvider": "fieldValue",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "=REPLACE_WITH_N8N_WEBHOOK_SECRET"
             },
             {
               "name": "X-Trace-Id",
@@ -1118,7 +1118,7 @@
       "parameters": {
         "toolDescription": "Persist current session state (last_intent, collected_data, language). Call after every turn.",
         "method": "POST",
-        "url": "={{ $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app' }}/api/sessions/save",
+        "url": "=https://wb-grievance-portal.vercel.app/api/sessions/save",
         "sendHeaders": true,
         "specifyHeaders": "keypair",
         "parametersHeaders": {
@@ -1131,7 +1131,7 @@
             {
               "name": "X-N8N-SECRET",
               "valueProvider": "fieldValue",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "=REPLACE_WITH_N8N_WEBHOOK_SECRET"
             },
             {
               "name": "X-Trace-Id",
@@ -1178,7 +1178,7 @@
         360
       ],
       "parameters": {
-        "jsCode": "// Fire Observability — async fire-and-forget logging AFTER the reply is sent.\n// Logs BOTH a routing_decision and an agent_invocation to the JS-01v2-Observability\n// sub-workflow webhook (which routes by 'kind' and writes to routing_decisions /\n// agent_invocations). Decoupled from the reply path so observability cost cannot\n// extend p95 reply latency (Req 18.14, 18.16, NFR Reliability).\n//\n// Routing context is read from the CEO Router node ($('CEO Router')) so the payload\n// is correct regardless of which Switch branch (agent or code) actually ran.\n\nconst baseUrl = $env.N8N_BASE_URL || $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';\nconst webhookPath = `${baseUrl}/webhook/js01v2-observability`;\n\nlet ctx = {};\ntry { ctx = $('CEO Router').first().json || {}; } catch (e) { ctx = $json || {}; }\n\nconst sessionId = ctx.phone || $json.phone || null;\nconst agent = ctx.agent || $json.agent || null;\nconst traceId = ctx.trace_id || $json.trace_id || null;\nconst messageText = (ctx.message?.text || $json.message?.text || '').substring(0, 200);\nconst lastIntentBefore = ctx.prev_last_intent || ctx.session?.last_intent || null;\nconst replyText = $json.reply || $json.output || '';\n\nfunction fire(payload) {\n  try {\n    $http.request({\n      method: 'POST',\n      url: webhookPath,\n      body: payload,\n      json: true,\n      timeout: 3000,\n      headers: { 'Content-Type': 'application/json' }\n    }).catch(() => { /* silent — observability failure is non-fatal */ });\n  } catch (e) { /* silent — observability must never throw */ }\n}\n\n// 1) routing_decision log\nfire({\n  kind: 'routing_decision',\n  payload: {\n    session_id: sessionId,\n    message_text: messageText,\n    last_intent_before: lastIntentBefore,\n    agent_dispatched: agent,\n    reason: ctx.reason || $json.reason || '',\n    trace_id: traceId\n  }\n});\n\n// 2) agent_invocation log (Log to agent_invocations — task 7.2)\nfire({\n  kind: 'agent_invocation',\n  payload: {\n    session_id: sessionId,\n    agent: agent,\n    started_at: ctx.agent_started_at || null,\n    completed_at: new Date().toISOString(),\n    tokens_used: $json.tokenUsage?.totalTokens || null,\n    tools_called: $json.tools_called || [],\n    success: !!replyText,\n    error_message: replyText ? null : 'empty_reply',\n    trace_id: traceId\n  }\n});\n\n// Return original $json unchanged so the workflow ends cleanly\nreturn [{ json: $json }];"
+        "jsCode": "// Fire Observability — async fire-and-forget logging AFTER the reply is sent.\n// Logs BOTH a routing_decision and an agent_invocation to the JS-01v2-Observability\n// sub-workflow webhook (which routes by 'kind' and writes to routing_decisions /\n// agent_invocations). Decoupled from the reply path so observability cost cannot\n// extend p95 reply latency (Req 18.14, 18.16, NFR Reliability).\n//\n// Routing context is read from the CEO Router node ($('CEO Router')) so the payload\n// is correct regardless of which Switch branch (agent or code) actually ran.\n\nconst baseUrl = 'https://wb-grievance-portal.vercel.app';\nconst webhookPath = `${baseUrl}/webhook/js01v2-observability`;\n\nlet ctx = {};\ntry { ctx = $('CEO Router').first().json || {}; } catch (e) { ctx = $json || {}; }\n\nconst sessionId = ctx.phone || $json.phone || null;\nconst agent = ctx.agent || $json.agent || null;\nconst traceId = ctx.trace_id || $json.trace_id || null;\nconst messageText = (ctx.message?.text || $json.message?.text || '').substring(0, 200);\nconst lastIntentBefore = ctx.prev_last_intent || ctx.session?.last_intent || null;\nconst replyText = $json.reply || $json.output || '';\n\nfunction fire(payload) {\n  try {\n    $http.request({\n      method: 'POST',\n      url: webhookPath,\n      body: payload,\n      json: true,\n      timeout: 3000,\n      headers: { 'Content-Type': 'application/json' }\n    }).catch(() => { /* silent — observability failure is non-fatal */ });\n  } catch (e) { /* silent — observability must never throw */ }\n}\n\n// 1) routing_decision log\nfire({\n  kind: 'routing_decision',\n  payload: {\n    session_id: sessionId,\n    message_text: messageText,\n    last_intent_before: lastIntentBefore,\n    agent_dispatched: agent,\n    reason: ctx.reason || $json.reason || '',\n    trace_id: traceId\n  }\n});\n\n// 2) agent_invocation log (Log to agent_invocations — task 7.2)\nfire({\n  kind: 'agent_invocation',\n  payload: {\n    session_id: sessionId,\n    agent: agent,\n    started_at: ctx.agent_started_at || null,\n    completed_at: new Date().toISOString(),\n    tokens_used: $json.tokenUsage?.totalTokens || null,\n    tools_called: $json.tools_called || [],\n    success: !!replyText,\n    error_message: replyText ? null : 'empty_reply',\n    trace_id: traceId\n  }\n});\n\n// Return original $json unchanged so the workflow ends cleanly\nreturn [{ json: $json }];"
       },
       "continueOnFail": true,
       "notes": "Fire-and-forget side branch (Design §Observability). Fires routing_decision + agent_invocation logs to JS-01v2-Observability. continueOnFail=true so logging failures never break the reply path."

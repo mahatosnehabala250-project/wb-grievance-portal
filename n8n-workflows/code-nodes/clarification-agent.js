@@ -36,8 +36,8 @@
 
 // ─── Configuration (env, read inside the n8n sandbox) ─────────────────────────
 
-const API_BASE_URL = $env.API_BASE_URL || 'https://wb-grievance-portal.vercel.app';
-const N8N_SECRET = $env.N8N_WEBHOOK_SECRET || '';
+const API_BASE_URL = 'https://wb-grievance-portal.vercel.app';
+const N8N_SECRET = 'REPLACE_WITH_N8N_WEBHOOK_SECRET';
 
 // ─── Localization strings ─────────────────────────────────────────────────────
 

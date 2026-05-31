@@ -258,8 +258,8 @@ async function readGeminiState() {
     return cached.state;
   }
 
-  const supabaseUrl = $env.SUPABASE_URL || $env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const supabaseKey = $env.SUPABASE_SERVICE_ROLE_KEY || $env.SUPABASE_ANON_KEY || $env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  const supabaseUrl = 'https://sxdtipaspfolrpqrwadt.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4ZHRpcGFzcGZvbHJwcXJ3YWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMDU2MTAsImV4cCI6MjA5MTU4MTYxMH0.18iFpk1gBByljIqRdRJx_ltrado1paCavMyYwIY_Q30';
 
   if (!supabaseUrl || !supabaseKey) {
     // No credentials configured — treat as closed (fail-soft).
