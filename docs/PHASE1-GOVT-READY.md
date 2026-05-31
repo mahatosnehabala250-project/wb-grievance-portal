@@ -32,13 +32,28 @@ each piece is additive.
   and a `POST /api/guardrail/apply` the workflow can call before Send Reply.
 
 ## Status
-- [ ] 1. Webhook signature verification
-- [ ] 2. Rate limit wired
-- [ ] 3a. consent tables + RLS
-- [ ] 3b. consent record/status/erase routes
-- [ ] 3c. retention cron
-- [ ] 4. audit log table + helper
-- [ ] 5. guardrail apply route
+- [x] 1. Webhook signature verification — /api/webhook/whatsapp-verify (GET handshake + POST HMAC). Enforces when WHATSAPP_APP_SECRET set.
+- [ ] 2. Rate limit wired into the live workflow (helper + SQL fn already exist; needs a node call in JS-01)
+- [x] 3a. consent tables + RLS + record_consent/erase/retention RPCs (locked to service_role)
+- [x] 3b. consent record/status route (/api/consent) + erase route (/api/privacy/erase)
+- [x] 3c. retention cron (/api/cron/data-retention, daily 04:00 UTC in vercel.json)
+- [x] 4. pii_audit_log table + auto-audit inside the RPCs
+- [x] 5. guardrail apply route (/api/guardrail/apply — strips progress_signal, repair-only, never empty)
+
+## Deployed & tested (2026-05-31)
+- All routes live on production and verified: consent (401 without secret, record+status with secret),
+  guardrail/apply (strips progress_signal, returns clean reply), privacy/erase (401 guard),
+  whatsapp-verify (enforcing — WHATSAPP_APP_SECRET is set).
+- DB: citizen_consent + pii_audit_log tables, record_consent/erase_citizen_data/run_data_retention
+  RPCs, all REVOKEd from anon/authenticated, granted to service_role only.
+- Env set on Vercel: RETENTION_DAYS=365 (N8N_WEBHOOK_SECRET, CRON_SECRET, WHATSAPP_APP_SECRET already present).
+
+## Remaining to fully activate (wire into the live JS-01 workflow)
+These are code-ready but need the JS-01 workflow to actually CALL them (next step, with confirmation):
+- Add a consent check/ask at the start of the conversation (GET /api/consent, then ask the one-line notice).
+- Add an erase tool ("delete my data" → POST /api/privacy/erase).
+- Add a guardrail/apply call before Send Reply.
+- Add rate-limit check on inbound.
 
 ## Notes
 - JS-01 workflow id: YsUZwu99ckTnzekR (live). Do not break.
