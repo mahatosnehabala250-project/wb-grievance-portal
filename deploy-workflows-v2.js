@@ -101,6 +101,7 @@ async function main() {
   // At deploy time, the placeholder jsCode in these nodes is replaced with the
   // actual file contents from n8n-workflows/code-nodes/.
   const CODE_NODE_INJECTIONS = {
+    'Parse Message': 'parse-message.js',
     'Prepare Context': 'prepare-context.js',
     'CEO Router': 'ceo-router.js',
     'Status Code': 'status-info.js',
