@@ -19,15 +19,15 @@
     },
     {
       "path": "/api/cron/whatsapp-outbox-drainer",
-      "schedule": "* * * * *"
+      "schedule": "0 4 * * *"
     },
     {
       "path": "/api/cron/sos-queue-drainer",
-      "schedule": "* * * * *"
+      "schedule": "0 5 * * *"
     },
     {
       "path": "/api/cron/cascade-override-expiry",
-      "schedule": "15 * * * *"
+      "schedule": "15 6 * * *"
     },
     {
       "path": "/api/cron/decrement-invitations",
