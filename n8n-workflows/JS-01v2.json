@@ -122,7 +122,7 @@
                 "conditions": [
                   {
                     "id": "cond-complaint",
-                    "leftValue": "={{ .agent }}",
+                    "leftValue": "={{ $json.agent }}",
                     "rightValue": "complaint",
                     "operator": {
                       "type": "string",
@@ -146,7 +146,7 @@
                 "conditions": [
                   {
                     "id": "cond-blood",
-                    "leftValue": "={{ .agent }}",
+                    "leftValue": "={{ $json.agent }}",
                     "rightValue": "blood",
                     "operator": {
                       "type": "string",
@@ -170,7 +170,7 @@
                 "conditions": [
                   {
                     "id": "cond-donor",
-                    "leftValue": "={{ .agent }}",
+                    "leftValue": "={{ $json.agent }}",
                     "rightValue": "donor",
                     "operator": {
                       "type": "string",
@@ -194,7 +194,7 @@
                 "conditions": [
                   {
                     "id": "cond-info",
-                    "leftValue": "={{ .agent }}",
+                    "leftValue": "={{ $json.agent }}",
                     "rightValue": "info",
                     "operator": {
                       "type": "string",
@@ -218,7 +218,7 @@
                 "conditions": [
                   {
                     "id": "cond-welcome",
-                    "leftValue": "={{ .agent }}",
+                    "leftValue": "={{ $json.agent }}",
                     "rightValue": "welcome",
                     "operator": {
                       "type": "string",
@@ -242,7 +242,7 @@
                 "conditions": [
                   {
                     "id": "cond-clarification",
-                    "leftValue": "={{ .agent }}",
+                    "leftValue": "={{ $json.agent }}",
                     "rightValue": "clarification",
                     "operator": {
                       "type": "string",
