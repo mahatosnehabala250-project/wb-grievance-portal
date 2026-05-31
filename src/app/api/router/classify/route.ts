@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 
 import { lookupOrClassify, type DbClient, type Lang } from '@/lib/router/cache';
+import { classify } from '@/lib/router/classifier';
 
 /**
  * POST /api/router/classify  (n8n internal)
@@ -39,9 +40,29 @@ import { lookupOrClassify, type DbClient, type Lang } from '@/lib/router/cache';
 
 const VALID_LANGUAGES: readonly Lang[] = ['en', 'hi', 'bn'] as const;
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || process.env.DIRECT_URL,
-});
+/**
+ * Whether a usable direct-Postgres connection string is configured. On a
+ * REST-only / Supabase-managed setup (DATABASE_URL = "supabase://use-rest-api")
+ * there is no pg endpoint, so the write-through classifier cache is skipped and
+ * we classify directly via Gemini (no cache). The router still works; it just
+ * does not cache decisions.
+ */
+function hasPgUrl(): boolean {
+  const url = process.env.DATABASE_URL || process.env.DIRECT_URL || '';
+  return /^postgres(ql)?:\/\//i.test(url);
+}
+
+// Lazy pool — only constructed when a real pg URL is configured, so module
+// load never fails on a REST-only deployment.
+let _pool: Pool | null = null;
+function getPool(): Pool {
+  if (!_pool) {
+    _pool = new Pool({
+      connectionString: process.env.DATABASE_URL || process.env.DIRECT_URL,
+    });
+  }
+  return _pool;
+}
 
 /**
  * Adapt the node-postgres `Pool` to the structural {@link DbClient} surface
@@ -50,7 +71,7 @@ const pool = new Pool({
  */
 const db: DbClient = {
   async query<Row = Record<string, unknown>>(sql: string, params?: unknown[]) {
-    const result = await pool.query(sql, params as unknown[] | undefined);
+    const result = await getPool().query(sql, params as unknown[] | undefined);
     return { rows: result.rows as Row[] };
   },
 };
@@ -117,7 +138,35 @@ export async function POST(request: NextRequest) {
     const traceId = typeof trace_id === 'string' ? trace_id : '';
 
     // ─── Cache lookup + classify (write-through, Gemini Flash fallback) ───
-    const result = await lookupOrClassify(message, lang, traceId, db);
+    // When a real Postgres URL is configured we use the write-through cache.
+    // On a REST-only / Hobby deployment (no pg endpoint) — or if the cache DB
+    // is transiently unavailable — we degrade gracefully to a direct Gemini
+    // classification with no caching, so the router never 500s.
+    let result;
+    if (hasPgUrl()) {
+      try {
+        result = await lookupOrClassify(message, lang, traceId, db);
+      } catch (cacheErr) {
+        console.warn('[router/classify] cache unavailable, classifying without cache:', cacheErr);
+        const out = await classify({ message, language: lang, traceId });
+        result = {
+          agent: out.agent,
+          secondary_agent: out.secondary_agent ?? null,
+          confidence: out.confidence,
+          rationale: out.rationale,
+          fromCache: false,
+        };
+      }
+    } else {
+      const out = await classify({ message, language: lang, traceId });
+      result = {
+        agent: out.agent,
+        secondary_agent: out.secondary_agent ?? null,
+        confidence: out.confidence,
+        rationale: out.rationale,
+        fromCache: false,
+      };
+    }
 
     return NextResponse.json({
       ok: true,
