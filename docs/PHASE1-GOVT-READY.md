@@ -48,12 +48,23 @@ each piece is additive.
   RPCs, all REVOKEd from anon/authenticated, granted to service_role only.
 - Env set on Vercel: RETENTION_DAYS=365 (N8N_WEBHOOK_SECRET, CRON_SECRET, WHATSAPP_APP_SECRET already present).
 
-## Remaining to fully activate (wire into the live JS-01 workflow)
-These are code-ready but need the JS-01 workflow to actually CALL them (next step, with confirmation):
-- Add a consent check/ask at the start of the conversation (GET /api/consent, then ask the one-line notice).
-- Add an erase tool ("delete my data" → POST /api/privacy/erase).
-- Add a guardrail/apply call before Send Reply.
-- Add rate-limit check on inbound.
+## Wired into the live JS-01 workflow (2026-06-01)
+- [x] Consent tool: `RecordConsent` (httpRequestTool) added to AI Agent (POST /api/consent).
+- [x] Erasure tool: `EraseMyData` (httpRequestTool) added to AI Agent (POST /api/privacy/erase).
+- [x] DPDP consent + erasure instructions added to the AI Agent systemMessage.
+- [x] Output guardrail: `Guardrail` httpRequest node inserted between AI Agent and Send Reply.
+  - Flow is now `... → AI Agent → Guardrail → Send Reply`.
+  - Guardrail posts `{ reply: $json.output, language: Prepare Context.language }` to
+    `/api/guardrail/apply` with `onError: continueRegularOutput` + `neverError` response
+    (so a guardrail outage can never drop the citizen reply).
+  - Send Reply textBody reads `$json.data.reply` (httpRequest v4.2 body) with fallbacks to
+    `$json.body.data.reply` and the raw `$('AI Agent').output`, then a Bengali safe line.
+  - Verified: workflow validates (23 nodes, 22 connections, 0 errors); live guardrail endpoint
+    returns 200 and strips the progress_signal block.
+
+## Remaining (optional P0)
+- [ ] Rate-limit check on inbound (helper `src/lib/rateLimit/check.ts` + `rate_limit_check` SQL fn
+      exist; needs a node call in JS-01 on the inbound path). Not yet wired.
 
 ## Notes
 - JS-01 workflow id: YsUZwu99ckTnzekR (live). Do not break.

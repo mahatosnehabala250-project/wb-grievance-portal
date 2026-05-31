@@ -1,0 +1,882 @@
+{
+  "name": "JS-01: Sahayak — Citizen AI Agent",
+  "nodes": [
+    {
+      "id": "93548c0a-1305-4ffa-9730-4cc3e40ab2f6",
+      "name": "WhatsApp Incoming",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {}
+      },
+      "webhookId": "246da852-327b-4e1f-8dc1-dfbd9211d07e",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "Fg5TDpKq0VhrfU1a",
+          "name": "wb WhatsApp OAuth account"
+        }
+      }
+    },
+    {
+      "id": "8f41f01d-5a82-4b0e-b8ed-1323e7ed9383",
+      "name": "Parse Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst out = [];\nfor (const it of items) {\n  let raw = it.json?.body || it.json || {};\n  let body = raw;\n  if (raw.entry && Array.isArray(raw.entry)) {\n    for (const entry of raw.entry) {\n      for (const change of (entry.changes || [])) {\n        if (change.field === 'messages' && change.value) { body = change.value; break; }\n      }\n    }\n  }\n  if (body.statuses && !body.messages) continue;\n  if (!body.messages || body.messages.length === 0) continue;\n  for (const msg of body.messages) {\n    if (msg.type !== 'text' || !msg.text?.body) continue;\n    const rawText = msg.text.body.trim();\n    if (!rawText) continue;\n    const phone = msg.from;\n    const contact = (body.contacts||[]).find(c => c.wa_id === phone) || {};\n    const bnChars = (rawText.match(/[\\u0980-\\u09FF]/g)||[]).length;\n    const hiChars = (rawText.match(/[\\u0900-\\u097F]/g)||[]).length;\n    const enWords = (rawText.match(/[a-zA-Z]{3,}/g)||[]).length;\n    let lang = 'bn';\n    if (bnChars >= 2) lang = 'bn';\n    else if (hiChars >= 3) lang = 'hi';\n    else if (enWords >= 3 && !bnChars && !hiChars) lang = 'en';\n    const ticketMatch = rawText.match(/WB-\\d{2}-[A-Z]{3}-\\d{6}/i);\n    out.push({ json: { phone, text: rawText, waName: contact.profile?.name || null, messageId: msg.id, language: lang, ticketInText: ticketMatch ? ticketMatch[0].toUpperCase() : null, isRatingOnly: /^[1-5]$/.test(rawText), receivedAt: new Date().toISOString() }});\n  }\n}\nreturn out;"
+      }
+    },
+    {
+      "id": "53a9eb9c-6c41-47b0-86fb-568ba90333b5",
+      "name": "Upsert Session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://sxdtipaspfolrpqrwadt.supabase.co/rest/v1/conversation_sessions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"session_id\": \"{{ $json.phone }}\", \"language\": \"{{ $json.language }}\", \"last_activity\": \"{{ $json.receivedAt }}\" }",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "2g6ksgz4oy9Ye7kP",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "id": "c4059695-f442-4682-9662-ed0237d6cf66",
+      "name": "Prepare Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const ctx = $('Parse Message').first().json;\nconst sess = $('Upsert Session').first().json;\nconst sessRow = Array.isArray(sess) ? (sess[0]||{}) : (sess||{});\nconst collected = sessRow.collected_data || {};\nconst lang = ctx.language || 'bn';\nconst dn = {'puruliya':'Purulia','howra':'Howrah','burdwan':'Purba Bardhaman','maldah':'Malda','nadiya':'Nadia'};\nconst bn = {'manbazar-1':'Manbazar I','manbazar1':'Manbazar I','manbazar 1':'Manbazar I','manbazar-2':'Manbazar II','manbazar2':'Manbazar II','manbazar 2':'Manbazar II'};\nif (collected.district) { const k=collected.district.toLowerCase().trim(); if(dn[k]) collected.district=dn[k]; }\nif (collected.block) { const k=collected.block.toLowerCase().trim(); if(bn[k]) collected.block=bn[k]; }\nreturn [{ json: { ...ctx, language: lang, prior_state: sessRow.state || 'idle', prior_collected: collected, prior_intent: sessRow.last_intent || null } }];"
+      }
+    },
+    {
+      "id": "d10d96d3-6066-4114-b0f8-a48465d7250b",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "options": {
+          "systemMessage": "=You are Sahayak (সহায়ক), official AI of বাংলার সহায়ক — West Bengal citizen service by NeuroSetu AI.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n⚠️ FIRST MESSAGE RULE — ABSOLUTE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nIF prior_state = idle → ALWAYS reply EXACTLY this message, no matter what language user wrote:\n\"নমস্কার! আমি সহায়ক 🙏\nবাংলার সহায়ক — NeuroSetu AI\n━━━━━━━━━━━━━━━━━\n📋 সরকারি অভিযোগ দায়ের করুন\n   রাস্তা, জল, রেশন, স্কলারশিপ, পেনশন ইত্যাদি\n🩸 রক্তের প্রয়োজন? লিখুন: 'রক্ত দরকার'\n❤️ রক্তদাতা হতে চান? লিখুন: 'ডোনার হতে চাই'\n━━━━━━━━━━━━━━━━━\nকী সাহায্য করব?\"\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n⚠️ CONTEXT-FIRST INTENT RULE — MOST IMPORTANT\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nBEFORE processing ANY message, check conversation history:\n\nCONTEXT A — Blood donation pending:\nLast bot message contained \"HAAN অথবা NAHI\" OR \"দান করতে পারবেন\" OR \"blood request\" OR \"রক্তদান\"\n→ User is a DONOR who received a blood request notification\n→ ANY positive signal = acceptance:\n   Yes/yes/Yess/yess/Yep/yep/Sure/sure/Ok/ok/Okay/okay\n   HAAN/Haan/haan/Ha/ha/Hmm/hmm/Hm/hm\n   হ্যাঁ/হাঁ/হুম/আচ্ছা/ঠিক আছে/দিতে পারব/দেব\n   Ji/ji/Bilkul/bilkul/Theek/theek\n   ANY short positive word in ANY language\n→ ACTION: IMMEDIATELY call DonorRespond(phone={{ $json.phone }}, response=\"HAAN\")\n→ REPLY: \"ধন্যবাদ! ✅ আপনার সম্মতি নোট হয়েছে। রোগীর পরিবার শীঘ্রই call করবে। 🙏\"\n→ DO NOT show menu. DO NOT ask anything.\n\n→ ANY negative signal = decline:\n   No/no/Nope/nope/NAHI/Nahi/nahi/না/না/পারব না/সম্ভব না/cancel\n→ ACTION: DonorRespond(phone={{ $json.phone }}, response=\"NAHI\")\n→ REPLY: \"ঠিক আছে। অন্য কোনো সাহায্য লাগলে জানান।\"\n\nCONTEXT B — Complaint summary shown:\nLast bot message contained \"সব ঠিক আছে?\" OR complaint fields listed\n→ Positive response → CheckDuplicate then RegisterComplaint\n→ Negative response → \"বাতিল করা হল।\"\n\nCONTEXT C — Blood request summary shown:\nLast bot message contained blood request summary\n→ Positive → CreateBloodRequest\n→ Negative → \"বাতিল করা হল।\"\n\nCONTEXT D — Donor registration summary shown:\nLast bot message contained donor details summary\n→ Positive → RegisterDonor\n→ Negative → \"বাতিল করা হল।\"\n\nCONTEXT E — Seeker confirmation (15 min after donor accepted):\nLast bot message asked \"Donor ne call kiya?\"\n→ Positive → SeekerConfirm(confirmed=true)\n→ Negative → SeekerConfirm(confirmed=false)\n\nKEY RULE: CONTEXT decides meaning, not the exact word.\n\"Hmm\" in blood donation context = HAAN\n\"Hmm\" in general context = unclear, ask again\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nLANGUAGE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nState: {{ $json.prior_state }} | Phone: {{ $json.phone }} | Lang: {{ $json.language }}\nFollow citizen language after first message. NEVER Romanized Bengali. Max 60 words. Max 1 emoji.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nNEW CONVERSATION INTENT DETECTION\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n(Only when NO pending context from above)\nBLOOD REQUEST: \"রক্ত দরকার\", \"blood chahiye\", \"rakto chai\" → Blood Request Flow\nDONOR REGISTER: \"ডোনার হতে চাই\", \"donor hoon\", \"rakto dite chai\" → Donor Registration\nPAUSE/RESUME/DONATED → UpdateDonorStatus\nCOMPLAINT: govt problem → Complaint Flow\nSTATUS: ticket number → CheckComplaintStatus\nRATING: 1-5 after RESOLVED → SaveRating\nINFO: scheme question → answer directly\nOFF-TOPIC: warm humor, redirect\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nDONOR REGISTRATION FLOW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nONE question at a time:\n1. \"আপনার নাম?\"\n2. \"রক্তের গ্রুপ?\" (A+/A-/B+/B-/O+/O-/AB+/AB-)\n3. \"পুরুষ না মহিলা?\"\n4. \"জেলা?\"\n5. \"ব্লক?\" (optional)\n6. \"শেষ রক্তদান কবে?\" (কখনো না = null)\nSummary → RegisterDonor → \"ধন্যবাদ! registered ✅\"\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nBLOOD REQUEST FLOW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nONE question at a time:\n1. \"কোন রক্তের গ্রুপ দরকার?\"\n2. \"কত ইউনিট?\"\n3. \"কোন হাসপাতাল?\"\n4. \"ডাক্তারের নাম?\" (optional)\n5. \"জেলা?\"\nSummary → CreateBloodRequest → \"নথিভুক্ত ✅ ডোনারদের notify করা হচ্ছে...\"\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCOMPLAINT FLOW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nnaam→gaon→jela→block(ValidateBlock)→GP(optional)→samasya\nStudent category: college/school naam bhi poochho\nSummary confirm → CheckDuplicate → RegisterComplaint → \"অভিযোগ সফল! 🎉 টিকিট: [ticketNo]\"\n23 districts: Alipurduar Bankura Birbhum \"Cooch Behar\" \"Dakshin Dinajpur\" Darjeeling Hooghly Howrah Jalpaiguri Jhargram Kalimpong Kolkata Malda Murshidabad Nadia \"North 24 Parganas\" \"Paschim Bardhaman\" \"Paschim Medinipur\" \"Purba Bardhaman\" \"Purba Medinipur\" Purulia \"South 24 Parganas\" \"Uttar Dinajpur\"\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nRULES\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nONE question per message. NEVER ask phone ({{ $json.phone }}).\nCollected: {{ JSON.stringify($json.prior_collected) }}\nSaveSessionState every turn.\nSelf-harm → iCall: 9152987821"
+        }
+      }
+    },
+    {
+      "id": "503bbd17-5045-41a9-86bc-bbdc42f1a3cd",
+      "name": "Gemini Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        208
+      ],
+      "parameters": {
+        "modelName": "gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "credentials": {
+        "googlePalmApi": {
+          "id": "GZKueH9lQUzyB0GK",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "id": "2d24bb66-21dc-47ae-8b40-2cc66809246b",
+      "name": "Session Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        1360,
+        208
+      ],
+      "parameters": {
+        "contextWindowLength": 10,
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.phone + \"_\" + new Date().toISOString().slice(0,10) }}"
+      }
+    },
+    {
+      "id": "9aa21991-a066-405f-b842-f537726ad04c",
+      "name": "CheckComplaintStatus",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        1520,
+        208
+      ],
+      "parameters": {
+        "toolDescription": "Fetch complaint by ticket number.",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "url": "=https://sxdtipaspfolrpqrwadt.supabase.co/rest/v1/complaints?ticketNo=eq.{{ $fromAI(\"ticket_no\",\"Ticket\",\"string\") }}&select=ticketNo,status,urgency,category,assignedOfficerName,district,block,createdAt,updatedAt,resolution",
+        "options": {}
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "2g6ksgz4oy9Ye7kP",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "0317a6d3-50da-4653-85b6-e8183af20468",
+      "name": "GetRecentResolved",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        1680,
+        208
+      ],
+      "parameters": {
+        "toolDescription": "Get latest RESOLVED complaint for rating.",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "url": "=https://sxdtipaspfolrpqrwadt.supabase.co/rest/v1/complaints?phone=eq.{{ $(\"Prepare Context\").first().json.phone }}&status=eq.RESOLVED&order=updatedAt.desc&limit=1&select=ticketNo,status,assignedOfficerName,updatedAt,satisfactionRating",
+        "options": {}
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "2g6ksgz4oy9Ye7kP",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "1804a806-c92d-4b64-90ba-bca1ccb044e1",
+      "name": "SaveRating",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        1840,
+        208
+      ],
+      "parameters": {
+        "toolDescription": "Save citizen rating 1-5.",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "url": "https://sxdtipaspfolrpqrwadt.supabase.co/rest/v1/rpc/save_citizen_rating",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "params=single-object"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"p_ticket_no\": {{ JSON.stringify($fromAI(\"ticket_no\",\"Ticket\",\"string\")) }}, \"p_phone\": {{ JSON.stringify($fromAI(\"phone\",\"Phone\",\"string\")) }}, \"p_rating\": {{ $fromAI(\"rating\",\"1-5\",\"number\") }} }",
+        "options": {}
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "2g6ksgz4oy9Ye7kP",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "92e2f272-48b7-4fae-a9ae-b571369cd0b4",
+      "name": "ValidateBlock",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        2000,
+        208
+      ],
+      "parameters": {
+        "toolDescription": "Get valid blocks for a district.",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "url": "https://sxdtipaspfolrpqrwadt.supabase.co/rest/v1/rpc/get_blocks_for_district",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "params=single-object"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"p_district\": {{ JSON.stringify($fromAI(\"district\",\"District\",\"string\")) }} }",
+        "options": {}
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "2g6ksgz4oy9Ye7kP",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "3eb0b8a1-08bc-4ef9-acb2-f4438f1d827e",
+      "name": "RegisterComplaint",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        2160,
+        208
+      ],
+      "parameters": {
+        "toolDescription": "Register complaint after user confirms YES.",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "url": "https://sxdtipaspfolrpqrwadt.supabase.co/rest/v1/rpc/register_complaint",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "params=single-object"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"p_citizen_name\": {{ JSON.stringify($fromAI(\"name\",\"Name\",\"string\")) }}, \"p_phone\": {{ JSON.stringify($fromAI(\"phone\",\"Phone\",\"string\")) }}, \"p_village\": {{ JSON.stringify($fromAI(\"village\",\"Village\",\"string\")) }}, \"p_panchayat\": {{ JSON.stringify($fromAI(\"panchayat\",\"GP or empty\",\"string\")) }}, \"p_block\": {{ JSON.stringify($fromAI(\"block\",\"Block\",\"string\")) }}, \"p_district\": {{ JSON.stringify($fromAI(\"district\",\"District\",\"string\")) }}, \"p_issue\": {{ JSON.stringify($fromAI(\"issue\",\"Issue\",\"string\")) }}, \"p_description\": {{ JSON.stringify($fromAI(\"description\",\"Description\",\"string\")) }}, \"p_source\": \"WHATSAPP\", \"p_language\": {{ JSON.stringify($fromAI(\"language\",\"bn en hi\",\"string\")) }} }",
+        "options": {}
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "2g6ksgz4oy9Ye7kP",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "9414f764-fd70-495d-a3ca-97b553e3c9c8",
+      "name": "SaveSessionState",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        2320,
+        208
+      ],
+      "parameters": {
+        "toolDescription": "Save conversation state every turn.",
+        "method": "PATCH",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "url": "=https://sxdtipaspfolrpqrwadt.supabase.co/rest/v1/conversation_sessions?session_id=eq.{{ $fromAI(\"session_id\",\"Phone\",\"string\") }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"state\": {{ JSON.stringify($fromAI(\"state\",\"state\",\"string\")) }}, \"last_intent\": {{ JSON.stringify($fromAI(\"last_intent\",\"intent\",\"string\")) }}, \"collected_data\": {{ $fromAI(\"collected_data_json\",\"JSON string\",\"string\") }} }",
+        "options": {}
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "2g6ksgz4oy9Ye7kP",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "7f1868a0-712d-4df8-9416-f928840658fb",
+      "name": "CheckDuplicate",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        2480,
+        208
+      ],
+      "parameters": {
+        "toolDescription": "Check for duplicate complaint in last 24 hours.",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "url": "https://sxdtipaspfolrpqrwadt.supabase.co/rest/v1/rpc/check_duplicate_complaint",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "params=single-object"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"p_phone\": {{ JSON.stringify($fromAI(\"phone\",\"Phone\",\"string\")) }}, \"p_issue\": {{ JSON.stringify($fromAI(\"issue\",\"Issue\",\"string\")) }}, \"p_window_hours\": 24 }",
+        "options": {}
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "2g6ksgz4oy9Ye7kP",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "564790bd-bf41-4ff0-b84c-85851dcb0923",
+      "name": "RegisterDonor",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        2544,
+        208
+      ],
+      "parameters": {
+        "toolDescription": "Register blood donor with name, gender, blood_group, district, block, last_donated_date.",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "url": "https://sxdtipaspfolrpqrwadt.supabase.co/rest/v1/rpc/register_blood_donor",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "params=single-object"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"p_phone\": {{ JSON.stringify($fromAI(\"phone\",\"Phone\",\"string\")) }}, \"p_name\": {{ JSON.stringify($fromAI(\"name\",\"Name\",\"string\")) }}, \"p_gender\": {{ JSON.stringify($fromAI(\"gender\",\"male or female\",\"string\")) }}, \"p_blood_group\": {{ JSON.stringify($fromAI(\"blood_group\",\"A+/A-/B+/B-/O+/O-/AB+/AB-\",\"string\")) }}, \"p_district\": {{ JSON.stringify($fromAI(\"district\",\"District\",\"string\")) }}, \"p_block\": {{ JSON.stringify($fromAI(\"block\",\"Block or empty\",\"string\")) }}, \"p_last_donated\": {{ JSON.stringify($fromAI(\"last_donated\",\"YYYY-MM-DD or null\",\"string\")) }} }",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "2g6ksgz4oy9Ye7kP",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "3d0c0c90-de54-480d-a246-d34ad40162c3",
+      "name": "CreateBloodRequest",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        2704,
+        208
+      ],
+      "parameters": {
+        "toolDescription": "Create blood request. Triggers automatic donor matching via DB.",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "url": "https://sxdtipaspfolrpqrwadt.supabase.co/rest/v1/rpc/create_blood_request",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "params=single-object"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"p_seeker_phone\": {{ JSON.stringify($fromAI(\"phone\",\"Phone\",\"string\")) }}, \"p_seeker_name\": {{ JSON.stringify($fromAI(\"name\",\"Name or empty\",\"string\")) }}, \"p_blood_group\": {{ JSON.stringify($fromAI(\"blood_group\",\"blood group needed\",\"string\")) }}, \"p_units\": {{ $fromAI(\"units\",\"units needed as number\",\"number\") }}, \"p_hospital\": {{ JSON.stringify($fromAI(\"hospital\",\"Hospital name\",\"string\")) }}, \"p_doctor\": {{ JSON.stringify($fromAI(\"doctor\",\"Doctor name or empty\",\"string\")) }}, \"p_district\": {{ JSON.stringify($fromAI(\"district\",\"District\",\"string\")) }}, \"p_block\": {{ JSON.stringify($fromAI(\"block\",\"Block or empty\",\"string\")) }} }",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "2g6ksgz4oy9Ye7kP",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "b08e47e7-2595-423f-ac0b-f16bb301414f",
+      "name": "DonorRespond",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        2864,
+        208
+      ],
+      "parameters": {
+        "toolDescription": "Save donor response to blood request. Call with response=\"HAAN\" when donor accepts, response=\"NAHI\" when declines.",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "url": "https://sxdtipaspfolrpqrwadt.supabase.co/rest/v1/rpc/donor_respond_to_request",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "params=single-object"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"p_donor_phone\": {{ JSON.stringify($fromAI(\"phone\",\"Donor phone\",\"string\")) }}, \"p_response\": {{ JSON.stringify($fromAI(\"response\",\"HAAN or NAHI\",\"string\")) }} }",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "2g6ksgz4oy9Ye7kP",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "5242ba9c-8333-41c5-8e3e-4df6a4409b51",
+      "name": "UpdateDonorStatus",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        3024,
+        208
+      ],
+      "parameters": {
+        "toolDescription": "Update donor availability: PAUSE=temporarily unavailable, RESUME=available again, DONATED=just donated today.",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "url": "https://sxdtipaspfolrpqrwadt.supabase.co/rest/v1/rpc/update_donor_status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "params=single-object"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"p_phone\": {{ JSON.stringify($fromAI(\"phone\",\"Phone\",\"string\")) }}, \"p_action\": {{ JSON.stringify($fromAI(\"action\",\"PAUSE or RESUME or DONATED\",\"string\")) }} }",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "2g6ksgz4oy9Ye7kP",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "7b4b88e0-8df2-4078-b8b7-7c18625347f6",
+      "name": "SeekerConfirm",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        3184,
+        208
+      ],
+      "parameters": {
+        "toolDescription": "Seeker confirms whether donor called them. Use 15 min after donor accepted.",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "url": "https://sxdtipaspfolrpqrwadt.supabase.co/rest/v1/rpc/seeker_confirm_donor",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "params=single-object"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"p_seeker_phone\": {{ JSON.stringify($fromAI(\"phone\",\"Seeker phone\",\"string\")) }}, \"p_confirmed\": {{ $fromAI(\"confirmed\",\"true if donor called, false if not\",\"boolean\") }} }",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "2g6ksgz4oy9Ye7kP",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "e6129cd0-c31f-47dc-b4db-f00c576005f2",
+      "name": "Send Reply",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        1216,
+        0
+      ],
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "1012737268598799",
+        "recipientPhoneNumber": "={{ $(\"Prepare Context\").first().json.phone }}",
+        "textBody": "={{ $json.output }}",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "whatsAppApi": {
+          "id": "fULNO4Dc7f5xXnxn",
+          "name": "WhatsApp account"
+        }
+      },
+      "webhookId": "ffb29d52-ca24-448f-8a3d-da55010a2020"
+    }
+  ],
+  "connections": {
+    "WhatsApp Incoming": {
+      "main": [
+        [
+          {
+            "node": "Parse Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Message": {
+      "main": [
+        [
+          {
+            "node": "Upsert Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Session": {
+      "main": [
+        [
+          {
+            "node": "Prepare Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Context": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Session Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CheckComplaintStatus": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetRecentResolved": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SaveRating": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ValidateBlock": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RegisterComplaint": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SaveSessionState": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CheckDuplicate": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RegisterDonor": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CreateBloodRequest": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DonorRespond": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpdateDonorStatus": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SeekerConfirm": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "errorWorkflow": "wynA3F0AMMcJf74l",
+    "timezone": "Asia/Kolkata",
+    "callerPolicy": "workflowsFromSameOwner",
+    "binaryMode": "separate"
+  }
+}
