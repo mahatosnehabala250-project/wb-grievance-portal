@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { checkReply } from '@/lib/guardrail/check';
+import { createClient } from '@supabase/supabase-js';
+import { checkReply, type GuardrailAction } from '@/lib/guardrail/check';
 
 /**
  * POST /api/guardrail/apply  (n8n internal, Phase 1 P0)
@@ -17,12 +18,70 @@ import { checkReply } from '@/lib/guardrail/check';
  *
  * Auth: X-N8N-SECRET header must match N8N_WEBHOOK_SECRET.
  *
- * Body: { reply: string, language?: 'bn'|'hi'|'en' }
+ * Body: { reply: string, language?: 'bn'|'hi'|'en', session_id?: string, trace_id?: string }
  * Response: { ok: true, data: { reply, action, violations } }
  */
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+/**
+ * Map a guardrail action to the `guardrail_violations.action` CHECK domain
+ * ({ repaired | blocked | flagged }) and a severity bucket. A `pass` is not
+ * logged (nothing happened). A repair is low/medium; a block is high.
+ */
+const ACTION_TO_DB: Partial<Record<GuardrailAction, { action: string; severity: string }>> = {
+  repaired: { action: 'repaired', severity: 'low' },
+  blocked: { action: 'blocked', severity: 'high' },
+};
+
+/** trace_id is a uuid column — only pass through values that actually look like one. */
+function isUuid(v: string | undefined): v is string {
+  return typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+}
+
+/**
+ * Fire-and-forget audit write to `guardrail_violations`. One row per fired rule
+ * so the admin dashboard can group by rule_name. NEVER throws into the request
+ * path — observability must not be able to drop a citizen reply (NFR Reliability).
+ */
+async function logViolations(args: {
+  violations: string[];
+  action: GuardrailAction;
+  original: string;
+  repaired: string;
+  sessionId?: string;
+  traceId?: string;
+}): Promise<void> {
+  try {
+    const map = ACTION_TO_DB[args.action];
+    if (!map || args.violations.length === 0) return; // pass → nothing to log
+    if (!supabaseUrl || !supabaseServiceRoleKey) return;
+
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+    const rows = args.violations.map((rule) => ({
+      session_id: args.sessionId ?? null,
+      trace_id: isUuid(args.traceId) ? args.traceId : null,
+      rule_name: rule,
+      original_reply: args.original.slice(0, 2000),
+      repaired_reply: args.repaired.slice(0, 2000),
+      action: map.action,
+      // refusal/language blocks are higher severity than a length/url repair.
+      severity:
+        args.action === 'blocked'
+          ? 'high'
+          : rule === 'pii_leak'
+            ? 'medium'
+            : 'low',
+    }));
+    await supabase.from('guardrail_violations').insert(rows);
+  } catch (err) {
+    console.error('[guardrail/apply] violation log failed (non-fatal):', err);
+  }
+}
 
 /**
  * Strip a trailing `progress_signal` JSON block (fenced or bare) the specialist
@@ -66,6 +125,20 @@ export async function POST(request: NextRequest) {
     const lang = language === 'hi' || language === 'bn' || language === 'en' ? language : 'bn';
 
     const result = await checkReply(cleaned, { language: lang });
+
+    // Audit non-pass outcomes (fire-and-forget; never blocks the reply).
+    const sessionIdRaw = (body as Record<string, unknown>).session_id;
+    const traceIdRaw = (body as Record<string, unknown>).trace_id;
+    if (result.action !== 'pass') {
+      await logViolations({
+        violations: result.violations,
+        action: result.action,
+        original: cleaned,
+        repaired: result.reply,
+        sessionId: typeof sessionIdRaw === 'string' ? sessionIdRaw : undefined,
+        traceId: typeof traceIdRaw === 'string' && traceIdRaw ? traceIdRaw : undefined,
+      });
+    }
 
     return NextResponse.json({
       ok: true,
