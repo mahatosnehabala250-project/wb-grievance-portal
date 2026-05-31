@@ -142,7 +142,17 @@ function detectRefusal(reply) {
 }
 
 // ─── Rule: language mismatch (Req 25.3) ──────────────────────────────────────
-const ALLOWED_SCRIPTS = { en: ['latin'], hi: ['latin', 'devanagari'], bn: ['latin', 'bengali'] };
+// This is a West Bengal service where citizens freely code-mix Bengali, Hindi
+// (Devanagari) and romanized/English. The session's `language` field is only a
+// best-effort hint and is often wrong (e.g. defaults to 'hi' while the citizen
+// writes Bengali). So we accept ALL THREE supported scripts for every language —
+// the rule now only fires on a genuinely foreign script (Arabic, Chinese, etc.),
+// never on a legitimate bn/hi/en reply.
+const ALLOWED_SCRIPTS = {
+  en: ['latin', 'devanagari', 'bengali'],
+  hi: ['latin', 'devanagari', 'bengali'],
+  bn: ['latin', 'devanagari', 'bengali'],
+};
 function countMatches(text, re) { const m = text.match(re); return m ? m.length : 0; }
 function checkLanguage(reply, lang) {
   const text = reply || '';
@@ -228,7 +238,25 @@ const lang = normalizeLang(session.language || 'hi');
 // AI Agent nodes emit their text on `$json.output`; code-node branches and the
 // Gemini-substitute set `$json.reply`. Read both so the guardrail actually
 // inspects the AI agent's real reply (not an empty string).
-const originalReply = item.reply || item.output || '';
+let originalReply = item.reply || item.output || '';
+
+// ─── Strip the agent's progress_signal block BEFORE guardrail checks ──────────
+// Every specialist agent appends a trailing `progress_signal` JSON object (often
+// inside a ```json fenced block) as its LAST line. This is INTERNAL metadata the
+// Logger consumes — it is NOT a leak and must never reach WhatsApp. We remove it
+// here so the guardrail's json_leak rule does not block a perfectly good reply.
+function stripProgressSignal(text) {
+  let t = String(text || '');
+  // Remove a fenced ```json ... ``` (or plain ``` ... ```) block that contains
+  // "progress_signal", typically the final block in the reply.
+  t = t.replace(/```(?:json)?\s*\{[\s\S]*?progress_signal[\s\S]*?\}\s*```/gi, '');
+  // Remove a bare (un-fenced) trailing JSON object that contains progress_signal.
+  t = t.replace(/\{[\s\S]*?progress_signal[\s\S]*?\}\s*$/i, '');
+  // Tidy up trailing whitespace / dangling fences left behind.
+  t = t.replace(/```+\s*$/g, '').replace(/\s+$/g, '');
+  return t.trim();
+}
+originalReply = stripProgressSignal(originalReply);
 
 const result = runGuardrail(originalReply, lang, DEFAULT_MAX_CHARS);
 
