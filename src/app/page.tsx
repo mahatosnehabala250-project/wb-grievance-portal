@@ -75,6 +75,7 @@ import WB01WorkflowDetailView from '@/components/WB01WorkflowDetailView';
 import { IntelligenceView } from '@/components/IntelligenceView';
 import { ChatDashboard } from '@/components/ChatDashboard';
 import { RaktaSahayakView } from '@/components/RaktaSahayakView';
+import { MapView } from '@/components/MapView';
 import { SchemeKnowledgeView } from '@/components/SchemeKnowledgeView';
 import { N8nEndpointHealth } from '@/components/N8nEndpointHealth';
 import DeploymentGuideView from '@/components/DeploymentGuideView';
