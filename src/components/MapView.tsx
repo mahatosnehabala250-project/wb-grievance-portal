@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
+import "leaflet/dist/leaflet.css";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { authHeaders } from "@/lib/helpers";
@@ -77,7 +78,15 @@ const ZONE_COLORS = { red: "#ff3b3b", yellow: "#ffd700", green: "#00c96e", grey:
 // ---- Inner map (client-only) ----
 const InnerMap = dynamic(
   () =>
-    import("leaflet").then(() =>
+    import("leaflet").then((L) => {
+      // Fix default marker icon paths for webpack
+      delete (L.Icon.Default.prototype as any)._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+        iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+        shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+      });
+      return
       import("react-leaflet").then(({ MapContainer, TileLayer, CircleMarker, Popup, Tooltip }) => {
         const Component = ({ blocks, category, onSelect, selectedKey }: {
           blocks: BlockData[];
@@ -89,7 +98,7 @@ const InnerMap = dynamic(
             <MapContainer
               center={[23.15, 86.5]}
               zoom={8}
-              style={{ height: "100%", width: "100%", background: "#0d0d1a" }}
+              style={{ height: "100%", width: "100%", minHeight: "500px", background: "#0d0d1a" }}
               zoomControl
             >
               <TileLayer
