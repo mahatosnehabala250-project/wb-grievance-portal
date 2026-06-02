@@ -255,6 +255,7 @@ export default function HomePage() {
     { id: 'complaints' as ViewType, label: t('complaints'), icon: FileText },
     { id: 'chat' as ViewType, label: 'WhatsApp Chats', icon: MessageSquare },
     { id: 'rakta' as ViewType, label: 'রক্ত সহায়ক', icon: Heart },
+    { id: 'map' as ViewType, label: 'Map', icon: MapPin },
     { id: 'analytics' as ViewType, label: t('analytics'), icon: BarChart2 },
     { id: 'intelligence' as ViewType, label: 'Intelligence', icon: BrainCircuit },
     { id: 'schemes' as ViewType, label: 'Schemes', icon: BookOpen },
@@ -627,6 +628,9 @@ export default function HomePage() {
                 )}
                 {view === 'rakta' && (
                   <RaktaSahayakView />
+                )}
+                {view === 'map' && (
+                  <MapView />
                 )}
                 {view === 'intelligence' && (
                   <IntelligenceView />
