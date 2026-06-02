@@ -79,15 +79,13 @@ const ZONE_COLORS = { red: "#ff3b3b", yellow: "#ffd700", green: "#00c96e", grey:
 const InnerMap = dynamic(
   () =>
     import("leaflet").then((L) => {
-      // Fix default marker icon paths for webpack
       delete (L.Icon.Default.prototype as any)._getIconUrl;
       L.Icon.Default.mergeOptions({
         iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
         iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
         shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
       });
-      return
-      import("react-leaflet").then(({ MapContainer, TileLayer, CircleMarker, Popup, Tooltip }) => {
+      return import("react-leaflet").then(({ MapContainer, TileLayer, CircleMarker, Popup, Tooltip }) => {
         const Component = ({ blocks, category, onSelect, selectedKey }: {
           blocks: BlockData[];
           category: string;
@@ -98,12 +96,12 @@ const InnerMap = dynamic(
             <MapContainer
               center={[23.15, 86.5]}
               zoom={8}
-              style={{ height: "100%", width: "100%", minHeight: "500px", background: "#0d0d1a" }}
+              style={{ height: "100%", width: "100%", minHeight: "500px" }}
               zoomControl
             >
               <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                opacity={0.6}
+                opacity={0.9}
               />
               {blocks.map((b) => {
                 const key = b.district + "||" + b.block;
@@ -127,22 +125,22 @@ const InnerMap = dynamic(
                   >
                     <Tooltip direction="top" offset={[0, -radius]} opacity={0.95}>
                       <span style={{ fontFamily: "monospace", fontSize: 12 }}>
-                        <strong>{b.block}</strong> · {total} complaints
-                        {b.constituency ? ` · ${b.constituency}` : ""}
+                        <strong>{b.block}</strong> &middot; {total} complaints
+                        {b.constituency ? ` | ${b.constituency}` : ""}
                       </span>
                     </Tooltip>
                     <Popup>
                       <div style={{ minWidth: 180, fontFamily: "sans-serif" }}>
                         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{b.block}</div>
                         <div style={{ fontSize: 11, color: "#888", marginBottom: 8 }}>
-                          {b.constituency || b.district} · {b.district}
+                          {b.constituency || b.district} &middot; {b.district}
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
                           {[
                             { label: "Active", val: b.active, color: "#ff3b3b" },
                             { label: "Resolved", val: b.resolved, color: "#00c96e" },
                             { label: "Total", val: b.total, color: "#5b6eff" },
-                            { label: "Rate", val: b.total > 0 ? Math.round(b.resolved / b.total * 100) + "%" : "—", color: "#ffd700" },
+                            { label: "Rate", val: b.total > 0 ? Math.round(b.resolved / b.total * 100) + "%" : String.fromCharCode(8212), color: "#ffd700" },
                           ].map(({ label, val, color }) => (
                             <div key={label} style={{ background: "#f5f5f5", borderRadius: 6, padding: "6px 8px", textAlign: "center" }}>
                               <div style={{ fontWeight: 700, fontSize: 16, color }}>{val}</div>
@@ -156,9 +154,9 @@ const InnerMap = dynamic(
                               fontSize: 10, padding: "2px 6px", borderRadius: 4,
                               background: (CAT_COLORS[cat] || "#8090ff") + "22",
                               color: CAT_COLORS[cat] || "#8090ff",
-                              border: `1px solid ${CAT_COLORS[cat] || "#8090ff"}44`,
+                              border: "1px solid " + (CAT_COLORS[cat] || "#8090ff") + "44",
                             }}>
-                              {cat} ×{cnt}
+                              {cat} x{cnt}
                             </span>
                           ))}
                         </div>
@@ -171,8 +169,8 @@ const InnerMap = dynamic(
           );
         };
         return Component;
-      })
-    ),
+      });
+    }),
   { ssr: false, loading: () => <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#666" }}>Loading map...</div> }
 );
 
