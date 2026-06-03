@@ -5,7 +5,48 @@ import { db } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { signToken, JWTPayload } from '@/lib/jwt';
 
+
+// Simple in-memory rate limiter for login attempts
+// In production, use Redis. This prevents brute force on single instance.
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function checkLoginRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const key = ip;
+  const entry = loginAttempts.get(key);
+  
+  if (entry) {
+    if (now < entry.resetAt) {
+      if (entry.count >= 5) return false; // 5 attempts per 15 min
+      entry.count++;
+    } else {
+      loginAttempts.set(key, { count: 1, resetAt: now + 15 * 60 * 1000 });
+    }
+  } else {
+    loginAttempts.set(key, { count: 1, resetAt: now + 15 * 60 * 1000 });
+  }
+  return true;
+}
+
+// Cleanup old entries every hour
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of loginAttempts.entries()) {
+    if (now > val.resetAt) loginAttempts.delete(key);
+  }
+}, 3600000);
+
 export async function POST(request: NextRequest) {
+  // Rate limit: 5 attempts per 15 minutes per IP
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() 
+    || request.headers.get('x-real-ip') 
+    || 'unknown';
+  if (!checkLoginRateLimit(ip)) {
+    return NextResponse.json(
+      { error: 'Too many login attempts. Please wait 15 minutes.' },
+      { status: 429 }
+    );
+  }
   try {
     const body = await request.json();
     const { username, password } = body;
