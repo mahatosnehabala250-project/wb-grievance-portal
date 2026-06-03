@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
       district: user.district,
       role_level: (user as any).role_level || 'OFFICER',
       constituency: (user as any).constituency || null,
+      lok_sabha_constituency: (user as any).lok_sabha_constituency || null,
     };
 
     const token = await signToken(payload);
