@@ -259,7 +259,7 @@ async function readGeminiState() {
   }
 
   const supabaseUrl = 'https://sxdtipaspfolrpqrwadt.supabase.co';
-  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4ZHRpcGFzcGZvbHJwcXJ3YWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMDU2MTAsImV4cCI6MjA5MTU4MTYxMH0.18iFpk1gBByljIqRdRJx_ltrado1paCavMyYwIY_Q30';
+  const supabaseKey = '${SUPABASE_SERVICE_ROLE_KEY}';
 
   if (!supabaseUrl || !supabaseKey) {
     // No credentials configured — treat as closed (fail-soft).
