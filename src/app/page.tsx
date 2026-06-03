@@ -75,6 +75,7 @@ import WB01WorkflowDetailView from '@/components/WB01WorkflowDetailView';
 import { IntelligenceView } from '@/components/IntelligenceView';
 import { ChatDashboard } from '@/components/ChatDashboard';
 import { RaktaSahayakView } from '@/components/RaktaSahayakView';
+import { MLADashboardView } from '@/components/MLADashboardView';
 import { MPCommandView } from '@/components/MPCommandView';
 import { MapView } from '@/components/MapView';
 import { SchemeKnowledgeView } from '@/components/SchemeKnowledgeView';
@@ -258,6 +259,7 @@ export default function HomePage() {
     { id: 'rakta' as ViewType, label: 'রক্ত সহায়ক', icon: Heart },
     { id: 'map' as ViewType, label: 'Map', icon: MapPin },
     { id: 'mp_command' as ViewType, label: 'MP Command', icon: Crown },
+    { id: 'mla_dashboard' as ViewType, label: 'MLA Dashboard', icon: Building2 },
     { id: 'analytics' as ViewType, label: t('analytics'), icon: BarChart2 },
     { id: 'intelligence' as ViewType, label: 'Intelligence', icon: BrainCircuit },
     { id: 'schemes' as ViewType, label: 'Schemes', icon: BookOpen },
@@ -636,6 +638,9 @@ export default function HomePage() {
                 )}
                 {view === 'mp_command' && (
                   <MPCommandView />
+                )}
+                {view === 'mla_dashboard' && (
+                  <MLADashboardView />
                 )}
                 {view === 'intelligence' && (
                   <IntelligenceView />
