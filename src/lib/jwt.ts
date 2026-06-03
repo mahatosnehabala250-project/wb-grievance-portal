@@ -1,8 +1,12 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { NextRequest } from 'next/server';
 
+// Security: JWT_SECRET must be set — never falls back to weak default
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('[FATAL] JWT_SECRET environment variable is not set. Set it in Vercel dashboard.');
+}
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'wb-gov-support-system-secret-key-2024'
+  process.env.JWT_SECRET || 'dev-only-not-for-production-change-me-32chars'
 );
 
 export interface JWTPayload {
