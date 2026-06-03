@@ -103,7 +103,7 @@ const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 // `circuit_state` are RLS-restricted to service-role / admin (migration 008);
 // fall back to the anon key for environments where only that is provisioned.
 const SUPABASE_REST_BASE = 'https://sxdtipaspfolrpqrwadt.supabase.co'.replace(/\/$/, '');
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4ZHRpcGFzcGZvbHJwcXJ3YWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMDU2MTAsImV4cCI6MjA5MTU4MTYxMH0.18iFpk1gBByljIqRdRJx_ltrado1paCavMyYwIY_Q30';
+const SUPABASE_KEY = '${SUPABASE_SERVICE_ROLE_KEY}';
 
 // ─── Input ───────────────────────────────────────────────────────────────────
 
@@ -351,8 +351,8 @@ async function run() {
       method: 'GET',
       url: `${API_BASE_URL}/rest/v1/scheme_knowledge?select=id&embedding=not.is.null&limit=1`,
       headers: {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4ZHRpcGFzcGZvbHJwcXJ3YWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMDU2MTAsImV4cCI6MjA5MTU4MTYxMH0.18iFpk1gBByljIqRdRJx_ltrado1paCavMyYwIY_Q30',
-        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4ZHRpcGFzcGZvbHJwcXJ3YWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMDU2MTAsImV4cCI6MjA5MTU4MTYxMH0.18iFpk1gBByljIqRdRJx_ltrado1paCavMyYwIY_Q30`,
+        'apikey': '${SUPABASE_SERVICE_ROLE_KEY}',
+        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
         'Content-Type': 'application/json',
       },
     });
@@ -397,8 +397,8 @@ async function run() {
       method: 'POST',
       url: `${API_BASE_URL}/rest/v1/rpc/match_scheme_knowledge`,
       headers: {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4ZHRpcGFzcGZvbHJwcXJ3YWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMDU2MTAsImV4cCI6MjA5MTU4MTYxMH0.18iFpk1gBByljIqRdRJx_ltrado1paCavMyYwIY_Q30',
-        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4ZHRpcGFzcGZvbHJwcXJ3YWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMDU2MTAsImV4cCI6MjA5MTU4MTYxMH0.18iFpk1gBByljIqRdRJx_ltrado1paCavMyYwIY_Q30`,
+        'apikey': '${SUPABASE_SERVICE_ROLE_KEY}',
+        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
         'Content-Type': 'application/json',
       },
       body: {
