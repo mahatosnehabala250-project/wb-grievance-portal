@@ -8,7 +8,7 @@ import {
   Filter, Search, X, ExternalLink, Zap, Target, Award,
   BarChart3, CalendarRange, ArrowUpRight, CircleDot,
   ShieldAlert, BrainCircuit, CheckCircle, XCircle,
-  Droplets, Road, HeartPulse, Zap as ZapIcon, BookOpen,
+  Droplets, Navigation2, Heart, Zap as ZapIcon, BookOpen,
   Package, Home, Landmark, Scale, MoreHorizontal,
   Eye, Timer, BadgeCheck, Flame, Sparkles,
 } from 'lucide-react';
@@ -68,7 +68,7 @@ interface IntelAlert {
 const CAT_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string; label: string }> = {
   WATER:       { icon: Droplets,  color: 'text-blue-500',    bg: 'bg-blue-500/10',    label: 'Paani' },
   ROAD:        { icon: MapPin,    color: 'text-amber-500',   bg: 'bg-amber-500/10',   label: 'Sadak' },
-  HEALTH:      { icon: HeartPulse,color: 'text-red-500',     bg: 'bg-red-500/10',     label: 'Swasthya' },
+  HEALTH:      { icon: Heart,color: 'text-red-500',     bg: 'bg-red-500/10',     label: 'Swasthya' },
   ELECTRICITY: { icon: ZapIcon,   color: 'text-yellow-500',  bg: 'bg-yellow-500/10',  label: 'Bijli' },
   EDUCATION:   { icon: BookOpen,  color: 'text-cyan-500',    bg: 'bg-cyan-500/10',    label: 'Shiksha' },
   RATION:      { icon: Package,   color: 'text-green-500',   bg: 'bg-green-500/10',   label: 'Rasan' },
