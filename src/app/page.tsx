@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  Shield, LayoutDashboard, FileText, Users, Bell, Sun, Moon, Menu,
+  Shield, Crown, LayoutDashboard, FileText, Users, Bell, Sun, Moon, Menu,
   Search, Filter, X, Eye, Download, Plus, ArrowUpDown, ChevronLeft,
   ChevronRight, Clock, AlertTriangle, CheckCircle2, Activity, MapPin,
   LogOut, RefreshCw, MoreHorizontal, Phone, CalendarDays, Hash,
