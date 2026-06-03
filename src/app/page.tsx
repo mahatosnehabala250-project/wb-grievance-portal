@@ -634,6 +634,9 @@ export default function HomePage() {
                 {view === 'map' && (
                   <MapView />
                 )}
+                {view === 'mp_command' && (
+                  <MPCommandView />
+                )}
                 {view === 'intelligence' && (
                   <IntelligenceView />
                 )}
