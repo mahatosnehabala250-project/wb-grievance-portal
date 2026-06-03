@@ -202,7 +202,7 @@ export function MPCommandView() {
   const displayStats = stats 
     ? { ...stats, constituencies: stats.constituencies || mockStats.constituencies }
     : mockStats;
-  const displayLeaderboard = leaderboard.length > 0 ? leaderboard : mockStats.constituencies;
+  const displayLeaderboard = (leaderboard && leaderboard.length > 0) ? leaderboard : mockStats.constituencies;
 
   /* ─── Derived ─────────────────────────────────────── */
   const radarData = displayLeaderboard.slice(0, 6).map(c => ({
