@@ -48,6 +48,8 @@ export async function POST(request: NextRequest) {
       name: user.name,
       block: user.block,
       district: user.district,
+      role_level: (user as any).role_level || 'OFFICER',
+      constituency: (user as any).constituency || null,
     };
 
     const token = await signToken(payload);
@@ -61,6 +63,9 @@ export async function POST(request: NextRequest) {
         name: user.name,
         block: user.block,
         district: user.district,
+        role_level: (user as any).role_level || 'OFFICER',
+        constituency: (user as any).constituency || null,
+        lok_sabha_constituency: (user as any).lok_sabha_constituency || null,
       },
       token,
     });
