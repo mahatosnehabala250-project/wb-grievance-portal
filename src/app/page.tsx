@@ -76,6 +76,7 @@ import { IntelligenceView } from '@/components/IntelligenceView';
 import { ChatDashboard } from '@/components/ChatDashboard';
 import { RaktaSahayakView } from '@/components/RaktaSahayakView';
 import { MLADashboardView } from '@/components/MLADashboardView';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MPCommandView } from '@/components/MPCommandView';
 import { MapView } from '@/components/MapView';
 import { SchemeKnowledgeView } from '@/components/SchemeKnowledgeView';
@@ -597,7 +598,8 @@ export default function HomePage() {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
               >
-                {view === 'dashboard' && (
+                <ErrorBoundary>
+              {view === 'dashboard' && (
                   <DashboardView onNavigate={handleNavigate} onDashboardData={handleDashboardData} />
                 )}
                 {view === 'complaints' && (
