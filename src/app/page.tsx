@@ -75,6 +75,7 @@ import WB01WorkflowDetailView from '@/components/WB01WorkflowDetailView';
 import { IntelligenceView } from '@/components/IntelligenceView';
 import { ChatDashboard } from '@/components/ChatDashboard';
 import { RaktaSahayakView } from '@/components/RaktaSahayakView';
+import { MPCommandView } from '@/components/MPCommandView';
 import { MapView } from '@/components/MapView';
 import { SchemeKnowledgeView } from '@/components/SchemeKnowledgeView';
 import { N8nEndpointHealth } from '@/components/N8nEndpointHealth';
@@ -256,6 +257,7 @@ export default function HomePage() {
     { id: 'chat' as ViewType, label: 'WhatsApp Chats', icon: MessageSquare },
     { id: 'rakta' as ViewType, label: 'রক্ত সহায়ক', icon: Heart },
     { id: 'map' as ViewType, label: 'Map', icon: MapPin },
+    { id: 'mp_command' as ViewType, label: 'MP Command', icon: Crown },
     { id: 'analytics' as ViewType, label: t('analytics'), icon: BarChart2 },
     { id: 'intelligence' as ViewType, label: 'Intelligence', icon: BrainCircuit },
     { id: 'schemes' as ViewType, label: 'Schemes', icon: BookOpen },
