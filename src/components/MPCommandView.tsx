@@ -159,6 +159,11 @@ export function MPCommandView() {
       }
       if (intRes.ok) {
         const d = await intRes.json();
+        // Normalize null alerts to empty array
+        if (d.data) {
+          d.data.alerts = d.data.alerts || [];
+          d.data.cross_constituency_threats = d.data.cross_constituency_threats || [];
+        }
         setIntelligence(d.data);
       }
       setLastUpdated(new Date());
@@ -194,20 +199,22 @@ export function MPCommandView() {
     ],
   };
 
-  const displayStats = stats || mockStats;
+  const displayStats = stats 
+    ? { ...stats, constituencies: stats.constituencies || mockStats.constituencies }
+    : mockStats;
   const displayLeaderboard = leaderboard.length > 0 ? leaderboard : mockStats.constituencies;
 
   /* ─── Derived ─────────────────────────────────────── */
   const radarData = displayLeaderboard.slice(0, 6).map(c => ({
     constituency: c.constituency.substring(0, 6),
     Resolution: c.resolution_rate ?? 0,
-    Activity: Math.min((c.total_complaints / Math.max(...displayLeaderboard.map(x => x.total_complaints), 1)) * 100, 100),
+    Activity: Math.min(((c.total_complaints || c.total || 0) / Math.max(...displayLeaderboard.map(x => x.total_complaints || (x as any).total || 0), 1)) * 100, 100),
   }));
 
-  const categoryData = displayStats.constituencies
-    .filter(c => c.top_category)
+  const categoryData = (displayStats.constituencies || [])
+    .filter(c => c.top_category && c.total > 0)
     .reduce((acc: Record<string, number>, c) => {
-      if (c.top_category) acc[c.top_category] = (acc[c.top_category] || 0) + c.total_complaints;
+      if (c.top_category) acc[c.top_category] = (acc[c.top_category] || 0) + (c.total || 0);
       return acc;
     }, {});
 
@@ -304,12 +311,12 @@ export function MPCommandView() {
               {/* ── KPI Row ────────────────────────────── */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 {[
-                  { label: 'Total Complaints', value: displayStats.total_complaints, icon: FileText, color: 'text-blue-500', bg: 'bg-blue-500/10', suffix: '' },
-                  { label: 'Active',            value: displayStats.total_active,    icon: Activity, color: 'text-red-500',    bg: 'bg-red-500/10',  suffix: '' },
-                  { label: 'Resolved',          value: displayStats.total_resolved,  icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', suffix: '' },
-                  { label: 'Resolution Rate',   value: displayStats.resolution_rate, icon: Target, color: 'text-amber-500',   bg: 'bg-amber-500/10',  suffix: '%' },
-                  { label: 'Active Officers',   value: displayStats.active_officers, icon: Users,  color: 'text-violet-500', bg: 'bg-violet-500/10', suffix: '' },
-                  { label: 'Blood Donors',      value: displayStats.blood_donors,    icon: Heart,  color: 'text-pink-500',   bg: 'bg-pink-500/10',   suffix: '' },
+                  { label: 'Total Complaints', value: displayStats.total_complaints || 0, icon: FileText, color: 'text-blue-500', bg: 'bg-blue-500/10', suffix: '' },
+                  { label: 'Active',            value: displayStats.total_active || 0,    icon: Activity, color: 'text-red-500',    bg: 'bg-red-500/10',  suffix: '' },
+                  { label: 'Resolved',          value: displayStats.total_resolved || 0,  icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', suffix: '' },
+                  { label: 'Resolution Rate',   value: displayStats.resolution_rate || 0, icon: Target, color: 'text-amber-500',   bg: 'bg-amber-500/10',  suffix: '%' },
+                  { label: 'Active Officers',   value: displayStats.active_officers || 0, icon: Users,  color: 'text-violet-500', bg: 'bg-violet-500/10', suffix: '' },
+                  { label: 'Blood Donors',      value: displayStats.blood_donors || 0,    icon: Heart,  color: 'text-pink-500',   bg: 'bg-pink-500/10',   suffix: '' },
                 ].map((kpi, i) => (
                   <motion.div key={kpi.label} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }}>
                     <Card className="border-0 shadow-sm bg-card/60 backdrop-blur">
@@ -386,15 +393,15 @@ export function MPCommandView() {
                           {/* Stats row */}
                           <div className="grid grid-cols-3 gap-2 mb-2.5">
                             <div className="text-center">
-                              <div className="text-base font-bold font-mono">{c.total_complaints}</div>
+                              <div className="text-base font-bold font-mono">{c.total || c.total_complaints || 0}</div>
                               <div className="text-[10px] text-muted-foreground">Total</div>
                             </div>
                             <div className="text-center">
-                              <div className="text-base font-bold font-mono text-red-500">{c.active_complaints}</div>
+                              <div className="text-base font-bold font-mono text-red-500">{c.active || c.active_complaints || 0}</div>
                               <div className="text-[10px] text-muted-foreground">Active</div>
                             </div>
                             <div className="text-center">
-                              <div className="text-base font-bold font-mono text-emerald-500">{c.resolved_complaints}</div>
+                              <div className="text-base font-bold font-mono text-emerald-500">{c.resolved || c.resolved_complaints || 0}</div>
                               <div className="text-[10px] text-muted-foreground">Resolved</div>
                             </div>
                           </div>
@@ -572,15 +579,15 @@ export function MPCommandView() {
                       </div>
                       <div className="hidden sm:grid grid-cols-3 gap-4 text-center">
                         <div>
-                          <div className="text-sm font-bold font-mono">{c.total_complaints}</div>
+                          <div className="text-sm font-bold font-mono">{c.total || c.total_complaints || 0}</div>
                           <div className="text-[10px] text-muted-foreground">Total</div>
                         </div>
                         <div>
-                          <div className="text-sm font-bold font-mono text-red-500">{c.active_complaints}</div>
+                          <div className="text-sm font-bold font-mono text-red-500">{c.active || c.active_complaints || 0}</div>
                           <div className="text-[10px] text-muted-foreground">Active</div>
                         </div>
                         <div>
-                          <div className="text-sm font-bold font-mono text-emerald-500">{c.resolved_complaints}</div>
+                          <div className="text-sm font-bold font-mono text-emerald-500">{c.resolved || c.resolved_complaints || 0}</div>
                           <div className="text-[10px] text-muted-foreground">Resolved</div>
                         </div>
                       </div>
