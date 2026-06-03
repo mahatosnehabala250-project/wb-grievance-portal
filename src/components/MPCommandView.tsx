@@ -2,173 +2,174 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Crown, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2,
-  Activity, Users, FileText, Zap, RefreshCw, Download, Eye,
-  ChevronUp, ChevronDown, Minus, Star, FlameIcon as Flame,
-  ShieldAlert, BarChart3, Globe, MapPin, Award, CircleDot,
-  BrainCircuit, Newspaper, CalendarRange, ArrowUpRight, Sparkles,
-  Building2, Phone, Target, Clock, Filter, ExternalLink,
+  Crown, Building2, Activity, CheckCircle2, AlertTriangle,
+  Users, RefreshCw, TrendingUp, Star, Newspaper,
+  BrainCircuit, Target, Award, MapPin, FileText,
+  ChevronRight, Zap, Droplets, Heart, Package,
+  Clock, ShieldAlert, BarChart3, CalendarRange,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell,
-  RadarChart, Radar, PolarGrid, PolarAngleAxis,
+  CartesianGrid, PieChart, Pie, Cell,
 } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { toast } from 'sonner';
 import { authHeaders } from '@/lib/helpers';
 import { motion, AnimatePresence } from 'framer-motion';
 
-/* ─── Types ──────────────────────────────────────────────── */
-interface ConstituencyData {
+/* ─── Types ──────────────────────────────────── */
+interface MLAConstData {
   constituency: string;
   mla_name: string | null;
-  total_complaints: number;
-  active_complaints: number;
-  resolved_complaints: number;
+  total: number;
+  active: number;
+  resolved: number;
   resolution_rate: number | null;
-  avg_citizen_rating: number | null;
-  critical_pending: number;
+  avg_rating: number | null;
+  critical_count: number;
   top_category: string | null;
-  status_label: 'Good' | 'Watch' | 'Alert';
-  rank: number;
 }
 
-interface MPStats {
+interface DashStats {
   total_complaints: number;
   total_active: number;
   total_resolved: number;
   resolution_rate: number;
+  critical_alerts: number;
   last_7d: number;
   last_24h: number;
-  active_alerts: number;
-  critical_alerts: number;
   blood_donors: number;
   active_officers: number;
-  constituencies: ConstituencyData[];
+  active_alerts: number;
+  constituencies: MLAConstData[];
 }
 
-interface IntelligenceAlert {
-  id: string;
-  type: string;
-  title: string;
-  severity: number;
-  constituency: string | null;
-  district: string | null;
-  category: string | null;
-  summary: string;
-  recommended: string;
-  ai_brief: string | null;
-  mp_notified: boolean;
-  created_at: string;
-}
+/* ─── Static Config ──────────────────────────── */
+const MLA_META: Record<string, {
+  color: string; gradient: string; emoji: string; type: string; mla: string;
+}> = {
+  Purulia:       { color: '#FF6B00', gradient: 'from-orange-500 to-amber-500',  emoji: '🏙', type: 'GENERAL', mla: 'Sudip Kumar Mukherjee'   },
+  Joypur:        { color: '#3B82F6', gradient: 'from-blue-500 to-cyan-500',     emoji: '🌿', type: 'GENERAL', mla: 'Biswajit Mahato'         },
+  Balarampur:    { color: '#8B5CF6', gradient: 'from-violet-500 to-purple-600', emoji: '⛰',  type: 'ST',      mla: 'Jaladhar Mahato'         },
+  Baghmundi:     { color: '#06B6D4', gradient: 'from-cyan-500 to-teal-500',     emoji: '🌊', type: 'GENERAL', mla: 'Rahidas Mahato'           },
+  Manbazar:      { color: '#10B981', gradient: 'from-emerald-500 to-green-500', emoji: '🌳', type: 'ST',      mla: 'Mayna Murmu'             },
+  Bandwan:       { color: '#F59E0B', gradient: 'from-amber-500 to-yellow-500',  emoji: '🔥', type: 'ST',      mla: 'Labsen Baskey'           },
+  Kashipur:      { color: '#EF4444', gradient: 'from-red-500 to-rose-500',      emoji: '⚡', type: 'GENERAL', mla: 'Kamalakanta Hansda'      },
+  Para:          { color: '#EC4899', gradient: 'from-pink-500 to-rose-400',     emoji: '🌸', type: 'SC',      mla: 'Nadiar Chand Bouri'      },
+  Raghunathpur:  { color: '#6366F1', gradient: 'from-indigo-500 to-violet-500', emoji: '💎', type: 'SC',      mla: 'Mamoni Bauri'            },
+};
 
-/* ─── Constituency Config ─────────────────────────────────── */
-const CONSTITUENCY_META: Record<string, { color: string; emoji: string; type: string }> = {
-  'Purulia':       { color: '#FF6B00', emoji: '🏙', type: 'GENERAL' },
-  'Joypur':        { color: '#3B82F6', emoji: '🌿', type: 'GENERAL' },
-  'Balarampur':    { color: '#8B5CF6', emoji: '⛰', type: 'ST' },
-  'Baghmundi':     { color: '#06B6D4', emoji: '🌊', type: 'GENERAL' },
-  'Manbazar':      { color: '#10B981', emoji: '🌳', type: 'ST' },
-  'Bandwan':       { color: '#F59E0B', emoji: '🔥', type: 'ST' },
-  'Kashipur':      { color: '#EF4444', emoji: '⚡', type: 'GENERAL' },
-  'Para':          { color: '#EC4899', emoji: '🌸', type: 'SC' },
-  'Raghunathpur':  { color: '#6366F1', emoji: '💎', type: 'SC' },
+const CAT_ICONS: Record<string, React.ElementType> = {
+  WATER: Droplets, ROAD: MapPin, HEALTH: Heart,
+  ELECTRICITY: Zap, RATION: Package, OTHER: FileText,
 };
 
 const CAT_COLORS: Record<string, string> = {
   WATER: '#3B82F6', ROAD: '#F59E0B', HEALTH: '#EF4444',
-  ELECTRICITY: '#F59E0B', RATION: '#10B981', PENSION: '#8B5CF6',
-  EDUCATION: '#06B6D4', OTHER: '#6B7280', SANITATION: '#14B8A6',
+  ELECTRICITY: '#F59E0B', RATION: '#10B981', OTHER: '#6B7280',
 };
 
-const STATUS_COLORS = {
-  Good:  { bg: 'bg-emerald-500/10 dark:bg-emerald-500/15', text: 'text-emerald-600 dark:text-emerald-400', dot: 'bg-emerald-500', border: 'border-emerald-200 dark:border-emerald-800' },
-  Watch: { bg: 'bg-amber-500/10 dark:bg-amber-500/15',    text: 'text-amber-600 dark:text-amber-400',    dot: 'bg-amber-500',   border: 'border-amber-200 dark:border-amber-700' },
-  Alert: { bg: 'bg-red-500/10 dark:bg-red-500/15',        text: 'text-red-600 dark:text-red-400',        dot: 'bg-red-500',     border: 'border-red-200 dark:border-red-800' },
-};
+const TREND_DATA = [
+  { m: 'Jan', f: 8,  r: 2  },
+  { m: 'Feb', f: 12, r: 4  },
+  { m: 'Mar', f: 18, r: 6  },
+  { m: 'Apr', f: 24, r: 8  },
+  { m: 'May', f: 38, r: 10 },
+  { m: 'Jun', f: 52, r: 12 },
+];
 
-/* ─── Animated Counter ────────────────────────────────────── */
-function AnimatedNumber({ value, suffix = '' }: { value: number; suffix?: string }) {
-  const [display, setDisplay] = useState(0);
+/* ─── Helper Components ──────────────────────── */
+function AnimNum({ n, suffix = '' }: { n: number; suffix?: string }) {
+  const [val, setVal] = useState(0);
   useEffect(() => {
-    const steps = 20;
     let step = 0;
-    const inc = value / steps;
     const t = setInterval(() => {
       step++;
-      setDisplay(Math.min(Math.round(inc * step), value));
-      if (step >= steps) clearInterval(t);
+      setVal(Math.min(Math.round((n / 20) * step), n));
+      if (step >= 20) clearInterval(t);
     }, 30);
     return () => clearInterval(t);
-  }, [value]);
-  return <>{display}{suffix}</>;
+  }, [n]);
+  return <>{val}{suffix}</>;
 }
 
-/* ─── Severity Bar ────────────────────────────────────────── */
-function SeverityBar({ value }: { value: number }) {
-  const color = value >= 80 ? '#EF4444' : value >= 60 ? '#F59E0B' : '#10B981';
+function ZoneLabel({ rate }: { rate: number | null }) {
+  if (rate === null) return (
+    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500">
+      No Data
+    </span>
+  );
+  if (rate >= 75) return (
+    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
+      ✓ Good
+    </span>
+  );
+  if (rate >= 40) return (
+    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
+      ⚠ Watch
+    </span>
+  );
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-        <motion.div
-          className="h-full rounded-full"
-          style={{ background: color }}
-          initial={{ width: 0 }}
-          animate={{ width: `${value}%` }}
-          transition={{ duration: 0.8, ease: 'easeOut' }}
-        />
-      </div>
-      <span className="text-xs font-mono w-6 text-right" style={{ color }}>{value}</span>
-    </div>
+    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400">
+      🔴 Alert
+    </span>
   );
 }
 
-/* ─── Main Component ──────────────────────────────────────── */
+/* ─── Main Component ─────────────────────────── */
 export function MPCommandView() {
-  const [stats, setStats] = useState<MPStats | null>(null);
-  const [leaderboard, setLeaderboard] = useState<ConstituencyData[]>([]);
-  const [intelligence, setIntelligence] = useState<{ active_alerts_total: number; critical_unnotified: number; alerts: IntelligenceAlert[] } | null>(null);
+  const [stats, setStats] = useState<DashStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [tab, setTab] = useState<'overview' | 'leaderboard' | 'intel' | 'reports'>('overview');
   const [selectedConst, setSelectedConst] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'leaderboard' | 'intelligence' | 'reports'>('overview');
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [lastSync, setLastSync] = useState(new Date());
+
+  /* Build 9-constituency array safely */
+  const buildConstData = useCallback((raw: DashStats | null): MLAConstData[] => {
+    const CONST_NAMES = Object.keys(MLA_META);
+    if (!raw?.constituencies) {
+      return CONST_NAMES.map(name => ({
+        constituency: name, mla_name: MLA_META[name]?.mla || null,
+        total: 0, active: 0, resolved: 0,
+        resolution_rate: null, avg_rating: null,
+        critical_count: 0, top_category: null,
+      }));
+    }
+    return CONST_NAMES.map(name => {
+      const found = raw.constituencies.find(c =>
+        c.constituency?.toLowerCase() === name.toLowerCase()
+      );
+      return {
+        constituency: name,
+        mla_name: found?.mla_name || MLA_META[name]?.mla || null,
+        total:   found?.total ?? 0,
+        active:  found?.active ?? 0,
+        resolved: found?.resolved ?? 0,
+        resolution_rate: found?.resolution_rate ?? null,
+        avg_rating: found?.avg_rating ?? null,
+        critical_count: found?.critical_count ?? 0,
+        top_category: found?.top_category ?? null,
+      };
+    });
+  }, []);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      const [dashRes, lbRes, intRes] = await Promise.all([
-        fetch('/api/mp/dashboard', { headers: authHeaders() }),
-        fetch('/api/mp/leaderboard', { headers: authHeaders() }),
-        fetch('/api/mp/intelligence', { headers: authHeaders() }),
-      ]);
-      if (dashRes.ok) {
-        const d = await dashRes.json();
-        setStats(d.data);
+      const res = await fetch('/api/mp/dashboard', { headers: authHeaders() });
+      if (res.ok) {
+        const json = await res.json();
+        setStats(json.data || null);
       }
-      if (lbRes.ok) {
-        const d = await lbRes.json();
-        setLeaderboard(d.data || []);
-      }
-      if (intRes.ok) {
-        const d = await intRes.json();
-        // Normalize null alerts to empty array
-        if (d.data) {
-          d.data.alerts = d.data.alerts || [];
-          d.data.cross_constituency_threats = d.data.cross_constituency_threats || [];
-        }
-        setIntelligence(d.data);
-      }
-      setLastUpdated(new Date());
+      setLastSync(new Date());
     } catch {
-      toast.error('Failed to load MP Command Center data');
+      toast.error('Failed to load MP data');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -176,563 +177,581 @@ export function MPCommandView() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    const iv = setInterval(() => load(true), 60000);
-    return () => clearInterval(iv);
-  }, [load]);
 
-  /* ─── Mock data for demo ─────────────────────────── */
-  const mockStats: MPStats = {
-    total_complaints: 52, total_active: 38, total_resolved: 12,
-    resolution_rate: 23.1, last_7d: 2, last_24h: 0,
-    active_alerts: 0, critical_alerts: 0, blood_donors: 3, active_officers: 40,
-    constituencies: [
-      { constituency: 'Manbazar',     mla_name: 'Mayna Murmu',           total_complaints: 21, active_complaints: 15, resolved_complaints: 6,  resolution_rate: 28.6, avg_citizen_rating: 5.0, critical_pending: 0, top_category: 'WATER',  status_label: 'Alert', rank: 1 },
-      { constituency: 'Bandwan',      mla_name: 'Labsen Baskey',         total_complaints: 6,  active_complaints: 6,  resolved_complaints: 0,  resolution_rate: 0,    avg_citizen_rating: null, critical_pending: 2, top_category: 'HEALTH', status_label: 'Alert', rank: 2 },
-      { constituency: 'Purulia',      mla_name: 'Sudip Kumar Mukherjee', total_complaints: 2,  active_complaints: 2,  resolved_complaints: 0,  resolution_rate: 0,    avg_citizen_rating: null, critical_pending: 0, top_category: 'OTHER',  status_label: 'Alert', rank: 3 },
-      { constituency: 'Balarampur',   mla_name: 'Jaladhar Mahato',       total_complaints: 1,  active_complaints: 1,  resolved_complaints: 0,  resolution_rate: 0,    avg_citizen_rating: null, critical_pending: 0, top_category: 'ROAD',   status_label: 'Alert', rank: 4 },
-      { constituency: 'Baghmundi',    mla_name: 'Rahidas Mahato',        total_complaints: 0,  active_complaints: 0,  resolved_complaints: 0,  resolution_rate: null, avg_citizen_rating: null, critical_pending: 0, top_category: null,     status_label: 'Good',  rank: 5 },
-      { constituency: 'Joypur',       mla_name: 'Biswajit Mahato',       total_complaints: 0,  active_complaints: 0,  resolved_complaints: 0,  resolution_rate: null, avg_citizen_rating: null, critical_pending: 0, top_category: null,     status_label: 'Good',  rank: 6 },
-      { constituency: 'Kashipur',     mla_name: 'Kamalakanta Hansda',    total_complaints: 0,  active_complaints: 0,  resolved_complaints: 0,  resolution_rate: null, avg_citizen_rating: null, critical_pending: 0, top_category: null,     status_label: 'Good',  rank: 7 },
-      { constituency: 'Para',         mla_name: 'Nadiar Chand Bouri',    total_complaints: 0,  active_complaints: 0,  resolved_complaints: 0,  resolution_rate: null, avg_citizen_rating: null, critical_pending: 0, top_category: null,     status_label: 'Good',  rank: 8 },
-      { constituency: 'Raghunathpur', mla_name: 'Mamoni Bauri',          total_complaints: 0,  active_complaints: 0,  resolved_complaints: 0,  resolution_rate: null, avg_citizen_rating: null, critical_pending: 0, top_category: null,     status_label: 'Good',  rank: 9 },
-    ],
+  /* Safe derived values */
+  const s: DashStats = stats ?? {
+    total_complaints: 0, total_active: 0, total_resolved: 0,
+    resolution_rate: 0, critical_alerts: 0, last_7d: 0, last_24h: 0,
+    blood_donors: 0, active_officers: 0, active_alerts: 0, constituencies: [],
   };
+  const constData = buildConstData(stats);
 
-  const displayStats = stats 
-    ? { ...stats, constituencies: stats.constituencies || mockStats.constituencies }
-    : mockStats;
-  const displayLeaderboard = (leaderboard && leaderboard.length > 0) ? leaderboard : mockStats.constituencies;
+  /* Pie data from constituencies */
+  const catMap: Record<string, number> = {};
+  constData.forEach(c => {
+    if (c.top_category && c.total > 0) {
+      catMap[c.top_category] = (catMap[c.top_category] || 0) + c.total;
+    }
+  });
+  const pieData = Object.entries(catMap).map(([name, value]) => ({ name, value }));
 
-  /* ─── Derived ─────────────────────────────────────── */
-  const radarData = displayLeaderboard.slice(0, 6).map(c => ({
-    constituency: c.constituency.substring(0, 6),
-    Resolution: c.resolution_rate ?? 0,
-    Activity: Math.min(((c.total_complaints || c.total || 0) / Math.max(...displayLeaderboard.map(x => x.total_complaints || (x as any).total || 0), 1)) * 100, 100),
-  }));
-
-  const categoryData = (displayStats.constituencies || [])
-    .filter(c => c.top_category && c.total > 0)
-    .reduce((acc: Record<string, number>, c) => {
-      if (c.top_category) acc[c.top_category] = (acc[c.top_category] || 0) + (c.total || 0);
-      return acc;
-    }, {});
-
-  const pieData = Object.entries(categoryData).map(([name, value]) => ({ name, value }));
-
-  const trendData = [
-    { month: 'Jan', complaints: 8, resolved: 3 },
-    { month: 'Feb', complaints: 12, resolved: 6 },
-    { month: 'Mar', complaints: 18, resolved: 8 },
-    { month: 'Apr', complaints: 24, resolved: 10 },
-    { month: 'May', complaints: 38, resolved: 11 },
-    { month: 'Jun', complaints: 52, resolved: 12 },
-  ];
+  /* Leaderboard sorted */
+  const ranked = [...constData].sort((a, b) => {
+    const ra = a.resolution_rate ?? -1;
+    const rb = b.resolution_rate ?? -1;
+    return rb - ra;
+  });
 
   if (loading) return (
-    <div className="flex-1 flex items-center justify-center">
-      <div className="text-center space-y-4">
+    <div className="flex-1 flex items-center justify-center bg-background">
+      <div className="text-center space-y-3">
         <motion.div
           animate={{ rotate: 360 }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-          className="w-12 h-12 rounded-full border-2 border-primary border-t-transparent mx-auto"
+          transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
+          className="w-10 h-10 rounded-full border-2 border-orange-500 border-t-transparent mx-auto"
         />
-        <p className="text-sm text-muted-foreground">Loading MP Command Center...</p>
+        <p className="text-sm text-muted-foreground font-medium">
+          Loading MP Command Center...
+        </p>
       </div>
     </div>
   );
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-gradient-to-br from-background via-background to-muted/20">
+    <div className="flex-1 flex flex-col min-h-0">
 
-      {/* ── Header ───────────────────────────────────── */}
-      <div className="flex-shrink-0 border-b bg-background/80 backdrop-blur-sm">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
+      {/* ── Top Header ──────────────────────────── */}
+      <div className="flex-shrink-0 border-b bg-background/95 backdrop-blur sticky top-0 z-10">
+        <div className="px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap">
 
-            {/* Title */}
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
-                <Crown className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-base font-bold tracking-tight">MP Command Center</h1>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-medium border-orange-200 text-orange-600 dark:border-orange-800 dark:text-orange-400">
-                    PURULIA DISTRICT
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Jyotirmay Singh Mahato &nbsp;·&nbsp; 9 Constituencies &nbsp;·&nbsp; 18.2L Voters
-                  &nbsp;·&nbsp; Updated {lastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              </div>
+          {/* Brand */}
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow shadow-orange-500/30">
+              <Crown className="w-4 h-4 text-white" />
             </div>
-
-            {/* Tabs */}
-            <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-              {(['overview','leaderboard','intelligence','reports'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-all ${
-                    activeTab === tab
-                      ? 'bg-background shadow-sm text-foreground'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {tab === 'intelligence' ? '🧠 Intel' : tab === 'reports' ? '📄 Reports' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => load(true)} disabled={refreshing} className="h-8 text-xs">
-                <RefreshCw className={`w-3 h-3 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              <Button size="sm" className="h-8 text-xs bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white border-0 shadow-lg shadow-orange-500/20">
-                <Newspaper className="w-3 h-3 mr-1.5" />
-                Press Report
-              </Button>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-sm">MP Command Center</span>
+                <Badge className="text-[9px] h-4 px-1.5 bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400 border-0">
+                  PURULIA
+                </Badge>
+                <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  LIVE
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Jyotirmay Singh Mahato · 9 Constituencies · 18.2L Voters ·{' '}
+                {lastSync.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+              </p>
             </div>
           </div>
+
+          {/* Tabs */}
+          <div className="flex gap-0.5 bg-muted/60 rounded-lg p-1">
+            {([
+              { id: 'overview',    label: '📊 Overview'  },
+              { id: 'leaderboard', label: '🏆 Rankings'  },
+              { id: 'intel',       label: '🧠 Intel'     },
+              { id: 'reports',     label: '📄 Reports'   },
+            ] as const).map(t => (
+              <button key={t.id} onClick={() => setTab(t.id)}
+                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  tab === t.id
+                    ? 'bg-background shadow text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <Button variant="outline" size="sm" onClick={() => load(true)}
+            disabled={refreshing} className="h-7 text-xs px-2.5">
+            <RefreshCw className={`w-3 h-3 mr-1 ${refreshing ? 'animate-spin' : ''}`} />
+            Sync
+          </Button>
         </div>
       </div>
 
-      {/* ── Main Content ─────────────────────────────── */}
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-4">
+        <AnimatePresence mode="wait">
 
-          <AnimatePresence mode="wait">
-          {activeTab === 'overview' && (
-            <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="space-y-4">
+        {/* ══ OVERVIEW ══════════════════════════════ */}
+        {tab === 'overview' && (
+          <motion.div key="ov"
+            initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }} className="space-y-4">
 
-              {/* ── KPI Row ────────────────────────────── */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                {[
-                  { label: 'Total Complaints', value: displayStats.total_complaints || 0, icon: FileText, color: 'text-blue-500', bg: 'bg-blue-500/10', suffix: '' },
-                  { label: 'Active',            value: displayStats.total_active || 0,    icon: Activity, color: 'text-red-500',    bg: 'bg-red-500/10',  suffix: '' },
-                  { label: 'Resolved',          value: displayStats.total_resolved || 0,  icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', suffix: '' },
-                  { label: 'Resolution Rate',   value: displayStats.resolution_rate || 0, icon: Target, color: 'text-amber-500',   bg: 'bg-amber-500/10',  suffix: '%' },
-                  { label: 'Active Officers',   value: displayStats.active_officers || 0, icon: Users,  color: 'text-violet-500', bg: 'bg-violet-500/10', suffix: '' },
-                  { label: 'Blood Donors',      value: displayStats.blood_donors || 0,    icon: Heart,  color: 'text-pink-500',   bg: 'bg-pink-500/10',   suffix: '' },
-                ].map((kpi, i) => (
-                  <motion.div key={kpi.label} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }}>
-                    <Card className="border-0 shadow-sm bg-card/60 backdrop-blur">
-                      <CardContent className="p-3">
-                        <div className={`w-7 h-7 rounded-lg ${kpi.bg} flex items-center justify-center mb-2`}>
-                          <kpi.icon className={`w-3.5 h-3.5 ${kpi.color}`} />
-                        </div>
-                        <div className="text-xl font-bold font-mono leading-none mb-1">
-                          <AnimatedNumber value={Math.round(kpi.value)} suffix={kpi.suffix} />
-                        </div>
-                        <div className="text-[11px] text-muted-foreground font-medium">{kpi.label}</div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-
-              {/* ── Constituency Grid ─────────────────── */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-semibold flex items-center gap-1.5">
-                    <Building2 className="w-4 h-4 text-muted-foreground" />
-                    9 Constituencies — Live Status
-                  </h2>
-                  <span className="text-xs text-muted-foreground">Click to drill down</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {displayStats.constituencies.map((c, i) => {
-                    const meta = CONSTITUENCY_META[c.constituency] || { color: '#6B7280', emoji: '🏘', type: 'GENERAL' };
-                    const sc = STATUS_COLORS[c.status_label];
-                    const isSelected = selectedConst === c.constituency;
-                    const rate = c.resolution_rate ?? 0;
-
-                    return (
-                      <motion.div
-                        key={c.constituency}
-                        initial={{ opacity: 0, y: 12 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.04 }}
-                        onClick={() => setSelectedConst(isSelected ? null : c.constituency)}
-                        className={`relative cursor-pointer rounded-xl border transition-all duration-200 overflow-hidden ${
-                          isSelected
-                            ? 'border-primary shadow-md shadow-primary/10 scale-[1.01]'
-                            : 'border-border/60 hover:border-border hover:shadow-sm'
-                        } bg-card/60 backdrop-blur`}
-                      >
-                        {/* Colored top accent bar */}
-                        <div className="h-0.5 w-full" style={{ background: meta.color }} />
-
-                        <div className="p-3">
-                          <div className="flex items-start justify-between mb-2.5">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xl leading-none">{meta.emoji}</span>
-                              <div>
-                                <div className="font-semibold text-sm">{c.constituency}</div>
-                                <div className="text-[11px] text-muted-foreground truncate max-w-[130px]">
-                                  {c.mla_name || 'MLA'}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex flex-col items-end gap-1">
-                              <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${sc.bg} ${sc.text}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
-                                {c.status_label}
-                              </span>
-                              {meta.type !== 'GENERAL' && (
-                                <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                                  {meta.type}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Stats row */}
-                          <div className="grid grid-cols-3 gap-2 mb-2.5">
-                            <div className="text-center">
-                              <div className="text-base font-bold font-mono">{c.total || c.total_complaints || 0}</div>
-                              <div className="text-[10px] text-muted-foreground">Total</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-base font-bold font-mono text-red-500">{c.active || c.active_complaints || 0}</div>
-                              <div className="text-[10px] text-muted-foreground">Active</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-base font-bold font-mono text-emerald-500">{c.resolved || c.resolved_complaints || 0}</div>
-                              <div className="text-[10px] text-muted-foreground">Resolved</div>
-                            </div>
-                          </div>
-
-                          {/* Progress bar */}
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-[10px]">
-                              <span className="text-muted-foreground">Resolution</span>
-                              <span className="font-mono font-medium">{rate.toFixed(1)}%</span>
-                            </div>
-                            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                              <motion.div
-                                className="h-full rounded-full"
-                                style={{ background: meta.color }}
-                                initial={{ width: 0 }}
-                                animate={{ width: `${rate}%` }}
-                                transition={{ duration: 0.8, delay: i * 0.04 }}
-                              />
-                            </div>
-                          </div>
-
-                          {/* Bottom info */}
-                          <div className="flex items-center justify-between mt-2">
-                            {c.top_category ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-muted/60">
-                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: CAT_COLORS[c.top_category] || '#6B7280' }} />
-                                {c.top_category}
-                              </span>
-                            ) : (
-                              <span className="text-[10px] text-muted-foreground">No data yet</span>
-                            )}
-                            {c.critical_pending > 0 && (
-                              <span className="text-[10px] font-semibold text-red-500 flex items-center gap-0.5">
-                                <AlertTriangle className="w-3 h-3" />
-                                {c.critical_pending} critical
-                              </span>
-                            )}
-                            {c.avg_citizen_rating && (
-                              <span className="text-[10px] font-medium flex items-center gap-0.5 text-amber-500">
-                                <Star className="w-3 h-3 fill-amber-500" />
-                                {c.avg_citizen_rating}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* ── Charts Row ─────────────────────────── */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-                {/* Trend Chart */}
-                <Card className="lg:col-span-2 border-0 shadow-sm bg-card/60 backdrop-blur">
-                  <CardHeader className="pb-2 pt-4 px-4">
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-muted-foreground" />
-                      Complaint Trend — Last 6 Months
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-4 pb-4">
-                    <ChartContainer className="h-[180px]" config={{ complaints: { label: 'Filed', color: '#FF6B00' }, resolved: { label: 'Resolved', color: '#10B981' } }}>
-                      <AreaChart data={trendData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                        <defs>
-                          <linearGradient id="gradC" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#FF6B00" stopOpacity={0.15} />
-                            <stop offset="95%" stopColor="#FF6B00" stopOpacity={0} />
-                          </linearGradient>
-                          <linearGradient id="gradR" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10B981" stopOpacity={0.15} />
-                            <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted/40" />
-                        <XAxis dataKey="month" tick={{ fontSize: 10 }} className="text-muted-foreground" />
-                        <YAxis tick={{ fontSize: 10 }} className="text-muted-foreground" />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Area type="monotone" dataKey="complaints" stroke="#FF6B00" strokeWidth={2} fill="url(#gradC)" />
-                        <Area type="monotone" dataKey="resolved" stroke="#10B981" strokeWidth={2} fill="url(#gradR)" />
-                      </AreaChart>
-                    </ChartContainer>
-                  </CardContent>
-                </Card>
-
-                {/* Category Pie */}
-                <Card className="border-0 shadow-sm bg-card/60 backdrop-blur">
-                  <CardHeader className="pb-2 pt-4 px-4">
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4 text-muted-foreground" />
-                      Top Issues
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-4 pb-4">
-                    {pieData.length > 0 ? (
-                      <div className="flex flex-col items-center gap-3">
-                        <ChartContainer className="h-[120px] w-full" config={{}}>
-                          <PieChart>
-                            <Pie data={pieData} cx="50%" cy="50%" innerRadius={35} outerRadius={55} paddingAngle={3} dataKey="value">
-                              {pieData.map((entry) => (
-                                <Cell key={entry.name} fill={CAT_COLORS[entry.name] || '#6B7280'} />
-                              ))}
-                            </Pie>
-                          </PieChart>
-                        </ChartContainer>
-                        <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
-                          {pieData.map(entry => (
-                            <div key={entry.name} className="flex items-center gap-1 text-[10px]">
-                              <span className="w-2 h-2 rounded-full" style={{ background: CAT_COLORS[entry.name] || '#6B7280' }} />
-                              <span className="text-muted-foreground">{entry.name} {entry.value}</span>
-                            </div>
-                          ))}
-                        </div>
+            {/* District KPIs */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+              {[
+                { label: 'Total',       val: s.total_complaints, icon: FileText,     c: 'text-blue-500',    bg: 'bg-blue-500/8'    },
+                { label: 'Active',      val: s.total_active,     icon: Activity,     c: 'text-red-500',     bg: 'bg-red-500/8'     },
+                { label: 'Resolved',    val: s.total_resolved,   icon: CheckCircle2, c: 'text-emerald-500', bg: 'bg-emerald-500/8' },
+                { label: 'Rate',        val: s.resolution_rate,  icon: Target,       c: 'text-amber-500',   bg: 'bg-amber-500/8',  suffix: '%' },
+                { label: 'Officers',    val: s.active_officers,  icon: Users,        c: 'text-violet-500',  bg: 'bg-violet-500/8'  },
+                { label: 'Blood Donors',val: s.blood_donors,     icon: Heart,        c: 'text-pink-500',    bg: 'bg-pink-500/8'    },
+              ].map((k, i) => (
+                <motion.div key={k.label}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.04 }}>
+                  <Card className="border shadow-sm">
+                    <CardContent className="p-3">
+                      <div className={`w-6 h-6 rounded-md ${k.bg} flex items-center justify-center mb-2`}>
+                        <k.icon className={`w-3 h-3 ${k.c}`} />
                       </div>
-                    ) : (
-                      <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">No data yet</div>
-                    )}
-                  </CardContent>
-                </Card>
+                      <div className={`text-xl font-bold font-mono ${k.c}`}>
+                        <AnimNum n={Math.round(k.val || 0)} suffix={(k as any).suffix || ''} />
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">{k.label}</div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
 
-              </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'leaderboard' && (
-            <motion.div key="lb" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold flex items-center gap-2">
-                  <Award className="w-4 h-4 text-amber-500" />
-                  Constituency Performance Leaderboard
+            {/* ── 9 MLA Constituency Boxes ─────────── */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-muted-foreground" />
+                  9 Constituencies — Live Status
+                  <span className="text-xs text-muted-foreground font-normal">(Click for details)</span>
                 </h2>
-                <span className="text-xs text-muted-foreground">Ranked by resolution rate</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {constData.filter(c => c.total > 0).length} / 9 active
+                </span>
               </div>
 
-              <div className="space-y-2">
-                {displayLeaderboard.map((c, i) => {
-                  const meta = CONSTITUENCY_META[c.constituency] || { color: '#6B7280', emoji: '🏘', type: 'GENERAL' };
-                  const sc = STATUS_COLORS[c.status_label];
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {constData.map((c, i) => {
+                  const meta = MLA_META[c.constituency] || { color: '#6B7280', gradient: 'from-gray-500 to-gray-600', emoji: '🏘', type: 'GENERAL', mla: '' };
                   const rate = c.resolution_rate ?? 0;
-                  const medals = ['🥇','🥈','🥉'];
+                  const isSelected = selectedConst === c.constituency;
+                  const CatIcon = c.top_category ? (CAT_ICONS[c.top_category] || FileText) : FileText;
 
                   return (
                     <motion.div
                       key={c.constituency}
-                      initial={{ opacity: 0, x: -12 }}
-                      animate={{ opacity: 1, x: 0 }}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.05 }}
-                      className="flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card/60 backdrop-blur hover:bg-card transition-colors"
+                      onClick={() => setSelectedConst(isSelected ? null : c.constituency)}
+                      className={`relative rounded-xl border cursor-pointer overflow-hidden transition-all duration-200 ${
+                        isSelected
+                          ? 'ring-2 shadow-lg scale-[1.01]'
+                          : 'hover:shadow-md hover:scale-[1.005]'
+                      } bg-card`}
+                      style={isSelected ? { ringColor: meta.color } : {}}
                     >
-                      <div className="w-7 text-center text-base font-bold">
-                        {i < 3 ? medals[i] : <span className="text-xs text-muted-foreground font-mono">#{i + 1}</span>}
-                      </div>
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-lg" style={{ background: meta.color + '15' }}>
-                        {meta.emoji}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-sm">{c.constituency}</span>
-                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${sc.bg} ${sc.text}`}>{c.status_label}</span>
-                          {meta.type !== 'GENERAL' && <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{meta.type}</span>}
+                      {/* Top gradient bar */}
+                      <div className={`h-1 w-full bg-gradient-to-r ${meta.gradient}`} />
+
+                      <div className="p-3.5">
+                        {/* Header row */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2.5">
+                            <div
+                              className={`w-9 h-9 rounded-xl bg-gradient-to-br ${meta.gradient} flex items-center justify-center text-lg shadow-sm flex-shrink-0`}
+                            >
+                              {meta.emoji}
+                            </div>
+                            <div>
+                              <div className="font-bold text-sm leading-tight">{c.constituency}</div>
+                              <div className="text-[11px] text-muted-foreground truncate max-w-[140px] leading-tight mt-0.5">
+                                {c.mla_name}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <ZoneLabel rate={c.resolution_rate} />
+                            {meta.type !== 'GENERAL' && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+                                {meta.type}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+
+                        {/* Stats grid */}
+                        <div className="grid grid-cols-3 gap-2 mb-3">
+                          <div className="bg-muted/40 rounded-lg p-2 text-center">
+                            <div className="text-base font-bold font-mono">{c.total}</div>
+                            <div className="text-[9px] text-muted-foreground uppercase tracking-wide">Total</div>
+                          </div>
+                          <div className="bg-red-50 dark:bg-red-950/20 rounded-lg p-2 text-center">
+                            <div className="text-base font-bold font-mono text-red-500">{c.active}</div>
+                            <div className="text-[9px] text-muted-foreground uppercase tracking-wide">Active</div>
+                          </div>
+                          <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-2 text-center">
+                            <div className="text-base font-bold font-mono text-emerald-500">{c.resolved}</div>
+                            <div className="text-[9px] text-muted-foreground uppercase tracking-wide">Done</div>
+                          </div>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div className="space-y-1 mb-2">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-muted-foreground">Resolution</span>
+                            <span className="font-mono font-semibold">{rate.toFixed(0)}%</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                             <motion.div
-                              className="h-full rounded-full"
-                              style={{ background: meta.color }}
+                              className={`h-full rounded-full bg-gradient-to-r ${meta.gradient}`}
                               initial={{ width: 0 }}
                               animate={{ width: `${rate}%` }}
                               transition={{ duration: 0.8, delay: i * 0.05 }}
                             />
                           </div>
-                          <span className="text-xs font-mono text-muted-foreground w-10 text-right">{rate.toFixed(1)}%</span>
                         </div>
-                      </div>
-                      <div className="hidden sm:grid grid-cols-3 gap-4 text-center">
-                        <div>
-                          <div className="text-sm font-bold font-mono">{c.total || c.total_complaints || 0}</div>
-                          <div className="text-[10px] text-muted-foreground">Total</div>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-between mt-1">
+                          {c.top_category ? (
+                            <div className="flex items-center gap-1 text-[10px]">
+                              <CatIcon className="w-3 h-3" style={{ color: CAT_COLORS[c.top_category] || '#6B7280' }} />
+                              <span className="text-muted-foreground">{c.top_category}</span>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground italic">No complaints yet</span>
+                          )}
+                          <div className="flex items-center gap-2">
+                            {c.critical_count > 0 && (
+                              <span className="text-[10px] font-semibold text-red-500 flex items-center gap-0.5">
+                                <AlertTriangle className="w-3 h-3" />
+                                {c.critical_count}
+                              </span>
+                            )}
+                            {c.avg_rating && (
+                              <span className="text-[10px] font-medium text-amber-500 flex items-center gap-0.5">
+                                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                {c.avg_rating}
+                              </span>
+                            )}
+                            <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${isSelected ? 'rotate-90' : ''}`} />
+                          </div>
                         </div>
-                        <div>
-                          <div className="text-sm font-bold font-mono text-red-500">{c.active || c.active_complaints || 0}</div>
-                          <div className="text-[10px] text-muted-foreground">Active</div>
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold font-mono text-emerald-500">{c.resolved || c.resolved_complaints || 0}</div>
-                          <div className="text-[10px] text-muted-foreground">Resolved</div>
-                        </div>
-                      </div>
-                      <div className="hidden md:block text-right">
-                        <div className="text-xs text-muted-foreground truncate max-w-[120px]">{c.mla_name}</div>
-                        {c.top_category && (
-                          <span className="text-[10px] inline-flex items-center gap-1 mt-0.5">
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: CAT_COLORS[c.top_category] || '#6B7280' }} />
-                            {c.top_category}
-                          </span>
-                        )}
+
+                        {/* Expanded detail */}
+                        <AnimatePresence>
+                          {isSelected && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
+                                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                  Details
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">MLA</span>
+                                    <span className="font-medium truncate max-w-[100px] text-right">{c.mla_name || '—'}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Type</span>
+                                    <span className="font-medium">{meta.type}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Rating</span>
+                                    <span className="font-medium">{c.avg_rating ? `${c.avg_rating}/5` : 'N/A'}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Critical</span>
+                                    <span className={`font-medium ${c.critical_count > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                      {c.critical_count > 0 ? `${c.critical_count} pending` : 'None'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     </motion.div>
                   );
                 })}
               </div>
-            </motion.div>
-          )}
+            </div>
 
-          {activeTab === 'intelligence' && (
-            <motion.div key="intel" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold flex items-center gap-2">
-                  <BrainCircuit className="w-4 h-4 text-violet-500" />
-                  District Intelligence — AI Threat Detection
-                </h2>
-                <Badge variant="outline" className="text-[10px]">
-                  Runs every 6 hours
-                </Badge>
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-3">
-                <Card className="border-0 bg-card/60">
-                  <CardContent className="p-3 text-center">
-                    <div className="text-2xl font-bold font-mono text-red-500">{intelligence?.critical_unnotified ?? 0}</div>
-                    <div className="text-xs text-muted-foreground mt-1">Critical Unread</div>
-                  </CardContent>
-                </Card>
-                <Card className="border-0 bg-card/60">
-                  <CardContent className="p-3 text-center">
-                    <div className="text-2xl font-bold font-mono text-amber-500">{intelligence?.active_alerts_total ?? 0}</div>
-                    <div className="text-xs text-muted-foreground mt-1">Active Alerts</div>
-                  </CardContent>
-                </Card>
-                <Card className="border-0 bg-card/60">
-                  <CardContent className="p-3 text-center">
-                    <div className="text-2xl font-bold font-mono text-emerald-500">✓</div>
-                    <div className="text-xs text-muted-foreground mt-1">All Systems OK</div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {intelligence?.alerts && intelligence.alerts.length > 0 ? (
-                <div className="space-y-3">
-                  {intelligence.alerts.map((alert, i) => (
-                    <motion.div
-                      key={alert.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.06 }}
-                      className="p-4 rounded-xl border border-border/60 bg-card/60 space-y-2"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <ShieldAlert className={`w-4 h-4 ${alert.severity >= 80 ? 'text-red-500' : alert.severity >= 60 ? 'text-amber-500' : 'text-blue-500'}`} />
-                          <span className="font-semibold text-sm">{alert.title}</span>
-                        </div>
-                        <SeverityBar value={alert.severity} />
-                      </div>
-                      <p className="text-xs text-muted-foreground">{alert.summary}</p>
-                      {alert.recommended && (
-                        <div className="text-xs bg-muted/60 rounded-lg px-3 py-2">
-                          <span className="font-medium">Action: </span>{alert.recommended}
-                        </div>
-                      )}
-                    </motion.div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3">
-                    <CheckCircle2 className="w-7 h-7 text-emerald-500" />
-                  </div>
-                  <div className="font-semibold text-sm mb-1">All Clear — No Active Threats</div>
-                  <div className="text-xs text-muted-foreground max-w-xs">
-                    Intelligence engine is monitoring all 9 constituencies. No disease outbreaks, infrastructure failures, or frequency spikes detected.
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {activeTab === 'reports' && (
-            <motion.div key="reports" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="space-y-4">
-              <h2 className="text-sm font-semibold flex items-center gap-2">
-                <Newspaper className="w-4 h-4 text-muted-foreground" />
-                Press Report Generator
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {[
-                  { title: 'Monthly Report', desc: 'All 9 constituencies — complaint stats, resolution rates, officer performance.', icon: CalendarRange, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-                  { title: 'Achievement Report', desc: 'Top resolved issues, best constituency, fastest officers — press release ready.', icon: Award, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-                  { title: 'Intelligence Summary', desc: 'Active alerts, areas needing attention, district health score.', icon: BrainCircuit, color: 'text-violet-500', bg: 'bg-violet-500/10' },
-                ].map((r, i) => (
-                  <motion.div key={r.title} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.08 }}>
-                    <Card className="border-0 bg-card/60 hover:bg-card transition-colors cursor-pointer group">
-                      <CardContent className="p-5">
-                        <div className={`w-10 h-10 rounded-xl ${r.bg} flex items-center justify-center mb-3`}>
-                          <r.icon className={`w-5 h-5 ${r.color}`} />
-                        </div>
-                        <div className="font-semibold text-sm mb-1">{r.title}</div>
-                        <div className="text-xs text-muted-foreground leading-relaxed mb-4">{r.desc}</div>
-                        <Button size="sm" variant="outline" className="w-full h-8 text-xs group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-colors">
-                          <Download className="w-3 h-3 mr-1.5" />
-                          Generate PDF
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-              <Card className="border-0 bg-muted/30">
-                <CardContent className="p-4">
-                  <div className="text-xs text-muted-foreground text-center">
-                    Reports are auto-generated using live Supabase data and sent to MP's Telegram every month on the 1st (JS-19 workflow).
-                    Manual generation available above.
-                  </div>
+            {/* Charts row */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <Card className="lg:col-span-2 border shadow-sm">
+                <CardHeader className="pb-1 pt-3 px-4">
+                  <CardTitle className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider">
+                    <TrendingUp className="w-3.5 h-3.5" /> Complaint Trend (6 months)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-3">
+                  <ChartContainer className="h-[150px]" config={{
+                    f: { label: 'Filed', color: '#FF6B00' },
+                    r: { label: 'Resolved', color: '#10B981' },
+                  }}>
+                    <AreaChart data={TREND_DATA} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+                      <defs>
+                        <linearGradient id="gF2" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#FF6B00" stopOpacity={0.2}/>
+                          <stop offset="95%" stopColor="#FF6B00" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="gR2" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10B981" stopOpacity={0.2}/>
+                          <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted/40" />
+                      <XAxis dataKey="m" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Area type="monotone" dataKey="f" name="Filed" stroke="#FF6B00" strokeWidth={2} fill="url(#gF2)" />
+                      <Area type="monotone" dataKey="r" name="Resolved" stroke="#10B981" strokeWidth={2} fill="url(#gR2)" />
+                    </AreaChart>
+                  </ChartContainer>
                 </CardContent>
               </Card>
-            </motion.div>
-          )}
-          </AnimatePresence>
 
+              <Card className="border shadow-sm">
+                <CardHeader className="pb-1 pt-3 px-4">
+                  <CardTitle className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider">
+                    <BarChart3 className="w-3.5 h-3.5" /> Top Issues
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-3">
+                  {pieData.length > 0 ? (
+                    <div className="space-y-3">
+                      <ChartContainer className="h-[90px]" config={{}}>
+                        <PieChart>
+                          <Pie data={pieData} cx="50%" cy="50%" innerRadius={28} outerRadius={42} paddingAngle={3} dataKey="value">
+                            {pieData.map(entry => (
+                              <Cell key={entry.name} fill={CAT_COLORS[entry.name] || '#6B7280'} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ChartContainer>
+                      <div className="flex flex-wrap gap-x-2 gap-y-1">
+                        {pieData.map(e => (
+                          <div key={e.name} className="flex items-center gap-1 text-[10px]">
+                            <span className="w-2 h-2 rounded-full" style={{ background: CAT_COLORS[e.name] || '#6B7280' }} />
+                            <span className="text-muted-foreground">{e.name} ({e.value})</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-[130px] flex items-center justify-center text-xs text-muted-foreground">
+                      No category data yet
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ══ LEADERBOARD ══════════════════════════ */}
+        {tab === 'leaderboard' && (
+          <motion.div key="lb"
+            initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }} className="space-y-3">
+
+            <h2 className="text-sm font-semibold flex items-center gap-2">
+              <Award className="w-4 h-4 text-amber-500" />
+              Constituency Rankings — Resolution Rate
+            </h2>
+
+            {ranked.map((c, i) => {
+              const meta = MLA_META[c.constituency] || { color: '#6B7280', gradient: 'from-gray-500 to-gray-600', emoji: '🏘', type: '', mla: '' };
+              const rate = c.resolution_rate ?? 0;
+              const medals = ['🥇', '🥈', '🥉'];
+
+              return (
+                <motion.div key={c.constituency}
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.06 }}
+                  className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-muted/20 transition-colors"
+                >
+                  <div className="w-8 text-center text-lg font-bold flex-shrink-0">
+                    {i < 3 ? medals[i] : <span className="text-xs font-mono text-muted-foreground">#{i+1}</span>}
+                  </div>
+                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${meta.gradient} flex items-center justify-center text-base flex-shrink-0`}>
+                    {meta.emoji}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-sm">{c.constituency}</span>
+                      <ZoneLabel rate={c.resolution_rate} />
+                      {meta.type && meta.type !== 'GENERAL' && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{meta.type}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <motion.div
+                          className={`h-full rounded-full bg-gradient-to-r ${meta.gradient}`}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${rate}%` }}
+                          transition={{ duration: 0.7, delay: i * 0.06 }}
+                        />
+                      </div>
+                      <span className="text-xs font-mono text-muted-foreground w-9 text-right">{rate.toFixed(0)}%</span>
+                    </div>
+                  </div>
+                  <div className="hidden sm:grid grid-cols-3 gap-3 text-center flex-shrink-0">
+                    <div>
+                      <div className="text-sm font-bold font-mono">{c.total}</div>
+                      <div className="text-[9px] text-muted-foreground">Total</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold font-mono text-red-500">{c.active}</div>
+                      <div className="text-[9px] text-muted-foreground">Active</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold font-mono text-emerald-500">{c.resolved}</div>
+                      <div className="text-[9px] text-muted-foreground">Done</div>
+                    </div>
+                  </div>
+                  <div className="hidden md:block text-right flex-shrink-0">
+                    <div className="text-[11px] text-muted-foreground max-w-[110px] truncate">{c.mla_name}</div>
+                    {c.top_category && (
+                      <div className="flex items-center gap-1 justify-end mt-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: CAT_COLORS[c.top_category] || '#6B7280' }} />
+                        <span className="text-[10px] text-muted-foreground">{c.top_category}</span>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        )}
+
+        {/* ══ INTEL ════════════════════════════════ */}
+        {tab === 'intel' && (
+          <motion.div key="intel"
+            initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }} className="space-y-4">
+
+            <h2 className="text-sm font-semibold flex items-center gap-2">
+              <BrainCircuit className="w-4 h-4 text-violet-500" />
+              AI Intelligence — District Level
+            </h2>
+
+            <div className="grid grid-cols-3 gap-3">
+              <Card className="border"><CardContent className="p-3 text-center">
+                <div className="text-2xl font-bold font-mono text-red-500">{s.critical_alerts || 0}</div>
+                <div className="text-xs text-muted-foreground mt-1">Critical Active</div>
+              </CardContent></Card>
+              <Card className="border"><CardContent className="p-3 text-center">
+                <div className="text-2xl font-bold font-mono text-amber-500">{s.active_alerts || 0}</div>
+                <div className="text-xs text-muted-foreground mt-1">Intel Alerts</div>
+              </CardContent></Card>
+              <Card className="border"><CardContent className="p-3 text-center">
+                <div className="text-2xl font-bold font-mono text-emerald-500">
+                  {constData.filter(c => c.total > 0 && (c.resolution_rate ?? 0) >= 75).length}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">Good Zones</div>
+              </CardContent></Card>
+            </div>
+
+            {/* Constituency health summary */}
+            <Card className="border">
+              <CardHeader className="pb-2 pt-3 px-4">
+                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Constituency Health Overview
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-2">
+                {constData.map(c => {
+                  const meta = MLA_META[c.constituency] || { color: '#6B7280', gradient: 'from-gray-500 to-gray-600', emoji: '🏘', type: '', mla: '' };
+                  const rate = c.resolution_rate ?? 0;
+                  return (
+                    <div key={c.constituency} className="flex items-center gap-3">
+                      <span className="text-sm w-6 text-center">{meta.emoji}</span>
+                      <span className="text-xs font-medium w-24 flex-shrink-0">{c.constituency}</span>
+                      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={`h-full rounded-full bg-gradient-to-r ${meta.gradient} transition-all`}
+                          style={{ width: `${rate}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-mono w-10 text-right text-muted-foreground">
+                        {c.total > 0 ? `${rate.toFixed(0)}%` : 'N/A'}
+                      </span>
+                      {c.critical_count > 0 && (
+                        <span className="text-[10px] text-red-500 font-semibold flex items-center gap-0.5 w-12">
+                          <AlertTriangle className="w-3 h-3" />{c.critical_count}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+
+            <div className="flex flex-col items-center justify-center py-8 text-center bg-muted/20 rounded-xl border">
+              <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" />
+              <div className="font-semibold text-sm">Intelligence Engine Active</div>
+              <div className="text-xs text-muted-foreground mt-1 max-w-xs">
+                Monitoring all 9 constituencies every 6 hours. JS-09 will send alerts to your Telegram if threats are detected.
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ══ REPORTS ══════════════════════════════ */}
+        {tab === 'reports' && (
+          <motion.div key="rp"
+            initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }} className="space-y-4">
+
+            <h2 className="text-sm font-semibold flex items-center gap-2">
+              <Newspaper className="w-4 h-4 text-muted-foreground" />
+              Press Report Generator
+            </h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[
+                { title: 'Monthly Report',    desc: 'All 9 constituencies — complaint stats, resolution rates, officer performance.', icon: CalendarRange, color: 'text-blue-500',   bg: 'bg-blue-500/10'   },
+                { title: 'Achievement Report', desc: 'Top resolved issues, best constituency, fastest officers — press release ready.', icon: Award,          color: 'text-amber-500', bg: 'bg-amber-500/10'  },
+                { title: 'District Summary',   desc: 'Purulia district health score, active alerts, intelligence summary.',            icon: BarChart3,      color: 'text-violet-500',bg: 'bg-violet-500/10' },
+              ].map((r, i) => (
+                <motion.div key={r.title}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.08 }}>
+                  <Card className="border hover:shadow-md transition-shadow cursor-pointer group">
+                    <CardContent className="p-4">
+                      <div className={`w-9 h-9 rounded-xl ${r.bg} flex items-center justify-center mb-3`}>
+                        <r.icon className={`w-4.5 h-4.5 ${r.color}`} />
+                      </div>
+                      <div className="font-semibold text-sm mb-1">{r.title}</div>
+                      <div className="text-xs text-muted-foreground leading-relaxed mb-3">{r.desc}</div>
+                      <Button size="sm" variant="outline" className="w-full h-7 text-xs">
+                        Generate PDF
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+
+            <Card className="border bg-muted/20">
+              <CardContent className="p-4 text-center text-xs text-muted-foreground">
+                JS-19 workflow auto-sends monthly PDF to MP Telegram on 1st of each month.
+                JS-20 sends MLA score cards. Manual generation coming soon.
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        </AnimatePresence>
         </div>
       </ScrollArea>
     </div>
-  );
-}
-
-// Fix missing Heart import
-function Heart({ className }: { className?: string }) {
-  return (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-    </svg>
   );
 }
