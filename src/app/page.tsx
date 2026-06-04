@@ -659,6 +659,7 @@ export default function HomePage() {
                 {view === 'liveData' && (
                   <LiveDataMonitor />
                 )}
+              </ErrorBoundary>
               </motion.div>
             </AnimatePresence>
           </div>
