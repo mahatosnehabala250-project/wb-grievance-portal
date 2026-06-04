@@ -1476,7 +1476,7 @@ export default function IntegrationsView() {
                   <div className="p-4 rounded-xl bg-muted/50 border border-border/50">
                     <p className="text-xs font-semibold text-foreground mb-2">All protected endpoints require a JWT Bearer token in the Authorization header:</p>
                     <CodeBlock
-                      code={`Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\n\n# Or use Cookie-based auth (after login):\nCookie: wb_session=<token>`}
+                      code={`Authorization: Bearer <your-jwt-token>\n\n# Or use Cookie-based auth (after login):\nCookie: wb_session=<token>`}
                       label="Request Headers"
                     />
                   </div>
