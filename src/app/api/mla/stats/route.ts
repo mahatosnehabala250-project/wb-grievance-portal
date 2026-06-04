@@ -31,6 +31,16 @@ export async function GET(request: NextRequest) {
 
   try {
     // ── Fetch complaints for this constituency ───────────────
+    // Input validation
+    if (requestedConstituency.length > 100 || !/^[a-zA-Z\s]+$/.test(requestedConstituency)) {
+      return NextResponse.json({ error: "Invalid constituency parameter" }, { status: 400 });
+    }
+
+    const limitParam = searchParams.get("limit");
+    const offsetParam = searchParams.get("offset");
+    const limit = Math.min(parseInt(limitParam || "500"), 1000);
+    const offset = parseInt(offsetParam || "0");
+
     const { data: complaints, error } = await supabase
       .from("complaints")
       .select(`
@@ -40,7 +50,8 @@ export async function GET(request: NextRequest) {
         citizenName, issue, village, constituency
       `)
       .eq("constituency", requestedConstituency)
-      .order("createdAt", { ascending: false });
+      .order("createdAt", { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) throw error;
 
