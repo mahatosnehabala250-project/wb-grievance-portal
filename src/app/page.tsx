@@ -88,6 +88,16 @@ export default function HomePage() {
   const { theme, setTheme } = useTheme();
   const { lang, setLang, t } = useI18nStore();
   const [view, setView] = useState<ViewType>('dashboard');
+
+  // Auto-redirect to role-appropriate view on login
+  useEffect(() => {
+    if (!user) return;
+    if (user.role_level === 'MP') {
+      setView('mp_command');
+    } else if (user.role_level === 'MLA') {
+      setView('mla_dashboard');
+    }
+  }, [user?.id]); // run once when user first logs in
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [newComplaintOpen, setNewComplaintOpen] = useState(false);
   const [initialComplaint, setInitialComplaint] = useState<Complaint | undefined>(undefined);
@@ -259,8 +269,14 @@ export default function HomePage() {
     { id: 'chat' as ViewType, label: 'WhatsApp Chats', icon: MessageSquare },
     { id: 'rakta' as ViewType, label: 'রক্ত সহায়ক', icon: Heart },
     { id: 'map' as ViewType, label: 'Map', icon: MapPin },
-    { id: 'mp_command' as ViewType, label: 'MP Command', icon: Crown },
-    { id: 'mla_dashboard' as ViewType, label: 'MLA Dashboard', icon: Building2 },
+    // MP Command — only visible to MP role_level or ADMIN
+    ...(user?.role_level === 'MP' || user?.role === 'ADMIN'
+      ? [{ id: 'mp_command' as ViewType, label: 'MP Command', icon: Crown }]
+      : []),
+    // MLA Dashboard — only visible to MLA or MP or ADMIN
+    ...(user?.role_level === 'MLA' || user?.role_level === 'MP' || user?.role === 'ADMIN'
+      ? [{ id: 'mla_dashboard' as ViewType, label: 'MLA Dashboard', icon: Building2 }]
+      : []),
     { id: 'analytics' as ViewType, label: t('analytics'), icon: BarChart2 },
     { id: 'intelligence' as ViewType, label: 'Intelligence', icon: BrainCircuit },
     { id: 'schemes' as ViewType, label: 'Schemes', icon: BookOpen },
@@ -638,10 +654,10 @@ export default function HomePage() {
                 {view === 'map' && (
                   <MapView />
                 )}
-                {view === 'mp_command' && (
+                {view === 'mp_command' && (user?.role_level === 'MP' || user?.role === 'ADMIN') && (
                   <MPCommandView />
                 )}
-                {view === 'mla_dashboard' && (
+                {view === 'mla_dashboard' && (user?.role_level === 'MLA' || user?.role_level === 'MP' || user?.role === 'ADMIN') && (
                   <MLADashboardView />
                 )}
                 {view === 'intelligence' && (
