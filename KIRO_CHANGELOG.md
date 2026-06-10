@@ -24,6 +24,21 @@
 
 ## 📋 Changes Log
 
+### SESSION 3 — Kiro (June 10, 2026): Phase 2 BUGFIX — GP/Karyakarta showed 0 complaints
+
+#### 🐛 Root cause
+`gp_code`, `gp_name`, `assigned_villages` were added to the DB `users` table (Phase 1 SQL migration) but were **never added to the Prisma `User` model**. So `db.user.findUnique` at login didn't return them → JWT carried `gp_code: null` → the GP_COORD / KARYAKARTA scope branch in `getComplaintScopeFilter` was skipped → wrong/zero results on the governance dashboard.
+
+#### ✅ Fix
+- `prisma/schema.prisma` User model: added `gp_code String?`, `gp_name String?`, `assigned_villages String[] @default([])`
+- DB: `assigned_villages` set NOT NULL default `'{}'` (Prisma scalar lists can't be null)
+- `prisma generate` run; Vercel build also runs it (`prisma generate && next build`)
+
+#### ⚠️ ACTION REQUIRED after deploy
+Existing JWT tokens were minted WITHOUT gp_code. Affected users (gpcoord_demo, karyakarta_demo, etc.) **must LOG OUT and LOG IN again** to get a fresh token carrying gp_code. Then GP_COORD → 11 complaints (gp 111050), KARYAKARTA → village-scoped.
+
+---
+
 ### SESSION 3 — Kiro (June 10, 2026): Phase 2 FIX — coordinators were seeing District Performance
 
 #### 🐛 Issue
