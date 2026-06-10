@@ -24,6 +24,21 @@
 
 ## 📋 Changes Log
 
+### SESSION 2 — Kiro (June 10, 2026 — Evening, fix #3)
+
+#### ✅ n8n FIX: JS-04 Decide Channel — handle NUMBER chat_id (exec #4160 — THE real fix)
+- **Symptom:** Telegram link save hone ke BAAD bhi status RESOLVED WhatsApp pe gaya.
+- **Root cause (confirmed via exec #4160):** `Check Citizen Telegram` returned `"json": 7335362261` — a **NUMBER**, not a string or object. chat_id pura digits hai isliye n8n ne JSON number parse kiya. Pichla Decide Channel fix sirf `string` + `object` handle karta tha → number case mein `tgId` null → `hasTelegram: false` → WhatsApp.
+- **Fix:** `Decide Channel` ab `typeof !== 'object'` (i.e. string OR number) ko direct value treat karta hai, plus object shapes. Number ab `String(tgId)` ho jaata hai → hasTelegram true → Telegram.
+- **Status:** Applied ✅
+- **NOTE for next session:** JS-04 "Notify via Telegram" still uses Telegram default Markdown parse mode. If a citizen's `resolution` text ever contains `_` `*` `[` `` ` ``, the telegram send could fail (same class as JS-12 #4148). Consider disabling parse_mode on telegram send nodes for full safety.
+
+#### ✅ Confirmed working
+- Telegram linking: link click → "✅ লিঙ্ক সফল হয়েছে" reply aata hai ✅
+- `citizen_telegram_links`: `918768374600` → `7335362261` (active) ✅
+
+---
+
 ### SESSION 2 — Kiro (June 10, 2026 — Evening, continued)
 
 #### ✅ n8n FIX: JS-12 Telegram Markdown entity error (exec #4148)
