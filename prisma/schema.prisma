@@ -27,9 +27,12 @@ model User {
   telegramChatId  String?     // Telegram chat ID for notifications
   isDistrictHead  Boolean     @default(false) // true for DISTRICT/STATE heads
   notifyVia       String      @default("both") // "whatsapp", "telegram", "both", "none"
-  role_level      String      @default("OFFICER") // MP, MLA, DISTRICT_ADMIN, OFFICER
+  role_level      String      @default("OFFICER") // MP, MLA, DISTRICT_ADMIN, BLOCK_COORD, GP_COORD, KARYAKARTA, OFFICER
   constituency    String?     // Assembly constituency e.g. Purulia, Manbazar
   lok_sabha_constituency String? @default("Purulia") // Lok Sabha constituency
+  gp_code         String?     // LGD gp_code for GP_COORD / KARYAKARTA scope
+  gp_name         String?     // GP display name
+  assigned_villages String[]  @default([]) // Villages a KARYAKARTA is responsible for
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
