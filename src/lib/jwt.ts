@@ -16,9 +16,13 @@ export interface JWTPayload {
   name: string;
   block: string;
   district: string | null;
-  role_level?: string;       // MP | MLA | DISTRICT_ADMIN | OFFICER
-  constituency?: string | null; // Assembly constituency
-  lok_sabha_constituency?: string | null;
+  // Governance hierarchy (Phase 1)
+  role_level?: string;       // MP | MLA | DISTRICT_ADMIN | BLOCK_COORD | GP_COORD | KARYAKARTA | OFFICER
+  constituency?: string | null;          // Assembly constituency (MLA)
+  lok_sabha_constituency?: string | null; // Parliamentary constituency (MP)
+  gp_code?: string | null;               // GP_COORD / KARYAKARTA scope
+  gp_name?: string | null;
+  assigned_villages?: string[] | null;   // KARYAKARTA scope
 }
 
 export async function signToken(payload: JWTPayload): Promise<string> {
@@ -66,4 +70,65 @@ export function canAccessConstituency(user: JWTPayload, targetConstituency: stri
     return user.constituency?.toLowerCase() === targetConstituency.toLowerCase();
   }
   return false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Phase 1 — Governance hierarchy complaint visibility
+//
+// Single source of truth for "which complaints can this user see?".
+// Returns a Prisma `where` fragment scoped to the user's jurisdiction.
+// Scope is derived from the governance designation (role_level) first, then
+// falls back to the base system role. Apply this LAST in a where-clause build
+// so a scoped user can never broaden their own visibility via query params.
+//
+// Hierarchy → filter column on complaints:
+//   ADMIN / STATE            → everything (state-wide)
+//   MP                       → parliamentaryConstituency = lok_sabha_constituency
+//   MLA                      → assemblyConstituency = constituency
+//   DISTRICT / DISTRICT_ADMIN→ district
+//   BLOCK_COORD / BLOCK      → block
+//   GP_COORD                 → gp_code
+//   KARYAKARTA               → village ∈ assigned_villages (fallback gp_code)
+// ─────────────────────────────────────────────────────────────────────────
+export function getComplaintScopeFilter(user: JWTPayload): Record<string, unknown> {
+  // System admin → entire state (no filter)
+  if (user.role === 'ADMIN') return {};
+
+  const lvl = user.role_level;
+
+  // Governance designation takes precedence over base role
+  if (lvl === 'MP' && user.lok_sabha_constituency) {
+    return { parliamentaryConstituency: { equals: user.lok_sabha_constituency, mode: 'insensitive' } };
+  }
+  if (lvl === 'MLA' && user.constituency) {
+    return { assemblyConstituency: { equals: user.constituency, mode: 'insensitive' } };
+  }
+  if (lvl === 'DISTRICT_ADMIN' && (user.district || user.block)) {
+    return { district: { equals: (user.district || user.block) as string, mode: 'insensitive' } };
+  }
+  if (lvl === 'BLOCK_COORD' && user.block) {
+    return { block: { equals: user.block, mode: 'insensitive' } };
+  }
+  if (lvl === 'GP_COORD' && user.gp_code) {
+    return { gpCode: user.gp_code };
+  }
+  if (lvl === 'KARYAKARTA') {
+    if (user.assigned_villages && user.assigned_villages.length > 0) {
+      return { village: { in: user.assigned_villages } };
+    }
+    if (user.gp_code) return { gpCode: user.gp_code };
+  }
+
+  // Fall back to base system role
+  if (user.role === 'STATE') return {};
+  if (user.role === 'DISTRICT') {
+    // Legacy: district name was historically stored in the `block` field for DISTRICT role.
+    const d = user.district || user.block;
+    return d ? { district: { equals: d, mode: 'insensitive' } } : {};
+  }
+  if (user.role === 'BLOCK' && user.block) {
+    return { block: { equals: user.block, mode: 'insensitive' } };
+  }
+  // Safe default: restrict to own block (never show everything by accident)
+  return user.block ? { block: { equals: user.block, mode: 'insensitive' } } : {};
 }

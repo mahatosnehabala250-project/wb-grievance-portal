@@ -35,6 +35,27 @@ export const ROLE_COLORS: Record<string, string> = {
   STATE: 'bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-300',
 };
 
+// ─── Governance hierarchy (role_level) labels + colors (Phase 1) ───
+export const ROLE_LEVEL_MAP: Record<string, string> = {
+  KARYAKARTA: 'Karyakarta',
+  GP_COORD: 'GP Coordinator',
+  BLOCK_COORD: 'Block Coordinator',
+  MLA: 'MLA',
+  MP: 'MP',
+  DISTRICT_ADMIN: 'District Leadership',
+  OFFICER: 'Officer',
+};
+
+export const ROLE_LEVEL_COLORS: Record<string, string> = {
+  KARYAKARTA: 'bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300',
+  GP_COORD: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300',
+  BLOCK_COORD: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300',
+  MLA: 'bg-violet-100 text-violet-800 dark:bg-violet-900/50 dark:text-violet-300',
+  MP: 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300',
+  DISTRICT_ADMIN: 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300',
+  OFFICER: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+};
+
 // Categories — must match DB values (set by n8n JS-02 triage)
 export const CATEGORIES = [
   // Infrastructure

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
+import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
 
 // GET /api/complaints — list complaints (filtered by role)
 export async function GET(request: NextRequest) {
@@ -29,12 +29,8 @@ export async function GET(request: NextRequest) {
   // Build where clause based on role
   const where: Record<string, unknown> = {};
 
-  if (payload.role === 'BLOCK') {
-    where.block = payload.block;
-  } else if (payload.role === 'DISTRICT') {
-    where.district = payload.block;
-  }
-  // ADMIN and STATE see all
+  // Governance scope is enforced LAST (see end of this block) so query params
+  // below cannot broaden a scoped user's visibility.
 
   if (status) where.status = status;
   if (urgency) where.urgency = urgency;
@@ -84,6 +80,10 @@ export async function GET(request: NextRequest) {
       { block: { contains: search } },
     ];
   }
+
+  // ── Enforce governance scope LAST — a scoped user can never widen their
+  //    own visibility through query params (block/district/etc.) ──
+  Object.assign(where, getComplaintScopeFilter(payload));
 
   const [complaints, total] = await Promise.all([
     db.complaint.findMany({

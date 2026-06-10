@@ -7,9 +7,12 @@ interface User {
   name: string;
   block: string;
   district: string | null;
-  role_level?: 'MP' | 'MLA' | 'DISTRICT_ADMIN' | 'OFFICER';
+  role_level?: 'MP' | 'MLA' | 'DISTRICT_ADMIN' | 'BLOCK_COORD' | 'GP_COORD' | 'KARYAKARTA' | 'OFFICER';
   constituency?: string | null;
   lok_sabha_constituency?: string | null;
+  gp_code?: string | null;
+  gp_name?: string | null;
+  assigned_villages?: string[] | null;
 }
 
 interface AuthState {

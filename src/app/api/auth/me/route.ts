@@ -28,6 +28,12 @@ export async function GET(request: NextRequest) {
       name: payload.name,
       block: payload.block,
       district: payload.district,
+      role_level: payload.role_level || 'OFFICER',
+      constituency: payload.constituency || null,
+      lok_sabha_constituency: payload.lok_sabha_constituency || null,
+      gp_code: payload.gp_code || null,
+      gp_name: payload.gp_name || null,
+      assigned_villages: payload.assigned_villages || null,
     },
   });
 }

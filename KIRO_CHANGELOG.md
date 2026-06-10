@@ -24,7 +24,45 @@
 
 ## 📋 Changes Log
 
-### SESSION 2 — Kiro (June 10, 2026 — Evening, fix #5: Rating routed to WRONG ticket)
+### SESSION 3 — Kiro (June 10, 2026): Governance Hierarchy — PHASE 1 (Foundation)
+
+#### Design
+Full hierarchy: Karyakarta → GP Coord → Block Coord → MLA → MP → District → State → Admin.
+Visibility derived from `role_level` first, then base `role`. Geo auto-mapping (village→GP→block→AC→LS→district) already done by register_complaint+LGD.
+
+#### ✅ DB (migration `phase1_governance_roles_and_user_jurisdiction`)
+- Extended `users.role_level` CHECK: added `BLOCK_COORD, GP_COORD, KARYAKARTA`
+- Added `users.gp_code`, `users.gp_name`, `users.assigned_villages text[]`
+
+#### ✅ Demo users (password for ALL: `Demo@2026`)
+All scoped to Purulia / Manbazar I / GP Kamtajangidiri (111050) / Bandwan AC / Jhargram LS so they see test complaints:
+| username | role_level | scope | complaints visible |
+|----------|-----------|-------|-----|
+| karyakarta_demo | KARYAKARTA | villages Jangidiri, Baliguma | 11 |
+| gpcoord_demo | GP_COORD | gp_code 111050 | 11 |
+| blockcoord_demo | BLOCK_COORD | block Manbazar I | 16 |
+| mla_demo | MLA | Bandwan | 19 |
+| mp_demo | MP | Jhargram | 19 |
+| district_demo | DISTRICT_ADMIN | Purulia | 42 |
+| state_demo | (STATE) | all | 55 |
+| admin_demo | (ADMIN) | all | 55 |
+
+#### ✅ Code (pushed to GitHub)
+- `src/lib/jwt.ts` — added gp_code/gp_name/assigned_villages to JWTPayload + NEW `getComplaintScopeFilter(user)` (single source of truth for complaint visibility, governance-scoped, applied LAST so scoped users can't widen via query params)
+- `src/app/api/auth/login/route.ts` — payload + response now include gp_code/gp_name/assigned_villages
+- `src/app/api/auth/me/route.ts` — FIXED: now returns role_level/constituency/lok_sabha/gp_code/... (previously dropped on refresh → MP/MLA dashboards would break after reload)
+- `src/lib/auth-store.ts` — User type extended with new role_levels + jurisdiction fields
+- `src/lib/constants.ts` — added `ROLE_LEVEL_MAP` + `ROLE_LEVEL_COLORS`
+- `src/app/api/complaints/route.ts` — uses getComplaintScopeFilter (replaces block/district-only logic)
+- `src/app/api/dashboard/route.ts` — uses getComplaintScopeFilter (where + slaWhere)
+
+#### Phase 1 result
+Standard Dashboard + Complaints views now respect the FULL hierarchy scope for all roles. MLA/MP dashboards unchanged (already existed). 
+**Phase 2 (next):** dedicated Karyakarta / GP Coord / Block Coord dashboard views + nav gating. **Phase 3:** drill-down. **Phase 4:** admin user-management UI for assigning jurisdiction.
+
+---
+
+## 📋 Changes Log (earlier)
 
 #### 🐛 Bug: Citizen rated 039 on Telegram but rating saved to 033
 - **Root cause 1:** `save_telegram_rating` had a `satisfactionRating IS NULL` filter. 039 was already rated (3, from an earlier manual test), so the citizen's "4" skipped 039 and landed on the next unrated resolved complaint = 033.

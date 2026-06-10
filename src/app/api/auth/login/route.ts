@@ -92,6 +92,9 @@ export async function POST(request: NextRequest) {
       role_level: (user as any).role_level || 'OFFICER',
       constituency: (user as any).constituency || null,
       lok_sabha_constituency: (user as any).lok_sabha_constituency || null,
+      gp_code: (user as any).gp_code || null,
+      gp_name: (user as any).gp_name || null,
+      assigned_villages: (user as any).assigned_villages || null,
     };
 
     const token = await signToken(payload);
@@ -108,6 +111,9 @@ export async function POST(request: NextRequest) {
         role_level: (user as any).role_level || 'OFFICER',
         constituency: (user as any).constituency || null,
         lok_sabha_constituency: (user as any).lok_sabha_constituency || null,
+        gp_code: (user as any).gp_code || null,
+        gp_name: (user as any).gp_name || null,
+        assigned_villages: (user as any).assigned_villages || null,
       },
       token,
     });

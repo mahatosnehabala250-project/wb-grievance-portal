@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
+import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
 
 // GET /api/dashboard — role-based dashboard statistics (optimized for Supabase pooler)
 export async function GET(request: NextRequest) {
@@ -11,10 +11,9 @@ export async function GET(request: NextRequest) {
     const payload = await verifyToken(token);
     if (!payload) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
 
-    // Build where clause based on role
+    // Build where clause based on governance scope (single source of truth)
     const where: Record<string, unknown> = {};
-    if (payload.role === 'BLOCK') where.block = payload.block;
-    else if (payload.role === 'DISTRICT') where.district = payload.block;
+    Object.assign(where, getComplaintScopeFilter(payload));
 
     // ─── Date Range Filter ───
     const { searchParams } = new URL(request.url);
@@ -61,8 +60,7 @@ export async function GET(request: NextRequest) {
     const monthlyMap: Record<string, { open: number; inProgress: number; resolved: number; total: number }> = {};
 
     const slaWhere: Record<string, unknown> = {};
-    if (payload.role === 'BLOCK') slaWhere.block = payload.block;
-    else if (payload.role === 'DISTRICT') slaWhere.district = payload.block;
+    Object.assign(slaWhere, getComplaintScopeFilter(payload));
 
     for (const c of allComplaints) {
       total++;
