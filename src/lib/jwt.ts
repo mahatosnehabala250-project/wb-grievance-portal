@@ -98,25 +98,25 @@ export function getComplaintScopeFilter(user: JWTPayload): Record<string, unknow
 
   // Governance designation takes precedence over base role
   if (lvl === 'MP' && user.lok_sabha_constituency) {
-    return { parliamentaryConstituency: { equals: user.lok_sabha_constituency, mode: 'insensitive' } };
+    return { parliamentary_constituency: user.lok_sabha_constituency };
   }
   if (lvl === 'MLA' && user.constituency) {
-    return { assemblyConstituency: { equals: user.constituency, mode: 'insensitive' } };
+    return { assembly_constituency: user.constituency };
   }
   if (lvl === 'DISTRICT_ADMIN' && (user.district || user.block)) {
-    return { district: { equals: (user.district || user.block) as string, mode: 'insensitive' } };
+    return { district: (user.district || user.block) as string };
   }
   if (lvl === 'BLOCK_COORD' && user.block) {
-    return { block: { equals: user.block, mode: 'insensitive' } };
+    return { block: user.block };
   }
   if (lvl === 'GP_COORD' && user.gp_code) {
-    return { gpCode: user.gp_code };
+    return { gp_code: user.gp_code };
   }
   if (lvl === 'KARYAKARTA') {
     if (user.assigned_villages && user.assigned_villages.length > 0) {
       return { village: { in: user.assigned_villages } };
     }
-    if (user.gp_code) return { gpCode: user.gp_code };
+    if (user.gp_code) return { gp_code: user.gp_code };
   }
 
   // Fall back to base system role
@@ -124,11 +124,11 @@ export function getComplaintScopeFilter(user: JWTPayload): Record<string, unknow
   if (user.role === 'DISTRICT') {
     // Legacy: district name was historically stored in the `block` field for DISTRICT role.
     const d = user.district || user.block;
-    return d ? { district: { equals: d, mode: 'insensitive' } } : {};
+    return d ? { district: d } : {};
   }
   if (user.role === 'BLOCK' && user.block) {
-    return { block: { equals: user.block, mode: 'insensitive' } };
+    return { block: user.block };
   }
   // Safe default: restrict to own block (never show everything by accident)
-  return user.block ? { block: { equals: user.block, mode: 'insensitive' } } : {};
+  return user.block ? { block: user.block } : {};
 }

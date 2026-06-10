@@ -94,7 +94,9 @@ export function GovernanceDashboardView() {
   const breakdown = useMemo(() => {
     const map: Record<string, { total: number; active: number; resolved: number }> = {};
     for (const c of complaints) {
-      const key = (c as any)[cfg.breakdownKey] || '—';
+      const key = cfg.breakdownKey === 'gpName'
+        ? ((c as any).gpName || (c as any).gp_name || '—')
+        : ((c as any).village || '—');
       if (!map[key]) map[key] = { total: 0, active: 0, resolved: 0 };
       map[key].total++;
       if (c.status === 'RESOLVED') map[key].resolved++;
@@ -267,7 +269,7 @@ export function GovernanceDashboardView() {
                             </div>
                             <p className="text-sm font-medium truncate mt-1">{c.issue}</p>
                             <p className="text-[11px] text-muted-foreground truncate">
-                              {c.citizenName || 'Anonymous'} · {c.village || '—'}{c.gpName ? `, ${c.gpName}` : ''} · {fmtDate(c.createdAt)}
+                              {c.citizenName || 'Anonymous'} · {c.village || '—'}{(c.gpName || (c as any).gp_name) ? `, ${c.gpName || (c as any).gp_name}` : ''} · {fmtDate(c.createdAt)}
                             </p>
                           </div>
                           <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0"><Eye className="h-4 w-4" /></Button>
