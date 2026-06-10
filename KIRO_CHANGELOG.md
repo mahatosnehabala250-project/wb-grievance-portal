@@ -24,6 +24,25 @@
 
 ## 📋 Changes Log
 
+### SESSION 2 — Kiro (June 10, 2026 — Evening, continued)
+
+#### ✅ n8n FIX: JS-12 Telegram Markdown entity error (exec #4148)
+- **Symptom:** Link click ke baad `Send Success Reply` fail: `Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 139`
+- **Root cause:** Reply mein raw status `IN_PROGRESS` tha. Telegram Markdown mode mein `_` (underscore) italic shuru karta hai jo band nahi hota → parse error.
+- **GOOD NEWS:** Is execution mein link **save ho gaya** (Upsert succeeded) — array/object fix kaam kar gaya. Sumit: `918768374600` ↔ chat `7335362261`.
+- **Fix:** `Save Link + Build Reply` ab status ko Bengali label mein map karta hai (statusMap) — underscore eliminated.
+- **Status:** Applied ✅
+
+#### ✅ n8n FIX: JS-04 Decide Channel — robust telegram chat_id parsing
+- **Concern:** `get_citizen_telegram` RPC text return karta hai; n8n scalar response ko string YA object (`{data:...}`) mein wrap kar sakta hai. Purana code sirf `typeof === 'string'` check karta tha → object case mein Telegram detect nahi hota → WhatsApp fallback.
+- **Fix:** `Decide Channel` ab string + object dono shapes handle karta hai (`tgRes.data || tgRes.get_citizen_telegram || tgRes.telegram_chat_id`).
+- **Status:** Applied ✅ (validated, 0 errors)
+
+#### ✅ Confirmed: Telegram link now persists
+- `citizen_telegram_links`: `918768374600` → `7335362261` (active) ✅
+
+---
+
 ### SESSION 2 — Kiro (June 10, 2026 — Evening)
 
 #### ✅ n8n FIX: JS-12 array/object parsing bug (CRITICAL — root cause of "no Telegram reply")
