@@ -24,6 +24,19 @@
 
 ## 📋 Changes Log
 
+### SESSION 2 — Kiro (June 10, 2026 — Evening, fix #5: Rating routed to WRONG ticket)
+
+#### 🐛 Bug: Citizen rated 039 on Telegram but rating saved to 033
+- **Root cause 1:** `save_telegram_rating` had a `satisfactionRating IS NULL` filter. 039 was already rated (3, from an earlier manual test), so the citizen's "4" skipped 039 and landed on the next unrated resolved complaint = 033.
+- **Root cause 2:** `complaints.resolvedAt` was NULL for ALL rows (app never set it). RPC fell back to `updatedAt` ordering which is imprecise.
+- **Fixes:**
+  1. RPC `save_telegram_rating` — removed the `IS NULL` filter. Now targets the **most recently resolved** complaint (the one just prompted) and allows overwrite. (migration `fix_save_telegram_rating_target_latest_resolved`)
+  2. New trigger `trg_set_resolved_at` — sets `resolvedAt = now()` when status → RESOLVED. Makes "most recently resolved" deterministic + fixes analytics. (migration `add_set_resolved_at_trigger`)
+  3. Data correction: WB-26-PUR-001039 → rating 4 (citizen's real rating); WB-26-PUR-001033 → reverted to NULL.
+- **Status:** Applied ✅
+
+---
+
 ### SESSION 2 — Kiro (June 10, 2026 — Evening, fix #4: Telegram Rating)
 
 #### ✅ DB: New RPC `save_telegram_rating(p_chat_id, p_rating)`
