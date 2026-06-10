@@ -98,7 +98,7 @@ export default function HomePage() {
     } else if (user.role_level === 'MLA') {
       setView('mla_dashboard');
     } else if (user.role_level === 'KARYAKARTA' || user.role_level === 'GP_COORD' || user.role_level === 'BLOCK_COORD') {
-      setView('governance');
+      setView('dashboard');
     }
   }, [user?.id]); // run once when user first logs in
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -266,7 +266,7 @@ export default function HomePage() {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  const navItems = [
+  const allNavItems = [
     { id: 'dashboard' as ViewType, label: t('dashboard'), icon: LayoutDashboard },
     { id: 'complaints' as ViewType, label: t('complaints'), icon: FileText },
     { id: 'chat' as ViewType, label: 'WhatsApp Chats', icon: MessageSquare },
@@ -279,10 +279,6 @@ export default function HomePage() {
     // MLA Dashboard — only visible to MLA or MP or ADMIN
     ...(user?.role_level === 'MLA' || user?.role_level === 'MP' || user?.role === 'ADMIN'
       ? [{ id: 'mla_dashboard' as ViewType, label: 'MLA Dashboard', icon: Building2 }]
-      : []),
-    // Governance Dashboard — Karyakarta / GP Coordinator / Block Coordinator
-    ...(user?.role_level === 'KARYAKARTA' || user?.role_level === 'GP_COORD' || user?.role_level === 'BLOCK_COORD' || user?.role === 'ADMIN'
-      ? [{ id: 'governance' as ViewType, label: 'My Dashboard', icon: Building2 }]
       : []),
     { id: 'analytics' as ViewType, label: t('analytics'), icon: BarChart2 },
     { id: 'intelligence' as ViewType, label: 'Intelligence', icon: BrainCircuit },
@@ -298,6 +294,12 @@ export default function HomePage() {
     ...(user?.role === 'ADMIN' ? [{ id: 'users' as ViewType, label: t('users'), icon: Users }] : []),
     { id: 'settings' as ViewType, label: t('settings'), icon: Settings },
   ];
+
+  // Coordinator roles (Karyakarta / GP / Block) get a focused nav scoped to their
+  // own jurisdiction — no district-wide analytics / intelligence / chat / etc.
+  const isCoordinatorRole = user?.role_level === 'KARYAKARTA' || user?.role_level === 'GP_COORD' || user?.role_level === 'BLOCK_COORD';
+  const coordinatorAllowed = new Set(['dashboard', 'complaints', 'map', 'settings']);
+  const navItems = isCoordinatorRole ? allNavItems.filter((i) => coordinatorAllowed.has(i.id)) : allNavItems;
 
   // Not logged in (wrap in hydration gate)
   if (!isAuthenticated) {
@@ -623,7 +625,9 @@ export default function HomePage() {
               >
                 <ErrorBoundary>
               {view === 'dashboard' && (
-                  <DashboardView onNavigate={handleNavigate} onDashboardData={handleDashboardData} />
+                  (user?.role_level === 'KARYAKARTA' || user?.role_level === 'GP_COORD' || user?.role_level === 'BLOCK_COORD')
+                    ? <GovernanceDashboardView />
+                    : <DashboardView onNavigate={handleNavigate} onDashboardData={handleDashboardData} />
                 )}
                 {view === 'complaints' && (
                   <ComplaintsView initialComplaint={initialComplaint} initialFilterStatus={initialFilterStatus} />

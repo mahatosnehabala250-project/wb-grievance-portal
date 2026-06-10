@@ -24,6 +24,21 @@
 
 ## 📋 Changes Log
 
+### SESSION 3 — Kiro (June 10, 2026): Phase 2 FIX — coordinators were seeing District Performance
+
+#### 🐛 Issue
+A GP coordinator (gpcoord_demo) saw the standard DashboardView's "District Performance — Top 5 districts" leaderboard (showing messy block values as districts). Coordinators should only see their own scope.
+
+#### ✅ Fixes (page.tsx)
+- `view==='dashboard'` now renders `GovernanceDashboardView` for KARYAKARTA/GP_COORD/BLOCK_COORD (instead of the district-leaderboard DashboardView). So even clicking "Dashboard" shows their scoped view.
+- Removed duplicate "My Dashboard" nav item; auto-redirect for coordinators → 'dashboard'.
+- **Focused nav for coordinators:** only Dashboard, Complaints, Map, Settings. Hidden: WhatsApp Chats, Rakta, Analytics, Intelligence, Schemes, Live Data (district-wide views a coordinator shouldn't see).
+
+#### Known data-hygiene note
+`complaints.block` is inconsistent ("Manbazar I" / "Manbazar-I" / "manbazar" / "Manbazar 1"). BLOCK_COORD exact-match filter (16) misses variant spellings. Coordinator dashboards use clean `gp_code`/`village`, so unaffected. A future block-normalization migration would fix district/block leaderboards too.
+
+---
+
 ### SESSION 3 — Kiro (June 10, 2026): Governance Hierarchy — PHASE 2 (Dashboards)
 
 #### ✅ New: `GovernanceDashboardView.tsx` (one adaptive dashboard for 3 roles)
