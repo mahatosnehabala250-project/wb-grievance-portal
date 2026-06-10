@@ -24,6 +24,30 @@
 
 ## 📋 Changes Log
 
+### SESSION 2 — Kiro (June 10, 2026 — Evening)
+
+#### ✅ n8n FIX: JS-12 array/object parsing bug (CRITICAL — root cause of "no Telegram reply")
+- **Symptom:** Telegram link click → `/start WB-26-PUR-001023` → koi reply nahi aaya. Status update WhatsApp pe gaya par Telegram pe nahi.
+- **Root cause:** `Lookup Phone from Ticket` PostgREST se array `[{...}]` return karta hai, par **n8n usko individual item (object) mein split kar deta hai**. `Save Link + Build Reply` code `Array.isArray(dbResult)` check kar raha tha → object pe `false` → `complaint = null` → guard `return []` → chain ruk gaya → link save nahi hua → koi reply nahi.
+- **Verified via execution #4140:** Lookup ne phone `917363055827` (বিমান মাহাতো) return kiya, par Save node ne 0 items output kiya.
+- **Fix:** `Save Link + Build Reply` aur `Build Status Reply` dono nodes mein parsing fix:
+  ```js
+  const complaint = Array.isArray(raw) ? (raw[0] || null) : (raw && (raw.phone || raw.ticketNo) ? raw : null);
+  ```
+  Ab dono shapes (array ya object) handle hote hain.
+- **Status:** Applied in n8n ✅ (validated, errorCount 0)
+
+#### ℹ️ JS-04 Status Broadcaster — NO CHANGE NEEDED
+- Execution #4141: Sumit (918768374600) ka status IN_PROGRESS → WhatsApp pe gaya, Telegram pe nahi.
+- **Reason:** Sumit ka Telegram link kabhi save hua hi nahi (JS-12 bug ki wajah se). `citizen_telegram_links` table EMPTY thi.
+- JS-04 logic + `get_citizen_telegram` RPC sahi hai. JS-12 fix ke baad jab user link karega, JS-04 automatically Telegram pe bhejega.
+
+#### ℹ️ Frontend "error" on status change — likely Vercel deploy pending OR transient
+- User ne frontend pe status IN_PROGRESS kiya → error message dikha, PAR WhatsApp notification chala gaya (matlab backend webhook fire hua).
+- Investigate next session: frontend ka `/api/complaints/[id]` PATCH response — possibly Prisma client out of sync with new columns until Vercel redeploys, ya optimistic-UI error. WhatsApp gaya iska matlab DB update + JS-04 trigger dono hue.
+
+---
+
 ### SESSION 1 — Kiro (June 10, 2026 — Morning)
 
 #### ✅ DB Migration: `drop_duplicate_register_complaint_numeric`
