@@ -24,6 +24,27 @@
 
 ## 📋 Changes Log
 
+### SESSION 2 — Kiro (June 10, 2026 — Evening, fix #4: Telegram Rating)
+
+#### ✅ DB: New RPC `save_telegram_rating(p_chat_id, p_rating)`
+- **Why:** Telegram pe citizen rating ke liye sirf "3" bhejta hai (ticket number nahi). Existing `save_citizen_rating` ko ticket_no chahiye.
+- **What:** New RPC — chat_id → phone (via citizen_telegram_links) → latest RESOLVED + unrated complaint → saves rating + logs activity + recalcs officer score.
+- **Status:** Applied (migration `add_save_telegram_rating_rpc`) ✅
+- **Live test:** Sumit's rating 3/5 saved for WB-26-PUR-001039 ✅
+
+#### ✅ n8n: JS-12 — Telegram rating branch added
+- **Problem:** User Telegram pe "3" (rating) bhejta tha → bot ke paas rating handler nahi tha → "help reply" (with confusing WhatsApp link wa.me/+918918213286) de deta tha.
+- **Fix:** 4 new nodes + routing:
+  - `Parse Telegram` updated: detects bare digit 1-5 → `ratingValue`
+  - `Is Rating` (IF) → true → `Save Telegram Rating` (RPC) → `Build Rating Reply` → `Send Rating Reply`
+  - `Is Rating` false → `Build Help Reply` (unchanged)
+  - Routing: `Is Status Query` false → `Is Rating` (instead of straight to Help)
+- **Now:** Telegram pe 1-5 bhejne se rating save hoti hai + Bengali confirmation reply. Help reply sirf genuinely unrecognized messages pe.
+- **Status:** Applied ✅ (17 nodes, validated, 0 errors)
+- **NOTE:** "Build Help Reply" mein hardcoded `wa.me/+918918213286` (service WhatsApp number) — ab rating us tak fall-through nahi hoti, par agar number galat hai to JS-12 "Build Help Reply" node mein update karna.
+
+---
+
 ### SESSION 2 — Kiro (June 10, 2026 — Evening, fix #3)
 
 #### ✅ n8n FIX: JS-04 Decide Channel — handle NUMBER chat_id (exec #4160 — THE real fix)
