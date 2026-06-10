@@ -24,6 +24,29 @@
 
 ## 📋 Changes Log
 
+### SESSION 3 — Kiro (June 10, 2026): Governance Hierarchy — PHASE 2 (Dashboards)
+
+#### ✅ New: `GovernanceDashboardView.tsx` (one adaptive dashboard for 3 roles)
+Reusable dashboard that adapts by `role_level`:
+- **KARYAKARTA** → header shows assigned villages, breakdown by village
+- **GP_COORD** → header shows GP name, breakdown by village
+- **BLOCK_COORD** → header shows block, breakdown by Gram Panchayat
+- Data source: existing scoped `/api/complaints?limit=500` (Phase 1 scope filter applies automatically) — no new API needed
+- Tabs: Home (7 KPI cards + critical/SLA alerts + avg rating + top-breakdown), Complaints (search/status filter + click → existing ComplaintDetailDialog with full actions), Breakdown (village/GP-wise resolution bars)
+- Style mirrors MLADashboardView (gradient header, tab pills, ScrollArea, framer-motion)
+
+#### ✅ Wiring (`page.tsx`, `types.ts`)
+- `ViewType` += `governance`
+- Nav item "My Dashboard" gated to KARYAKARTA/GP_COORD/BLOCK_COORD/ADMIN
+- Auto-redirect on login: these 3 role_levels → `governance` view
+- Render guard added
+
+#### Verified
+- All edited/new files: 0 diagnostics. (Pre-existing TS errors in examples/, prisma/seed, MapView, db.ts etc. are unrelated and predate this work.)
+- Scope counts confirmed in Phase 1 (Karyakarta 11 / GP 11 / Block 16 / MLA 19 / MP 19 / District 42 / all 55).
+
+---
+
 ### SESSION 3 — Kiro (June 10, 2026): Governance Hierarchy — PHASE 1 (Foundation)
 
 #### Design

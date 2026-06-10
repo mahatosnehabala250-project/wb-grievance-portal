@@ -78,6 +78,7 @@ import { RaktaSahayakView } from '@/components/RaktaSahayakView';
 import { MLADashboardView } from '@/components/MLADashboardView';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MPCommandView } from '@/components/MPCommandView';
+import { GovernanceDashboardView } from '@/components/GovernanceDashboardView';
 import { MapView } from '@/components/MapView';
 import { SchemeKnowledgeView } from '@/components/SchemeKnowledgeView';
 import { N8nEndpointHealth } from '@/components/N8nEndpointHealth';
@@ -96,6 +97,8 @@ export default function HomePage() {
       setView('mp_command');
     } else if (user.role_level === 'MLA') {
       setView('mla_dashboard');
+    } else if (user.role_level === 'KARYAKARTA' || user.role_level === 'GP_COORD' || user.role_level === 'BLOCK_COORD') {
+      setView('governance');
     }
   }, [user?.id]); // run once when user first logs in
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -276,6 +279,10 @@ export default function HomePage() {
     // MLA Dashboard — only visible to MLA or MP or ADMIN
     ...(user?.role_level === 'MLA' || user?.role_level === 'MP' || user?.role === 'ADMIN'
       ? [{ id: 'mla_dashboard' as ViewType, label: 'MLA Dashboard', icon: Building2 }]
+      : []),
+    // Governance Dashboard — Karyakarta / GP Coordinator / Block Coordinator
+    ...(user?.role_level === 'KARYAKARTA' || user?.role_level === 'GP_COORD' || user?.role_level === 'BLOCK_COORD' || user?.role === 'ADMIN'
+      ? [{ id: 'governance' as ViewType, label: 'My Dashboard', icon: Building2 }]
       : []),
     { id: 'analytics' as ViewType, label: t('analytics'), icon: BarChart2 },
     { id: 'intelligence' as ViewType, label: 'Intelligence', icon: BrainCircuit },
@@ -659,6 +666,9 @@ export default function HomePage() {
                 )}
                 {view === 'mla_dashboard' && (user?.role_level === 'MLA' || user?.role_level === 'MP' || user?.role === 'ADMIN') && (
                   <MLADashboardView />
+                )}
+                {view === 'governance' && (user?.role_level === 'KARYAKARTA' || user?.role_level === 'GP_COORD' || user?.role_level === 'BLOCK_COORD' || user?.role === 'ADMIN') && (
+                  <GovernanceDashboardView />
                 )}
                 {view === 'intelligence' && (
                   <IntelligenceView />
