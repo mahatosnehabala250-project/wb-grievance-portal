@@ -40,9 +40,11 @@ describe('guardrail rule: PII leak (Req 25.2)', () => {
 });
 
 describe('guardrail rule: language mismatch (Req 25.3)', () => {
-  it('flags a Bengali-script reply when the session language is Hindi', () => {
+  it('allows a Bengali-script reply even when the session language is Hindi (cross-script tolerated)', () => {
+    // Session language is a best-effort hint and is often wrong. A correct
+    // Bengali reply must never be blocked just because the session was tagged hi/en.
     const res = checkLanguage('আপনার অভিযোগ নথিভুক্ত হয়েছে।', 'hi');
-    expect(res.violated).toBe(true);
+    expect(res.violated).toBe(false);
   });
 
   it('allows a romanized (Latin) Hindi reply for a hi session', () => {

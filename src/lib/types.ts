@@ -6,9 +6,14 @@ export interface Complaint {
   issue: string;
   category: string;
   village: string | null;
+  gpName: string | null;
   block: string;
   subdivision: string | null;
   district: string;
+  assemblyConstituency: string | null;
+  parliamentaryConstituency: string | null;
+  villageCode: string | null;
+  gpCode: string | null;
   urgency: string;
   status: string;
   description: string | null;

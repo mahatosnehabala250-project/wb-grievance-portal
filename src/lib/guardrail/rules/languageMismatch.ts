@@ -40,11 +40,22 @@ const DEVANAGARI = /[\u0900-\u097F]/g;
 const BENGALI = /[\u0980-\u09FF]/g;
 const LATIN = /[A-Za-z]/g;
 
-/** Dominant scripts that are acceptable for each session language. */
+/**
+ * Dominant scripts that are acceptable for each session language.
+ *
+ * Product reality: this is a West Bengal service where citizens freely code-mix
+ * Bengali, Hindi (Devanagari) and romanized/English. The session `language`
+ * field is only a best-effort hint and is frequently wrong (e.g. defaults to
+ * 'en' while the citizen writes Bengali). A correct Bengali reply must NOT be
+ * blocked just because the session was tagged 'en'. So we accept ALL THREE
+ * supported scripts for every language — the rule now only fires on a genuinely
+ * foreign script (Arabic, Chinese, etc.), never on a legitimate bn/hi/en reply.
+ * This mirrors the n8n code-node guardrail (n8n-workflows/code-nodes/guardrail.js).
+ */
 const ALLOWED_SCRIPTS: Record<Language, ReadonlySet<Script>> = {
-  en: new Set<Script>(['latin']),
-  hi: new Set<Script>(['latin', 'devanagari']),
-  bn: new Set<Script>(['latin', 'bengali']),
+  en: new Set<Script>(['latin', 'devanagari', 'bengali']),
+  hi: new Set<Script>(['latin', 'devanagari', 'bengali']),
+  bn: new Set<Script>(['latin', 'devanagari', 'bengali']),
 };
 
 function countMatches(text: string, re: RegExp): number {

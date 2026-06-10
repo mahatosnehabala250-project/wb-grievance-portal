@@ -44,9 +44,14 @@ model Complaint {
   issue             String
   category          String        // Water Supply, Road Damage, Electricity, etc.
   village           String?       // Village or locality within block
+  gpName            String?       @map("gp_name")                    // Gram Panchayat name
   block             String
   subdivision       String?     // Subdivision under district (e.g. Krishnanagar Sadar)
   district          String
+  assemblyConstituency      String? @map("assembly_constituency")      // Vidhan Sabha constituency
+  parliamentaryConstituency String? @map("parliamentary_constituency") // Lok Sabha constituency
+  villageCode               String? @map("village_code")               // LGD village code
+  gpCode                    String? @map("gp_code")                    // LGD GP code
   urgency           String        @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
   status            String        @default("OPEN")  // OPEN, IN_PROGRESS, RESOLVED, REJECTED
   description       String?

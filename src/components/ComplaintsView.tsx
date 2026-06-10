@@ -343,8 +343,8 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
 
   const exportCSV = useCallback((items?: Complaint[]) => {
     const data = items || complaints;
-    const h = ['Ticket #', 'Citizen', 'Phone', 'Issue', 'Category', 'Block', 'District', 'Urgency', 'Status', 'Source', 'Created', 'Assigned'];
-    const rows = data.map((c) => [c.ticketNo, c.citizenName || '', c.phone || '', c.issue, c.category, c.block, c.district, c.urgency, c.status, c.source, fmtDate(c.createdAt), c.assignedToId ? 'Yes' : 'No']);
+    const h = ['Ticket #', 'Citizen', 'Phone', 'Issue', 'Category', 'Village', 'Gram Panchayat', 'Block', 'District', 'Assembly', 'Urgency', 'Status', 'Source', 'Created', 'Assigned'];
+    const rows = data.map((c) => [c.ticketNo, c.citizenName || '', c.phone || '', c.issue, c.category, c.village || '', c.gpName || '', c.block, c.district, c.assemblyConstituency || '', c.urgency, c.status, c.source, fmtDate(c.createdAt), c.assignedToId ? 'Yes' : 'No']);
     const csv = [h, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const a = document.createElement('a');
@@ -795,7 +795,7 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
                     </TableHead>
                     <TableHead className="text-[10px] font-bold uppercase tracking-wider">Citizen</TableHead>
                     <TableHead className="text-[10px] font-bold uppercase tracking-wider">Category</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider">Block</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-wider">Location</TableHead>
                     <TableHead className="text-[10px] font-bold uppercase tracking-wider">Urgency</TableHead>
                     <TableHead className="text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:bg-muted" onClick={() => handleSort('status')}>
                       <span className="flex items-center gap-1">Status <ArrowUpDown className="h-3 w-3" /></span>
@@ -831,7 +831,14 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
                           </div>
                         </TableCell>
                         <TableCell className="text-xs">{c.category}</TableCell>
-                        <TableCell className="text-xs">{c.block}</TableCell>
+                        <TableCell className="text-xs">
+                          <div className="flex flex-col leading-tight">
+                            <span className="font-medium">{c.block}{c.district ? `, ${c.district}` : ''}</span>
+                            {c.gpName && <span className="text-[10px] text-muted-foreground">GP: {c.gpName}</span>}
+                            {c.village && <span className="text-[10px] text-muted-foreground">Vil: {c.village}</span>}
+                            {c.assemblyConstituency && <span className="text-[10px] text-sky-600 dark:text-sky-400">AC: {c.assemblyConstituency}</span>}
+                          </div>
+                        </TableCell>
                         <TableCell><UrgencyBadge urgency={c.urgency} /></TableCell>
                         <TableCell>
                           <DropdownMenu>
@@ -925,10 +932,13 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-[11px] text-muted-foreground">{c.citizenName || 'Anonymous'}</span>
                           <span className="text-muted-foreground/40 text-[10px]">&middot;</span>
-                          <span className="text-[11px] text-muted-foreground">{c.block}, {c.district}</span>
+                          <span className="text-[11px] text-muted-foreground">{c.gpName ? `${c.gpName}, ` : ''}{c.block}, {c.district}</span>
                           <span className="text-muted-foreground/40 text-[10px]">&middot;</span>
                           <span className="text-[11px] text-muted-foreground">{c.category}</span>
                         </div>
+                        {c.assemblyConstituency && (
+                          <span className="text-[10px] text-sky-600 dark:text-sky-400">AC: {c.assemblyConstituency}</span>
+                        )}
                       </div>
                       {/* AI Insight badge for mobile */}
                       {aiSearchEnabled && aiInsightsReady && debouncedSearch && (
