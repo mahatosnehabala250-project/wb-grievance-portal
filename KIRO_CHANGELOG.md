@@ -24,6 +24,38 @@
 
 ## 📋 Changes Log
 
+### SESSION 4 — Claude (June 11, 2026): Telegram Notification Fixes — parse_mode HTML safety
+
+#### 🐛 Issue discovered
+- **JS-12 Execution #4148:** "Send Success Reply" failed with `Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 139`
+- **Root cause:** Telegram send nodes were using default Markdown `parse_mode`. If reply text contains underscores or special chars (like `_` in Bengali text or emojis), Telegram's entity parser tries to interpret them as formatting, causing parse errors.
+- **Note:** The actual reply text was properly mapped to Bengali labels (e.g., `IN_PROGRESS` → `'প্রক্রিয়াধীন'`), so the issue was latent — triggered by specific text combinations.
+
+#### ✅ Fix: Set all Telegram send nodes to HTML parse mode
+**Affected workflows:**
+1. **JS-12 Telegram Link Bot** (`ee8Ttjih5vJ1ZPsK`)
+   - `Send Success Reply` → added `parseMode: HTML`
+   - `Send Help Reply` → added `parseMode: HTML`
+   - `Send Status Reply` → added `parseMode: HTML`
+   - `Send Rating Reply` → added `parseMode: HTML`
+
+2. **JS-04 Status Broadcaster** (`zxhMcvjLPbcuEzGz`)
+   - `Notify via Telegram` → added `parseMode: HTML`
+
+**Why HTML mode?**
+- HTML mode uses strict `<tag>text</tag>` syntax — won't accidentally interpret `_`, `*`, `[` as formatting
+- Our messages are plain Bengali/Hindi/English text with emojis — HTML mode safe for all content
+- Fallback: If no HTML tags present, sent as plain text anyway
+
+**Status:** Applied ✅ (5 nodes updated, 2 workflows)
+
+#### ℹ️ What this fixes
+- ✅ Telegram replies will now send even if message contains underscores, asterisks, or complex Unicode
+- ✅ Emoji characters (✅ 🎫 📋 etc.) will render correctly
+- ✅ Future-proofs against similar parse errors if resolution text or status labels are ever expanded
+
+---
+
 ### SESSION 3 — Kiro (June 10, 2026): Phase 2 BUGFIX #2 — scope filter used Prisma field names (returned 0)
 
 #### 🐛 Root cause (the real one)
@@ -311,7 +343,7 @@ Standard Dashboard + Complaints views now respect the FULL hierarchy scope for a
 
 ---
 
-## 📌 Current System State (June 10, 2026 — EOD)
+## 📌 Current System State (June 11, 2026 — Morning)
 
 | Component | Status | Last Changed |
 |-----------|--------|-------------|
@@ -320,7 +352,10 @@ Standard Dashboard + Complaints views now respect the FULL hierarchy scope for a
 | `register_complaint` GP validation + assembly | ✅ Fixed | Claude (Jun 10) |
 | Frontend — GP/Village/Assembly visible | ✅ Done | Kiro (Jun 10) |
 | Telegram linking (JS-12) | ✅ Fixed + Enhanced | Kiro (Jun 10) |
-| JS-04 Status Broadcaster | ✅ Working (fixed by #12 fix) | — |
+| JS-04 Status Broadcaster | ✅ Working (fixed by #12 fix) | Kiro (Jun 10) |
+| **Telegram send parse_mode (HTML safety)** | **✅ Fixed** | **Claude (Jun 11)** |
+| Complaint rating save bug | 🔄 Ready to test | Claude (Jun 11) |
+| Geography validation | ❓ Need investigation | Pending |
 | MP Command Center | ❌ NOT BUILT | Pending |
 
 ---
