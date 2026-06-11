@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
+import { complaintInScope, canMutateComplaints, userInManageScope } from '@/lib/rbac';
 import { notifyN8NStatusChange, notifyN8NAssignment, notifyN8NUrgencyEscalation } from '@/lib/n8n-webhook';
 
 // GET /api/complaints/[id]
@@ -21,12 +22,9 @@ export async function GET(
     return NextResponse.json({ error: 'Complaint not found' }, { status: 404 });
   }
 
-  // Check permission
-  if (payload.role === 'BLOCK' && complaint.block !== payload.block) {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-  }
-  if (payload.role === 'DISTRICT' && complaint.district !== payload.block) {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  // Full-hierarchy scope check (MP/MLA/district/block/GP/karyakarta)
+  if (!complaintInScope(payload, complaint)) {
+    return NextResponse.json({ error: 'Access denied — outside your jurisdiction' }, { status: 403 });
   }
 
   return NextResponse.json({ complaint });
@@ -50,17 +48,35 @@ export async function PATCH(
     return NextResponse.json({ error: 'Complaint not found' }, { status: 404 });
   }
 
-  // Check permission
-  if (payload.role === 'BLOCK' && complaint.block !== payload.block) {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  // 1) Geographic scope: the complaint must be inside the actor's jurisdiction
+  if (!complaintInScope(payload, complaint)) {
+    return NextResponse.json({ error: 'Access denied — outside your jurisdiction' }, { status: 403 });
   }
-  if (payload.role === 'DISTRICT' && complaint.district !== payload.block) {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  // 2) Role gate: KARYAKARTA is read-only
+  if (!canMutateComplaints(payload)) {
+    return NextResponse.json({ error: 'Your role cannot modify complaints' }, { status: 403 });
   }
 
   try {
     const body = await request.json();
     const { status, resolution, assignedToId, urgency } = body;
+
+    // 3) Assignment scope: assignee must be an active user inside the actor's
+    //    own jurisdiction (an MLA cannot assign an officer from another AC)
+    if (assignedToId) {
+      const assignee = await db.user.findUnique({ where: { id: assignedToId } });
+      if (!assignee || assignee.isActive === false) {
+        return NextResponse.json({ error: 'Assignee not found or inactive' }, { status: 400 });
+      }
+      const assigneeInScope =
+        payload.role === 'ADMIN' || payload.role === 'STATE' ||
+        (await userInManageScope(payload, assignee as Record<string, unknown>)) ||
+        // Officers may also assign to themselves
+        assignedToId === payload.userId;
+      if (!assigneeInScope) {
+        return NextResponse.json({ error: 'Assignee is outside your jurisdiction' }, { status: 403 });
+      }
+    }
 
     const data: Record<string, unknown> = {};
     if (status) data.status = status;

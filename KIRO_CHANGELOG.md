@@ -27,6 +27,83 @@
 
 ---
 
+### SESSION 6 — Claude Code (June 11, 2026 — ~19:30 IST): Production RBAC — Full Hierarchy, Server-Side Scope Enforcement, MP Command Center
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-fable-5) — Anthropic CLI
+- **Goal:** Production-ready role-based access system (Admin/MP/MLA/District/Block/GP Coordinator/Karyakarta) — ALL scope enforcement server-side
+
+#### 🔍 AUDIT FINDINGS (security holes fixed this session)
+1. 🔴 **CRITICAL — `/api/complaints/[id]` GET+PATCH:** sirf BLOCK/DISTRICT roles ka scope check tha. MP/MLA/BLOCK_COORD/GP_COORD/KARYAKARTA **koi bhi complaint state-wide read/modify kar sakte the** (ID guess karke).
+2. 🔴 **CRITICAL — `/api/users/list`:** har authenticated user ko state-wide officer list leak ho rahi thi (no scoping).
+3. 🟠 `/api/users` POST/PATCH: governance fields (role_level/constituency/gp_code/...) create/update hi nahi kar sakta tha; sirf ADMIN; koi hierarchy nahi.
+4. 🟠 `canAccessConstituency` (jwt.ts): MP ko **poore state** ke ACs ka access deta tha — ab deprecated (kept for reference, no callers).
+5. 🟠 `get_mp_dashboard_stats` RPC: 9 Purulia ACs **hardcoded**, MP ke seat se scoped nahi, legacy `constituency` column use karta tha. (Function abhi bhi DB mein hai but app ab use nahi karti.)
+6. 🟡 `MPCommandView.tsx`: hardcoded MLA list (Purulia-only) + **fake TREND_DATA**, koi real drill-down nahi.
+
+#### ✅ NEW: `src/lib/rbac.ts` — RBAC single source of truth
+- `ROLE_LEVEL_RANK`: ADMIN(0) → MP(1) → MLA(2) → DISTRICT_ADMIN(3) → BLOCK_COORD(4) → GP_COORD(5) → KARYAKARTA/OFFICER(6)
+- `creatableRoleLevels()` / `canCreateRoleLevel()`: har role sirf apne se NEECHE wale roles bana sakta hai (MP→MLA+below, MLA→coords+officers, Block→GP/Karyakarta, GP→Karyakarta)
+- `validateNewUserScope()`: naya user creator ki HI geography ke andar hona chahiye — `constituency_block_mapping` table se validate (MP ke seat ke ACs, MLA ke AC ke blocks, etc.)
+- `complaintInScope()`: per-record scope check (snake_case + camelCase dono column shapes handle karta hai — Supabase REST mode ke liye)
+- `canMutateComplaints()`: KARYAKARTA = READ-ONLY; baaki sab apne scope mein status/assign kar sakte hain
+- `userInManageScope()`: kis user ko edit/list kar sakte ho (lower rank + apni geography)
+- `getUserListScope()`: user-list scoping (MP/MLA ke liye mapping-backed post-filter)
+- `assembliesForLokSabha()` / `blocksForAssembly()` / `assembliesForDistrict()` / `mlaNamesByAssembly()` — mapping helpers (5-min cache)
+- `canAccessAssembly()`: MLA→own AC; MP→sirf apne seat ke ACs; DISTRICT_ADMIN→apne district ke ACs
+
+#### ✅ FIXED: `/api/complaints/[id]` (GET + PATCH)
+- GET/PATCH dono ab `complaintInScope()` se FULL hierarchy check karte hain
+- PATCH: `canMutateComplaints()` gate (KARYAKARTA 403)
+- PATCH assignment: assignee ACTIVE hona chahiye AUR actor ke jurisdiction ke andar (`userInManageScope`) — MLA doosre AC ka officer assign nahi kar sakta
+
+#### ✅ REWRITTEN: `/api/users` (GET/POST/PATCH) — hierarchical user management
+- GET: jurisdiction-scoped list + same-or-higher rank hidden + `meta.creatableRoles` (UI isse adapt hoti hai)
+- POST: `validateNewUserScope()` enforced — role hierarchy + geography dono server-side; password min 8 chars; sirf ADMIN hi ADMIN/STATE base-role bana sakta hai; saare governance fields ab create hote hain
+- PATCH: `userInManageScope()` check + scope-change pe re-validation (privilege escalation blocked)
+
+#### ✅ FIXED: `/api/users/list` — ab actor ke scope tak filtered (pehle full leak)
+
+#### ✅ FIXED: `/api/mla/stats`
+- `canAccessAssembly()` (mapping-backed) — MP ab sirf apne seat ke ACs drill kar sakta hai
+- Query ab `constituency` OR `assembly_constituency` dono match karti hai (legacy + new rows)
+
+#### ✅ NEW DB RPC: `get_mp_command_center(p_lok_sabha)` (migration `add_get_mp_command_center_rpc`)
+- Seat-scoped KPIs + per-AC cards (har AC dikhta hai, 0 complaints wale bhi) + MLA names from `constituency_block_mapping` + REAL 6-month trend (filed/resolved) + seat-scoped officer count
+- AC matching: `COALESCE(assembly_constituency, constituency)` — dono column generations covered
+- **Live tested:** `get_mp_command_center('Jhargram')` → sirf Bandwan AC (22 complaints), correct trend ✅
+
+#### ✅ FIXED: `/api/mp/dashboard` — MP HAMESHA apne seat pe locked; sirf ADMIN `?lok_sabha=` override kar sakta hai. Naya RPC use karta hai.
+#### ✅ FIXED: `/api/mp/leaderboard` — MP→seat ACs, DISTRICT_ADMIN→district ACs filtered
+
+#### ✅ REBUILT: `MPCommandView.tsx` — dynamic MP Command Center
+- Hardcoded MLA_META/TREND_DATA hataya — constituencies + trend ab API se
+- Seat name dynamic header badge; "9 Constituencies" → actual count
+- **Real drill-down:** AC card click → `/api/mla/stats` fetch → SLA breaches, critical, rating, block breakdown, top officers, recent complaints inline expand
+- Palette ab name-hash se stable assign hoti hai (kisi bhi seat ke liye kaam karega)
+
+#### ✅ UPDATED: `UserManagementView.tsx`
+- "Designation" select — server ke `meta.creatableRoles` se driven (MP ko MLA+below dikhte hain, MLA ko coords, etc.)
+- Conditional geography fields: MP→Lok Sabha, MLA→AC, GP/Karyakarta→GP code+name, Karyakarta→villages (comma-sep)
+- Table mein Designation column; password min-8 client validation
+
+#### ✅ UPDATED: `page.tsx` nav gating
+- Users view ab MP/MLA/DISTRICT_ADMIN/BLOCK_COORD/GP_COORD ko bhi (pehle ADMIN-only)
+- Coordinator focused-nav mein 'users' added (KARYAKARTA ke liye nahi)
+
+#### ✔️ Verification
+- `npx tsc --noEmit`: is session ke saare touched files **0 errors** (baaki errors pre-existing — examples/, prisma/seed, db.ts, leaderboard, ceoRouter — SESSION 3 mein bhi noted)
+- RPC live-tested on Supabase (Jhargram seat) ✅
+
+#### ⚠️ Next AI — Please Note
+- **RBAC ka SINGLE SOURCE OF TRUTH = `src/lib/rbac.ts`** — naye route mein scope check chahiye to YAHI use karo, apna logic mat likho
+- `constituency_block_mapping` table = AC↔LS↔block↔MLA authoritative mapping (abhi sirf Purulia district ke 20 blocks seeded — naye districts ke liye rows add karni hongi)
+- Old `get_mp_dashboard_stats` RPC ab UNUSED hai (app `get_mp_command_center` use karti hai) — drop karna ho to pehle n8n workflows check karo
+- Complaint POST (manual create) abhi bhi sirf BLOCK-role scope check karta hai — coordinators ke liye tighten karna ho to `complaintInScope` pattern use karo
+- JWT 24h valid — role/scope change ke baad user ko RE-LOGIN karna hoga (Session 3 wala hi pattern)
+
+---
+
 ### SESSION 5 — Claude Code (June 11, 2026 — ~18:30 IST): Project Setup + Changelog Protocol Established
 
 #### 🤖 AI Tool Info
@@ -413,7 +490,10 @@ Standard Dashboard + Complaints views now respect the FULL hierarchy scope for a
 | **Telegram send parse_mode (HTML safety)** | **✅ Fixed** | **Claude (Jun 11)** |
 | Complaint rating save bug | 🔄 Ready to test | Claude (Jun 11) |
 | Geography validation | ❓ Need investigation | Pending |
-| MP Command Center | ❌ NOT BUILT | Pending |
+| **MP Command Center (seat-scoped + drill-down)** | **✅ BUILT** | **Claude Code (Jun 11, S6)** |
+| **RBAC — full hierarchy server-side (rbac.ts)** | **✅ BUILT** | **Claude Code (Jun 11, S6)** |
+| **Complaint [id] scope bypass (all roles)** | **✅ Fixed** | **Claude Code (Jun 11, S6)** |
+| **User mgmt hierarchy (create below + own scope)** | **✅ BUILT** | **Claude Code (Jun 11, S6)** |
 
 ---
 

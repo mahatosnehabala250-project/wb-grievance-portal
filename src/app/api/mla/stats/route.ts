@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getAuthUser, canAccessConstituency } from "@/lib/jwt";
+import { getAuthUser } from "@/lib/jwt";
+import { canAccessAssembly } from "@/lib/rbac";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,16 +18,18 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const requestedConstituency = searchParams.get("constituency") || user.constituency || "";
 
-  // ── Constituency access check ────────────────────────────
-  if (!canAccessConstituency(user, requestedConstituency)) {
-    return NextResponse.json(
-      { error: "Access denied — you can only view your own constituency" },
-      { status: 403 }
-    );
-  }
-
   if (!requestedConstituency) {
     return NextResponse.json({ error: "constituency required" }, { status: 400 });
+  }
+
+  // ── Constituency access check (mapping-backed) ───────────
+  // MLA → own AC only; MP → only ACs under their parliamentary seat;
+  // DISTRICT_ADMIN → ACs in their district; ADMIN/STATE → all.
+  if (!(await canAccessAssembly(user, requestedConstituency))) {
+    return NextResponse.json(
+      { error: "Access denied — constituency is outside your jurisdiction" },
+      { status: 403 }
+    );
   }
 
   try {
@@ -41,15 +44,17 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(limitParam || "500"), 1000);
     const offset = parseInt(offsetParam || "0");
 
+    // Match BOTH the new assembly_constituency column and the legacy
+    // constituency column (older complaints only have the legacy one)
     const { data: complaints, error } = await supabase
       .from("complaints")
       .select(`
         id, status, category, urgency, block, district,
         createdAt, updatedAt, satisfactionRating,
         assignedOfficerName, assignedToId, ticketNo,
-        citizenName, issue, village, constituency
+        citizenName, issue, village, constituency, assembly_constituency
       `)
-      .eq("constituency", requestedConstituency)
+      .or(`constituency.eq.${requestedConstituency},assembly_constituency.eq.${requestedConstituency}`)
       .order("createdAt", { ascending: false })
       .range(offset, offset + limit - 1);
 

@@ -25,6 +25,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface MLAConstData {
   constituency: string;
   mla_name: string | null;
+  constituency_type?: string | null;
   total: number;
   active: number;
   resolved: number;
@@ -34,7 +35,10 @@ interface MLAConstData {
   top_category: string | null;
 }
 
+interface TrendPoint { month: string; filed: number; resolved: number }
+
 interface DashStats {
+  lok_sabha?: string;
   total_complaints: number;
   total_active: number;
   total_resolved: number;
@@ -46,22 +50,43 @@ interface DashStats {
   active_officers: number;
   active_alerts: number;
   constituencies: MLAConstData[];
+  trend?: TrendPoint[];
 }
 
-/* ─── Static Config ──────────────────────────── */
-const MLA_META: Record<string, {
-  color: string; gradient: string; emoji: string; type: string; mla: string;
-}> = {
-  Purulia:       { color: '#FF6B00', gradient: 'from-orange-500 to-amber-500',  emoji: '🏙', type: 'GENERAL', mla: 'Sudip Kumar Mukherjee'   },
-  Joypur:        { color: '#3B82F6', gradient: 'from-blue-500 to-cyan-500',     emoji: '🌿', type: 'GENERAL', mla: 'Biswajit Mahato'         },
-  Balarampur:    { color: '#8B5CF6', gradient: 'from-violet-500 to-purple-600', emoji: '⛰',  type: 'ST',      mla: 'Jaladhar Mahato'         },
-  Baghmundi:     { color: '#06B6D4', gradient: 'from-cyan-500 to-teal-500',     emoji: '🌊', type: 'GENERAL', mla: 'Rahidas Mahato'           },
-  Manbazar:      { color: '#10B981', gradient: 'from-emerald-500 to-green-500', emoji: '🌳', type: 'ST',      mla: 'Mayna Murmu'             },
-  Bandwan:       { color: '#F59E0B', gradient: 'from-amber-500 to-yellow-500',  emoji: '🔥', type: 'ST',      mla: 'Labsen Baskey'           },
-  Kashipur:      { color: '#EF4444', gradient: 'from-red-500 to-rose-500',      emoji: '⚡', type: 'GENERAL', mla: 'Kamalakanta Hansda'      },
-  Para:          { color: '#EC4899', gradient: 'from-pink-500 to-rose-400',     emoji: '🌸', type: 'SC',      mla: 'Nadiar Chand Bouri'      },
-  Raghunathpur:  { color: '#6366F1', gradient: 'from-indigo-500 to-violet-500', emoji: '💎', type: 'SC',      mla: 'Mamoni Bauri'            },
-};
+interface DrillDownData {
+  constituency: string;
+  total: number;
+  active: number;
+  resolved: number;
+  critical: number;
+  sla_breached: number;
+  resolution_rate: number;
+  avg_rating: number | null;
+  by_category: Array<{ category: string; total: number; resolved: number; active: number }>;
+  by_block: Array<{ block: string; total: number; active: number; resolved: number }>;
+  officers: Array<{ name: string; resolved: number; active: number; total: number; score: number }>;
+  recent_complaints: Array<{ id: string; ticketNo: string; issue: string; status: string; urgency: string; village: string | null }>;
+}
+
+/* ─── Static Config (visual palette only — data comes from API) ── */
+const PALETTE = [
+  { color: '#FF6B00', gradient: 'from-orange-500 to-amber-500',  emoji: '🏙' },
+  { color: '#3B82F6', gradient: 'from-blue-500 to-cyan-500',     emoji: '🌿' },
+  { color: '#8B5CF6', gradient: 'from-violet-500 to-purple-600', emoji: '⛰' },
+  { color: '#06B6D4', gradient: 'from-cyan-500 to-teal-500',     emoji: '🌊' },
+  { color: '#10B981', gradient: 'from-emerald-500 to-green-500', emoji: '🌳' },
+  { color: '#F59E0B', gradient: 'from-amber-500 to-yellow-500',  emoji: '🔥' },
+  { color: '#EF4444', gradient: 'from-red-500 to-rose-500',      emoji: '⚡' },
+  { color: '#EC4899', gradient: 'from-pink-500 to-rose-400',     emoji: '🌸' },
+  { color: '#6366F1', gradient: 'from-indigo-500 to-violet-500', emoji: '💎' },
+];
+
+/** Stable palette pick per constituency name */
+function metaFor(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+}
 
 const CAT_ICONS: Record<string, React.ElementType> = {
   WATER: Droplets, ROAD: MapPin, HEALTH: Heart,
@@ -72,15 +97,6 @@ const CAT_COLORS: Record<string, string> = {
   WATER: '#3B82F6', ROAD: '#F59E0B', HEALTH: '#EF4444',
   ELECTRICITY: '#F59E0B', RATION: '#10B981', OTHER: '#6B7280',
 };
-
-const TREND_DATA = [
-  { m: 'Jan', f: 8,  r: 2  },
-  { m: 'Feb', f: 12, r: 4  },
-  { m: 'Mar', f: 18, r: 6  },
-  { m: 'Apr', f: 24, r: 8  },
-  { m: 'May', f: 38, r: 10 },
-  { m: 'Jun', f: 52, r: 12 },
-];
 
 /* ─── Helper Components ──────────────────────── */
 function AnimNum({ n, suffix = '' }: { n: number; suffix?: string }) {
@@ -127,36 +143,9 @@ export function MPCommandView() {
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<'overview' | 'leaderboard' | 'intel' | 'reports'>('overview');
   const [selectedConst, setSelectedConst] = useState<string | null>(null);
+  const [drill, setDrill] = useState<DrillDownData | null>(null);
+  const [drillLoading, setDrillLoading] = useState(false);
   const [lastSync, setLastSync] = useState(new Date());
-
-  /* Build 9-constituency array safely */
-  const buildConstData = useCallback((raw: DashStats | null): MLAConstData[] => {
-    const CONST_NAMES = Object.keys(MLA_META);
-    if (!raw?.constituencies) {
-      return CONST_NAMES.map(name => ({
-        constituency: name, mla_name: MLA_META[name]?.mla || null,
-        total: 0, active: 0, resolved: 0,
-        resolution_rate: null, avg_rating: null,
-        critical_count: 0, top_category: null,
-      }));
-    }
-    return CONST_NAMES.map(name => {
-      const found = raw.constituencies.find(c =>
-        c.constituency?.toLowerCase() === name.toLowerCase()
-      );
-      return {
-        constituency: name,
-        mla_name: found?.mla_name || MLA_META[name]?.mla || null,
-        total:   found?.total ?? 0,
-        active:  found?.active ?? 0,
-        resolved: found?.resolved ?? 0,
-        resolution_rate: found?.resolution_rate ?? null,
-        avg_rating: found?.avg_rating ?? null,
-        critical_count: found?.critical_count ?? 0,
-        top_category: found?.top_category ?? null,
-      };
-    });
-  }, []);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -166,6 +155,9 @@ export function MPCommandView() {
       if (res.ok) {
         const json = await res.json();
         setStats(json.data || null);
+      } else {
+        const err = await res.json().catch(() => null);
+        toast.error(err?.error || 'Failed to load MP data');
       }
       setLastSync(new Date());
     } catch {
@@ -178,13 +170,40 @@ export function MPCommandView() {
 
   useEffect(() => { load(); }, [load]);
 
+  /* Drill-down: fetch full constituency detail when a card is selected */
+  const openDrillDown = useCallback(async (constituency: string) => {
+    setSelectedConst(constituency);
+    setDrill(null);
+    setDrillLoading(true);
+    try {
+      const res = await fetch(
+        `/api/mla/stats?constituency=${encodeURIComponent(constituency)}`,
+        { headers: authHeaders() }
+      );
+      if (res.ok) {
+        const json = await res.json();
+        setDrill(json.data || null);
+      } else {
+        const err = await res.json().catch(() => null);
+        toast.error(err?.error || 'Drill-down failed');
+      }
+    } catch {
+      toast.error('Drill-down failed');
+    } finally {
+      setDrillLoading(false);
+    }
+  }, []);
+
   /* Safe derived values */
   const s: DashStats = stats ?? {
     total_complaints: 0, total_active: 0, total_resolved: 0,
     resolution_rate: 0, critical_alerts: 0, last_7d: 0, last_24h: 0,
     blood_donors: 0, active_officers: 0, active_alerts: 0, constituencies: [],
   };
-  const constData = buildConstData(stats);
+  /* Constituency cards come straight from the seat-scoped API */
+  const constData: MLAConstData[] = stats?.constituencies || [];
+  const seatName = stats?.lok_sabha || '';
+  const trendData = (stats?.trend || []).map(t => ({ m: t.month, f: t.filed, r: t.resolved }));
 
   /* Pie data from constituencies */
   const catMap: Record<string, number> = {};
@@ -232,16 +251,18 @@ export function MPCommandView() {
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-sm">MP Command Center</span>
-                <Badge className="text-[9px] h-4 px-1.5 bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400 border-0">
-                  PURULIA
-                </Badge>
+                {seatName && (
+                  <Badge className="text-[9px] h-4 px-1.5 bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400 border-0 uppercase">
+                    {seatName}
+                  </Badge>
+                )}
                 <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-medium">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   LIVE
                 </span>
               </div>
               <p className="text-[10px] text-muted-foreground">
-                Jyotirmay Singh Mahato · 9 Constituencies · 18.2L Voters ·{' '}
+                {constData.length} Assembly Constituenc{constData.length === 1 ? 'y' : 'ies'} ·{' '}
                 {lastSync.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
@@ -313,22 +334,23 @@ export function MPCommandView() {
               ))}
             </div>
 
-            {/* ── 9 MLA Constituency Boxes ─────────── */}
+            {/* ── MLA Constituency Boxes (dynamic, seat-scoped) ─────────── */}
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold flex items-center gap-1.5">
                   <Building2 className="w-4 h-4 text-muted-foreground" />
-                  9 Constituencies — Live Status
+                  {constData.length} Constituenc{constData.length === 1 ? 'y' : 'ies'} — Live Status
                   <span className="text-xs text-muted-foreground font-normal">(Click for details)</span>
                 </h2>
                 <span className="text-[10px] text-muted-foreground">
-                  {constData.filter(c => c.total > 0).length} / 9 active
+                  {constData.filter(c => c.total > 0).length} / {constData.length} active
                 </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {constData.map((c, i) => {
-                  const meta = MLA_META[c.constituency] || { color: '#6B7280', gradient: 'from-gray-500 to-gray-600', emoji: '🏘', type: 'GENERAL', mla: '' };
+                  const pal = metaFor(c.constituency);
+                  const meta = { ...pal, type: c.constituency_type || 'GENERAL', mla: c.mla_name || '' };
                   const rate = c.resolution_rate ?? 0;
                   const isSelected = selectedConst === c.constituency;
                   const CatIcon = c.top_category ? (CAT_ICONS[c.top_category] || FileText) : FileText;
@@ -339,13 +361,13 @@ export function MPCommandView() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.05 }}
-                      onClick={() => setSelectedConst(isSelected ? null : c.constituency)}
+                      onClick={() => isSelected ? setSelectedConst(null) : openDrillDown(c.constituency)}
                       className={`relative rounded-xl border cursor-pointer overflow-hidden transition-all duration-200 ${
                         isSelected
                           ? 'ring-2 shadow-lg scale-[1.01]'
                           : 'hover:shadow-md hover:scale-[1.005]'
                       } bg-card`}
-                      style={isSelected ? { ringColor: meta.color } : {}}
+                      style={isSelected ? ({ '--tw-ring-color': meta.color } as React.CSSProperties) : undefined}
                     >
                       {/* Top gradient bar */}
                       <div className={`h-1 w-full bg-gradient-to-r ${meta.gradient}`} />
@@ -435,7 +457,7 @@ export function MPCommandView() {
                           </div>
                         </div>
 
-                        {/* Expanded detail */}
+                        {/* Expanded drill-down (live data from /api/mla/stats) */}
                         <AnimatePresence>
                           {isSelected && (
                             <motion.div
@@ -443,31 +465,92 @@ export function MPCommandView() {
                               animate={{ opacity: 1, height: 'auto' }}
                               exit={{ opacity: 0, height: 0 }}
                               className="overflow-hidden"
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
-                                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                  Details
-                                </div>
-                                <div className="grid grid-cols-2 gap-2 text-xs">
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">MLA</span>
-                                    <span className="font-medium truncate max-w-[100px] text-right">{c.mla_name || '—'}</span>
+                              <div className="mt-3 pt-3 border-t border-border/50 space-y-3">
+                                <div className="flex justify-between items-center">
+                                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                    Constituency Drill-Down
                                   </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Type</span>
-                                    <span className="font-medium">{meta.type}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Rating</span>
-                                    <span className="font-medium">{c.avg_rating ? `${c.avg_rating}/5` : 'N/A'}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Critical</span>
-                                    <span className={`font-medium ${c.critical_count > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                                      {c.critical_count > 0 ? `${c.critical_count} pending` : 'None'}
-                                    </span>
+                                  <div className="grid grid-cols-2 gap-x-3 text-[10px] text-muted-foreground">
+                                    <span>MLA: <span className="font-medium text-foreground">{c.mla_name || '—'}</span></span>
+                                    <span>Type: <span className="font-medium text-foreground">{meta.type}</span></span>
                                   </div>
                                 </div>
+
+                                {drillLoading && (
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                                    <RefreshCw className="w-3 h-3 animate-spin" /> Loading details…
+                                  </div>
+                                )}
+
+                                {!drillLoading && drill && drill.constituency === c.constituency && (
+                                  <div className="space-y-3">
+                                    {/* SLA + rating strip */}
+                                    <div className="grid grid-cols-3 gap-2 text-center">
+                                      <div className="bg-muted/40 rounded-lg p-1.5">
+                                        <div className="text-sm font-bold font-mono text-red-500">{drill.sla_breached}</div>
+                                        <div className="text-[9px] text-muted-foreground">SLA Breach</div>
+                                      </div>
+                                      <div className="bg-muted/40 rounded-lg p-1.5">
+                                        <div className="text-sm font-bold font-mono text-amber-500">{drill.critical}</div>
+                                        <div className="text-[9px] text-muted-foreground">Critical</div>
+                                      </div>
+                                      <div className="bg-muted/40 rounded-lg p-1.5">
+                                        <div className="text-sm font-bold font-mono">{drill.avg_rating ?? '—'}</div>
+                                        <div className="text-[9px] text-muted-foreground">Avg Rating</div>
+                                      </div>
+                                    </div>
+
+                                    {/* Block breakdown */}
+                                    {drill.by_block?.length > 0 && (
+                                      <div>
+                                        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Blocks</div>
+                                        <div className="space-y-1">
+                                          {drill.by_block.slice(0, 5).map(b => (
+                                            <div key={b.block} className="flex items-center justify-between text-[11px]">
+                                              <span className="truncate max-w-[120px]">{b.block}</span>
+                                              <span className="font-mono text-muted-foreground">
+                                                {b.resolved}/{b.total} resolved
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Officers */}
+                                    {drill.officers?.length > 0 && (
+                                      <div>
+                                        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Top Officers</div>
+                                        <div className="space-y-1">
+                                          {drill.officers.slice(0, 3).map(o => (
+                                            <div key={o.name} className="flex items-center justify-between text-[11px]">
+                                              <span className="truncate max-w-[120px]">{o.name}</span>
+                                              <span className="font-mono text-muted-foreground">{o.score}% · {o.total} cases</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Recent complaints */}
+                                    {drill.recent_complaints?.length > 0 && (
+                                      <div>
+                                        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Recent</div>
+                                        <div className="space-y-1">
+                                          {drill.recent_complaints.slice(0, 4).map(rc => (
+                                            <div key={rc.id} className="flex items-center gap-2 text-[11px]">
+                                              <span className="font-mono text-[9px] text-muted-foreground flex-shrink-0">{rc.ticketNo}</span>
+                                              <span className="truncate flex-1">{rc.issue}</span>
+                                              <Badge variant="outline" className="text-[8px] h-3.5 px-1 flex-shrink-0">{rc.status}</Badge>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </motion.div>
                           )}
@@ -492,7 +575,7 @@ export function MPCommandView() {
                     f: { label: 'Filed', color: '#FF6B00' },
                     r: { label: 'Resolved', color: '#10B981' },
                   }}>
-                    <AreaChart data={TREND_DATA} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+                    <AreaChart data={trendData} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
                       <defs>
                         <linearGradient id="gF2" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#FF6B00" stopOpacity={0.2}/>
@@ -564,7 +647,8 @@ export function MPCommandView() {
             </h2>
 
             {ranked.map((c, i) => {
-              const meta = MLA_META[c.constituency] || { color: '#6B7280', gradient: 'from-gray-500 to-gray-600', emoji: '🏘', type: '', mla: '' };
+              const pal = metaFor(c.constituency);
+              const meta = { ...pal, type: c.constituency_type || '', mla: c.mla_name || '' };
               const rate = c.resolution_rate ?? 0;
               const medals = ['🥇', '🥈', '🥉'];
 
@@ -667,7 +751,7 @@ export function MPCommandView() {
               </CardHeader>
               <CardContent className="px-4 pb-4 space-y-2">
                 {constData.map(c => {
-                  const meta = MLA_META[c.constituency] || { color: '#6B7280', gradient: 'from-gray-500 to-gray-600', emoji: '🏘', type: '', mla: '' };
+                  const meta = metaFor(c.constituency);
                   const rate = c.resolution_rate ?? 0;
                   return (
                     <div key={c.constituency} className="flex items-center gap-3">
@@ -697,7 +781,7 @@ export function MPCommandView() {
               <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" />
               <div className="font-semibold text-sm">Intelligence Engine Active</div>
               <div className="text-xs text-muted-foreground mt-1 max-w-xs">
-                Monitoring all 9 constituencies every 6 hours. JS-09 will send alerts to your Telegram if threats are detected.
+                Monitoring all constituencies under your seat every 6 hours. JS-09 will send alerts to your Telegram if threats are detected.
               </div>
             </div>
           </motion.div>
@@ -716,7 +800,7 @@ export function MPCommandView() {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
-                { title: 'Monthly Report',    desc: 'All 9 constituencies — complaint stats, resolution rates, officer performance.', icon: CalendarRange, color: 'text-blue-500',   bg: 'bg-blue-500/10'   },
+                { title: 'Monthly Report',    desc: 'All constituencies under your seat — complaint stats, resolution rates, officer performance.', icon: CalendarRange, color: 'text-blue-500',   bg: 'bg-blue-500/10'   },
                 { title: 'Achievement Report', desc: 'Top resolved issues, best constituency, fastest officers — press release ready.', icon: Award,          color: 'text-amber-500', bg: 'bg-amber-500/10'  },
                 { title: 'District Summary',   desc: 'Purulia district health score, active alerts, intelligence summary.',            icon: BarChart3,      color: 'text-violet-500',bg: 'bg-violet-500/10' },
               ].map((r, i) => (

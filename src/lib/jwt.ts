@@ -60,7 +60,11 @@ export async function getAuthUser(request: NextRequest): Promise<JWTPayload | nu
   return verifyToken(token);
 }
 
-// Helper: check if user can access constituency data
+/**
+ * @deprecated Use `canAccessAssembly` from '@/lib/rbac' instead — this legacy
+ * helper gives MP/DISTRICT_ADMIN unrestricted state-wide access, which is NOT
+ * the production scope policy. Kept only for reference; no route uses it.
+ */
 export function canAccessConstituency(user: JWTPayload, targetConstituency: string): boolean {
   if (user.role_level === 'MP') return true;         // MP sees all
   if (user.role_level === 'DISTRICT_ADMIN') return true; // District admin sees all

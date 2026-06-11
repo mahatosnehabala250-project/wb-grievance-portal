@@ -291,14 +291,22 @@ export default function HomePage() {
     ...(user?.role === 'ADMIN' ? [{ id: 'endpointHealth' as ViewType, label: 'Endpoint Health', icon: Activity }] : []),
     ...(user?.role === 'ADMIN' ? [{ id: 'audit' as ViewType, label: t('auditLog'), icon: History }] : []),
     ...(user?.role === 'ADMIN' ? [{ id: 'deployment' as ViewType, label: 'Deployment', icon: Server }] : []),
-    ...(user?.role === 'ADMIN' ? [{ id: 'users' as ViewType, label: t('users'), icon: Users }] : []),
+    // User management: every role that can create users below it (rbac.ts
+    // CREATABLE map) gets the view — the API scopes what they actually see.
+    ...(user?.role === 'ADMIN' || ['MP', 'MLA', 'DISTRICT_ADMIN', 'BLOCK_COORD', 'GP_COORD'].includes(user?.role_level || '')
+      ? [{ id: 'users' as ViewType, label: t('users'), icon: Users }] : []),
     { id: 'settings' as ViewType, label: t('settings'), icon: Settings },
   ];
 
   // Coordinator roles (Karyakarta / GP / Block) get a focused nav scoped to their
   // own jurisdiction — no district-wide analytics / intelligence / chat / etc.
   const isCoordinatorRole = user?.role_level === 'KARYAKARTA' || user?.role_level === 'GP_COORD' || user?.role_level === 'BLOCK_COORD';
-  const coordinatorAllowed = new Set(['dashboard', 'complaints', 'map', 'settings']);
+  // GP/Block coordinators can also manage users below them (karyakartas etc.)
+  const coordinatorAllowed = new Set(
+    user?.role_level === 'KARYAKARTA'
+      ? ['dashboard', 'complaints', 'map', 'settings']
+      : ['dashboard', 'complaints', 'map', 'settings', 'users']
+  );
   const navItems = isCoordinatorRole ? allNavItems.filter((i) => coordinatorAllowed.has(i.id)) : allNavItems;
 
   // Not logged in (wrap in hydration gate)

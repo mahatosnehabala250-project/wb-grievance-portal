@@ -59,13 +59,33 @@ import { NAVY, NAVY_DARK, STATUS_MAP, URGENCY_MAP, URGENCY_BORDER_MAP, ROLE_MAP,
 import { fmtDate, fmtDateTime, fmtStatus, fmtUrgency, fmtRole, safeGetLocalStorage, safeSetLocalStorage, authHeaders, getDaysOld, getSLAInfo, playNotificationSound } from '@/lib/helpers';
 import { StatusBadge, UrgencyBadge, RoleBadge, StatCard, MiniStat, PieLabel, LoadingSkeleton, EmptyState } from '@/components/common';
 
+const ROLE_LEVEL_LABELS: Record<string, string> = {
+  MP: 'MP (Lok Sabha)',
+  MLA: 'MLA (Assembly)',
+  DISTRICT_ADMIN: 'District Officer',
+  BLOCK_COORD: 'Block Officer',
+  GP_COORD: 'GP Coordinator',
+  KARYAKARTA: 'Karyakarta',
+  OFFICER: 'Officer',
+};
+
+const EMPTY_CREATE_FORM = {
+  username: '', password: '', role: 'BLOCK', name: '', block: '', district: '',
+  whatsappPhone: '', telegramChatId: '', email: '',
+  role_level: 'OFFICER', constituency: '', lok_sabha_constituency: '',
+  gp_code: '', gp_name: '', assigned_villages: '',
+};
+
 export function UserManagementView() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterRole, setFilterRole] = useState('');
+  // Roles this actor may create — comes from the server (rbac.ts), so the UI
+  // automatically adapts: MP sees MLA & below, MLA sees coords & below, etc.
+  const [creatableRoles, setCreatableRoles] = useState<string[]>([]);
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({ username: '', password: '', role: 'BLOCK', name: '', block: '', district: '', whatsappPhone: '', telegramChatId: '', email: '' });
+  const [createForm, setCreateForm] = useState({ ...EMPTY_CREATE_FORM });
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
   const [creating, setCreating] = useState(false);
 
@@ -84,8 +104,10 @@ export function UserManagementView() {
       if (res.ok) {
         const json = await res.json();
         setUsers(json.users);
+        if (json.meta?.creatableRoles) setCreatableRoles(json.meta.creatableRoles);
       } else {
-        toast.error('Failed to load users');
+        const json = await res.json().catch(() => null);
+        toast.error(json?.error || 'Failed to load users');
       }
     } catch {
       toast.error('Network error');
@@ -116,23 +138,37 @@ export function UserManagementView() {
 
   const handleCreate = useCallback(async () => {
     const e: Record<string, string> = {};
+    const lvl = createForm.role_level;
     if (!createForm.username.trim()) e.username = 'Required';
     if (!createForm.password.trim()) e.password = 'Required';
+    else if (createForm.password.length < 8) e.password = 'Min 8 characters';
     if (!createForm.name.trim()) e.name = 'Required';
-    if (!createForm.block.trim()) e.block = 'Required';
+    // Geography requirements depend on designation (server re-validates)
+    if (['OFFICER', 'BLOCK_COORD'].includes(lvl) && !createForm.block.trim()) e.block = 'Required';
+    if (lvl === 'MP' && !createForm.lok_sabha_constituency.trim()) e.lok_sabha_constituency = 'Required';
+    if (lvl === 'MLA' && !createForm.constituency.trim()) e.constituency = 'Required';
+    if (lvl === 'DISTRICT_ADMIN' && !createForm.district.trim()) e.district = 'Required';
+    if (lvl === 'GP_COORD' && !createForm.gp_code.trim()) e.gp_code = 'Required';
+    if (lvl === 'KARYAKARTA' && !createForm.gp_code.trim() && !createForm.assigned_villages.trim()) e.gp_code = 'GP code or villages required';
     setCreateErrors(e);
     if (Object.keys(e).length) return;
 
     setCreating(true);
     try {
+      const payload = {
+        ...createForm,
+        assigned_villages: createForm.assigned_villages
+          ? createForm.assigned_villages.split(',').map(v => v.trim()).filter(Boolean)
+          : [],
+      };
       const res = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify(createForm),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         toast.success('User created successfully');
-        setCreateForm({ username: '', password: '', role: 'BLOCK', name: '', block: '', district: '', whatsappPhone: '', telegramChatId: '', email: '' });
+        setCreateForm({ ...EMPTY_CREATE_FORM });
         setCreateErrors({});
         setCreateOpen(false);
         fetchUsers();
@@ -258,6 +294,7 @@ export function UserManagementView() {
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider">Username</TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider">Name</TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider">Role</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">Designation</TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider">Block</TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider">District</TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider">Complaints</TableHead>
@@ -269,19 +306,25 @@ export function UserManagementView() {
               {loading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 8 }).map((_, j) => (
+                    {Array.from({ length: 9 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : users.length === 0 ? (
-                <TableRow><TableCell colSpan={8}><EmptyState message="No users found" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={9}><EmptyState message="No users found" /></TableCell></TableRow>
               ) : (
                 users.map((u) => (
                   <TableRow key={u.id} className="hover:bg-muted/30">
                     <TableCell className="font-mono text-xs font-bold">{u.username}</TableCell>
                     <TableCell className="text-sm font-medium">{u.name}</TableCell>
                     <TableCell><RoleBadge role={u.role} /></TableCell>
+                    <TableCell className="text-xs">
+                      {ROLE_LEVEL_LABELS[(u as unknown as Record<string, string>).role_level] || (u as unknown as Record<string, string>).role_level || '—'}
+                      {(u as unknown as Record<string, string>).constituency && (
+                        <span className="block text-[10px] text-muted-foreground">{(u as unknown as Record<string, string>).constituency}</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-xs">{u.block}</TableCell>
                     <TableCell className="text-xs">{u.district || '—'}</TableCell>
                     <TableCell className="text-xs">
@@ -390,18 +433,54 @@ export function UserManagementView() {
                 {createErrors.name && <p className="text-red-500 text-[11px]">{createErrors.name}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-bold uppercase tracking-widest">Role</Label>
-                <Select value={createForm.role} onValueChange={(v) => setCreateForm((p) => ({ ...p, role: v }))}>
+                <Label className="text-[10px] font-bold uppercase tracking-widest">Designation</Label>
+                <Select value={createForm.role_level} onValueChange={(v) => setCreateForm((p) => ({ ...p, role_level: v }))}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="BLOCK">Block Level</SelectItem>
-                    <SelectItem value="DISTRICT">District Level</SelectItem>
-                    <SelectItem value="STATE">State Level</SelectItem>
-                    <SelectItem value="ADMIN">Administrator</SelectItem>
+                    {creatableRoles.map(r => (
+                      <SelectItem key={r} value={r}>{ROLE_LEVEL_LABELS[r] || r}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
+
+            {/* Geography — fields appear based on designation; server enforces
+                that everything stays inside the creator's own jurisdiction */}
+            {createForm.role_level === 'MP' && (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-widest">Lok Sabha Constituency</Label>
+                <Input value={createForm.lok_sabha_constituency} onChange={(e) => setCreateForm((p) => ({ ...p, lok_sabha_constituency: e.target.value }))} placeholder="e.g. Purulia" className="h-9 text-sm" />
+                {createErrors.lok_sabha_constituency && <p className="text-red-500 text-[11px]">{createErrors.lok_sabha_constituency}</p>}
+              </div>
+            )}
+            {createForm.role_level === 'MLA' && (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-widest">Assembly Constituency</Label>
+                <Input value={createForm.constituency} onChange={(e) => setCreateForm((p) => ({ ...p, constituency: e.target.value }))} placeholder="e.g. Bandwan" className="h-9 text-sm" />
+                {createErrors.constituency && <p className="text-red-500 text-[11px]">{createErrors.constituency}</p>}
+              </div>
+            )}
+            {(createForm.role_level === 'GP_COORD' || createForm.role_level === 'KARYAKARTA') && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest">GP Code (LGD)</Label>
+                  <Input value={createForm.gp_code} onChange={(e) => setCreateForm((p) => ({ ...p, gp_code: e.target.value }))} placeholder="e.g. 111050" className="h-9 text-sm" />
+                  {createErrors.gp_code && <p className="text-red-500 text-[11px]">{createErrors.gp_code}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest">GP Name</Label>
+                  <Input value={createForm.gp_name} onChange={(e) => setCreateForm((p) => ({ ...p, gp_name: e.target.value }))} placeholder="Gram Panchayat name" className="h-9 text-sm" />
+                </div>
+              </div>
+            )}
+            {createForm.role_level === 'KARYAKARTA' && (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-widest">Assigned Villages (comma-separated)</Label>
+                <Input value={createForm.assigned_villages} onChange={(e) => setCreateForm((p) => ({ ...p, assigned_villages: e.target.value }))} placeholder="Jangidiri, Baliguma" className="h-9 text-sm" />
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-bold uppercase tracking-widest">Block</Label>
@@ -411,6 +490,7 @@ export function UserManagementView() {
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-bold uppercase tracking-widest">District</Label>
                 <Input value={createForm.district} onChange={(e) => setCreateForm((p) => ({ ...p, district: e.target.value }))} placeholder="District name" className="h-9 text-sm" />
+                {createErrors.district && <p className="text-red-500 text-[11px]">{createErrors.district}</p>}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
