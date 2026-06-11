@@ -26,6 +26,11 @@
 
 ### SESSION 4 — Claude (June 11, 2026): Telegram Notification Fixes — parse_mode HTML safety
 
+#### ⚙️ Infrastructure Note
+- **Model switch:** `gemini-2.5-flash-lite` (cost + latency optimization for rapid iterations)
+- **System prompt:** compressed ~57% (removed redundant instructions, consolidated role descriptions)
+- Output/tool-usage patterns may differ slightly from earlier Claude sessions — verify commits before auto-deploy.
+
 #### 🐛 Issue discovered
 - **JS-12 Execution #4148:** "Send Success Reply" failed with `Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 139`
 - **Root cause:** Telegram send nodes were using default Markdown `parse_mode`. If reply text contains underscores or special chars (like `_` in Bengali text or emojis), Telegram's entity parser tries to interpret them as formatting, causing parse errors.
