@@ -27,6 +27,44 @@
 
 ---
 
+### SESSION 7 — Claude Code (June 11, 2026 — ~20:15 IST): Intelligence Command — role-adaptive war-room brief (Karyakarta → MP)
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-fable-5) — Anthropic CLI
+- **Goal:** Har role ko corporate/McKinsey-grade intelligence dashboard — product differentiator for political-party customers
+
+#### ✅ NEW API: `/api/intelligence/brief` (src/app/api/intelligence/brief/route.ts)
+- **Scope-locked:** complaints `getComplaintScopeFilter` se filter hote hain (same boundary as /api/complaints) — karyakarta=village, GP=panchayat, block=GPs, MLA=AC, MP=seat, district=blocks
+- **Computed intelligence (rule-based, deterministic, no LLM cost):**
+  - **Political Risk Index 0–100** (weighted: active ratio 30, SLA ratio 25, critical 15, momentum 20, sentiment 10) + grade (LOW/GUARDED/ELEVATED/HIGH/SEVERE) + plain-language drivers
+  - **Momentum:** 7d vs prev-7d intake (% change)
+  - **Category surge detection:** week-over-week ≥25% + ≥2 complaints
+  - **Hotspot matrix:** sub-areas ranked by mini risk score (role-specific grouping)
+  - **Early warnings rule engine:** surges, critical clusters, SLA breakdown, volume spikes, sentiment drops, stalled resolution
+  - **12-week trend** (filed vs resolved), **sentiment** (dist + direction improving/declining), **officer watch** (resolution scores), **avg resolution days**
+  - **PR Ammunition:** recently resolved + well-rated (press/social material)
+  - **Quick Wins:** old low-urgency OPEN complaints (easy closes first)
+  - **Peer Benchmark:** sibling areas comparison (GP vs GPs in block, block vs blocks in district, AC vs ACs, seat vs seats, district vs districts) + percentile — ⚠️ AGGREGATE COUNTS ONLY (name+totals+rate), zero complaint detail, zero PII — deliberate design
+- Perf note: computes in JS from scoped fetch (take 2000) — fine at current volume; bade volume pe SQL RPC mein migrate karna
+
+#### ✅ NEW VIEW: `IntelligenceCommandView.tsx`
+- One component, every role — title adapts (Ground/Panchayat/Block/Constituency/Parliamentary/District Intelligence)
+- "RESTRICTED · EYES ONLY" classified-style header + scope badge + brief timestamp
+- SVG risk gauge (5-zone arc + needle), KPI situation report, early-warnings feed, 12-week area chart, issue-composition pie + surge list, hotspot risk bars, horizontal peer-benchmark bar chart (purple=self), sentiment star distribution, officer leaderboard, PR-wins + quick-wins cards
+
+#### ✅ Wiring
+- `types.ts`: ViewType += `intel_command`
+- `page.tsx`: "Intel Command" nav (sab roles); old admin alert view ab "Alert Engine" (ADMIN-only); coordinators (KARYAKARTA included) ke focused-nav mein intel_command added
+
+#### ✔️ Verification
+- tsc: new/touched files 0 errors (baaki pre-existing)
+
+#### ⚠️ Next AI — Please Note
+- Intelligence = rule-based on scoped complaint data. AGGREGATE only cross-scope (benchmark). **Individual-citizen profiling/targeting features mat banana** — DPDP + ethics line. PII analytics nahi.
+- Next phase ideas (documented for roadmap): n8n JS-09 alerts ko warnings rule-engine se feed karna (Telegram push per role), weekly PDF brief via JS-17 pattern, block-name normalization (Session 3 note) hotspot accuracy improve karega
+
+---
+
 ### SESSION 6 — Claude Code (June 11, 2026 — ~19:30 IST): Production RBAC — Full Hierarchy, Server-Side Scope Enforcement, MP Command Center
 
 #### 🤖 AI Tool Info

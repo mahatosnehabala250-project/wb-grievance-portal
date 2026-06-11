@@ -14,7 +14,7 @@ import {
   Settings, CircleHelp, Monitor, Mail, Volume2, LayoutGrid, Keyboard,
   UserCheck, GitCompareArrows, CalendarClock, History, Tag, ClipboardList,
   AlertCircle, Info, CheckCircle2 as CheckCircleFill, Sparkles, Megaphone,
-  ArrowUp, Flame, CalendarRange, TimerReset, Server, Radio, Workflow, BookOpen, BrainCircuit, Heart,
+  ArrowUp, Flame, CalendarRange, TimerReset, Server, Radio, Workflow, BookOpen, BrainCircuit, Heart, ShieldAlert,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -78,6 +78,7 @@ import { RaktaSahayakView } from '@/components/RaktaSahayakView';
 import { MLADashboardView } from '@/components/MLADashboardView';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MPCommandView } from '@/components/MPCommandView';
+import { IntelligenceCommandView } from '@/components/IntelligenceCommandView';
 import { GovernanceDashboardView } from '@/components/GovernanceDashboardView';
 import { MapView } from '@/components/MapView';
 import { SchemeKnowledgeView } from '@/components/SchemeKnowledgeView';
@@ -281,7 +282,10 @@ export default function HomePage() {
       ? [{ id: 'mla_dashboard' as ViewType, label: 'MLA Dashboard', icon: Building2 }]
       : []),
     { id: 'analytics' as ViewType, label: t('analytics'), icon: BarChart2 },
-    { id: 'intelligence' as ViewType, label: 'Intelligence', icon: BrainCircuit },
+    // Intel Command: role-adaptive war-room brief — every governance role gets
+    // their own scoped version (karyakarta=village ... MP=seat). API enforces scope.
+    { id: 'intel_command' as ViewType, label: 'Intel Command', icon: BrainCircuit },
+    ...(user?.role === 'ADMIN' ? [{ id: 'intelligence' as ViewType, label: 'Alert Engine', icon: ShieldAlert }] : []),
     { id: 'schemes' as ViewType, label: 'Schemes', icon: BookOpen },
     { id: 'liveData' as ViewType, label: 'Live Data', icon: Radio },
     ...(user?.role === 'ADMIN' ? [{ id: 'systemStatus' as ViewType, label: t('systemStatus'), icon: Activity }] : []),
@@ -304,8 +308,8 @@ export default function HomePage() {
   // GP/Block coordinators can also manage users below them (karyakartas etc.)
   const coordinatorAllowed = new Set(
     user?.role_level === 'KARYAKARTA'
-      ? ['dashboard', 'complaints', 'map', 'settings']
-      : ['dashboard', 'complaints', 'map', 'settings', 'users']
+      ? ['dashboard', 'complaints', 'map', 'settings', 'intel_command']
+      : ['dashboard', 'complaints', 'map', 'settings', 'users', 'intel_command']
   );
   const navItems = isCoordinatorRole ? allNavItems.filter((i) => coordinatorAllowed.has(i.id)) : allNavItems;
 
@@ -681,6 +685,9 @@ export default function HomePage() {
                 )}
                 {view === 'governance' && (user?.role_level === 'KARYAKARTA' || user?.role_level === 'GP_COORD' || user?.role_level === 'BLOCK_COORD' || user?.role === 'ADMIN') && (
                   <GovernanceDashboardView />
+                )}
+                {view === 'intel_command' && (
+                  <IntelligenceCommandView />
                 )}
                 {view === 'intelligence' && (
                   <IntelligenceView />
