@@ -1,6 +1,7 @@
-# WB Grievance Portal — Kiro + Claude Collaborative Changelog
-> **Purpose:** Har AI tool (Kiro ya Claude) ne kya kiya, exactly kab kiya — dono milke kaam kar sakein bina ek doosre ka kaam overwrite kiye.
+# WB Grievance Portal — AI Collaborative Changelog
+> **Purpose:** Har AI tool (Kiro, Claude, ya koi bhi) ne kya kiya, exactly kab kiya — sab milke kaam kar sakein bina ek doosre ka kaam overwrite kiye.
 > **Rule:** Koi bhi AI change kare — is file mein likhe. DB functions touch karne se pehle HAMESHA `pg_get_functiondef` se current version padho.
+> **Format:** Har session mein AI ka naam, date, time (IST), aur kya kiya — clearly likho taaki koi bhi AI tool aake seedha samjhe aur kaam shuru kar sake.
 
 ---
 
@@ -23,6 +24,35 @@
 ---
 
 ## 📋 Changes Log
+
+---
+
+### SESSION 5 — Claude Code (June 11, 2026 — ~18:30 IST): Project Setup + Changelog Protocol Established
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-sonnet-4-6) — Anthropic CLI
+- **Triggered by:** User (mahatosnehabala250@gmail.com)
+- **Session type:** Setup + orientation session
+
+#### ✅ Kya Kiya
+1. **Git config update** — username `tubiflowcontact-blip` → `mahatosnehabala250-project`, email updated to `mahatosnehabala250@gmail.com`
+2. **GitHub CLI install** — `gh` v2.93.0 install kiya via winget
+3. **GitHub login** — `mahatosnehabala250-project` account se authenticate kiya
+4. **Repo clone** — `wb-grievance-portal` clone kiya `C:\Users\mahat\Downloads\wb-grievance-portal` mein
+5. **KIRO_CHANGELOG.md updated** — header improved: ab clearly mention hai ki koi bhi AI tool (Kiro/Claude/etc.) yahan likhe, date+time+AI name ke saath, taaki collaboration seamless ho
+6. **Changelog protocol confirmed** — user ne explicitly kaha: "jo bhi change ya update karo, yahan save karo date time wise taaki doosri AI tool samjhe aur sab ek saath kaam kar sakein"
+
+#### 📌 Current System State (as of this session)
+- Repo: `mahatosnehabala250-project/wb-grievance-portal` ✅ cloned locally
+- Last code change: SESSION 4 (Claude, Jun 11 — Telegram HTML parse_mode fix)
+- Pending: MP Command Center, end-to-end Telegram test, geography validation (see SESSION 4 notes below)
+
+#### ⚠️ Next AI — Please Note
+- Ye file HAMESHA update karo jab koi bhi change karo
+- DB functions chhune se pehle `pg_get_functiondef` se padho (CRITICAL section dekho upar)
+- `register_complaint` function ke saath extra careful rehna — Kiro ne ek baar toda tha
+
+---
 
 ### SESSION 4 — Claude (June 11, 2026): Telegram Notification Fixes — parse_mode HTML safety
 
