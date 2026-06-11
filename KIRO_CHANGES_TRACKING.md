@@ -3,13 +3,14 @@
 
 ---
 
-## Active Context (Last Updated: Jun 11, 2026)
+## Active Context (Last Updated: Jun 11, 2026 — Claude Session 5)
 
 ### Latest Status
 - **Last Commit:** `f4bab78` - docs: log scope-filter column-name fix + snake/camel note
 - **Deployment:** Vercel auto-deploy active
 - **Frontend:** http://localhost:3000 (dev) / Vercel production (live)
 - **Backend:** Supabase + n8n workflows
+- **Current Work:** Telegram notification fixes (JS-04 + JS-12)
 
 ---
 
