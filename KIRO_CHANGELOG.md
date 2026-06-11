@@ -54,6 +54,28 @@
 - ✅ Emoji characters (✅ 🎫 📋 etc.) will render correctly
 - ✅ Future-proofs against similar parse errors if resolution text or status labels are ever expanded
 
+#### ✅ FOLLOW-UP (same session): HTML-escape dynamic content (bulletproof fix)
+**Why:** HTML parse_mode alone is NOT safe — if dynamic text (citizen name, officer name, resolution text, issue, Telegram first_name) contains `<`, `>`, or `&`, Telegram HTML parser would STILL throw "can't parse entities". Real risk: officer writes resolution like "pipe < 2 inch" or "road A & B".
+
+**Fix:** Added `esc()` helper to all message-building Code nodes that escapes `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;` on dynamic values only.
+
+**JS-04 Status Broadcaster (`zxhMcvjLPbcuEzGz`):**
+- `Build Status Message` now produces TWO fields:
+  - `statusMessage` = PLAIN text → used by `Notify via WhatsApp` (WhatsApp does NOT parse HTML, so plain text required — escaping here would show literal `&amp;` to citizens)
+  - `statusMessageHtml` = HTML-escaped → used by `Notify via Telegram`
+- `Notify via Telegram` text changed: `statusMessage` → `statusMessageHtml`
+- ⚠️ KEY INSIGHT: JS-04 shares one message for 2 channels. WhatsApp = plain, Telegram = escaped. Do NOT escape the shared field.
+
+**JS-12 Telegram Link Bot (`ee8Ttjih5vJ1ZPsK`)** — Telegram-only, so escape directly:
+- `Save Link + Build Reply` → escape name, ticketNo, statusLabel
+- `Build Status Reply` → escape ticketNo, status, issue
+- `Build Rating Reply` → escape rating, ticketNo
+- `Build Help Reply` → escape Telegram first_name
+
+**Validation:** Both workflows `errorCount: 0` ✅ (only pre-existing best-practice warnings)
+
+**Result:** Now bulletproof — ANY citizen name, officer name, or resolution text with `<`, `>`, `&` will send correctly on Telegram. WhatsApp continues to get clean plain text.
+
 ---
 
 ### SESSION 3 — Kiro (June 10, 2026): Phase 2 BUGFIX #2 — scope filter used Prisma field names (returned 0)
