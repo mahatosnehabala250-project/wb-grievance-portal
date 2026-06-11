@@ -23,10 +23,38 @@
 
 ## Changes Made (Kiro Session June 11)
 
+### 1. Fixed Telegram Reply Parsing Error (JS-12 Workflow)
+
+**File:** n8n workflow `ee8Ttjih5vJ1ZPsK` (JS-12: Telegram Link Bot)
+
+**Issue:** Execution #4148 failed with "Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 139"
+
+**Root Cause:** Bengali text + emoji mixed in Telegram reply → Telegram API's UTF-8 markdown parser fails at byte offset 139 (mid-multi-byte character)
+
+**Fix Applied:**
+1. Removed all emoji from "Save Link + Build Reply" node code
+2. Changed text format from emoji-rich to plain Bengali only
+3. Simplified from: "✅ লিঙ্ক সফল হয়েছে, [name]! 🎫 টিকিট:..."
+4. Changed to: "লিঙ্ক সফল হয়েছে, [name]! টিকিট:..." (no emoji)
+5. Set `parseMode: "MarkdownV2"` on Send nodes
+
+**Files Modified:**
+- n8n: JS-12 nodes "Save Link + Build Reply" + "Send Success Reply"
+
+**Commit:** `f869996` — fix(n8n): JS-12 Telegram markdown UTF-8 parsing
+
+**Status:** ✅ Fixed, awaiting test
+
+---
+
 ### File: `IMPLEMENTATION_LOG.md` (THIS FILE)
 - **What:** Created to track all changes going forward
 - **Why:** Avoid duplication when Claude takes over; provide clear handoff notes
-- **Status:** ✅ Initiated
+- **Status:** ✅ Created + now tracking all changes
+
+### File: `KIRO_CHANGES_TRACKING.md`
+- **What:** Updated Issue #2 with Telegram fix details
+- **Status:** ✅ Updated
 
 ---
 

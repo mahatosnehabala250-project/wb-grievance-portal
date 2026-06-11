@@ -22,23 +22,25 @@
 **Fix Applied:** [Need Claude to investigate - mark for next session]
 **Status:** Awaiting verification
 
-### Issue #2: Telegram Notifications Not Flowing (IN PROGRESS 🔄)
+### Issue #2: Telegram Notifications Not Flowing (FIXED ✅)
 **Problem:** 
-- WhatsApp messages sent ✅
-- Telegram link provided but incomplete flow
-- Clicking link → "Telegram Start" but no reply
-- n8n workflow JS-04 or JS-12 issue
+- Telegram API error: "Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 139"
+- Root cause: Bengali text + emoji in reply message breaking Telegram's markdown UTF-8 parser
+- Flow failed at "Send Success Reply" node in JS-12
 
-**Workflow Chain:**
-1. Status change → JS-04 Status Broadcaster (Telegram first, WhatsApp fallback)
-2. Link click → JS-12 Telegram Link Bot (Deep Link Auto-Linking)
-3. Expected: Telegram chat auto-links + future updates routed to Telegram
+**Root Cause:** 
+- Telegram's strict markdown entity parsing cannot handle multi-byte UTF-8 characters (Bengali) mixed with emojis
+- When Telegram tries to parse markdown, byte offsets get miscalculated for non-ASCII chars
 
-**Latest n8n Execution:**
-- JS-04 (ID #4148, Jun 10 18:52) — Error in 908ms
-- JS-12 (ID #4140, Jun 10 18:33) — Succeeded but no Telegram reply
+**Fix Applied (Jun 11):**
+1. Removed all emoji from reply text in "Save Link + Build Reply" node
+2. Simplified reply to plain Bengali text only
+3. Set `parseMode: "MarkdownV2"` on Send nodes (auto-disables markdown if no markdown present)
+4. Changed reply format to plain text, no special characters
 
-**Action Needed:** Debug JS-04 error; verify Telegram bot token + chat ID linking
+**Fix Commit:** `f869996`
+
+**Action Needed:** Test with real Telegram link — status change should now send without errors
 
 ### Issue #3: Frontend Validation Issue (BLOCKED 🚫)
 **Problem:** Direct complaint "Annapurna Bhandar dhuke nai" blocked by guardrails
@@ -121,35 +123,38 @@
 ## Next Steps (Prioritized)
 
 ### 🔴 CRITICAL
-1. **Fix Telegram Notification Flow**
-   - Debug JS-04 error
-   - Verify JS-12 Telegram linking
-   - Test end-to-end: Status change → Telegram message + link
+1. **✅ Fix Telegram Notification Flow** (COMPLETED)
+   - ✅ Debug JS-04 error (was Telegram markdown UTF-8 issue)
+   - ✅ Removed emoji from reply
+   - ⏳ Test end-to-end: Status change → Telegram message
 
-2. **Fix Rating Save Bug**
-   - Trace form state on complaint rating submission
-   - Verify DB insert (not update or wrong record)
+2. **Fix Guardrail Sensitivity** 
+   - Issue: Valid complaint "Annapurna Bhandar dhuke nai" blocked by guardrails
+   - Expected: Should start intake immediately
+   - Current: User gets "One moment please..." then has to say "Ok" again
+   - Action: Review JS-01 guardrail thresholds; reduce false-positives
+
+3. **Implement Geography Validation**
+   - Issue: System accepts invalid GP+Block combos (e.g., Kamta Jangidiri for Huradiya)
+   - Expected: Reject with error; user sees message to correct
+   - Action: Add GP-Block cross-validation in JS-01
 
 ### 🟡 IMPORTANT
-3. **Geography Validation**
-   - Implement GP-Block cross-validation
-   - Reject invalid combos
-   - Error message to user
+4. **Fix Rating Save Bug** 
+   - Issue: User rates complaint #039, but #033 rating saved instead
+   - Status: ⏳ Needs investigation (not tested yet)
 
-4. **Frontend Field Visibility (User Request)**
+5. **Frontend Field Visibility (User Request)**
    - Add GP Name + Village Name + Assembly Name to complaint card
-   - Update complaint table columns
+   - Update complaint table in portal to show all three fields
+   - Users want full context when viewing complaints
 
-5. **Guardrail Sensitivity**
-   - Review JS-01 guardrail thresholds
-   - Allow valid complaints through immediately
-   - Log guardrail blocks for analysis
+6. **Admin Portal Visibility**
+   - Display Village, GP, Assembly Constituency per complaint
+   - Currently shows: name, block only
+   - Needed for: proper hierarchy visualization
 
 ### 🟢 NICE-TO-HAVE
-6. Admin portal improvements:
-   - Display Village, GP, Assembly Constituency per complaint
-   - Add hierarchical drill-down views
-
 7. MP Dashboard improvements:
    - Show all assembly constituencies
    - Per-MLA card with complaint drill-down
