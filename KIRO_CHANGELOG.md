@@ -27,6 +27,33 @@
 
 ---
 
+### SESSION 9 — Claude Code (June 13, 2026): Staff Telegram Self-Linking (1-click connect for daily briefs)
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-fable-5) — Anthropic CLI
+- **Problem solved:** JS-21 daily brief sirf unhe jata hai jinke `users.telegramChatId` set hai — abhi sirf 1 user linked tha. Manual ID entry scale nahi karti (500 karyakartas!).
+
+#### ✅ Flow (citizen JS-12 deep-link jaisa hi, par STAFF ke liye)
+1. User portal Settings → **"Connect Telegram"** button → API one-time code generate karta hai
+2. Telegram khulta hai deep link se (`t.me/<bot>?start=staff_<code>`) → user START dabata hai
+3. JS-12 ka naya staff branch code match karta hai → `users.telegramChatId` save + code clear (single-use)
+4. Bot reply: "✅ Linked! Kal subah se Daily Intel Brief aayega"
+
+#### ✅ Changes
+- **DB migration `add_telegram_link_code_to_users`:** `users.telegram_link_code` text + unique partial index; prisma schema bhi updated
+- **NEW API `/api/users/telegram-link` (POST):** logged-in user ke liye 20-hex one-time code; response mein `deepLink` (agar `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` env set hai) warna manual `/start staff_<code>` instructions
+- **SettingsView:** "Telegram Daily Intel Brief" card — Connect button + deep link open + manual fallback steps
+- **n8n JS-12 updated (21 nodes now, validated 0 errors):** `Parse Telegram` mein staffCode detection + 4 naye nodes: `Is Staff Link` (IF) → `Link Staff Account` (PATCH users by code, return=representation) → `Build Staff Reply` → `Send Staff Reply` (HTML). Routing: Parse → Is Staff Link → (true: staff branch / false: Route by Ticket — existing citizen flow untouched)
+- `.env.example`: `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` added
+
+#### ⚠️ User TODO
+- Vercel env mein `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=<bot ka username, @ ke bina>` set karo (BotFather/bot profile mein dikhega) — iske bina bhi manual `/start staff_<code>` se linking chalti hai, bas 1-click deep link nahi khulega
+
+#### ✔️ Verification
+- tsc: touched files 0 errors; JS-12 validated errorCount 0 (warnings pre-existing class)
+
+---
+
 ### SESSION 8 — Claude Code (June 12, 2026): Level 3 Push Intelligence + "Wapas Jao" Mode + n8n JS-21
 
 #### 🤖 AI Tool Info

@@ -33,6 +33,7 @@ model User {
   gp_code         String?     // LGD gp_code for GP_COORD / KARYAKARTA scope
   gp_name         String?     // GP display name
   assigned_villages String[]  @default([]) // Villages a KARYAKARTA is responsible for
+  telegram_link_code String?  // One-time code for staff Telegram self-linking (JS-12 staff branch)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 

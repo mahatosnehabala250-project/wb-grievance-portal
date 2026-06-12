@@ -62,6 +62,38 @@ export function SettingsView() {
   const user = useAuthStore((s) => s.user);
   const { theme, setTheme } = useTheme();
 
+  // Telegram self-linking (daily intel briefs via JS-21)
+  const [tgLinking, setTgLinking] = useState(false);
+  const [tgCode, setTgCode] = useState<string | null>(null);
+  const [tgDeepLink, setTgDeepLink] = useState<string | null>(null);
+
+  const connectTelegram = useCallback(async () => {
+    setTgLinking(true);
+    try {
+      const res = await fetch('/api/users/telegram-link', {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setTgCode(json.code);
+        setTgDeepLink(json.deepLink);
+        if (json.deepLink) {
+          window.open(json.deepLink, '_blank');
+          toast.success('Telegram khul raha hai — bot mein START dabayein');
+        } else {
+          toast.info('Code generated — neeche diye steps follow karein');
+        }
+      } else {
+        toast.error('Link code generate nahi hua');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setTgLinking(false);
+    }
+  }, []);
+
   // Notification preferences (localStorage) — safely initialized after mount
   const [emailNotifs, setEmailNotifs] = useState(false);
   const [soundAlerts, setSoundAlerts] = useState(false);
@@ -186,6 +218,51 @@ export function SettingsView() {
             </div>
           </div>
         </div>
+      </motion.div>
+
+      {/* ═══ Telegram Daily Brief Connection ═══ */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+        <Card className="border-0 shadow-sm border-l-4" style={{ borderLeftColor: '#229ED9' }}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <Send className="h-4 w-4" style={{ color: '#229ED9' }} />
+              Telegram Daily Intel Brief
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Roz subah 7 baje apne jurisdiction ka intelligence brief Telegram pe paayein — risk score, warnings, hotspots, quick wins. Bilkul FREE.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button
+              size="sm"
+              onClick={connectTelegram}
+              disabled={tgLinking}
+              className="text-xs text-white"
+              style={{ backgroundColor: '#229ED9' }}
+            >
+              {tgLinking ? <RefreshCw className="h-3.5 w-3.5 animate-spin mr-1" /> : <Send className="h-3.5 w-3.5 mr-1" />}
+              Connect Telegram
+            </Button>
+            {tgCode && (
+              <div className="rounded-lg bg-muted/50 p-3 space-y-1.5 text-xs">
+                {tgDeepLink ? (
+                  <p>Telegram khula hai — bas <strong>START</strong> dabayein. Nahi khula to{' '}
+                    <a href={tgDeepLink} target="_blank" rel="noreferrer" className="text-blue-500 underline">yahan click karein</a>.
+                  </p>
+                ) : (
+                  <>
+                    <p className="font-semibold">Manual steps:</p>
+                    <p>1. Telegram pe JanSunwai bot kholo (wahi bot jisse citizens link hote hain)</p>
+                    <p>2. Ye message bhejo:</p>
+                    <code className="block bg-background rounded px-2 py-1 font-mono select-all">/start {tgCode}</code>
+                    <p>3. Bot "✅ Linked" reply karega — bas, kal subah se brief aayega</p>
+                  </>
+                )}
+                <p className="text-muted-foreground">Code single-use hai · dobara connect karne pe naya code banega</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* ═══ Profile Details Section ═══ */}
