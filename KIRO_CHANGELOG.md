@@ -27,6 +27,41 @@
 
 ---
 
+### SESSION 8 — Claude Code (June 12, 2026): Level 3 Push Intelligence + "Wapas Jao" Mode + n8n JS-21
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-fable-5) — Anthropic CLI
+
+#### ✅ REFACTOR: `src/lib/intelligence.ts` (new shared engine)
+- Intelligence-brief computation `/api/intelligence/brief` route se nikal ke lib mein — ab interactive view AUR cron push dono YEHI engine use karte hain (logic duplicate nahi)
+- `computeIntelligenceBrief(payload)` + `formatBriefForTelegram(brief)` (HTML parse-mode, dynamic text esc() — Session 4 rule followed)
+
+#### ✅ NEW API: `/api/cron/daily-briefs` (Level 3 — Push Intelligence)
+- Machine-to-machine route — `x-cron-secret` header vs `CRON_SECRET` env (user JWT nahi)
+- Saare active governance users (MP/MLA/DISTRICT_ADMIN/BLOCK_COORD/GP_COORD/KARYAKARTA + ADMIN) jinke paas `telegramChatId` hai → har ek ka APNA scoped brief compute → Telegram-ready HTML messages return
+- Empty jurisdictions skip (0 complaints = no message)
+- `.env.example` mein `CRON_SECRET` added
+
+#### ✅ NEW n8n WORKFLOW: JS-21 (`hPDe3mQWWf9bjWj8`) — 4 nodes, validated 0 errors
+- `Every Morning 7AM` (cron 0 7 * * *, Asia/Kolkata) → `Fetch Briefs from App` (HTTP GET + x-cron-secret) → `Split Messages` (code) → `Send Brief via Telegram` (HTML, existing "Telegram account" credential `W4l40lF1yCNM5z9s`)
+- ⚠️ **ACTIVATION PENDING — 2 manual steps:**
+  1. Vercel env mein add karo: `CRON_SECRET=wbgp_cron_7f3a9d2e84c1b6f05a47e92d13c8ab60` (ye value JS-21 ke header mein hardcoded hai — change karo to dono jagah karo)
+  2. n8n mein JS-21 ACTIVATE karo (inactive create hua hai)
+
+#### ✅ NEW: "Wapas Jao" Mode (closed-loop politics — moat feature)
+- API `/api/intelligence/wapas-jao`: scope-locked RESOLVED complaints, village-wise grouped, citizen names + ratings ke saath (visibility widen NAHI hoti — wahi data jo ComplaintsView mein already dikhta hai, bas visit-brief format mein)
+- UI: IntelligenceCommandView mein new section — village accordion + per-village "Copy brief" button (WhatsApp paste-ready text: "Sumit ji aapka paani ka kaam hua tha…")
+
+#### ✔️ Verification
+- tsc: new/touched files 0 errors; n8n JS-21 validated (errorCount 0, sirf best-practice warnings — same class as JS-12)
+
+#### ⚠️ Next AI — Please Note
+- Brief engine ka SINGLE SOURCE = `src/lib/intelligence.ts` — brief format ya rules badalne ho to wahan
+- JS-21 ka cron-secret app ke `CRON_SECRET` env se match hona zaroori hai — mismatch = 401
+- n8n workflow IDs table mein JS-21 add kiya (neeche Key Reference)
+
+---
+
 ### SESSION 7 — Claude Code (June 11, 2026 — ~20:15 IST): Intelligence Command — role-adaptive war-room brief (Karyakarta → MP)
 
 #### 🤖 AI Tool Info
@@ -566,6 +601,7 @@ Standard Dashboard + Complaints views now respect the FULL hierarchy scope for a
 | JS-04: Status Broadcaster | `zxhMcvjLPbcuEzGz` | 9 | Jun 10 |
 | JS-12: Telegram Link Bot | `ee8Ttjih5vJ1ZPsK` | 13 | Jun 10 |
 | JS-17: MP Weekly Brief | `0TT4yfYrcQ11m5dU` | 10 | Jun 4 |
+| JS-21: Daily Intel Brief (7AM Telegram) | `hPDe3mQWWf9bjWj8` | 4 | Jun 12 (⚠️ inactive — CRON_SECRET set karke activate karo) |
 
 ### Supabase Project
 - Project ref: `sxdtipaspfolrpqrwadt`
