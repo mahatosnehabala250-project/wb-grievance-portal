@@ -27,6 +27,52 @@
 
 ---
 
+### SESSION 12 — Claude Code (June 13, 2026): NLP Brain (Level 4) — AI reads the raw complaint text
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8) — Anthropic CLI
+- **Goal:** The copy-proof feature — extract intelligence from the complaint TEXT that category/urgency can't capture. User picked this via /goal-style option.
+
+#### 🧠 What it extracts (per complaint, from raw Bengali/Hindi/English text)
+- **anger_score (0-100):** how distressed/desperate the citizen actually sounds (WATER + "bachche bimar" ≠ WATER + "thoda dikkat")
+- **root_cause + root_cause_key:** the underlying cause, slugged for **clustering** — "8 complaints share ONE broken pump" → fix once, resolve 8
+- **entities:** officers / schemes / infrastructure / places named in the text
+- **emotion** + **severity_flags** (child_safety, health_risk, water, repeat, vulnerable, safety) + **summary_en**
+
+#### ✅ NEW: `src/lib/nlp/enrich.ts` — Anthropic Claude enrichment engine
+- Uses `@anthropic-ai/sdk` (installed) with `output_config.format` json_schema → guaranteed-valid JSON, fence-stripping fallback
+- **Model via `ANTHROPIC_MODEL` env, default `claude-haiku-4-5`** — cost-right for per-complaint scale (~₹0.3/complaint). Bump to `claude-opus-4-8`/`claude-sonnet-4-6` for higher quality.
+- Graceful: no `ANTHROPIC_API_KEY` → `enrichOne()` returns null, system works without NLP
+- **ETHICS LINE in code:** aggregate civic intelligence only — issue-level signal, NOT individual-citizen psychological profiling/voter targeting. (DPDP + ECI line.)
+
+#### ✅ NEW DB: `complaint_nlp` table (migration `add_complaint_nlp_table`)
+- One row/complaint: anger_score, emotion, root_cause(+key), entities jsonb, summary_en, severity_flags[], model, enriched_at. Indexed on root_cause_key + anger_score.
+
+#### ✅ NEW APIs
+- `/api/cron/nlp-enrich` (GET batch + POST single) — CRON_SECRET-gated, finds un-enriched complaints, runs Claude, upserts. Batch bounded (default 25, max 50) to cap cost/latency.
+- `/api/intelligence/nlp-insights` (GET) — **scope-locked** aggregates (same getComplaintScopeFilter boundary): root-cause clusters, anger hotspots (by sub-area), entity watch (recurring officers/schemes/infra), emotion mix, severity flags, coverage. AGGREGATE ONLY.
+
+#### ✅ NEW n8n: JS-22 (`q3eY0cJESRMjuaIi`) — every 30 min calls the batch enrich endpoint (validated 0 errors). ⚠️ INACTIVE until ANTHROPIC_API_KEY set.
+
+#### ✅ UI: IntelligenceCommandView — new "NLP Brain" section
+- On-demand "Analyze" button → root-cause cluster cards (count + villages + tickets + avg anger), anger-hotspot bars, entity-watch list, emotion/severity chips. Graceful "set ANTHROPIC_API_KEY" / "no data yet" states.
+
+#### ⚠️ User TODO (to activate)
+1. Vercel env: `ANTHROPIC_API_KEY=<key from console.anthropic.com>` (and optionally `ANTHROPIC_MODEL`) → redeploy
+2. n8n: activate JS-22 (auto-enrich), OR hit `/api/cron/nlp-enrich` once to backfill
+3. Open Intel Command → NLP Brain → Analyze
+
+#### ✔️ Verification
+- tsc: all NLP files 0 errors. JS-22 validated. (Production test deferred — routes deploy on push.)
+
+#### ⚠️ Next AI — Please Note
+- NLP enrichment = `src/lib/nlp/enrich.ts` (single source). Prompt/schema changes go there.
+- **Do NOT add individual-citizen profiling/targeting** on top of this. Aggregate clusters/hotspots only. The ethics line is the product's legal moat ("Palantir-grade, court-proof").
+- Existing `z-ai-web-dev-sdk` AI route (process-complaint) is DEAD in prod (returns fallback). The working LLMs are now: n8n Gemini (triage) + this Anthropic path (NLP). Don't revive ZAI.
+- To enrich on complaint-create (vs 30-min batch), POST `/api/cron/nlp-enrich` with `{id}` from JS-01/JS-02 after register.
+
+---
+
 ### SESSION 11 — Claude Code (June 13, 2026): Premium visuals for EVERY role — GovernanceDashboardView upgraded to Palantir-grade
 
 #### 🤖 AI Tool Info
@@ -704,7 +750,8 @@ Standard Dashboard + Complaints views now respect the FULL hierarchy scope for a
 | JS-04: Status Broadcaster | `zxhMcvjLPbcuEzGz` | 9 | Jun 10 |
 | JS-12: Telegram Link Bot | `ee8Ttjih5vJ1ZPsK` | 13 | Jun 10 |
 | JS-17: MP Weekly Brief | `0TT4yfYrcQ11m5dU` | 10 | Jun 4 |
-| JS-21: Daily Intel Brief (7AM Telegram) | `hPDe3mQWWf9bjWj8` | 4 | Jun 12 (⚠️ inactive — CRON_SECRET set karke activate karo) |
+| JS-21: Daily Intel Brief (7AM Telegram) | `hPDe3mQWWf9bjWj8` | 4 | Jun 12 (✅ active) |
+| JS-22: NLP Brain Enrichment (30-min batch) | `q3eY0cJESRMjuaIi` | 2 | Jun 13 (⚠️ inactive — ANTHROPIC_API_KEY set karke activate karo) |
 
 ### Supabase Project
 - Project ref: `sxdtipaspfolrpqrwadt`

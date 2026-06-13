@@ -17,6 +17,7 @@ import {
   Activity, Users, MapPin, Radar as RadarIcon, Trophy, Megaphone,
   Crosshair, Gauge as GaugeIcon, ArrowUpRight, ArrowDownRight, Minus,
   Footprints, Copy, ChevronDown, ChevronRight,
+  Network, Layers, Frown, Building, Sparkles,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -60,6 +61,16 @@ interface WapasVillage {
     ticketNo: string; citizenName: string; issue: string; category: string;
     resolution: string; rating: number | null; resolvedAt: string | null;
   }>;
+}
+
+interface NlpInsights {
+  enabled: boolean;
+  coverage: { total: number; enriched: number };
+  clusters: Array<{ rootCause: string; key: string; count: number; villages: string[]; tickets: string[]; avgAnger: number }>;
+  angerHotspots: Array<{ name: string; avgAnger: number; peakAnger: number; count: number }>;
+  entityWatch: Array<{ type: string; name: string; count: number }>;
+  emotionMix: Array<{ emotion: string; count: number }>;
+  severityFlags: Array<{ flag: string; count: number }>;
 }
 
 const RISK_COLORS: Record<string, { c: string; bg: string; bar: string }> = {
@@ -137,6 +148,8 @@ export function IntelligenceCommandView() {
   const [wapas, setWapas] = useState<WapasVillage[] | null>(null);
   const [wapasLoading, setWapasLoading] = useState(false);
   const [openVillage, setOpenVillage] = useState<string | null>(null);
+  const [nlp, setNlp] = useState<NlpInsights | null>(null);
+  const [nlpLoading, setNlpLoading] = useState(false);
 
   const load = useCallback(async (silent = false) => {
     silent ? setRefreshing(true) : setLoading(true);
@@ -174,6 +187,24 @@ export function IntelligenceCommandView() {
       toast.error('Failed to load visit briefs');
     } finally {
       setWapasLoading(false);
+    }
+  }, []);
+
+  /* NLP Brain — root-cause clusters, anger hotspots, entity watch (on demand) */
+  const loadNlp = useCallback(async () => {
+    setNlpLoading(true);
+    try {
+      const res = await fetch('/api/intelligence/nlp-insights', { headers: authHeaders() });
+      if (res.ok) {
+        const json = await res.json();
+        setNlp(json.data || null);
+      } else {
+        toast.error('Failed to load NLP insights');
+      }
+    } catch {
+      toast.error('Failed to load NLP insights');
+    } finally {
+      setNlpLoading(false);
     }
   }, []);
 
@@ -602,6 +633,124 @@ export function IntelligenceCommandView() {
               </CardContent>
             </Card>
           </div>
+
+          {/* ── Row 5.5: NLP Brain — root-cause clusters, anger hotspots, entity watch ── */}
+          <Card className="border shadow-sm border-fuchsia-500/20">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-xs font-semibold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-fuchsia-500" /> NLP Brain — AI Text Intelligence
+                  <span className="text-[9px] normal-case font-normal">(complaint ke text se: asli wajah, gussa, baar-baar aane wale naam)</span>
+                </span>
+                {!nlp && (
+                  <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={loadNlp} disabled={nlpLoading}>
+                    {nlpLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Analyze'}
+                  </Button>
+                )}
+              </CardTitle>
+            </CardHeader>
+            {nlp && (
+              <CardContent className="px-4 pb-3 space-y-3">
+                {!nlp.enabled ? (
+                  <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-3 text-xs text-amber-700 dark:text-amber-400">
+                    NLP Brain abhi OFF hai. Admin ko Vercel mein <code className="font-mono">ANTHROPIC_API_KEY</code> set karna hoga, phir
+                    complaints auto-analyze hongi (anger score, root-cause clustering, entity watch).
+                  </div>
+                ) : nlp.coverage.enriched === 0 ? (
+                  <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
+                    Abhi tak koi complaint analyze nahi hui ({nlp.coverage.total} in scope). NLP enrichment cron (JS-22) chalega to data aayega.
+                  </div>
+                ) : (
+                  <>
+                    {/* Coverage */}
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                      <span>AI-analyzed: <span className="font-mono font-semibold text-foreground">{nlp.coverage.enriched}/{nlp.coverage.total}</span></span>
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-fuchsia-500" style={{ width: `${nlp.coverage.total ? (nlp.coverage.enriched / nlp.coverage.total) * 100 : 0}%` }} />
+                      </div>
+                    </div>
+
+                    {/* Root-cause clusters — THE killer feature */}
+                    {nlp.clusters.length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-fuchsia-600 dark:text-fuchsia-400 flex items-center gap-1 mb-1.5">
+                          <Layers className="w-3 h-3" /> Root-Cause Clusters — ek fix, kayi resolution
+                        </div>
+                        <div className="space-y-1.5">
+                          {nlp.clusters.map(c => (
+                            <div key={c.key} className="rounded-lg border border-fuchsia-500/15 bg-fuchsia-500/5 p-2">
+                              <div className="flex items-center gap-2">
+                                <Network className="w-3.5 h-3.5 text-fuchsia-500 flex-shrink-0" />
+                                <span className="text-[11px] font-semibold flex-1">{c.rootCause}</span>
+                                <Badge className="text-[9px] h-4 px-1.5 bg-fuchsia-500/15 text-fuchsia-600 border-0">{c.count} complaints</Badge>
+                                {c.avgAnger >= 60 && (
+                                  <span className="text-[9px] text-red-500 font-semibold flex items-center gap-0.5"><Frown className="w-3 h-3" />{c.avgAnger}</span>
+                                )}
+                              </div>
+                              <div className="text-[9px] text-muted-foreground mt-0.5 pl-5">
+                                {c.villages.length > 0 && <span>{c.villages.join(', ')} · </span>}
+                                <span className="font-mono">{c.tickets.slice(0, 3).join(', ')}{c.count > 3 ? '…' : ''}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {/* Anger hotspots */}
+                      {nlp.angerHotspots.length > 0 && (
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1 mb-1.5">
+                            <Frown className="w-3 h-3 text-red-500" /> Anger Hotspots
+                          </div>
+                          <div className="space-y-1">
+                            {nlp.angerHotspots.map(h => (
+                              <div key={h.name} className="flex items-center gap-2">
+                                <span className="text-[11px] flex-1 truncate">{h.name}</span>
+                                <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
+                                  <div className="h-full rounded-full" style={{ width: `${h.avgAnger}%`, background: h.avgAnger >= 60 ? '#EF4444' : h.avgAnger >= 35 ? '#F59E0B' : '#10B981' }} />
+                                </div>
+                                <span className="text-[10px] font-mono w-6 text-right">{h.avgAnger}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Entity watch */}
+                      {nlp.entityWatch.length > 0 && (
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1 mb-1.5">
+                            <Building className="w-3 h-3" /> Entity Watch — baar-baar aane wale
+                          </div>
+                          <div className="space-y-1">
+                            {nlp.entityWatch.map(e => (
+                              <div key={`${e.type}-${e.name}`} className="flex items-center gap-2 text-[11px]">
+                                <Badge variant="outline" className="text-[8px] h-3.5 px-1 flex-shrink-0">{e.type}</Badge>
+                                <span className="flex-1 truncate">{e.name}</span>
+                                <span className="font-mono text-muted-foreground">{e.count}×</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Emotion mix + severity flags */}
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {nlp.emotionMix.map(e => (
+                        <span key={e.emotion} className="text-[9px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{e.emotion} ({e.count})</span>
+                      ))}
+                      {nlp.severityFlags.map(f => (
+                        <span key={f.flag} className="text-[9px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 font-medium">⚑ {f.flag.replace('_', ' ')} ({f.count})</span>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            )}
+          </Card>
 
           {/* ── Row 6: "Wapas Jao" — closed-loop visit briefs ── */}
           <Card className="border shadow-sm border-violet-500/20">
