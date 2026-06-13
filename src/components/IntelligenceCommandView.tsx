@@ -653,7 +653,7 @@ export function IntelligenceCommandView() {
               <CardContent className="px-4 pb-3 space-y-3">
                 {!nlp.enabled ? (
                   <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-3 text-xs text-amber-700 dark:text-amber-400">
-                    NLP Brain abhi OFF hai. Admin ko Vercel mein <code className="font-mono">ANTHROPIC_API_KEY</code> set karna hoga, phir
+                    NLP Brain abhi OFF hai. Admin ko Vercel mein <code className="font-mono">GEMINI_API_KEY</code> (ya <code className="font-mono">ANTHROPIC_API_KEY</code>) set karna hoga, phir
                     complaints auto-analyze hongi (anger score, root-cause clustering, entity watch).
                   </div>
                 ) : nlp.coverage.enriched === 0 ? (

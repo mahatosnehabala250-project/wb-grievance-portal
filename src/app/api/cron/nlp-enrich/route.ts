@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   if (!nlpEnabled()) {
-    return NextResponse.json({ error: 'NLP not configured — set ANTHROPIC_API_KEY', enriched: 0 }, { status: 200 });
+    return NextResponse.json({ error: 'NLP not configured — set GEMINI_API_KEY (or ANTHROPIC_API_KEY)', enriched: 0 }, { status: 200 });
   }
 
   const { searchParams } = new URL(request.url);
