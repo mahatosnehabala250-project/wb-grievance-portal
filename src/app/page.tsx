@@ -91,17 +91,103 @@ export default function HomePage() {
   const { lang, setLang, t } = useI18nStore();
   const [view, setView] = useState<ViewType>('dashboard');
 
-  // Auto-redirect to role-appropriate view on login
+  // ─────────────────────────────────────────────────────────────────
+  // ROLE-BASED NAVIGATION (proper IA — Session 10)
+  // Har role ka apna curated, ordered, sectioned menu. Koi khichdi nahi:
+  //   ADMIN   → system operator console (role previews alag section mein)
+  //   MP      → MP Command home + operations + team
+  //   MLA     → MLA Dashboard home + operations + team
+  //   Coords  → focused jurisdiction nav
+  //   Legacy officers (BLOCK/DISTRICT/STATE) → operational nav
+  // ─────────────────────────────────────────────────────────────────
+  type NavItem = { id: ViewType; label: string; icon: React.ElementType };
+  type NavSection = { title: string | null; items: NavItem[] };
+
+  const navSections: NavSection[] = (() => {
+    const lvl = user?.role_level || 'OFFICER';
+    const isAdmin = user?.role === 'ADMIN';
+    const item = (id: ViewType, label: string, icon: React.ElementType): NavItem => ({ id, label, icon });
+    const settingsSec: NavSection = { title: null, items: [item('settings', t('settings'), Settings)] };
+
+    if (isAdmin) {
+      return [
+        { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('intel_command', 'Intel Command', BrainCircuit)] },
+        { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('chat', 'WhatsApp Chats', MessageSquare), item('map', 'Map', MapPin), item('rakta', 'রক্ত সহায়ক', Heart)] },
+        { title: 'Insights', items: [item('analytics', t('analytics'), BarChart2), item('intelligence', 'Alert Engine', ShieldAlert), item('schemes', 'Schemes', BookOpen), item('liveData', 'Live Data', Radio)] },
+        { title: 'Role Previews', items: [item('mp_command', 'MP Command', Crown), item('mla_dashboard', 'MLA Dashboard', Building2)] },
+        { title: 'System', items: [item('users', t('users'), Users), item('audit', t('auditLog'), History), item('systemStatus', t('systemStatus'), Activity), item('integrations', 'Integrations', Zap), item('n8n', 'n8n Workflows', Workflow), item('wb01Workflow', 'WB-01 Workflow', MessageSquare), item('endpointHealth', 'Endpoint Health', Activity), item('deployment', 'Deployment', Server)] },
+        settingsSec,
+      ];
+    }
+    if (lvl === 'MP') {
+      return [
+        { title: null, items: [item('mp_command', 'MP Command', Crown), item('intel_command', 'Intel Command', BrainCircuit)] },
+        { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('map', 'Map', MapPin)] },
+        { title: 'Team', items: [item('users', t('users'), Users)] },
+        settingsSec,
+      ];
+    }
+    if (lvl === 'MLA') {
+      return [
+        { title: null, items: [item('mla_dashboard', 'MLA Dashboard', Building2), item('intel_command', 'Intel Command', BrainCircuit)] },
+        { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('map', 'Map', MapPin)] },
+        { title: 'Team', items: [item('users', t('users'), Users)] },
+        settingsSec,
+      ];
+    }
+    if (lvl === 'DISTRICT_ADMIN') {
+      return [
+        { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('intel_command', 'Intel Command', BrainCircuit)] },
+        { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('map', 'Map', MapPin), item('analytics', t('analytics'), BarChart2)] },
+        { title: 'Team', items: [item('users', t('users'), Users)] },
+        settingsSec,
+      ];
+    }
+    if (lvl === 'BLOCK_COORD' || lvl === 'GP_COORD') {
+      return [
+        { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('intel_command', 'Intel Command', BrainCircuit)] },
+        { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('map', 'Map', MapPin)] },
+        { title: 'Team', items: [item('users', t('users'), Users)] },
+        settingsSec,
+      ];
+    }
+    if (lvl === 'KARYAKARTA') {
+      return [
+        { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('intel_command', 'Intel Command', BrainCircuit)] },
+        { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('map', 'Map', MapPin)] },
+        settingsSec,
+      ];
+    }
+    // Legacy officer roles (BLOCK / DISTRICT / STATE)
+    return [
+      { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('intel_command', 'Intel Command', BrainCircuit)] },
+      { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('chat', 'WhatsApp Chats', MessageSquare), item('map', 'Map', MapPin), item('rakta', 'রক্ত সহায়ক', Heart)] },
+      { title: 'Insights', items: [item('analytics', t('analytics'), BarChart2), item('schemes', 'Schemes', BookOpen), item('liveData', 'Live Data', Radio)] },
+      settingsSec,
+    ];
+  })();
+
+  const navItems = navSections.flatMap((s) => s.items);
+  const homeView: ViewType =
+    user?.role === 'ADMIN' ? 'dashboard'
+    : user?.role_level === 'MP' ? 'mp_command'
+    : user?.role_level === 'MLA' ? 'mla_dashboard'
+    : 'dashboard';
+
+  // Land on the role's home view at login
+  useEffect(() => {
+    if (user) setView(homeView);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // Guard: agar current view is role ke nav mein hai hi nahi (stale state /
+  // role switch), to role-home pe wapas bhejo. 'governance' indirect view hai.
   useEffect(() => {
     if (!user) return;
-    if (user.role_level === 'MP') {
-      setView('mp_command');
-    } else if (user.role_level === 'MLA') {
-      setView('mla_dashboard');
-    } else if (user.role_level === 'KARYAKARTA' || user.role_level === 'GP_COORD' || user.role_level === 'BLOCK_COORD') {
-      setView('dashboard');
-    }
-  }, [user?.id]); // run once when user first logs in
+    const allowed = new Set<string>([...navItems.map((i) => i.id), 'governance']);
+    if (!allowed.has(view)) setView(homeView);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, view]);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [newComplaintOpen, setNewComplaintOpen] = useState(false);
   const [initialComplaint, setInitialComplaint] = useState<Complaint | undefined>(undefined);
@@ -267,51 +353,8 @@ export default function HomePage() {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  const allNavItems = [
-    { id: 'dashboard' as ViewType, label: t('dashboard'), icon: LayoutDashboard },
-    { id: 'complaints' as ViewType, label: t('complaints'), icon: FileText },
-    { id: 'chat' as ViewType, label: 'WhatsApp Chats', icon: MessageSquare },
-    { id: 'rakta' as ViewType, label: 'রক্ত সহায়ক', icon: Heart },
-    { id: 'map' as ViewType, label: 'Map', icon: MapPin },
-    // MP Command — only visible to MP role_level or ADMIN
-    ...(user?.role_level === 'MP' || user?.role === 'ADMIN'
-      ? [{ id: 'mp_command' as ViewType, label: 'MP Command', icon: Crown }]
-      : []),
-    // MLA Dashboard — only visible to MLA or MP or ADMIN
-    ...(user?.role_level === 'MLA' || user?.role_level === 'MP' || user?.role === 'ADMIN'
-      ? [{ id: 'mla_dashboard' as ViewType, label: 'MLA Dashboard', icon: Building2 }]
-      : []),
-    { id: 'analytics' as ViewType, label: t('analytics'), icon: BarChart2 },
-    // Intel Command: role-adaptive war-room brief — every governance role gets
-    // their own scoped version (karyakarta=village ... MP=seat). API enforces scope.
-    { id: 'intel_command' as ViewType, label: 'Intel Command', icon: BrainCircuit },
-    ...(user?.role === 'ADMIN' ? [{ id: 'intelligence' as ViewType, label: 'Alert Engine', icon: ShieldAlert }] : []),
-    { id: 'schemes' as ViewType, label: 'Schemes', icon: BookOpen },
-    { id: 'liveData' as ViewType, label: 'Live Data', icon: Radio },
-    ...(user?.role === 'ADMIN' ? [{ id: 'systemStatus' as ViewType, label: t('systemStatus'), icon: Activity }] : []),
-    ...(user?.role === 'ADMIN' ? [{ id: 'integrations' as ViewType, label: 'Integrations', icon: Zap }] : []),
-    ...(user?.role === 'ADMIN' ? [{ id: 'wb01Workflow' as ViewType, label: 'WB-01 Workflow', icon: MessageSquare }] : []),
-    ...(user?.role === 'ADMIN' ? [{ id: 'n8n' as ViewType, label: 'n8n Workflows', icon: Workflow }] : []),
-    ...(user?.role === 'ADMIN' ? [{ id: 'endpointHealth' as ViewType, label: 'Endpoint Health', icon: Activity }] : []),
-    ...(user?.role === 'ADMIN' ? [{ id: 'audit' as ViewType, label: t('auditLog'), icon: History }] : []),
-    ...(user?.role === 'ADMIN' ? [{ id: 'deployment' as ViewType, label: 'Deployment', icon: Server }] : []),
-    // User management: every role that can create users below it (rbac.ts
-    // CREATABLE map) gets the view — the API scopes what they actually see.
-    ...(user?.role === 'ADMIN' || ['MP', 'MLA', 'DISTRICT_ADMIN', 'BLOCK_COORD', 'GP_COORD'].includes(user?.role_level || '')
-      ? [{ id: 'users' as ViewType, label: t('users'), icon: Users }] : []),
-    { id: 'settings' as ViewType, label: t('settings'), icon: Settings },
-  ];
-
-  // Coordinator roles (Karyakarta / GP / Block) get a focused nav scoped to their
-  // own jurisdiction — no district-wide analytics / intelligence / chat / etc.
-  const isCoordinatorRole = user?.role_level === 'KARYAKARTA' || user?.role_level === 'GP_COORD' || user?.role_level === 'BLOCK_COORD';
-  // GP/Block coordinators can also manage users below them (karyakartas etc.)
-  const coordinatorAllowed = new Set(
-    user?.role_level === 'KARYAKARTA'
-      ? ['dashboard', 'complaints', 'map', 'settings', 'intel_command']
-      : ['dashboard', 'complaints', 'map', 'settings', 'users', 'intel_command']
-  );
-  const navItems = isCoordinatorRole ? allNavItems.filter((i) => coordinatorAllowed.has(i.id)) : allNavItems;
+  // (Navigation is built role-wise in navSections near the top of this
+  //  component — Session 10 IA redesign. navItems is the flat version.)
 
   // Not logged in (wrap in hydration gate)
   if (!isAuthenticated) {
@@ -573,25 +616,36 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-          <nav className="flex-1 p-3 space-y-1 custom-scrollbar overflow-y-auto">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleNavigate(item.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border-l-[3px] btn-press group ${
-                  view === item.id
-                    ? 'nav-active-gradient shadow-sm text-foreground border-l-[#0A2463]'
-                    : 'text-muted-foreground hover:bg-gradient-to-r hover:from-muted/80 hover:to-transparent hover:text-foreground hover:scale-[1.02] border-l-transparent'
-                }`}
-              >
-                <item.icon className={`h-4 w-4 transition-transform duration-200 ${view === item.id ? 'text-[#0A2463]' : 'group-hover:scale-110'}`} />
-                <span className="flex-1 text-left">{item.label}</span>
-                {item.id === 'complaints' && criticalCount > 0 && (
-                  <span className="min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold animate-badge-in">
-                    {criticalCount > 99 ? '99+' : criticalCount}
-                  </span>
+          <nav className="flex-1 p-3 space-y-0.5 custom-scrollbar overflow-y-auto">
+            {navSections.map((section, si) => (
+              <div key={si} className={si > 0 ? 'pt-3' : ''}>
+                {section.title && (
+                  <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                    {section.title}
+                  </p>
                 )}
-              </button>
+                <div className="space-y-1">
+                  {section.items.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => handleNavigate(item.id)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border-l-[3px] btn-press group ${
+                        view === item.id
+                          ? 'nav-active-gradient shadow-sm text-foreground border-l-[#0A2463]'
+                          : 'text-muted-foreground hover:bg-gradient-to-r hover:from-muted/80 hover:to-transparent hover:text-foreground hover:scale-[1.02] border-l-transparent'
+                      }`}
+                    >
+                      <item.icon className={`h-4 w-4 transition-transform duration-200 ${view === item.id ? 'text-[#0A2463]' : 'group-hover:scale-110'}`} />
+                      <span className="flex-1 text-left">{item.label}</span>
+                      {item.id === 'complaints' && criticalCount > 0 && (
+                        <span className="min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold animate-badge-in">
+                          {criticalCount > 99 ? '99+' : criticalCount}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </nav>
           {/* Quick Stats Mini Section + Sign Out */}
@@ -960,20 +1014,31 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-          <nav className="flex-1 px-3 space-y-1">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleNavigate(item.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border-l-[3px] ${
-                  view === item.id
-                    ? 'bg-muted text-foreground shadow-sm border-l-[#0A2463]'
-                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground border-l-transparent'
-                }`}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </button>
+          <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
+            {navSections.map((section, si) => (
+              <div key={si} className={si > 0 ? 'pt-3' : ''}>
+                {section.title && (
+                  <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                    {section.title}
+                  </p>
+                )}
+                <div className="space-y-1">
+                  {section.items.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => handleNavigate(item.id)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border-l-[3px] ${
+                        view === item.id
+                          ? 'bg-muted text-foreground shadow-sm border-l-[#0A2463]'
+                          : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground border-l-transparent'
+                      }`}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </nav>
           <div className="p-3 border-t border-border/50 mt-4">

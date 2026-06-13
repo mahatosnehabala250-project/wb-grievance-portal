@@ -27,6 +27,45 @@
 
 ---
 
+### SESSION 10 — Claude Code (June 13, 2026): Information Architecture Redesign — proper role-based navigation (no more "khichdi")
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8) — Anthropic CLI
+- **Problem:** User feedback — "admin pe MP Command kyun dikhta hai? MLA pe bhi khichdi lagta hai. Lagta hai koi proper design flow hi nahi, bina planning ka." 100% jaayaz.
+
+#### 🐛 ROOT CAUSE (the actual bug)
+- DB mein `mp_purulia` user ka `role = ADMIN` AND `role_level = MP` dono set the (galat seed). Nav gating `role === 'ADMIN' || role_level === 'MP'` pe thi → wo user dono dekh raha tha. Aur ADMIN ko `role_level` se independent saare role-views (MP Command + MLA Dashboard) ek hi flat list mein mil rahe the — koi grouping nahi, koi hierarchy nahi.
+- **Design problem:** nav ek single flat `allNavItems` array thi with scattered `...(condition ? [item] : [])` spreads — 20+ items bina kisi section/order ke. Yahi "khichdi" feel de raha tha.
+
+#### ✅ FIX 1 — Data: `mp_purulia` role ADMIN → BLOCK (role_level MP intact)
+- Ab wo pure MP hai, ADMIN nahi. (DB update applied.)
+
+#### ✅ FIX 2 — Information Architecture: role-wise sectioned navigation (`navSections`)
+Har role ka apna **curated, ordered, grouped** menu — `page.tsx` mein ek hi `navSections` builder:
+- **ADMIN** → Home (Dashboard, Intel Command) · *Operations* · *Insights* · **Role Previews** (MP Command + MLA Dashboard — ab clearly "preview" labelled, confusion khatam) · *System* (users, audit, n8n, deployment...) · Settings
+- **MP** → MP Command (home) + Intel Command · *Operations* (Complaints, Map) · *Team* (Users) · Settings
+- **MLA** → MLA Dashboard (home) + Intel Command · *Operations* · *Team* · Settings
+- **DISTRICT_ADMIN** → Dashboard + Intel · *Operations* (+Analytics) · *Team* · Settings
+- **BLOCK_COORD / GP_COORD** → Dashboard + Intel · *Operations* · *Team* · Settings
+- **KARYAKARTA** → Dashboard + Intel · *Operations* · Settings (no team mgmt)
+- **Legacy officers (BLOCK/DISTRICT/STATE)** → Dashboard + Intel · *Operations* · *Insights* · Settings
+
+#### ✅ FIX 3 — Home view + stale-view guard
+- `homeView` per role: ADMIN→dashboard, MP→mp_command, MLA→mla_dashboard, baaki→dashboard. Login pe wahin land karta hai.
+- **Guard added:** agar current `view` user ke nav-allowed set mein nahi hai (role switch / stale state), to auto-redirect to `homeView`. Pehle stale view pe blank/wrong screen dikh sakti thi.
+
+#### ✅ FIX 4 — Both nav renderers (desktop sidebar + mobile sheet) ab section headers ke saath render karte hain (uppercase tracking-widest labels)
+
+#### ✔️ Verification
+- tsc: page.tsx 0 errors. Removed dead vars: `allNavItems`, `isCoordinatorRole`, `coordinatorAllowed`.
+
+#### ⚠️ Next AI — Please Note
+- **Navigation ka SINGLE SOURCE = `navSections` builder in page.tsx** (top of Home component). Naya view add karna ho to relevant role ke section mein daalo — flat list mat banao.
+- Render guards (`view === 'mp_command' && (role_level MP || ADMIN)`) abhi bhi defence-in-depth ke liye hain — nav + guard dono rakho.
+- Agar koi aur user `role=ADMIN` + `role_level=<something>` dono rakhe to wo ADMIN treat hoga (ADMIN check pehle aata hai). Seed/admin-create karte waqt dhyan: real ADMIN ka role_level OFFICER rakho.
+
+---
+
 ### SESSION 9 — Claude Code (June 13, 2026): Staff Telegram Self-Linking (1-click connect for daily briefs)
 
 #### 🤖 AI Tool Info
