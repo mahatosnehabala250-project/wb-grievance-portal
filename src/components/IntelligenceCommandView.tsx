@@ -18,7 +18,9 @@ import {
   Crosshair, Gauge as GaugeIcon, ArrowUpRight, ArrowDownRight, Minus,
   Footprints, Copy, ChevronDown, ChevronRight,
   Network, Layers, Frown, Building, Sparkles,
+  Send, Lightbulb, Bot,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -150,6 +152,10 @@ export function IntelligenceCommandView() {
   const [openVillage, setOpenVillage] = useState<string | null>(null);
   const [nlp, setNlp] = useState<NlpInsights | null>(null);
   const [nlpLoading, setNlpLoading] = useState(false);
+  const [advQ, setAdvQ] = useState('');
+  const [advAnswer, setAdvAnswer] = useState<string | null>(null);
+  const [advLoading, setAdvLoading] = useState(false);
+  const [advError, setAdvError] = useState<string | null>(null);
 
   const load = useCallback(async (silent = false) => {
     silent ? setRefreshing(true) : setLoading(true);
@@ -187,6 +193,30 @@ export function IntelligenceCommandView() {
       toast.error('Failed to load visit briefs');
     } finally {
       setWapasLoading(false);
+    }
+  }, []);
+
+  /* AI Chief-of-Staff — ask a scoped question, get an evidence-cited answer */
+  const askAdvisor = useCallback(async (q: string) => {
+    const question = q.trim();
+    if (!question) return;
+    setAdvLoading(true); setAdvError(null); setAdvAnswer(null);
+    try {
+      const res = await fetch('/api/intelligence/advisor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ question }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.data?.answer) {
+        setAdvAnswer(json.data.answer);
+      } else {
+        setAdvError(json?.error || 'Advisor could not answer');
+      }
+    } catch {
+      setAdvError('Network error');
+    } finally {
+      setAdvLoading(false);
     }
   }, []);
 
@@ -276,6 +306,74 @@ export function IntelligenceCommandView() {
 
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-4">
+
+          {/* ── AI Chief-of-Staff — ask anything about your jurisdiction ── */}
+          <Card className="border shadow-sm bg-gradient-to-br from-indigo-500/5 to-violet-500/5 border-indigo-500/20">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider">
+                <Bot className="w-3.5 h-3.5 text-indigo-500" /> AI Chief-of-Staff
+                <span className="text-[9px] normal-case font-normal">(apne ilake ke baare mein kuch bhi poochho — Bengali/Hindi/English)</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-3 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <Input
+                  value={advQ}
+                  onChange={(e) => setAdvQ(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !advLoading) askAdvisor(advQ); }}
+                  placeholder="e.g. is hafte mujhe kahan daura karna chahiye?"
+                  className="h-9 text-sm"
+                  disabled={advLoading}
+                />
+                <Button size="sm" className="h-9 px-3 bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => askAdvisor(advQ)} disabled={advLoading || !advQ.trim()}>
+                  {advLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                </Button>
+              </div>
+
+              {/* Suggested questions */}
+              {!advAnswer && !advLoading && (
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    'Is hafte kahan daura karun aur kyun?',
+                    'Kaunsa officer sabse peeche hai?',
+                    'Sabse urgent 3 cheezein kya hain?',
+                    'Mera area peers se kaisa hai?',
+                  ].map((q) => (
+                    <button key={q} onClick={() => { setAdvQ(q); askAdvisor(q); }}
+                      className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-muted hover:bg-indigo-500/10 text-muted-foreground hover:text-indigo-600 transition-colors">
+                      <Lightbulb className="w-2.5 h-2.5" /> {q}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {advLoading && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground py-3">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Aapke data pe soch raha hoon…
+                </div>
+              )}
+
+              {advError && (
+                <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-2.5 text-[11px] text-amber-700 dark:text-amber-400">
+                  {advError === 'Advisor not configured — set DEEPSEEK_API_KEY'
+                    ? 'AI Chief-of-Staff abhi OFF hai. Admin ko Vercel mein DEEPSEEK_API_KEY set karna hoga.'
+                    : advError}
+                </div>
+              )}
+
+              {advAnswer && (
+                <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                  className="rounded-lg border border-indigo-500/20 bg-background/60 p-3">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Bot className="w-3.5 h-3.5 text-indigo-500" />
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Advisor</span>
+                  </div>
+                  <div className="text-[13px] leading-relaxed whitespace-pre-wrap">{advAnswer}</div>
+                  <button onClick={() => { setAdvAnswer(null); setAdvQ(''); }} className="mt-2 text-[10px] text-muted-foreground hover:text-foreground">↻ Naya sawaal</button>
+                </motion.div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* ── Row 1: Risk gauge + KPIs + warnings ── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

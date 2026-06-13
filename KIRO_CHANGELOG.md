@@ -27,6 +27,38 @@
 
 ---
 
+### SESSION 15 — Claude Code (June 13, 2026): AI Chief-of-Staff (Level 9) — DeepSeek-powered scoped Q&A
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8) — Anthropic CLI
+- **Driver:** User provided a DeepSeek key + chose "AI Strategic Advisor" feature.
+
+#### 🧠 What it does
+- Politician/officer asks a natural-language question (Bengali/Hindi/English) → gets an **evidence-cited answer grounded ONLY in their scope-locked data.** "Is hafte kahan daura karun?" → DeepSeek cites villages + anger scores + ticket numbers + quick wins with reasons.
+
+#### ✅ NEW: `src/lib/advisor.ts`
+- `buildContext(brief, nlp)`: turns the scoped IntelligenceBrief + NLP aggregates into a compact factual block (KPIs, risk, hotspots, surges, warnings, officers, benchmark, quick wins, root-cause clusters, anger hotspots, entity watch).
+- `askAdvisor(question, context)`: DeepSeek call (OpenAI-compatible, `DEEPSEEK_API_KEY`, model `deepseek-chat`, base `DEEPSEEK_BASE_URL`). System prompt: answer in same language, cite specifics, no hallucination, no individual profiling, action-oriented.
+
+#### ✅ NEW: `/api/intelligence/advisor` (POST {question})
+- Scope-locked: computeIntelligenceBrief(payload) + buildNlpContext (complaint_nlp for scoped ids only) → context → DeepSeek. The model only ever sees the caller's jurisdiction.
+
+#### ✅ UI: IntelligenceCommandView — "AI Chief-of-Staff" hero card (top)
+- Question input + Send, suggested-question chips, evidence-cited answer panel, graceful "set DEEPSEEK_API_KEY" state.
+
+#### ✔️ Verification
+- DeepSeek key live-tested (model deepseek-v4-flash). Answer quality verified on real Bandwan context — cited Ankrobarakadam/Bargoria/Baliguma anger scores + actual quick-win tickets in Hindi. tsc clean.
+
+#### ⚠️ User TODO
+- Vercel env: `DEEPSEEK_API_KEY=<key from platform.deepseek.com>` → redeploy → Intel Command → AI Chief-of-Staff → ask.
+
+#### ⚠️ Next AI — Please Note
+- Advisor = `src/lib/advisor.ts` (DeepSeek). Prompt/context changes go there.
+- It reads ONLY scoped data (brief + complaint_nlp) — never widens scope. Keep the no-profiling ethics line in the system prompt.
+- Provider-flexible by design (OpenAI-compatible base URL) — could point at any compatible LLM via env.
+
+---
+
 ### SESSION 14 — Claude Code (June 13, 2026): NLP Brain LIVE — Gemini enrichment self-contained in n8n (JS-22 rebuilt)
 
 #### 🤖 AI Tool Info
