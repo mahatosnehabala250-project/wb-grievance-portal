@@ -4,18 +4,31 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   FileText, Activity, CheckCircle2, Timer, AlertTriangle, Flame, CalendarRange,
   RefreshCw, Search, MapPin, Star, Eye, Users, Building2, Home,
+  TrendingUp, Gauge as GaugeIcon, PieChart as PieIcon, BarChart3, Target,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  PieChart, Pie, Cell, RadialBarChart, RadialBar,
+} from 'recharts';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/lib/auth-store';
 import { authHeaders, fmtDate, getSLAInfo } from '@/lib/helpers';
 import { StatusBadge, UrgencyBadge } from '@/components/common';
 import { ComplaintDetailDialog } from '@/components/ComplaintDetailDialog';
 import type { Complaint } from '@/lib/types';
+
+const CAT_COLORS: Record<string, string> = {
+  WATER: '#3B82F6', ROAD: '#F59E0B', HEALTH: '#EF4444', ELECTRICITY: '#EAB308',
+  RATION: '#10B981', EDUCATION: '#8B5CF6', OTHER: '#6B7280',
+};
+const catColor = (c: string) => CAT_COLORS[(c || '').toUpperCase()] || '#6B7280';
+const STATUS_COLORS = { active: '#EF4444', inProgress: '#F59E0B', resolved: '#10B981', rejected: '#94A3B8' };
 
 type GovLevel = 'KARYAKARTA' | 'GP_COORD' | 'BLOCK_COORD';
 
@@ -104,6 +117,67 @@ export function GovernanceDashboardView() {
     }
     return Object.entries(map).sort((a, b) => b[1].total - a[1].total);
   }, [complaints, cfg.breakdownKey]);
+
+  // ── Health Score (0–100, higher = better — positive framing for field staff) ──
+  const health = useMemo(() => {
+    const total = k.total || 1;
+    const active = k.open + k.inProgress;
+    const resolutionRate = k.resolved / total;            // up = good
+    const slaRatio = active ? k.slaBreached / active : 0;  // up = bad
+    const criticalRatio = k.critical / total;              // up = bad
+    const ratingFactor = k.avgRating ? k.avgRating / 5 : 0.5;
+    const score = Math.round(
+      resolutionRate * 45 + (1 - slaRatio) * 25 + (1 - criticalRatio) * 15 + ratingFactor * 15
+    );
+    const clamped = Math.max(0, Math.min(100, score));
+    const grade = clamped >= 75 ? 'STRONG' : clamped >= 50 ? 'STEADY' : clamped >= 30 ? 'WATCH' : 'WEAK';
+    const color = clamped >= 75 ? '#10B981' : clamped >= 50 ? '#84CC16' : clamped >= 30 ? '#F59E0B' : '#EF4444';
+    return { score: clamped, grade, color };
+  }, [k]);
+
+  // ── Status distribution (donut) ──
+  const statusDist = useMemo(() => ([
+    { name: 'Active', value: k.open, fill: STATUS_COLORS.active },
+    { name: 'In Progress', value: k.inProgress, fill: STATUS_COLORS.inProgress },
+    { name: 'Resolved', value: k.resolved, fill: STATUS_COLORS.resolved },
+    { name: 'Rejected', value: k.rejected, fill: STATUS_COLORS.rejected },
+  ].filter(s => s.value > 0)), [k]);
+
+  // ── Category share (bar) ──
+  const catShare = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const c of complaints) { const cat = (c.category || 'OTHER').toUpperCase(); m[cat] = (m[cat] || 0) + 1; }
+    return Object.entries(m).map(([category, count]) => ({ category, count })).sort((a, b) => b.count - a.count).slice(0, 6);
+  }, [complaints]);
+
+  // ── 8-week tempo (filed vs resolved) ──
+  const trend = useMemo(() => {
+    const now = Date.now(), WK = 7 * 86400000;
+    const weeks: Record<number, { filed: number; resolved: number }> = {};
+    for (const c of complaints) {
+      const created = new Date(c.createdAt).getTime();
+      const wi = Math.floor((now - created) / WK);
+      if (wi >= 0 && wi < 8) { (weeks[wi] ??= { filed: 0, resolved: 0 }).filed++; }
+      if (c.status === 'RESOLVED') {
+        const rAt = (c as any).resolvedAt || c.updatedAt || c.createdAt;
+        const ri = Math.floor((now - new Date(rAt).getTime()) / WK);
+        if (ri >= 0 && ri < 8) { (weeks[ri] ??= { filed: 0, resolved: 0 }).resolved++; }
+      }
+    }
+    return Array.from({ length: 8 }, (_, i) => {
+      const idx = 7 - i; const w = weeks[idx] || { filed: 0, resolved: 0 };
+      return { week: `W-${idx}`, filed: w.filed, resolved: w.resolved };
+    });
+  }, [complaints]);
+
+  // ── Breakdown as horizontal bar data (top sub-areas) ──
+  const breakdownBars = useMemo(() =>
+    breakdown.slice(0, 7).map(([name, st]) => ({
+      name: name.length > 14 ? name.slice(0, 13) + '…' : name,
+      resolved: st.resolved, active: st.active,
+    })), [breakdown]);
+
+  const resolutionRate = k.total ? Math.round((k.resolved / k.total) * 100) : 0;
 
   const filtered = useMemo(() => complaints.filter(c => {
     const ms = !search ||
@@ -214,29 +288,169 @@ export function GovernanceDashboardView() {
                   ))}
                 </div>
 
-                {/* Avg rating + quick breakdown preview */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* ── Row 1: Health gauge + Status donut + Resolution/rating ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                  {/* Health Score (radial gauge) */}
                   <Card className="border shadow-sm">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-2 mb-1"><Star className="w-4 h-4 text-amber-500" /><span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Avg Citizen Rating</span></div>
-                      <div className="text-3xl font-black text-amber-500">{k.avgRating ? k.avgRating.toFixed(1) : '—'}<span className="text-base text-muted-foreground">/5</span></div>
+                    <CardHeader className="pb-0 pt-3 px-4">
+                      <CardTitle className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider">
+                        <GaugeIcon className="w-3.5 h-3.5" /> Area Health Score
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3 flex flex-col items-center">
+                      <ChartContainer className="h-[130px] w-full" config={{}}>
+                        <RadialBarChart
+                          data={[{ name: 'health', value: health.score, fill: health.color }]}
+                          startAngle={210} endAngle={-30} innerRadius="70%" outerRadius="100%"
+                          barSize={14}
+                        >
+                          <RadialBar dataKey="value" cornerRadius={8} background={{ fill: 'hsl(var(--muted))' }} />
+                        </RadialBarChart>
+                      </ChartContainer>
+                      <div className="-mt-16 text-center">
+                        <div className="text-3xl font-black font-mono" style={{ color: health.color }}>{health.score}</div>
+                        <Badge className="text-[10px] mt-1 border-0" style={{ color: health.color, background: `${health.color}1a` }}>{health.grade}</Badge>
+                      </div>
+                      <div className="mt-12 text-[10px] text-muted-foreground text-center">
+                        Resolution {resolutionRate}% · {k.slaBreached} SLA · {k.critical} critical
+                      </div>
                     </CardContent>
                   </Card>
-                  <Card className="border shadow-sm md:col-span-2">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-2 mb-2"><cfg.breakdownIcon className="w-4 h-4 text-muted-foreground" /><span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Top {cfg.breakdownLabel}s</span></div>
-                      <div className="space-y-1.5">
-                        {breakdown.slice(0, 4).map(([name, st]) => (
-                          <div key={name} className="flex items-center justify-between text-sm">
-                            <span className="font-medium truncate">{name}</span>
-                            <span className="text-[11px] text-muted-foreground">{st.total} total · {st.active} active · {st.resolved} resolved</span>
+
+                  {/* Status donut */}
+                  <Card className="border shadow-sm">
+                    <CardHeader className="pb-0 pt-3 px-4">
+                      <CardTitle className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider">
+                        <PieIcon className="w-3.5 h-3.5" /> Status Mix
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3">
+                      {statusDist.length > 0 ? (
+                        <>
+                          <ChartContainer className="h-[120px] w-full" config={{}}>
+                            <PieChart>
+                              <Pie data={statusDist} cx="50%" cy="50%" innerRadius={32} outerRadius={52} paddingAngle={3} dataKey="value">
+                                {statusDist.map(s => <Cell key={s.name} fill={s.fill} />)}
+                              </Pie>
+                              <ChartTooltip content={<ChartTooltipContent />} />
+                            </PieChart>
+                          </ChartContainer>
+                          <div className="flex flex-wrap gap-x-2 gap-y-1 justify-center mt-1">
+                            {statusDist.map(s => (
+                              <div key={s.name} className="flex items-center gap-1 text-[10px]">
+                                <span className="w-2 h-2 rounded-full" style={{ background: s.fill }} />
+                                <span className="text-muted-foreground">{s.name} ({s.value})</span>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                        {breakdown.length === 0 && <span className="text-xs text-muted-foreground italic">No data</span>}
+                        </>
+                      ) : <div className="h-[140px] flex items-center justify-center text-xs text-muted-foreground">No data</div>}
+                    </CardContent>
+                  </Card>
+
+                  {/* Rating + resolution rate */}
+                  <Card className="border shadow-sm">
+                    <CardHeader className="pb-0 pt-3 px-4">
+                      <CardTitle className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider">
+                        <Target className="w-3.5 h-3.5" /> Performance
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3 space-y-3 pt-2">
+                      <div>
+                        <div className="flex items-center justify-between text-[11px] mb-1">
+                          <span className="text-muted-foreground flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-500" /> Resolution Rate</span>
+                          <span className="font-mono font-bold">{resolutionRate}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                          <motion.div className="h-full rounded-full bg-emerald-500" initial={{ width: 0 }} animate={{ width: `${resolutionRate}%` }} transition={{ duration: 0.7 }} />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 pt-1">
+                        <div className="flex-1 text-center bg-amber-500/8 rounded-lg p-2">
+                          <div className="text-2xl font-black text-amber-500">{k.avgRating ? k.avgRating.toFixed(1) : '—'}</div>
+                          <div className="text-[9px] text-muted-foreground uppercase flex items-center justify-center gap-0.5"><Star className="w-2.5 h-2.5" /> Avg Rating</div>
+                        </div>
+                        <div className="flex-1 text-center bg-violet-500/8 rounded-lg p-2">
+                          <div className="text-2xl font-black text-violet-500">{k.last7}</div>
+                          <div className="text-[9px] text-muted-foreground uppercase">Last 7 Days</div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
                 </div>
+
+                {/* ── Row 2: 8-week tempo + Category bar ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  <Card className="border shadow-sm">
+                    <CardHeader className="pb-1 pt-3 px-4">
+                      <CardTitle className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider">
+                        <TrendingUp className="w-3.5 h-3.5" /> 8-Week Tempo
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3">
+                      <ChartContainer className="h-[150px] w-full" config={{ filed: { label: 'Filed', color: '#3B82F6' }, resolved: { label: 'Resolved', color: '#10B981' } }}>
+                        <AreaChart data={trend} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+                          <defs>
+                            <linearGradient id="gGovF" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3B82F6" stopOpacity={0.25} /><stop offset="95%" stopColor="#3B82F6" stopOpacity={0} /></linearGradient>
+                            <linearGradient id="gGovR" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10B981" stopOpacity={0.25} /><stop offset="95%" stopColor="#10B981" stopOpacity={0} /></linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted/40" />
+                          <XAxis dataKey="week" tick={{ fontSize: 9 }} />
+                          <YAxis tick={{ fontSize: 9 }} allowDecimals={false} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Area type="monotone" dataKey="filed" name="Filed" stroke="#3B82F6" strokeWidth={2} fill="url(#gGovF)" />
+                          <Area type="monotone" dataKey="resolved" name="Resolved" stroke="#10B981" strokeWidth={2} fill="url(#gGovR)" />
+                        </AreaChart>
+                      </ChartContainer>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border shadow-sm">
+                    <CardHeader className="pb-1 pt-3 px-4">
+                      <CardTitle className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider">
+                        <BarChart3 className="w-3.5 h-3.5" /> Issue Categories
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3">
+                      {catShare.length > 0 ? (
+                        <ChartContainer className="h-[150px] w-full" config={{ count: { label: 'Count' } }}>
+                          <BarChart data={catShare} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted/40" vertical={false} />
+                            <XAxis dataKey="category" tick={{ fontSize: 8 }} interval={0} angle={-25} textAnchor="end" height={42} />
+                            <YAxis tick={{ fontSize: 9 }} allowDecimals={false} />
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                            <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                              {catShare.map(c => <Cell key={c.category} fill={catColor(c.category)} />)}
+                            </Bar>
+                          </BarChart>
+                        </ChartContainer>
+                      ) : <div className="h-[150px] flex items-center justify-center text-xs text-muted-foreground">No data</div>}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* ── Row 3: Sub-area leaderboard (horizontal bars) ── */}
+                <Card className="border shadow-sm">
+                  <CardHeader className="pb-1 pt-3 px-4">
+                    <CardTitle className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider">
+                      <cfg.breakdownIcon className="w-3.5 h-3.5" /> {cfg.breakdownLabel} Leaderboard — Resolved vs Active
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-3">
+                    {breakdownBars.length > 0 ? (
+                      <ChartContainer className="h-[200px] w-full" config={{ resolved: { label: 'Resolved', color: '#10B981' }, active: { label: 'Active', color: '#EF4444' } }}>
+                        <BarChart data={breakdownBars} layout="vertical" margin={{ top: 0, right: 8, bottom: 0, left: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted/40" horizontal={false} />
+                          <XAxis type="number" tick={{ fontSize: 9 }} allowDecimals={false} />
+                          <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 9 }} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Bar dataKey="resolved" name="Resolved" stackId="a" fill="#10B981" radius={[0, 0, 0, 0]} />
+                          <Bar dataKey="active" name="Active" stackId="a" fill="#EF4444" radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                      </ChartContainer>
+                    ) : <div className="h-[120px] flex items-center justify-center text-xs text-muted-foreground">No {cfg.breakdownLabel.toLowerCase()} data</div>}
+                  </CardContent>
+                </Card>
               </motion.div>
             )}
 

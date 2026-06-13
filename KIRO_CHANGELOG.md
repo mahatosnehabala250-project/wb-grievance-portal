@@ -27,6 +27,43 @@
 
 ---
 
+### SESSION 11 — Claude Code (June 13, 2026): Premium visuals for EVERY role — GovernanceDashboardView upgraded to Palantir-grade
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8) — Anthropic CLI
+- **Driver:** User — "kya har role ke liye McKinsey/Palantir-level visuals, charts, deep analysis hai?"
+
+#### 🔍 Audit finding (chart richness per view)
+| View | For | Chart components | Was |
+|------|-----|------------------|-----|
+| Intel Command | ALL roles | 8 | ✅ premium |
+| MP Command | MP | 9 | ✅ |
+| Main Dashboard | Admin/District | 14 | ✅ |
+| MLA Dashboard | MLA | 8 | ✅ |
+| **GovernanceDashboardView** | **Karyakarta/GP/Block HOME** | **0** | 🔴 plain tables |
+- **The gap:** coordinators (the most numerous users — hundreds of karyakartas) landed on a chart-less dashboard. Off-brand for a "Palantir for politicians" product. Note: Intel Command (premium) was already available to them — but their HOME was weak.
+
+#### ✅ FIX — GovernanceDashboardView Home tab rebuilt with charts (recharts)
+- **Area Health Score** — radial gauge 0–100 (positive framing for field staff: resolution rate 45 + low-SLA 25 + low-critical 15 + rating 15), STRONG/STEADY/WATCH/WEAK grade
+- **Status Mix** donut (active/in-progress/resolved/rejected)
+- **Performance** card — resolution-rate bar + avg rating + last-7-days
+- **8-Week Tempo** area chart (filed vs resolved)
+- **Issue Categories** bar chart (category-colored)
+- **{Village/GP} Leaderboard** — horizontal stacked bars (resolved vs active), role-adaptive grouping (karyakarta/GP→village, block→GP)
+- All computed client-side from the already-scoped `/api/complaints?limit=500` fetch — no new API, no extra cost
+
+#### ✔️ Verification
+- tsc: GovernanceDashboardView 0 errors. Complaints + Breakdown tabs untouched.
+
+#### 📌 Per-role visual parity now
+- Every governance role's HOME is chart-rich, AND every role also has Intel Command (risk gauge, hotspot matrix, peer benchmark, sentiment, PR wins, Wapas Jao). Visual grade is now consistent top-to-bottom.
+
+#### ⚠️ Next AI — Please Note
+- GovernanceDashboardView ka Home tab ab recharts use karta hai (same pattern as IntelligenceCommandView/MPCommandView). Naya chart add karna ho to wahi ChartContainer + recharts idiom follow karo.
+- Health Score formula GovernanceDashboardView mein inline hai; agar isे standardize karna ho to ek shared `lib/scoring.ts` bana sakte ho (Intel Command ka riskIndex iska inverse hai).
+
+---
+
 ### SESSION 10 — Claude Code (June 13, 2026): Information Architecture Redesign — proper role-based navigation (no more "khichdi")
 
 #### 🤖 AI Tool Info
