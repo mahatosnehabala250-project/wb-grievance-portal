@@ -651,14 +651,9 @@ export function IntelligenceCommandView() {
             </CardHeader>
             {nlp && (
               <CardContent className="px-4 pb-3 space-y-3">
-                {!nlp.enabled ? (
-                  <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-3 text-xs text-amber-700 dark:text-amber-400">
-                    NLP Brain abhi OFF hai. Admin ko Vercel mein <code className="font-mono">GEMINI_API_KEY</code> (ya <code className="font-mono">ANTHROPIC_API_KEY</code>) set karna hoga, phir
-                    complaints auto-analyze hongi (anger score, root-cause clustering, entity watch).
-                  </div>
-                ) : nlp.coverage.enriched === 0 ? (
+                {nlp.coverage.enriched === 0 ? (
                   <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
-                    Abhi tak koi complaint analyze nahi hui ({nlp.coverage.total} in scope). NLP enrichment cron (JS-22) chalega to data aayega.
+                    Abhi tak koi complaint analyze nahi hui ({nlp.coverage.total} in scope). n8n JS-22 (NLP Brain enrichment) har 30 min chalta hai — thodi der mein data aayega. Turant chahiye to n8n mein JS-22 "Execute" karo.
                   </div>
                 ) : (
                   <>

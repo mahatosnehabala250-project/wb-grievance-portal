@@ -27,6 +27,32 @@
 
 ---
 
+### SESSION 14 — Claude Code (June 13, 2026): NLP Brain LIVE — Gemini enrichment self-contained in n8n (JS-22 rebuilt)
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8) — Anthropic CLI
+- **Context:** User wants gemini-2.5-flash-lite. The pasted key returned 403 "project denied access" for 2.5 models (project-level block). Solution: do enrichment INSIDE n8n using the EXISTING working Google Gemini credential — no key copying, no Vercel key needed.
+
+#### ✅ JS-22 REBUILT (`yxH2qx9I9vNrGHDL`) — self-contained, 8 nodes, **ACTIVE + TESTED**
+- Schedule (30 min) → Get Enriched IDs (Supabase, `alwaysOutputData`) → Collect Enriched → Get Complaints (Supabase) → Pick Pending (Code: diff + build Gemini body, batch 8) → **Call Gemini** (HTTP, `googlePalmApi` credential `GZKueH9lQUzyB0GK` — n8n injects the key, gemini-2.5-flash-lite) → Parse NLP (Code) → Save NLP (Supabase upsert to complaint_nlp)
+- **Key insight:** HTTP Request node + `nodeCredentialType: googlePalmApi` lets n8n inject the working Gemini key without exposing it. Reuses the SAME credential JS-01 uses in prod.
+- **LIVE-TESTED:** 13 complaints enriched. Anger hotspots (Ankrobarakadam 75, Bargoria 70, Baliguma 67), emotion mix (frustrated 10, angry 1, desperate 1), entity watch — all populating. Verified via /api/intelligence/nlp-insights (admin): coverage 13/56, 8 anger hotspots, 2 entity watch.
+- ⚠️ Old bug fixed: when complaint_nlp empty, Get Enriched IDs returned 0 items → chain died. `alwaysOutputData: true` fixes first-run.
+- Rapid back-to-back manual runs hit Gemini free-tier rate limit (expected) — the 30-min schedule drains the backlog cleanly.
+
+#### ✅ UI: IntelligenceCommandView NLP section now shows data whenever `coverage.enriched > 0`
+- Removed the "set GEMINI_API_KEY in Vercel" gate — enrichment lives in n8n now, Vercel only READS complaint_nlp. No Vercel LLM key required for NLP to work.
+
+#### 📌 Architecture note
+- NLP enrichment = **n8n JS-22 (Gemini)**. Vercel `/api/cron/nlp-enrich` (Gemini/Anthropic) still exists as an alternate path but is NOT the primary — JS-22 is. `/api/intelligence/nlp-insights` is provider-agnostic (reads complaint_nlp).
+
+#### ⚠️ Next AI — Please Note
+- To enrich faster/backfill: n8n → JS-22 → Execute (each run = 8 complaints). Don't spam — Gemini free tier rate-limits.
+- JS-22 uses Supabase cred `2g6ksgz4oy9Ye7kP` + Gemini cred `GZKueH9lQUzyB0GK`. Both pre-existing.
+- Clusters need duplicate root_cause_key (same problem, multiple complaints) — forms naturally with volume.
+
+---
+
 ### SESSION 12 — Claude Code (June 13, 2026): NLP Brain (Level 4) — AI reads the raw complaint text
 
 #### 🤖 AI Tool Info
@@ -751,7 +777,7 @@ Standard Dashboard + Complaints views now respect the FULL hierarchy scope for a
 | JS-12: Telegram Link Bot | `ee8Ttjih5vJ1ZPsK` | 13 | Jun 10 |
 | JS-17: MP Weekly Brief | `0TT4yfYrcQ11m5dU` | 10 | Jun 4 |
 | JS-21: Daily Intel Brief (7AM Telegram) | `hPDe3mQWWf9bjWj8` | 4 | Jun 12 (✅ active) |
-| JS-22: NLP Brain Enrichment (30-min batch) | `q3eY0cJESRMjuaIi` | 2 | Jun 13 (⚠️ inactive — ANTHROPIC_API_KEY set karke activate karo) |
+| JS-22: NLP Brain — Gemini enrichment (self-contained) | `yxH2qx9I9vNrGHDL` | 8 | Jun 13 (✅ ACTIVE — uses n8n Gemini credential, no Vercel key needed) |
 
 ### Supabase Project
 - Project ref: `sxdtipaspfolrpqrwadt`
