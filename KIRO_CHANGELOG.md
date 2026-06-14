@@ -27,6 +27,29 @@
 
 ---
 
+### SESSION 17 — Claude Code (June 14, 2026): Block-name normalization (data hygiene — fixes fragmented blocks)
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). DB-only change (no app code).
+
+#### 🐛 Problem
+- Free-text intake meant the same block was stored many ways: "Manbazar I" / "Manbazar 1" / "Manbazar-I" / "Manbazar" / "manbazar" — fragmenting the map, hotspots, dashboards, and every block aggregate. (This was the long-standing data-hygiene note from Session 3.)
+
+#### ✅ Fix (migration `add_block_normalization`)
+- **`normalize_block(text)`** SQL function: lowercases, hyphens→space, collapses spaces, arabic→roman numeral suffix (1→I, 2→II...), then matches against canonical `constituency_block_mapping.block_name`. Unknown blocks pass through unchanged. Bare "manbazar" (no numeral) → "Manbazar I" (gp 111050 / headquarters; disambiguated from data).
+- **Backfill:** all existing complaints normalized. Result: Manbazar variants (6 spellings) → **Manbazar I (23)** + **Manbazar II (6)**; "Purulia -1"+"Purulia I" → **Purulia I (3)**. Manbazar II correctly stayed a SEPARATE block (not merged).
+- **Trigger `complaints_normalize_block`** (BEFORE INSERT OR UPDATE OF block): every future write — app manual create, n8n JS-01/intake, `register_complaint` RPC — gets canonicalized automatically. No app code needs to change.
+
+#### ✔️ Verified
+- Distinct Manbazar blocks: 6 → 2. Counts add up (23 = all Manbazar-I variants merged).
+
+#### ⚠️ Next AI — Please Note
+- Block canonicalization is now enforced at the DB layer (trigger + `normalize_block`). Source of truth = `constituency_block_mapping.block_name`. To add canonical blocks for NEW districts, add rows there and the function auto-covers them.
+- The trigger does NOT touch `register_complaint`'s logic — it only cleans the stored block value AFTER the row is built. Did not modify the CRITICAL `register_complaint` function.
+- Same pattern could be applied to other messy free-text fields later (village, gp_name) if needed.
+
+---
+
 ### SESSION 16 — Claude Code (June 14, 2026): Level 5 — Geospatial Risk Command (risk/anger heatmap)
 
 #### 🤖 AI Tool Info
