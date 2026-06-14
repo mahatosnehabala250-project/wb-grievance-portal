@@ -527,7 +527,9 @@ export async function computeForecast(payload: JWTPayload): Promise<ForecastResu
     let acc = 0;
     for (let j = 1; j <= h; j++) acc += Math.pow(phi, j) * momentum;
     const point = Math.max(0, Math.round((level + acc) * 10) / 10);
-    const sd = Math.sqrt(point * dispersionVMR);
+    // +0.5 continuity floor (count data near zero): the band must never collapse
+    // to a false-certain "0–0" — even a cooling area can still get a complaint or two.
+    const sd = Math.sqrt((point + 0.5) * dispersionVMR);
     volumeForecast.push({
       weekAhead: h, point,
       lo: Math.max(0, Math.round((point - 1.28 * sd) * 10) / 10),
