@@ -75,6 +75,25 @@ interface NlpInsights {
   severityFlags: Array<{ flag: string; count: number }>;
 }
 
+interface Forecast {
+  scope: { level: string; label: string; subAreaLabel: string; generatedAt: string };
+  status: 'OK' | 'NOT_ENOUGH_DATA';
+  confidence: 'LOW' | 'NOT-FORECASTABLE';
+  weeksOfHistory: number;
+  trajectory: 'RISING' | 'FLAT/STABILIZING' | 'COOLING' | null;
+  level: number | null;
+  momentum: number | null;
+  dispersionVMR: number | null;
+  history: Array<{ week: string; filed: number }>;
+  volumeForecast: Array<{ weekAhead: number; point: number; lo: number; hi: number }>;
+  areaSignals: Array<{ name: string; tier: 'USABLE' | 'WATCH'; sharePct: number; point: number | null; lo: number | null; hi: number | null }>;
+  categorySignals: Array<{ category: string; tier: 'USABLE' | 'WATCH'; sharePct: number }>;
+  slaRisk: { basis: string; counts: { breached: number; high: number; medium: number; low: number }; top: Array<{ ticketNo: string; category: string; urgency: string; ageDays: number; ratio: number; band: string }> };
+  seasonal: { available: boolean; reason: string; watchlist: Array<{ category: string; district: string; note: string; confidence: string }> };
+  caveats: string[];
+  message: string;
+}
+
 const RISK_COLORS: Record<string, { c: string; bg: string; bar: string }> = {
   LOW:      { c: 'text-emerald-500', bg: 'bg-emerald-500/10', bar: '#10B981' },
   GUARDED:  { c: 'text-lime-500',    bg: 'bg-lime-500/10',    bar: '#84CC16' },
@@ -152,6 +171,8 @@ export function IntelligenceCommandView() {
   const [openVillage, setOpenVillage] = useState<string | null>(null);
   const [nlp, setNlp] = useState<NlpInsights | null>(null);
   const [nlpLoading, setNlpLoading] = useState(false);
+  const [forecast, setForecast] = useState<Forecast | null>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
   const [advQ, setAdvQ] = useState('');
   const [advAnswer, setAdvAnswer] = useState<string | null>(null);
   const [advLoading, setAdvLoading] = useState(false);
@@ -235,6 +256,24 @@ export function IntelligenceCommandView() {
       toast.error('Failed to load NLP insights');
     } finally {
       setNlpLoading(false);
+    }
+  }, []);
+
+  /* Forecast / Early-Warning — predictive engine (on demand) */
+  const loadForecast = useCallback(async () => {
+    setForecastLoading(true);
+    try {
+      const res = await fetch('/api/intelligence/forecast', { headers: authHeaders() });
+      if (res.ok) {
+        const json = await res.json();
+        setForecast(json.data || null);
+      } else {
+        toast.error('Failed to load forecast');
+      }
+    } catch {
+      toast.error('Failed to load forecast');
+    } finally {
+      setForecastLoading(false);
     }
   }, []);
 
@@ -731,6 +770,135 @@ export function IntelligenceCommandView() {
               </CardContent>
             </Card>
           </div>
+
+          {/* ── Forecast / Early-Warning (Level 6 — honest, range-only) ── */}
+          <Card className="border shadow-sm border-cyan-500/20">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-xs font-semibold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
+                <span className="flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5 text-cyan-500" /> Forecast / Early-Warning
+                  <span className="text-[9px] normal-case font-normal">(agle 4 hafte ka rujhan + SLA-breach risk queue)</span>
+                </span>
+                {!forecast && (
+                  <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={loadForecast} disabled={forecastLoading}>
+                    {forecastLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Project'}
+                  </Button>
+                )}
+              </CardTitle>
+            </CardHeader>
+            {forecast && (
+              <CardContent className="px-4 pb-3 space-y-3">
+                {forecast.status === 'NOT_ENOUGH_DATA' ? (
+                  <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground space-y-2">
+                    <div className="font-medium text-foreground">{forecast.message}</div>
+                    <ul className="list-disc pl-4 space-y-0.5 text-[10px]">
+                      {forecast.caveats.slice(0, 3).map((c, i) => <li key={i}>{c}</li>)}
+                    </ul>
+                  </div>
+                ) : (
+                  <>
+                    {/* Honesty banner + trajectory */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge className="text-[9px] h-5 px-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">
+                        Confidence: LOW — early-signal trend, NOT a statistical forecast
+                      </Badge>
+                      {forecast.trajectory && (
+                        <Badge className={`text-[9px] h-5 px-2 border-0 ${forecast.trajectory === 'RISING' ? 'bg-red-500/10 text-red-500' : forecast.trajectory === 'COOLING' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-muted text-muted-foreground'}`}>
+                          {forecast.trajectory === 'RISING' ? '▲ Rising' : forecast.trajectory === 'COOLING' ? '▼ Cooling' : '➝ Flat / stabilizing'}
+                        </Badge>
+                      )}
+                      <span className="text-[10px] text-muted-foreground font-mono">~{forecast.level}/week now · {forecast.weeksOfHistory}w history</span>
+                    </div>
+
+                    {/* History + projected band chart */}
+                    <ChartContainer className="h-[150px] w-full" config={{
+                      filed: { label: 'Filed', color: '#8B5CF6' },
+                      hi: { label: 'Upper', color: '#06B6D4' },
+                      point: { label: 'Projected', color: '#06B6D4' },
+                    }}>
+                      <AreaChart
+                        data={[
+                          ...forecast.history.map(h => ({ week: h.week, filed: h.filed })),
+                          ...forecast.volumeForecast.map(f => ({ week: `+${f.weekAhead}`, point: f.point, lo: f.lo, hi: f.hi })),
+                        ]}
+                        margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+                        <defs>
+                          <linearGradient id="gFcHist" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.25} /><stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} /></linearGradient>
+                          <linearGradient id="gFcBand" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#06B6D4" stopOpacity={0.22} /><stop offset="95%" stopColor="#06B6D4" stopOpacity={0} /></linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted/40" />
+                        <XAxis dataKey="week" tick={{ fontSize: 8 }} />
+                        <YAxis tick={{ fontSize: 9 }} allowDecimals={false} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        {/* projected uncertainty band (hi as filled area, lo erases the bottom) */}
+                        <Area type="monotone" dataKey="hi" name="Upper" stroke="none" fill="url(#gFcBand)" />
+                        <Area type="monotone" dataKey="lo" name="Lower" stroke="none" fill="hsl(var(--background))" fillOpacity={1} />
+                        <Area type="monotone" dataKey="point" name="Projected" stroke="#06B6D4" strokeWidth={2} strokeDasharray="4 3" fill="none" />
+                        <Area type="monotone" dataKey="filed" name="Filed" stroke="#8B5CF6" strokeWidth={2} fill="url(#gFcHist)" />
+                      </AreaChart>
+                    </ChartContainer>
+                    <div className="text-[9px] text-muted-foreground -mt-1">
+                      Next 4 weeks (range, never a point): {forecast.volumeForecast.map(f => `+${f.weekAhead}w ${f.lo}–${f.hi}`).join(' · ')}
+                    </div>
+
+                    {/* SLA-breach risk queue */}
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
+                        <ShieldAlert className="w-3 h-3 text-orange-500" /> SLA-Breach Risk Queue
+                        <span className="text-[8px] normal-case font-normal">(deterministic age-gauge, not a probability)</span>
+                      </div>
+                      <div className="flex gap-1.5 mb-1.5">
+                        {([['BREACHED', forecast.slaRisk.counts.breached, 'bg-red-500/15 text-red-600'], ['HIGH', forecast.slaRisk.counts.high, 'bg-orange-500/15 text-orange-600'], ['MEDIUM', forecast.slaRisk.counts.medium, 'bg-amber-500/15 text-amber-600'], ['LOW', forecast.slaRisk.counts.low, 'bg-muted text-muted-foreground']] as const).map(([l, v, cls]) => (
+                          <span key={l} className={`text-[9px] px-2 py-0.5 rounded-full font-semibold ${cls}`}>{l} {v}</span>
+                        ))}
+                      </div>
+                      <div className="space-y-1">
+                        {forecast.slaRisk.top.slice(0, 6).map(r => (
+                          <div key={r.ticketNo} className="flex items-center gap-2 text-[11px]">
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${r.band === 'BREACHED' ? 'bg-red-500' : r.band === 'HIGH' ? 'bg-orange-500' : r.band === 'MEDIUM' ? 'bg-amber-500' : 'bg-muted-foreground'}`} />
+                            <span className="font-mono text-[9px] text-muted-foreground flex-shrink-0">{r.ticketNo}</span>
+                            <span className="truncate flex-1">{r.category}</span>
+                            <span className="text-[9px] text-muted-foreground flex-shrink-0">{r.ageDays}d · {Math.round(r.ratio * 100)}% of SLA</span>
+                          </div>
+                        ))}
+                        {forecast.slaRisk.top.length === 0 && <div className="text-[10px] text-muted-foreground italic">No open complaints in scope</div>}
+                      </div>
+                    </div>
+
+                    {/* Area / category watch + seasonal watchlist */}
+                    {(forecast.areaSignals.length > 0 || forecast.categorySignals.length > 0) && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {forecast.areaSignals.map(a => (
+                          <span key={a.name} className={`text-[9px] px-2 py-0.5 rounded-full ${a.tier === 'USABLE' ? 'bg-cyan-500/10 text-cyan-600' : 'bg-muted text-muted-foreground'}`}>
+                            {a.name}: {a.tier === 'USABLE' ? `~${a.lo}–${a.hi}/wk` : 'WATCH (too few for a number)'}
+                          </span>
+                        ))}
+                        {forecast.categorySignals.filter(c => c.tier === 'USABLE').map(c => (
+                          <span key={c.category} className="text-[9px] px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600">{c.category} {c.sharePct}%</span>
+                        ))}
+                      </div>
+                    )}
+                    {forecast.seasonal.watchlist.length > 0 && (
+                      <div className="rounded-lg bg-muted/30 p-2">
+                        <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Seasonal watchlist (hypotheses — no numbers)</div>
+                        {forecast.seasonal.watchlist.map((s, i) => (
+                          <div key={i} className="text-[10px] text-muted-foreground">• {s.category} in {s.district} — {s.note}</div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Always-visible caveats */}
+                    <details className="text-[10px] text-muted-foreground">
+                      <summary className="cursor-pointer font-semibold">⚠ Why these are estimates, not forecasts ({forecast.caveats.length})</summary>
+                      <ul className="list-disc pl-4 space-y-0.5 mt-1">
+                        {forecast.caveats.map((c, i) => <li key={i}>{c}</li>)}
+                      </ul>
+                    </details>
+                  </>
+                )}
+              </CardContent>
+            )}
+          </Card>
 
           {/* ── Row 5.5: NLP Brain — root-cause clusters, anger hotspots, entity watch ── */}
           <Card className="border shadow-sm border-fuchsia-500/20">

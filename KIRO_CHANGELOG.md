@@ -27,6 +27,38 @@
 
 ---
 
+### SESSION 18 — Claude Code (June 14, 2026): Level 6 — Predictive Engine (HONEST early-warning, not fake ML)
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). Design phase used a 7-agent workflow (data recon + 3 forecasting designs + adversarial statistician critic + synthesis) BEFORE coding.
+
+#### 🧠 The honest call (why this matters)
+- The adversarial review caught the trap: **56 complaints over ~8 weeks, 0 full annual cycles, ~96% missing resolvedAt, 41% of volume in one block, 38% in category OTHER.** Real statistical forecasting (SARIMA/Prophet/seasonality) is IMPOSSIBLE here — it would produce fake precision that destroys credibility. So the engine ships ONLY what's defensible today, with explicit "not enough data" gating + caveats everywhere.
+
+#### ✅ NEW: `computeForecast(payload)` in `src/lib/intelligence.ts` (+ `ForecastResult` type)
+- Reuses `computeIntelligenceBrief` for the scope-locked 12-week trend (no new scope logic).
+- **Scope-wide volume** as a RANGE: recency-weighted moving average (weights 1,2,3) + damped week-over-week momentum (φ=0.5) + **Negative-Binomial-style band** (sd=√(point·VMR), VMR clamped 1–4 to honor real overdispersion — NOT Poisson). Never a bare point. Gated to ≥6 weekly points.
+- **Trajectory** label (RISING / FLAT / COOLING) from damped momentum.
+- **Deterministic SLA-breach gauge** per OPEN complaint (age vs urgency-SLA, createdAt only) — counts + top-8 queue. Explicitly NOT a probability.
+- **Per-area/category signals:** a NUMBER only when total≥8 AND active≥5; else WATCH label; else suppressed. (Today only Manbazar I qualifies.)
+- **Seasonal watchlist:** NO numbers — labeled hypotheses from seasonal_patterns, with the table's own June-contradiction surfaced as proof it's unreliable.
+- 7 mandatory caveats shipped in the payload.
+
+#### ✅ NEW: `/api/intelligence/forecast` — thin scoped GET (copy of brief route), delegates to computeForecast.
+#### ✅ UI: "Forecast / Early-Warning" card in IntelligenceCommandView
+- On-demand "Project" button. Honesty banner ("Confidence: LOW — early-signal, NOT a statistical forecast") + trajectory. History+projected-band AreaChart (dashed projection + uncertainty band). SLA-breach risk queue. Area/category WATCH chips. Seasonal watchlist. Collapsible always-present caveats. NOT_ENOUGH_DATA renders a "collecting" panel, no chart/numbers.
+
+#### 📌 No DB changes. Phase-2 roadmap (do NOT build yet): a `risk_history` snapshot table (written by daily-briefs cron) for velocity/ETA trajectory; backfill `resolvedAt` (or status-change audit log) before any SLA-breach PROBABILITY model.
+
+#### ✔️ Verification
+- tsc clean on all touched files (intelligence.ts, forecast route, IntelligenceCommandView).
+
+#### ⚠️ Next AI — Please Note
+- Forecast math = `computeForecast` in intelligence.ts. It is DELIBERATELY conservative (ranges, gating, caveats). Do NOT "improve" it into point forecasts or seasonal numbers on this data volume — that was rejected by adversarial review for fabricating precision. Revisit only after 12+ months history + resolvedAt backfill.
+- SLA gauge uses the same SLA_DAYS values as the brief (CRITICAL .25/HIGH 1/MEDIUM 3/LOW 7) — keep them identical or the BREACHED count diverges from brief.kpis.slaBreached.
+
+---
+
 ### SESSION 17 — Claude Code (June 14, 2026): Block-name normalization (data hygiene — fixes fragmented blocks)
 
 #### 🤖 AI Tool Info

@@ -376,6 +376,196 @@ export async function computeIntelligenceBrief(payload: JWTPayload): Promise<Int
 }
 
 /* ─────────────────────────────────────────────────────────────────
+ * Predictive Engine (Level 6) — computeForecast
+ *
+ * HONEST by design. A multi-agent review of the real data (56 complaints,
+ * ~8 weeks, no full annual cycle, ~96% missing resolvedAt) concluded this is
+ * EARLY-SIGNAL / crude-trend territory, NOT statistical forecasting. So this
+ * ships only what is defensible today and explicitly WITHHOLDS the rest:
+ *   • scope-wide volume as a RANGE (recency-weighted MA + damped momentum +
+ *     Negative-Binomial-style band reflecting real overdispersion) — never a
+ *     bare point; gated to >=6 weekly data points.
+ *   • trajectory label (RISING / FLAT / COOLING) from damped momentum.
+ *   • deterministic per-complaint SLA-breach GAUGE from age vs urgency-SLA
+ *     (createdAt only; NOT a probability — resolvedAt is unusable).
+ *   • per-area/category WATCH flags; a NUMBER only when total>=8 AND active>=5.
+ *   • seasonal WATCHLIST with NO numbers (seasonal_patterns is a placeholder).
+ * Withheld: per-cell point forecasts on n=1 cells, calibrated seasonality,
+ * SLA-breach probability, velocity/ETA (needs a risk_history table — Phase 2).
+ * Every output carries caveats. Aggregate-only, scope-locked.
+ * ──────────────────────────────────────────────────────────────── */
+
+const FORECAST_CAVEATS = [
+  'Based on only ~56 complaints over under 2 months. This is an EARLY-SIGNAL trend, NOT a statistical forecast.',
+  'The launch-week spike reflects portal rollout/adoption, not real demand — it is not a baseline to return to. Volume has since flattened.',
+  'Zero full annual cycles exist, so NO seasonality can be learned. Any summer/monsoon expectation is a hypothesis to validate, not a data-derived forecast.',
+  'Only the scope-wide total is forecastable. Per-block/per-category numbers are suppressed because most cells have very few complaints (sampling bias).',
+  'SLA-breach risk is a deterministic age-vs-deadline gauge, NOT a calibrated probability. Resolution timing is missing for ~96% of complaints.',
+  'Forecast bands are deliberately wide. The width is honest — narrowing it on this little data would be false precision.',
+  'Revisit after 12+ months of history (ideally 2 full years) and after resolution timestamps are backfilled before treating any output as a calibrated forecast.',
+];
+
+const FC_SLA_DAYS: Record<string, number> = { CRITICAL: 0.25, HIGH: 1, MEDIUM: 3, LOW: 7 };
+
+export interface ForecastResult {
+  scope: { level: string; label: string; subAreaLabel: string; generatedAt: string };
+  status: 'OK' | 'NOT_ENOUGH_DATA';
+  confidence: 'LOW' | 'NOT-FORECASTABLE';
+  weeksOfHistory: number;
+  trajectory: 'RISING' | 'FLAT/STABILIZING' | 'COOLING' | null;
+  level: number | null;
+  momentum: number | null;
+  dispersionVMR: number | null;
+  history: Array<{ week: string; filed: number }>;
+  volumeForecast: Array<{ weekAhead: number; point: number; lo: number; hi: number }>;
+  areaSignals: Array<{ name: string; tier: 'USABLE' | 'WATCH'; sharePct: number; point: number | null; lo: number | null; hi: number | null }>;
+  categorySignals: Array<{ category: string; tier: 'USABLE' | 'WATCH'; sharePct: number }>;
+  slaRisk: { basis: string; counts: { breached: number; high: number; medium: number; low: number }; top: Array<{ ticketNo: string; category: string; urgency: string; ageDays: number; ratio: number; band: string }> };
+  seasonal: { available: boolean; reason: string; watchlist: Array<{ category: string; district: string; note: string; confidence: string }> };
+  caveats: string[];
+  message: string;
+}
+
+async function computeSlaRisk(payload: JWTPayload): Promise<ForecastResult['slaRisk']> {
+  const where = getComplaintScopeFilter(payload);
+  const complaints: C[] = await db.complaint.findMany({ where, orderBy: { createdAt: 'desc' }, take: 2000 });
+  const now = Date.now(), DAY = 86400000;
+  const counts = { breached: 0, high: 0, medium: 0, low: 0 };
+  const rows: ForecastResult['slaRisk']['top'] = [];
+  for (const c of complaints) {
+    if (!isActive(c)) continue;
+    const created = dt(c.createdAt);
+    if (!created) continue;
+    const ageDays = (now - created.getTime()) / DAY;
+    const urgency = str(c, 'urgency');
+    const ratio = ageDays / (FC_SLA_DAYS[urgency] || 3);
+    const band = ratio >= 1 ? 'BREACHED' : ratio >= 0.8 ? 'HIGH' : ratio >= 0.5 ? 'MEDIUM' : 'LOW';
+    if (band === 'BREACHED') counts.breached++;
+    else if (band === 'HIGH') counts.high++;
+    else if (band === 'MEDIUM') counts.medium++;
+    else counts.low++;
+    rows.push({ ticketNo: str(c, 'ticketNo'), category: str(c, 'category') || 'OTHER', urgency: urgency || 'MEDIUM', ageDays: Math.round(ageDays * 10) / 10, ratio: Math.round(ratio * 100) / 100, band });
+  }
+  rows.sort((a, b) => b.ratio - a.ratio);
+  return { basis: 'age-vs-SLA (createdAt only; resolvedAt unusable, ~96% null) — deterministic gauge, NOT a probability', counts, top: rows.slice(0, 8) };
+}
+
+async function computeSeasonalWatchlist(): Promise<ForecastResult['seasonal']> {
+  try {
+    const { data } = await supabase.from('seasonal_patterns').select('category, district, month, avg_complaints_per_week, confidence');
+    const rows = (data || []) as unknown as Array<{ category: string; district: string; month: number; avg_complaints_per_week: number; confidence: number }>;
+    const byKey: Record<string, typeof rows> = {};
+    for (const r of rows) { const k = `${r.category}||${r.district}`; (byKey[k] ||= []).push(r); }
+    const watchlist: ForecastResult['seasonal']['watchlist'] = [];
+    for (const k of Object.keys(byKey)) {
+      const arr = byKey[k].slice().sort((a, b) => a.month - b.month);
+      for (let i = 1; i < arr.length; i++) {
+        const prev = arr[i - 1], cur = arr[i];
+        if (cur.avg_complaints_per_week > 1 && cur.confidence > 5 && cur.avg_complaints_per_week > prev.avg_complaints_per_week) {
+          const p = Math.round(prev.avg_complaints_per_week * 10) / 10, c2 = Math.round(cur.avg_complaints_per_week * 10) / 10;
+          watchlist.push({ category: cur.category, district: cur.district, note: `rose ${p}→${c2}/week month ${prev.month}→${cur.month} — watch (hypothesis to validate)`, confidence: 'LOW' });
+        }
+      }
+    }
+    return {
+      available: false,
+      reason: 'Single Apr–Jun cycle, no year key, confidence at its floor — not a calibrated seasonal model. (The table even shows WATER/Purulia FALLING into June, evidence it tracks rollout noise, not seasonality.)',
+      watchlist: watchlist.slice(0, 3),
+    };
+  } catch {
+    return { available: false, reason: 'seasonal data unavailable', watchlist: [] };
+  }
+}
+
+export async function computeForecast(payload: JWTPayload): Promise<ForecastResult> {
+  const brief = await computeIntelligenceBrief(payload);
+  const scope = brief.scope;
+  const history = brief.trend.map(t => ({ week: t.week, filed: t.filed }));
+  const series0 = brief.trend.map(t => t.filed); // oldest → newest (W-11..W-0)
+
+  const firstNonZero = series0.findIndex(v => v > 0);
+  const weeksOfHistory = firstNonZero === -1 ? 0 : series0.length - firstNonZero;
+
+  const [slaRisk, seasonal] = await Promise.all([computeSlaRisk(payload), computeSeasonalWatchlist()]);
+
+  // STEP 0 — gate
+  if (weeksOfHistory < 6) {
+    return {
+      scope, status: 'NOT_ENOUGH_DATA', confidence: 'NOT-FORECASTABLE', weeksOfHistory,
+      trajectory: null, level: null, momentum: null, dispersionVMR: null, history,
+      volumeForecast: [], areaSignals: [], categorySignals: [], slaRisk, seasonal,
+      caveats: FORECAST_CAVEATS, message: 'Not enough weekly history yet — collecting. (Forecast unlocks at 6+ weeks of data.)',
+    };
+  }
+
+  // STEP 1 — trim leading (pre-launch) zeros
+  const w = series0.slice(firstNonZero);
+  const n = w.length;
+
+  // STEP 2 — recency-weighted level (window 3, linear weights 1,2,3)
+  const level = n >= 3
+    ? Math.round(((1 * w[n - 3] + 2 * w[n - 2] + 3 * w[n - 1]) / 6) * 10) / 10
+    : Math.round((w.reduce((a, b) => a + b, 0) / n) * 10) / 10;
+
+  // STEP 3 — momentum = mean WoW change over last 4 weeks
+  const last4 = w.slice(-4);
+  const diffs: number[] = [];
+  for (let i = 1; i < last4.length; i++) diffs.push(last4[i] - last4[i - 1]);
+  const momentum = diffs.length ? Math.round((diffs.reduce((a, b) => a + b, 0) / diffs.length) * 100) / 100 : 0;
+  const trajectory: ForecastResult['trajectory'] = momentum > 0.5 ? 'RISING' : momentum < -0.5 ? 'COOLING' : 'FLAT/STABILIZING';
+
+  // STEP 5 — overdispersion VMR (drop the single launch spike), clamp 1..4
+  const exSpike = (() => { const arr = [...w]; if (arr.length > 3) arr.splice(arr.indexOf(Math.max(...arr)), 1); return arr; })();
+  const mean = exSpike.reduce((a, b) => a + b, 0) / exSpike.length;
+  const variance = exSpike.reduce((a, b) => a + (b - mean) ** 2, 0) / exSpike.length;
+  const dispersionVMR = Math.round(Math.max(1, Math.min(4, mean > 0 ? variance / mean : 1)) * 100) / 100;
+
+  // STEP 4 — damped h-step point + NB-style band
+  const phi = 0.5;
+  const volumeForecast: ForecastResult['volumeForecast'] = [];
+  for (let h = 1; h <= 4; h++) {
+    let acc = 0;
+    for (let j = 1; j <= h; j++) acc += Math.pow(phi, j) * momentum;
+    const point = Math.max(0, Math.round((level + acc) * 10) / 10);
+    const sd = Math.sqrt(point * dispersionVMR);
+    volumeForecast.push({
+      weekAhead: h, point,
+      lo: Math.max(0, Math.round((point - 1.28 * sd) * 10) / 10),
+      hi: Math.round((point + 1.28 * sd) * 10) / 10,
+    });
+  }
+
+  // STEP 6 — per-area / per-category signals (number only on USABLE cells)
+  const scopeTotal = brief.kpis.total || 1;
+  const band1 = volumeForecast[0];
+  const areaSignals: ForecastResult['areaSignals'] = [];
+  for (const a of brief.hotspots) {
+    const usable = a.total >= 8 && a.active >= 5;
+    const watch = !usable && a.total >= 5;
+    if (!usable && !watch) continue; // SUPPRESSED
+    const sharePct = Math.round((100 * a.total) / scopeTotal);
+    if (usable) {
+      const share = a.total / scopeTotal;
+      areaSignals.push({ name: a.name, tier: 'USABLE', sharePct, point: Math.round(share * level * 10) / 10, lo: Math.round(share * band1.lo * 10) / 10, hi: Math.round(share * band1.hi * 10) / 10 });
+    } else {
+      areaSignals.push({ name: a.name, tier: 'WATCH', sharePct, point: null, lo: null, hi: null });
+    }
+  }
+  const categorySignals: ForecastResult['categorySignals'] = [];
+  for (const c of brief.categoryShare) {
+    const usable = c.count >= 8 && c.active >= 5;
+    const watch = !usable && c.count >= 5;
+    if (!usable && !watch) continue;
+    categorySignals.push({ category: c.category, tier: usable ? 'USABLE' : 'WATCH', sharePct: Math.round((100 * c.count) / scopeTotal) });
+  }
+
+  return {
+    scope, status: 'OK', confidence: 'LOW', weeksOfHistory, trajectory, level, momentum, dispersionVMR,
+    history, volumeForecast, areaSignals, categorySignals, slaRisk, seasonal, caveats: FORECAST_CAVEATS, message: '',
+  };
+}
+
+/* ─────────────────────────────────────────────────────────────────
  * Telegram daily-brief formatting (HTML parse mode — Session 4 rule:
  * ALWAYS escape dynamic text for Telegram HTML)
  * ──────────────────────────────────────────────────────────────── */
