@@ -568,6 +568,184 @@ export async function computeForecast(payload: JWTPayload): Promise<ForecastResu
 }
 
 /* ─────────────────────────────────────────────────────────────────
+ * Data Fusion / Entity Ontology (Level 7) — computeFusion
+ *
+ * Each geographic node (village/GP/block/AC, per the user's scope grain) becomes
+ * a FUSED profile combining every REAL signal we have, ranked by a transparent
+ * priority score. A 7-agent design review confirmed what is honest vs fabricated:
+ *   REAL (fused): complaint load + risk, anger (NLP), top root-causes, category
+ *     mix, a complaint-driven SCHEME-FAILURE proxy (Lakshmir Bhandar / Kanyashree
+ *     / Pension / Yuvashree / Scholarship…), recurrence (repeat flag), and
+ *     political context (MLA, party, ST/SC reservation, Lok Sabha) joined from
+ *     constituency_block_mapping.
+ *   NOT in the DB → shown as labeled "not connected" placeholders, NEVER faked:
+ *     census/SECC demographics, past election results/margins, news sentiment,
+ *     weather/mandi, true scheme enrollment %, map lat/lng, per-area officer cards.
+ * Priority score blends the existing composite RISK with ORTHOGONAL salience
+ * (scheme-failure %, concentration, recurrence, reservation) so signals already
+ * inside risk (anger/SLA) are not double-counted. Aggregate-only, scope-locked.
+ * ──────────────────────────────────────────────────────────────── */
+
+const fnorm = (s: string): string => (s || '').toLowerCase().replace(/[\s-]+/g, ' ').trim();
+
+// Complaint-driven welfare-scheme failure detection (matched on category + NLP root cause).
+const SCHEME_PATTERNS: Array<{ scheme: string; re: RegExp }> = [
+  { scheme: 'Lakshmir Bhandar', re: /lakshmir|laxmir|annapurna[\s-]?bhandar/i },
+  { scheme: 'Kanyashree', re: /kanyashree/i },
+  { scheme: 'Rupashree', re: /rupashree/i },
+  { scheme: 'Yuvashree/Yuvasathi', re: /yuvashree|yuvasathi|yuva[\s-]?s/i },
+  { scheme: 'Pension (Jai Bangla)', re: /pension|old[\s-]?age|widow|disabilit/i },
+  { scheme: 'Scholarship / Sikshashree', re: /scholarship|sikshashree|shikshashree/i },
+  { scheme: 'Bangla Awas (housing)', re: /awas|abas|pmay|housing[\s-]?scheme/i },
+  { scheme: 'Khadya Sathi (ration)', re: /khadya|ration/i },
+  { scheme: 'Swasthya Sathi (health)', re: /swasthya/i },
+  { scheme: 'Krishak Bandhu', re: /krishak/i },
+];
+
+const FUSION_CAVEATS = [
+  'This is a GRIEVANCE-intelligence fusion: it combines the signals we actually have, not a full demographic/electoral fusion.',
+  'Scheme load is a complaint-DRIVEN failure proxy (who complained), NOT true enrollment or coverage % — it over-represents dissatisfied citizens.',
+  'Political context (MLA, party, reservation) is reference data; vote share / margins / turnout are NOT in the system.',
+  'External sources (census, election results, news, weather, scheme coverage, map pins, per-area officer cards) are NOT connected — shown as placeholders, never estimated.',
+  'Dataset is currently single-district (Purulia) and small (~56 complaints); per-node detail on tiny nodes is directional only.',
+  'Priority score blends the composite risk with orthogonal salience (scheme %, concentration, recurrence, reservation) — weights are transparent, not a calibrated probability.',
+];
+
+export interface FusionNode {
+  name: string;
+  political: { mla: string; party: string; reservation: string; lokSabha: string; constituency: string } | null;
+  grievance: { total: number; active: number; resolved: number; resolutionRate: number; critical: number; slaBreached: number; risk: number };
+  sentiment: { avgAnger: number | null; dominantEmotion: string | null; ratedAnger: number };
+  schemeGrievance: { count: number; pct: number; byScheme: Array<{ scheme: string; count: number }> };
+  recurrence: { repeatCount: number };
+  topCauses: Array<{ rootCause: string; count: number }>;
+  categoryMix: Array<{ category: string; count: number }>;
+  priority: { score: number; grade: string; components: { risk: number; schemeLoad: number; concentration: number; recurrence: number; reservation: number } };
+}
+
+export interface FusionResult {
+  scope: { level: string; label: string; subAreaLabel: string; generatedAt: string };
+  nodeGrain: string;
+  nodes: FusionNode[];
+  external: Array<{ source: string; status: string; note: string }>;
+  caveats: string[];
+}
+
+const NOT_CONNECTED: Array<{ source: string; note: string }> = [
+  { source: 'Census / SECC demographics', note: 'population, literacy, SC/ST share, BPL — not in DB (only ST/SC reservation type as a coarse proxy)' },
+  { source: 'Past election results / margins', note: 'only the sitting MLA + party are stored; no vote share, turnout, or margin' },
+  { source: 'Local news / press sentiment', note: 'press_reports table is empty' },
+  { source: 'Weather / rainfall / mandi prices', note: 'not connected' },
+  { source: 'Scheme enrollment / coverage %', note: 'only a complaint-driven failure proxy exists; true saturation is not in the DB' },
+  { source: 'Map coordinates', note: 'village lat/lng are null — pin layer unavailable' },
+  { source: 'Per-area officer scorecards', note: 'officer_scores has no area dimension and most complaints are unassigned' },
+];
+
+export async function computeFusion(payload: JWTPayload): Promise<FusionResult> {
+  const brief = await computeIntelligenceBrief(payload);
+  const riskByNode = new Map(brief.hotspots.map(h => [h.name, h]));
+
+  const where = getComplaintScopeFilter(payload);
+  const complaints: C[] = await db.complaint.findMany({ where, orderBy: { createdAt: 'desc' }, take: 3000 });
+
+  const ids = complaints.map(c => str(c, 'id')).filter(Boolean);
+  const nlpById = new Map<string, C>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data } = await supabase
+      .from('complaint_nlp')
+      .select('complaint_id, anger_score, emotion, root_cause, root_cause_key, severity_flags')
+      .in('complaint_id', ids.slice(i, i + 200));
+    for (const r of (data || []) as unknown as C[]) nlpById.set(str(r, 'complaint_id'), r);
+  }
+
+  // Political reference (block + AC level)
+  const { data: mapRows } = await supabase
+    .from('constituency_block_mapping')
+    .select('block_name, constituency, constituency_type, mla_name, party, lok_sabha');
+  const polByBlock = new Map<string, C>();
+  const polByAC = new Map<string, C>();
+  for (const r of (mapRows || []) as unknown as C[]) {
+    polByBlock.set(fnorm(str(r, 'block_name')), r);
+    const ac = fnorm(str(r, 'constituency'));
+    if (!polByAC.has(ac)) polByAC.set(ac, r);
+  }
+
+  type Acc = {
+    name: string; total: number; schemeByName: Record<string, number>; schemeCount: number;
+    repeatCount: number; angerSum: number; angerN: number; emotions: Record<string, number>;
+    causes: Record<string, number>; cats: Record<string, number>; blockNames: Set<string>;
+  };
+  const nodes: Record<string, Acc> = {};
+  for (const c of complaints) {
+    const name = subAreaOf(payload, c);
+    if (!nodes[name]) nodes[name] = { name, total: 0, schemeByName: {}, schemeCount: 0, repeatCount: 0, angerSum: 0, angerN: 0, emotions: {}, causes: {}, cats: {}, blockNames: new Set() };
+    const nd = nodes[name];
+    nd.total++;
+    const cat = (str(c, 'category') || 'OTHER').toUpperCase();
+    nd.cats[cat] = (nd.cats[cat] || 0) + 1;
+    const bn = fnorm(str(c, 'block'));
+    if (bn) nd.blockNames.add(bn);
+    const nlp = nlpById.get(str(c, 'id'));
+    const hay = `${cat} ${nlp ? `${str(nlp, 'root_cause_key')} ${str(nlp, 'root_cause')}` : ''}`.toLowerCase();
+    for (const sp of SCHEME_PATTERNS) {
+      if (sp.re.test(hay)) { nd.schemeByName[sp.scheme] = (nd.schemeByName[sp.scheme] || 0) + 1; nd.schemeCount++; break; }
+    }
+    if (nlp) {
+      const a = typeof nlp.anger_score === 'number' ? nlp.anger_score : null;
+      if (a !== null) { nd.angerSum += a; nd.angerN++; }
+      const emo = str(nlp, 'emotion'); if (emo) nd.emotions[emo] = (nd.emotions[emo] || 0) + 1;
+      const rc = str(nlp, 'root_cause') || str(nlp, 'root_cause_key'); if (rc) nd.causes[rc] = (nd.causes[rc] || 0) + 1;
+      const flags = Array.isArray(nlp.severity_flags) ? (nlp.severity_flags as unknown[]) : [];
+      if (flags.includes('repeat')) nd.repeatCount++;
+    }
+  }
+
+  const scopeTotal = brief.kpis.total || 1;
+  const out: FusionNode[] = Object.values(nodes).map(nd => {
+    const risk = riskByNode.get(nd.name);
+    const grievance = risk
+      ? { total: risk.total, active: risk.active, resolved: risk.resolved, critical: risk.critical, slaBreached: risk.slaBreached, resolutionRate: risk.total ? Math.round((risk.resolved / risk.total) * 100) : 0, risk: risk.risk }
+      : { total: nd.total, active: 0, resolved: 0, critical: 0, slaBreached: 0, resolutionRate: 0, risk: 0 };
+    const avgAnger = nd.angerN ? Math.round(nd.angerSum / nd.angerN) : null;
+    const dominantEmotion = Object.entries(nd.emotions).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+    const schemePct = nd.total ? Math.round((100 * nd.schemeCount) / nd.total) : 0;
+
+    // Political join: node may be a block (MLA scope), an AC (MP scope), or finer
+    const nNorm = fnorm(nd.name);
+    const singleBlock = nd.blockNames.size === 1 ? [...nd.blockNames][0] : null;
+    const pr = polByBlock.get(nNorm) || polByAC.get(nNorm) || (singleBlock ? polByBlock.get(singleBlock) : undefined) || null;
+    const political = pr
+      ? { mla: str(pr, 'mla_name'), party: str(pr, 'party'), reservation: str(pr, 'constituency_type'), lokSabha: str(pr, 'lok_sabha'), constituency: str(pr, 'constituency') }
+      : null;
+
+    const concentration = Math.round((100 * nd.total) / scopeTotal);
+    const schemeLoad = schemePct;
+    const recurrence = Math.min(100, nd.repeatCount * 20);
+    const reservation = political && (political.reservation === 'ST' || political.reservation === 'SC') ? 10 : 0;
+    const priorityScore = Math.min(100, Math.round(grievance.risk * 0.5 + schemeLoad * 0.2 + concentration * 0.15 + recurrence * 0.1 + reservation));
+    const grade = priorityScore >= 60 ? 'TOP' : priorityScore >= 40 ? 'HIGH' : priorityScore >= 20 ? 'WATCH' : 'LOW';
+
+    return {
+      name: nd.name, political, grievance,
+      sentiment: { avgAnger, dominantEmotion, ratedAnger: nd.angerN },
+      schemeGrievance: { count: nd.schemeCount, pct: schemePct, byScheme: Object.entries(nd.schemeByName).map(([scheme, count]) => ({ scheme, count })).sort((a, b) => b.count - a.count) },
+      recurrence: { repeatCount: nd.repeatCount },
+      topCauses: Object.entries(nd.causes).map(([rootCause, count]) => ({ rootCause, count })).sort((a, b) => b.count - a.count).slice(0, 4),
+      categoryMix: Object.entries(nd.cats).map(([category, count]) => ({ category, count })).sort((a, b) => b.count - a.count).slice(0, 5),
+      priority: { score: priorityScore, grade, components: { risk: grievance.risk, schemeLoad, concentration, recurrence, reservation } },
+    };
+  }).sort((a, b) => b.priority.score - a.priority.score);
+
+  return {
+    scope: brief.scope,
+    nodeGrain: brief.scope.subAreaLabel,
+    nodes: out,
+    external: NOT_CONNECTED.map(e => ({ source: e.source, status: 'NOT_CONNECTED', note: e.note })),
+    caveats: FUSION_CAVEATS,
+  };
+}
+
+/* ─────────────────────────────────────────────────────────────────
  * Telegram daily-brief formatting (HTML parse mode — Session 4 rule:
  * ALWAYS escape dynamic text for Telegram HTML)
  * ──────────────────────────────────────────────────────────────── */

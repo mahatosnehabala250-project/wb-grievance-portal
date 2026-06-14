@@ -27,6 +27,35 @@
 
 ---
 
+### SESSION 19 — Claude Code (June 14, 2026): Level 7 — Data Fusion / Entity Ontology (honest "360 area profile")
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). Design used a workflow whose DISCOVER phase (DB data-inventory + code-recon) succeeded; the design/critic/synth agents hit a session limit, so the spec was synthesized by hand from the (authoritative) inventory — same honesty discipline as Session 18.
+
+#### 🧠 Honest scope (from the data inventory)
+- A fused per-node entity profile IS buildable today — but it's a **grievance-intelligence** fusion, not the full Palantir "every signal" fusion. Real & fused: complaint load + composite risk, anger (NLP), top root-causes, category mix, a **complaint-driven scheme-FAILURE proxy** (Lakshmir Bhandar/Kanyashree/Pension/Yuvashree/Scholarship… detected from category + NLP root_cause), recurrence (repeat flag), and **political context** (MLA, party, ST/SC reservation, Lok Sabha) from constituency_block_mapping. NOT in DB → labeled "not connected" placeholders, never faked: census/SECC, election results/margins, news sentiment, weather/mandi, true scheme enrollment %, map lat/lng, per-area officer cards.
+
+#### ✅ NEW: `computeFusion(payload)` + `FusionResult`/`FusionNode` in `src/lib/intelligence.ts`
+- Reuses computeIntelligenceBrief (per-node hotspots+risk) + a scoped complaint re-fetch + complaint_nlp + constituency_block_mapping (political, joined by normalized block/AC name).
+- **Transparent priority score** that does NOT double-count: `risk*0.5 + schemeLoad*0.2 + concentration*0.15 + recurrence*0.1 + reservation`. (anger/SLA already live inside the composite risk; only ORTHOGONAL salience is added on top.) Component breakdown is returned so it's auditable.
+- Aggregate-only, scope-locked.
+
+#### ✅ NEW: `/api/intelligence/fusion` (thin scoped GET) + UI "Area Fusion — Entity 360" card
+- Priority-ranked node list; click → expand to the fused profile (political badge, grievance strip, scheme-failure breakdown, top causes, transparent priority math). An "External data — not connected" panel lists the pluggable sources (census/election/news/scheme-coverage) — the honest moat framing: framework ready, sources plug in later, never estimated. Caveats block.
+
+#### ⚠️ SECURITY finding (from inventory — for a later session): `complaint_nlp` has **RLS DISABLED**. Our routes use the service-role key server-side + scope filter so they're safe, but if the anon/publishable key can reach `complaint_nlp` from the client, enable RLS. Worth a quick audit.
+
+#### ✔️ Verification
+- tsc clean on all touched files (intelligence.ts, fusion route, IntelligenceCommandView).
+
+#### ⚠️ Next AI — Please Note
+- Fusion = `computeFusion` in intelligence.ts. Scheme detection = `SCHEME_PATTERNS` regex over category+root_cause. Add schemes there. It is a FAILURE proxy — never relabel it "coverage/saturation".
+- Priority weights are deliberately transparent and orthogonal-to-risk. Do not fold anger/SLA back in (double-counting).
+- External sources are placeholders by design. When real census/ECI data is added, slot it into `NOT_CONNECTED` → real fields; keep the "never fabricate" rule.
+- Roadmap: 1–7 + 9 done. Remaining: 8 (Network Intelligence), 10 (Autonomous Org).
+
+---
+
 ### SESSION 18 — Claude Code (June 14, 2026): Level 6 — Predictive Engine (HONEST early-warning, not fake ML)
 
 #### 🤖 AI Tool Info

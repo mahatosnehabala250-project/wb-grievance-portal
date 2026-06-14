@@ -94,6 +94,25 @@ interface Forecast {
   message: string;
 }
 
+interface FusionNode {
+  name: string;
+  political: { mla: string; party: string; reservation: string; lokSabha: string; constituency: string } | null;
+  grievance: { total: number; active: number; resolved: number; resolutionRate: number; critical: number; slaBreached: number; risk: number };
+  sentiment: { avgAnger: number | null; dominantEmotion: string | null; ratedAnger: number };
+  schemeGrievance: { count: number; pct: number; byScheme: Array<{ scheme: string; count: number }> };
+  recurrence: { repeatCount: number };
+  topCauses: Array<{ rootCause: string; count: number }>;
+  categoryMix: Array<{ category: string; count: number }>;
+  priority: { score: number; grade: string; components: { risk: number; schemeLoad: number; concentration: number; recurrence: number; reservation: number } };
+}
+interface Fusion {
+  scope: { level: string; label: string; subAreaLabel: string; generatedAt: string };
+  nodeGrain: string;
+  nodes: FusionNode[];
+  external: Array<{ source: string; status: string; note: string }>;
+  caveats: string[];
+}
+
 const RISK_COLORS: Record<string, { c: string; bg: string; bar: string }> = {
   LOW:      { c: 'text-emerald-500', bg: 'bg-emerald-500/10', bar: '#10B981' },
   GUARDED:  { c: 'text-lime-500',    bg: 'bg-lime-500/10',    bar: '#84CC16' },
@@ -173,6 +192,9 @@ export function IntelligenceCommandView() {
   const [nlpLoading, setNlpLoading] = useState(false);
   const [forecast, setForecast] = useState<Forecast | null>(null);
   const [forecastLoading, setForecastLoading] = useState(false);
+  const [fusion, setFusion] = useState<Fusion | null>(null);
+  const [fusionLoading, setFusionLoading] = useState(false);
+  const [openNode, setOpenNode] = useState<string | null>(null);
   const [advQ, setAdvQ] = useState('');
   const [advAnswer, setAdvAnswer] = useState<string | null>(null);
   const [advLoading, setAdvLoading] = useState(false);
@@ -274,6 +296,24 @@ export function IntelligenceCommandView() {
       toast.error('Failed to load forecast');
     } finally {
       setForecastLoading(false);
+    }
+  }, []);
+
+  /* Data Fusion / Entity 360 — ranked fused node profiles (on demand) */
+  const loadFusion = useCallback(async () => {
+    setFusionLoading(true);
+    try {
+      const res = await fetch('/api/intelligence/fusion', { headers: authHeaders() });
+      if (res.ok) {
+        const json = await res.json();
+        setFusion(json.data || null);
+      } else {
+        toast.error('Failed to load fusion');
+      }
+    } catch {
+      toast.error('Failed to load fusion');
+    } finally {
+      setFusionLoading(false);
     }
   }, []);
 
@@ -893,6 +933,126 @@ export function IntelligenceCommandView() {
                       <ul className="list-disc pl-4 space-y-0.5 mt-1">
                         {forecast.caveats.map((c, i) => <li key={i}>{c}</li>)}
                       </ul>
+                    </details>
+                  </>
+                )}
+              </CardContent>
+            )}
+          </Card>
+
+          {/* ── Data Fusion / Entity 360 (Level 7) ── */}
+          <Card className="border shadow-sm border-indigo-500/20">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-xs font-semibold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
+                <span className="flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-indigo-500" /> Area Fusion — Entity 360
+                  <span className="text-[9px] normal-case font-normal">(har ilake ka fused profile: grievance + anger + scheme-failure + political, priority-ranked)</span>
+                </span>
+                {!fusion && (
+                  <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={loadFusion} disabled={fusionLoading}>
+                    {fusionLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Fuse'}
+                  </Button>
+                )}
+              </CardTitle>
+            </CardHeader>
+            {fusion && (
+              <CardContent className="px-4 pb-3 space-y-2.5">
+                {fusion.nodes.length === 0 ? (
+                  <div className="text-[11px] text-muted-foreground italic py-2">No areas in scope yet.</div>
+                ) : (
+                  <>
+                    <div className="text-[10px] text-muted-foreground">Ranked by priority · grain: <span className="font-semibold">{fusion.nodeGrain}</span></div>
+                    {fusion.nodes.map((nd) => {
+                      const isOpen = openNode === nd.name;
+                      const gColor = nd.priority.grade === 'TOP' ? '#EF4444' : nd.priority.grade === 'HIGH' ? '#F59E0B' : nd.priority.grade === 'WATCH' ? '#84CC16' : '#10B981';
+                      return (
+                        <div key={nd.name} className="rounded-lg border border-indigo-500/15 bg-indigo-500/5 overflow-hidden">
+                          <div className="flex items-center gap-2 p-2 cursor-pointer hover:bg-indigo-500/10 transition-colors" onClick={() => setOpenNode(isOpen ? null : nd.name)}>
+                            {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+                            <span className="text-[12px] font-semibold flex-1 truncate">{nd.name}</span>
+                            {nd.political?.reservation && nd.political.reservation !== 'GENERAL' && (
+                              <Badge variant="outline" className="text-[8px] h-3.5 px-1">{nd.political.reservation}</Badge>
+                            )}
+                            {nd.schemeGrievance.pct > 0 && (
+                              <span className="text-[9px] text-violet-600">{nd.schemeGrievance.pct}% scheme</span>
+                            )}
+                            {nd.sentiment.avgAnger !== null && (
+                              <span className="text-[9px] text-red-500 flex items-center gap-0.5"><Frown className="w-3 h-3" />{nd.sentiment.avgAnger}</span>
+                            )}
+                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded" style={{ background: gColor + '22', color: gColor }}>{nd.priority.score}</span>
+                          </div>
+                          <AnimatePresence>
+                            {isOpen && (
+                              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                                <div className="px-3 pb-2.5 pt-1 space-y-2 border-t border-indigo-500/10">
+                                  {/* Political */}
+                                  {nd.political && (
+                                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground flex-wrap">
+                                      <Building className="w-3 h-3" />
+                                      <span className="font-medium text-foreground">{nd.political.mla}</span>
+                                      <Badge variant="outline" className="text-[8px] h-3.5 px-1">{nd.political.party}</Badge>
+                                      <span>· {nd.political.constituency} ({nd.political.reservation}) · {nd.political.lokSabha} LS</span>
+                                    </div>
+                                  )}
+                                  {/* Grievance stat strip */}
+                                  <div className="grid grid-cols-4 gap-1.5 text-center">
+                                    {[
+                                      { l: 'Risk', v: nd.grievance.risk, c: 'text-red-500' },
+                                      { l: 'Active', v: nd.grievance.active, c: 'text-orange-500' },
+                                      { l: 'Critical', v: nd.grievance.critical, c: 'text-rose-500' },
+                                      { l: 'Resolved', v: `${nd.grievance.resolutionRate}%`, c: 'text-emerald-500' },
+                                    ].map(k => (
+                                      <div key={k.l} className="bg-muted/40 rounded p-1">
+                                        <div className={`text-sm font-bold font-mono ${k.c}`}>{k.v}</div>
+                                        <div className="text-[8px] text-muted-foreground uppercase">{k.l}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {/* Scheme-failure breakdown */}
+                                  {nd.schemeGrievance.count > 0 && (
+                                    <div>
+                                      <div className="text-[9px] font-semibold uppercase tracking-wider text-violet-600 mb-0.5">Scheme-failure grievances ({nd.schemeGrievance.count}, {nd.schemeGrievance.pct}%) <span className="normal-case font-normal text-muted-foreground">— complaint proxy, not coverage</span></div>
+                                      <div className="flex flex-wrap gap-1">
+                                        {nd.schemeGrievance.byScheme.map(s => (
+                                          <span key={s.scheme} className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600">{s.scheme} ×{s.count}</span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {/* Top causes */}
+                                  {nd.topCauses.length > 0 && (
+                                    <div className="text-[10px] text-muted-foreground">
+                                      <span className="font-semibold">Top causes:</span> {nd.topCauses.map(c => `${c.rootCause} (${c.count})`).join(' · ')}
+                                    </div>
+                                  )}
+                                  {/* Priority component breakdown (transparency) */}
+                                  <div className="text-[9px] text-muted-foreground">
+                                    Priority {nd.priority.score} = risk {nd.priority.components.risk}×.5 + scheme {nd.priority.components.schemeLoad}×.2 + concentration {nd.priority.components.concentration}×.15 + recurrence {nd.priority.components.recurrence}×.1{nd.priority.components.reservation ? ` + reserved +${nd.priority.components.reservation}` : ''}
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      );
+                    })}
+
+                    {/* External data — not connected (the honest moat framing) */}
+                    <div className="rounded-lg bg-muted/30 p-2">
+                      <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
+                        <Network className="w-3 h-3" /> External data sources — not connected
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {fusion.external.map(e => (
+                          <span key={e.source} className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground/70" title={e.note}>○ {e.source}</span>
+                        ))}
+                      </div>
+                      <div className="text-[8px] text-muted-foreground/70 mt-1">Framework ready — plug these in (census / election / news / scheme coverage) to deepen each profile. Never estimated.</div>
+                    </div>
+
+                    <details className="text-[10px] text-muted-foreground">
+                      <summary className="cursor-pointer font-semibold">⚠ What this fusion is — and isn&apos;t ({fusion.caveats.length})</summary>
+                      <ul className="list-disc pl-4 space-y-0.5 mt-1">{fusion.caveats.map((c, i) => <li key={i}>{c}</li>)}</ul>
                     </details>
                   </>
                 )}
