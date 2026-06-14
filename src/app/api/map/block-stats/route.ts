@@ -1,13 +1,21 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { verifyToken, getTokenFromRequest } from "@/lib/jwt";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function GET() {
+// NOTE: superseded by /api/map/risk (scope-locked). Kept for back-compat but
+// now requires auth so it no longer leaks all-district data to anonymous callers.
+export async function GET(request: NextRequest) {
   try {
+    const token = getTokenFromRequest(request);
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const payload = await verifyToken(token);
+    if (!payload) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+
     // Fetch complaint stats by block
     const { data: complaints, error: ce } = await supabase
       .from("complaints")

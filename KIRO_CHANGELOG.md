@@ -27,6 +27,34 @@
 
 ---
 
+### SESSION 16 — Claude Code (June 14, 2026): Level 5 — Geospatial Risk Command (risk/anger heatmap)
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8) — Anthropic CLI
+- **Roadmap:** Level 5 of the 1→10 plan (1-4 + 9 done; this is 5).
+
+#### ✅ NEW: `/api/map/risk` — scope-locked geospatial risk endpoint
+- Per-block aggregates for the caller's jurisdiction ONLY (getComplaintScopeFilter — same boundary as /api/complaints): total, active, resolved, critical, slaBreached, resolutionRate, **avgAnger (from complaint_nlp)**, and a composite **risk score 0-100** (activeRatio*35 + slaRatio*25 + critical*20 + anger*20).
+- Aggregate-only (block level). No individual-citizen data.
+
+#### ✅ REBUILT: `src/components/MapView.tsx` — "Risk Command Map"
+- Now consumes the scope-locked /api/map/risk (was the unauthenticated block-stats).
+- **3 view modes:** 🎯 Risk / 😡 Anger / ✅ Resolution — markers colour by a green→amber→red heat ramp; size = active + critical load.
+- Rich popups (risk, anger, active, critical, SLA breach, resolution %, top categories), adaptive legend, sidebar ranked by the active mode.
+- **Auto-centres on the scoped blocks** — an MLA lands on their AC, a karyakarta on their area, not all-WB.
+
+#### ✅ SECURITY: `/api/map/block-stats` now requires auth (was anonymous — leaked all-district data). Superseded by /api/map/risk; kept for back-compat with an auth guard.
+
+#### ✔️ Verification
+- tsc clean on all touched files (map/risk, MapView, block-stats).
+
+#### ⚠️ Next AI — Please Note
+- Block coordinates are a hardcoded table in MapView (`BLOCK_COORDS`, Purulia + a few others). New districts need rows there OR a proper lgd-village coordinate join. Map degrades gracefully (defaults to Purulia centre) if a block is missing.
+- Risk-score weights live in /api/map/risk — tune there. Anger comes from complaint_nlp (populated by n8n JS-22), so anger mode is richer as enrichment backfills.
+- Next planned roadmap step: Level 6 (Predictive Engine — volume/SLA-breach forecasting; `seasonal_patterns` table already exists).
+
+---
+
 ### SESSION 15 — Claude Code (June 13, 2026): AI Chief-of-Staff (Level 9) — DeepSeek-powered scoped Q&A
 
 #### 🤖 AI Tool Info
