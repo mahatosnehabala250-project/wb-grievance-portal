@@ -113,6 +113,19 @@ interface Fusion {
   caveats: string[];
 }
 
+interface NetNode {
+  name: string; level: string; total: number; active: number; resolved: number;
+  unresolvedPct: number; avgAnger: number | null; children: NetNode[];
+}
+interface NetworkData {
+  scope: { level: string; label: string; subAreaLabel: string; generatedAt: string };
+  tree: NetNode[];
+  weakestLinks: Array<{ name: string; level: string; total: number; unresolvedPct: number; avgAnger: number | null }>;
+  coOccurrence: { edges: Array<{ a: string; b: string; sharedAreas: number }>; note: string };
+  gaps: Array<{ feature: string; status: string; note: string }>;
+  caveats: string[];
+}
+
 const RISK_COLORS: Record<string, { c: string; bg: string; bar: string }> = {
   LOW:      { c: 'text-emerald-500', bg: 'bg-emerald-500/10', bar: '#10B981' },
   GUARDED:  { c: 'text-lime-500',    bg: 'bg-lime-500/10',    bar: '#84CC16' },
@@ -180,6 +193,26 @@ function Momentum({ pct }: { pct: number }) {
   return <span className="flex items-center gap-0.5 text-muted-foreground text-[10px] font-semibold"><Minus className="w-3 h-3" />{pct}%</span>;
 }
 
+/* Recursive org-chain node row (Network Intelligence) */
+function NetTreeNode({ node, depth }: { node: NetNode; depth: number }) {
+  const uColor = node.unresolvedPct >= 60 ? '#EF4444' : node.unresolvedPct >= 35 ? '#F59E0B' : '#10B981';
+  return (
+    <div>
+      <div className="flex items-center gap-2 py-0.5" style={{ paddingLeft: depth * 14 }}>
+        {depth > 0 && <span className="text-muted-foreground/40 text-[10px]">└</span>}
+        <span className="text-[11px] font-medium truncate flex-1" style={{ maxWidth: 160 }}>{node.name}</span>
+        <span className="text-[8px] text-muted-foreground uppercase">{node.level}</span>
+        <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className="h-full rounded-full" style={{ width: `${node.unresolvedPct}%`, background: uColor }} />
+        </div>
+        <span className="text-[9px] font-mono text-muted-foreground w-16 text-right">{node.total}c · {node.unresolvedPct}% open</span>
+        {node.avgAnger !== null && node.avgAnger >= 60 && <span className="text-[9px] text-red-500">😡{node.avgAnger}</span>}
+      </div>
+      {node.children.map((ch) => <NetTreeNode key={node.name + '>' + ch.name} node={ch} depth={depth + 1} />)}
+    </div>
+  );
+}
+
 /* ─── Main ─── */
 export function IntelligenceCommandView() {
   const [brief, setBrief] = useState<Brief | null>(null);
@@ -195,6 +228,8 @@ export function IntelligenceCommandView() {
   const [fusion, setFusion] = useState<Fusion | null>(null);
   const [fusionLoading, setFusionLoading] = useState(false);
   const [openNode, setOpenNode] = useState<string | null>(null);
+  const [network, setNetwork] = useState<NetworkData | null>(null);
+  const [networkLoading, setNetworkLoading] = useState(false);
   const [advQ, setAdvQ] = useState('');
   const [advAnswer, setAdvAnswer] = useState<string | null>(null);
   const [advLoading, setAdvLoading] = useState(false);
@@ -296,6 +331,24 @@ export function IntelligenceCommandView() {
       toast.error('Failed to load forecast');
     } finally {
       setForecastLoading(false);
+    }
+  }, []);
+
+  /* Network Intelligence — org/escalation tree + weakest links (on demand) */
+  const loadNetwork = useCallback(async () => {
+    setNetworkLoading(true);
+    try {
+      const res = await fetch('/api/intelligence/network', { headers: authHeaders() });
+      if (res.ok) {
+        const json = await res.json();
+        setNetwork(json.data || null);
+      } else {
+        toast.error('Failed to load network');
+      }
+    } catch {
+      toast.error('Failed to load network');
+    } finally {
+      setNetworkLoading(false);
     }
   }, []);
 
@@ -1056,6 +1109,86 @@ export function IntelligenceCommandView() {
                     </details>
                   </>
                 )}
+              </CardContent>
+            )}
+          </Card>
+
+          {/* ── Network Intelligence (Level 8) — org chain + weakest links ── */}
+          <Card className="border shadow-sm border-teal-500/20">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-xs font-semibold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
+                <span className="flex items-center gap-1.5">
+                  <Network className="w-3.5 h-3.5 text-teal-500" /> Network Intelligence
+                  <span className="text-[9px] normal-case font-normal">(org chain ka flow + kahan complaints atak rahe hain)</span>
+                </span>
+                {!network && (
+                  <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={loadNetwork} disabled={networkLoading}>
+                    {networkLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Map'}
+                  </Button>
+                )}
+              </CardTitle>
+            </CardHeader>
+            {network && (
+              <CardContent className="px-4 pb-3 space-y-3">
+                {/* Weakest links */}
+                {network.weakestLinks.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-red-500 mb-1 flex items-center gap-1">
+                      <ShieldAlert className="w-3 h-3" /> Weakest Links — chain mein yahan backlog atka hai
+                    </div>
+                    <div className="space-y-1">
+                      {network.weakestLinks.map((w) => (
+                        <div key={w.level + w.name} className="flex items-center gap-2 text-[11px] rounded-lg bg-red-500/5 border border-red-500/15 p-1.5">
+                          <span className="font-semibold flex-1 truncate">{w.name}</span>
+                          <Badge variant="outline" className="text-[8px] h-3.5 px-1">{w.level}</Badge>
+                          <span className="text-[10px] text-red-500 font-mono">{w.unresolvedPct}% open</span>
+                          <span className="text-[9px] text-muted-foreground">{w.total} complaints</span>
+                          {w.avgAnger !== null && <span className="text-[9px] text-red-500">😡{w.avgAnger}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Org/escalation tree */}
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
+                    <Building className="w-3 h-3" /> Escalation Chain (load → unresolved%)
+                  </div>
+                  <div className="rounded-lg bg-muted/20 p-2 max-h-[280px] overflow-y-auto">
+                    {network.tree.length > 0 ? network.tree.map((n) => <NetTreeNode key={n.name} node={n} depth={0} />) : (
+                      <div className="text-[10px] text-muted-foreground italic">No complaints in scope.</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Issue co-occurrence (thin, caveated) */}
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
+                    <Layers className="w-3 h-3" /> Issue Links (co-location)
+                  </div>
+                  {network.coOccurrence.edges.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {network.coOccurrence.edges.map((e) => (
+                        <span key={e.a + e.b} className="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-600">{e.a} ↔ {e.b} <span className="text-muted-foreground">×{e.sharedAreas}</span></span>
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="text-[9px] text-muted-foreground mt-0.5">{network.coOccurrence.note}</div>
+                </div>
+
+                {/* Honest gaps */}
+                <div className="rounded-lg bg-muted/30 p-2">
+                  <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Not available yet (honest)</div>
+                  {network.gaps.map((g) => (
+                    <div key={g.feature} className="text-[10px] text-muted-foreground/80">○ <span className="font-medium">{g.feature}</span> — {g.note}</div>
+                  ))}
+                </div>
+
+                <details className="text-[10px] text-muted-foreground">
+                  <summary className="cursor-pointer font-semibold">⚠ What is real here ({network.caveats.length})</summary>
+                  <ul className="list-disc pl-4 space-y-0.5 mt-1">{network.caveats.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                </details>
               </CardContent>
             )}
           </Card>

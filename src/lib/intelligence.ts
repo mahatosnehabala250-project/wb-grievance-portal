@@ -746,6 +746,139 @@ export async function computeFusion(payload: JWTPayload): Promise<FusionResult> 
 }
 
 /* ─────────────────────────────────────────────────────────────────
+ * Network Intelligence (Level 8) — computeNetwork
+ *
+ * Recon verdict (real queries): issue-cascade / contagion graphs are NOT
+ * supported by the data yet — category co-occurrence is thin and concentration-
+ * driven, and ZERO root-causes span ≥2 villages. So those are honest "not enough
+ * data" placeholders, never fabricated edges.
+ *
+ * What IS real and networked: the ORGANISATIONAL / escalation chain. Each scope
+ * is a tree (e.g. MP: AC → block → village) with complaint load + unresolved%
+ * + anger flowing through it, exposing WHERE in the chain the backlog concentrates
+ * — the "weakest links". Plus a thin, clearly-caveated issue co-occurrence panel.
+ * Aggregate-only, scope-locked.
+ * ──────────────────────────────────────────────────────────────── */
+
+export interface NetNode {
+  name: string; level: string; total: number; active: number; resolved: number;
+  unresolvedPct: number; avgAnger: number | null; children: NetNode[];
+}
+export interface NetworkResult {
+  scope: { level: string; label: string; subAreaLabel: string; generatedAt: string };
+  tree: NetNode[];
+  weakestLinks: Array<{ name: string; level: string; total: number; unresolvedPct: number; avgAnger: number | null }>;
+  coOccurrence: { edges: Array<{ a: string; b: string; sharedAreas: number }>; note: string };
+  gaps: Array<{ feature: string; status: string; note: string }>;
+  caveats: string[];
+}
+
+function netChain(user: JWTPayload, c: C): Array<{ level: string; name: string }> {
+  const lvl = user.role_level;
+  const out: Array<{ level: string; name: string }> = [];
+  const push = (level: string, val: string) => { if (val) out.push({ level, name: val }); };
+  if (user.role === 'ADMIN' || user.role === 'STATE') {
+    push('District', str(c, 'district')); push('Assembly', str(c, 'assembly_constituency', 'assemblyConstituency', 'constituency')); push('Block', str(c, 'block'));
+  } else if (lvl === 'MP') {
+    push('Assembly', str(c, 'assembly_constituency', 'assemblyConstituency', 'constituency')); push('Block', str(c, 'block')); push('Village', str(c, 'village'));
+  } else if (lvl === 'MLA') {
+    push('Block', str(c, 'block')); push('Village', str(c, 'village'));
+  } else if (lvl === 'DISTRICT_ADMIN' || user.role === 'DISTRICT') {
+    push('Block', str(c, 'block')); push('Village', str(c, 'village'));
+  } else if (lvl === 'BLOCK_COORD' || user.role === 'BLOCK') {
+    push('Gram Panchayat', str(c, 'gp_name', 'gpName') || str(c, 'gp_code')); push('Village', str(c, 'village'));
+  } else {
+    push('Village', str(c, 'village'));
+  }
+  return out;
+}
+
+export async function computeNetwork(payload: JWTPayload): Promise<NetworkResult> {
+  const where = getComplaintScopeFilter(payload);
+  const complaints: C[] = await db.complaint.findMany({ where, orderBy: { createdAt: 'desc' }, take: 3000 });
+
+  const ids = complaints.map(c => str(c, 'id')).filter(Boolean);
+  const angerById = new Map<string, number>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data } = await supabase.from('complaint_nlp').select('complaint_id, anger_score').in('complaint_id', ids.slice(i, i + 200));
+    for (const r of (data || []) as unknown as C[]) {
+      const a = typeof r.anger_score === 'number' ? r.anger_score : null;
+      if (a !== null) angerById.set(str(r, 'complaint_id'), a);
+    }
+  }
+
+  type Agg = { name: string; level: string; total: number; active: number; resolved: number; angerSum: number; angerN: number; children: Map<string, Agg> };
+  const root = new Map<string, Agg>();
+  for (const c of complaints) {
+    const chain = netChain(payload, c);
+    if (chain.length === 0) continue;
+    let levelMap = root;
+    for (const seg of chain) {
+      if (!levelMap.has(seg.name)) levelMap.set(seg.name, { name: seg.name, level: seg.level, total: 0, active: 0, resolved: 0, angerSum: 0, angerN: 0, children: new Map() });
+      const node = levelMap.get(seg.name)!;
+      node.total++;
+      if (isActive(c)) node.active++;
+      if (isResolved(c)) node.resolved++;
+      const a = angerById.get(str(c, 'id'));
+      if (a !== undefined) { node.angerSum += a; node.angerN++; }
+      levelMap = node.children;
+    }
+  }
+
+  const weakest: NetworkResult['weakestLinks'] = [];
+  const toNode = (agg: Agg): NetNode => {
+    const unresolvedPct = agg.total ? Math.round((100 * (agg.total - agg.resolved)) / agg.total) : 0;
+    const avgAnger = agg.angerN ? Math.round(agg.angerSum / agg.angerN) : null;
+    if (agg.total >= 3 && unresolvedPct >= 60) weakest.push({ name: agg.name, level: agg.level, total: agg.total, unresolvedPct, avgAnger });
+    return {
+      name: agg.name, level: agg.level, total: agg.total, active: agg.active, resolved: agg.resolved, unresolvedPct, avgAnger,
+      children: [...agg.children.values()].sort((a, b) => b.total - a.total).map(toNode),
+    };
+  };
+  const tree = [...root.values()].sort((a, b) => b.total - a.total).map(toNode);
+  weakest.sort((a, b) => b.unresolvedPct * b.total - a.unresolvedPct * a.total);
+
+  // Issue co-occurrence (category pairs sharing ≥2 blocks) — thin, clearly caveated
+  const blockCats: Record<string, Set<string>> = {};
+  for (const c of complaints) {
+    const b = str(c, 'block'); if (!b) continue;
+    (blockCats[b] ||= new Set()).add((str(c, 'category') || 'OTHER').toUpperCase());
+  }
+  const pairCount: Record<string, number> = {};
+  for (const b of Object.keys(blockCats)) {
+    const cats = [...blockCats[b]].sort();
+    for (let i = 0; i < cats.length; i++) for (let j = i + 1; j < cats.length; j++) {
+      pairCount[`${cats[i]}||${cats[j]}`] = (pairCount[`${cats[i]}||${cats[j]}`] || 0) + 1;
+    }
+  }
+  const edges = Object.entries(pairCount).filter(([, n]) => n >= 2)
+    .map(([k, n]) => { const [a, b] = k.split('||'); return { a, b, sharedAreas: n }; })
+    .sort((x, y) => y.sharedAreas - x.sharedAreas).slice(0, 8);
+
+  return {
+    scope: { level: payload.role_level || payload.role, label: scopeLabel(payload), subAreaLabel: subAreaLabel(payload), generatedAt: new Date().toISOString() },
+    tree,
+    weakestLinks: weakest.slice(0, 6),
+    coOccurrence: {
+      edges,
+      note: edges.length
+        ? 'Categories that recur in the same areas (co-location, NOT proven causation). Thin on current data — directional only.'
+        : 'Not enough co-occurring data yet — needs more complaints across more areas.',
+    },
+    gaps: [
+      { feature: 'Issue-cascade / contagion graph', status: 'NOT_ENOUGH_DATA', note: 'No root-cause currently spans ≥2 villages; cascade chains need longitudinal volume to be real, not fabricated.' },
+      { feature: 'Competitor / opposition watch', status: 'NOT_CONNECTED', note: 'Single-party dataset; no opposition, election-margin, or press data connected.' },
+      { feature: 'Officer response-chain timing', status: 'NOT_ENOUGH_DATA', note: 'Most complaints unassigned and resolution timestamps are ~96% missing.' },
+    ],
+    caveats: [
+      'The organisational tree (load + unresolved%) is REAL. The issue-cascade graph is NOT — no root-cause spans multiple villages yet, so it is shown as a labeled gap, not fabricated.',
+      'Co-occurrence = categories sharing an area (co-location), never proven causation; thin on ~56 complaints.',
+      'Competitor watch needs opposition/election/news data that is not connected.',
+    ],
+  };
+}
+
+/* ─────────────────────────────────────────────────────────────────
  * Telegram daily-brief formatting (HTML parse mode — Session 4 rule:
  * ALWAYS escape dynamic text for Telegram HTML)
  * ──────────────────────────────────────────────────────────────── */

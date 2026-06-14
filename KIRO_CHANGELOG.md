@@ -27,6 +27,35 @@
 
 ---
 
+### SESSION 20 — Claude Code (June 14, 2026): Level 8 — Network Intelligence (org/escalation chain; cascade honestly data-gated)
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). Data recon done directly via SQL.
+
+#### 🧠 Honest finding (real queries)
+- The headline Level-8 idea — **issue-cascade / contagion graphs** — is NOT supported by the data: category co-occurrence is thin and concentration-driven (only OTHER↔WATER/ROAD across 2 blocks each), and **ZERO root-causes span ≥2 villages**. Building a cascade graph would fabricate edges. So that is a labeled gap, not a feature.
+- **Competitor watch** also not possible (single-party dataset; no opposition/election/news data).
+- What IS real: the **organisational / escalation tree** + **weakest-link** detection.
+
+#### ✅ NEW: `computeNetwork(payload)` + `NetworkResult`/`NetNode` in `src/lib/intelligence.ts`
+- Builds the scope's admin chain as a tree (ADMIN: District→AC→Block; MP: AC→Block→Village; MLA: Block→Village; Block-coord: GP→Village; …) from scoped complaints. Each node: load, active, resolved, **unresolved%**, avgAnger (NLP).
+- **Weakest links:** nodes with total≥3 AND unresolved≥60%, ranked by unresolved×volume — shows WHERE in the chain the backlog concentrates.
+- Thin **issue co-occurrence** (categories sharing ≥2 blocks) — clearly labeled co-location, NOT causation.
+- Honest **gaps** array: issue-cascade (NOT_ENOUGH_DATA), competitor watch (NOT_CONNECTED), officer response-timing (NOT_ENOUGH_DATA). Aggregate-only, scope-locked.
+
+#### ✅ NEW: `/api/intelligence/network` (thin scoped GET) + UI "Network Intelligence" card
+- Weakest-links list, recursive org-chain tree (load bar + unresolved% color + anger), issue-links chips, honest "not available yet" gaps, caveats. New `NetTreeNode` recursive renderer.
+
+#### ✔️ Verification
+- tsc clean on all touched files.
+
+#### ⚠️ Next AI — Please Note
+- The org tree is REAL; the cascade/contagion graph is intentionally NOT built (no multi-village root-cause spread exists yet). When data grows (root-causes spanning villages, longitudinal volume), the cascade graph can be added — until then keep it a labeled gap, do NOT fabricate edges.
+- Co-occurrence is co-location only; never relabel it causation.
+- Roadmap: 1–9 done (8 = this). Remaining: 10 (Autonomous Org). Earlier security TODO still open: enable RLS on `complaint_nlp`.
+
+---
+
 ### SESSION 19 — Claude Code (June 14, 2026): Level 7 — Data Fusion / Entity Ontology (honest "360 area profile")
 
 #### 🤖 AI Tool Info
