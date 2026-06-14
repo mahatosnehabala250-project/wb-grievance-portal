@@ -43,9 +43,13 @@
 #### ✔️ Verified
 - Distinct Manbazar blocks: 6 → 2. Counts add up (23 = all Manbazar-I variants merged).
 
+#### ✅ Follow-up (same session): DISTRICT normalization too (migration `add_district_normalization`)
+- The `district` field had the same problem ("Purulia" vs "purulia") which was splitting "Manbazar I" into two map markers. Added `normalize_district(text)` (canonical match vs `constituency_block_mapping.district`, fallback initcap), backfilled, and EXTENDED the trigger to fire on block OR district change and clean both.
+- Result: MLA Bandwan map now shows exactly 2 clean blocks — Manbazar I (16) + Manbazar II (3) — no fragments.
+
 #### ⚠️ Next AI — Please Note
-- Block canonicalization is now enforced at the DB layer (trigger + `normalize_block`). Source of truth = `constituency_block_mapping.block_name`. To add canonical blocks for NEW districts, add rows there and the function auto-covers them.
-- The trigger does NOT touch `register_complaint`'s logic — it only cleans the stored block value AFTER the row is built. Did not modify the CRITICAL `register_complaint` function.
+- Block AND district canonicalization is now enforced at the DB layer (trigger `complaints_normalize_block` + `normalize_block` / `normalize_district`). Source of truth = `constituency_block_mapping`. To add canonical blocks/districts for NEW areas, add rows there and the functions auto-cover them.
+- The trigger does NOT touch `register_complaint`'s logic — it only cleans the stored block/district AFTER the row is built. Did not modify the CRITICAL `register_complaint` function.
 - Same pattern could be applied to other messy free-text fields later (village, gp_name) if needed.
 
 ---
