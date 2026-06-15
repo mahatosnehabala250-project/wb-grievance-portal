@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
+import { complaintInScope } from '@/lib/rbac';
 
 // GET /api/complaints/[id]/comments — returns comments for a complaint
 export async function GET(
@@ -19,9 +20,9 @@ export async function GET(
 
   const { id } = await params;
 
-  // Verify complaint exists
+  // Verify complaint exists AND is within the caller's jurisdiction.
   const complaint = await db.complaint.findUnique({ where: { id } });
-  if (!complaint) {
+  if (!complaint || !complaintInScope(payload, complaint as Record<string, unknown>)) {
     return NextResponse.json({ error: 'Complaint not found' }, { status: 404 });
   }
 
@@ -70,11 +71,9 @@ export async function POST(
     return NextResponse.json({ error: 'Complaint not found' }, { status: 404 });
   }
 
-  // Role-based permission check
-  if (payload.role === 'BLOCK' && complaint.block !== payload.block) {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-  }
-  if (payload.role === 'DISTRICT' && complaint.district !== payload.block) {
+  // Scope check — caller may only comment inside their jurisdiction
+  // (governance role_level aware).
+  if (!complaintInScope(payload, complaint as Record<string, unknown>)) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 });
   }
 

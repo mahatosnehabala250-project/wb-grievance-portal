@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
+import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
 
 // GET /api/activity-feed — Returns latest activity logs + webhook stats
 export async function GET(request: NextRequest) {
@@ -17,10 +17,9 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Math.max(parseInt(limitParam || '50', 10) || 50, 1), 200);
   const since = sinceParam ? new Date(sinceParam) : undefined;
 
-  // Build where clause for role-based filtering
-  const complaintWhere: Record<string, unknown> = {};
-  if (payload.role === 'BLOCK') complaintWhere.block = payload.block;
-  else if (payload.role === 'DISTRICT') complaintWhere.district = payload.block;
+  // Scope-lock to the user's jurisdiction (governance role_level aware).
+  const scopeFilter = getComplaintScopeFilter(payload);
+  const complaintWhere: Record<string, unknown> = { ...scopeFilter };
 
   // Build activity log where
   const activityWhere: Record<string, unknown> = {};
@@ -45,9 +44,7 @@ export async function GET(request: NextRequest) {
   });
 
   // Webhook stats: complaints where source = 'WHATSAPP'
-  const webhookWhere: Record<string, unknown> = { source: 'WHATSAPP' };
-  if (payload.role === 'BLOCK') webhookWhere.block = payload.block;
-  else if (payload.role === 'DISTRICT') webhookWhere.district = payload.block;
+  const webhookWhere: Record<string, unknown> = { source: 'WHATSAPP', ...scopeFilter };
 
   const webhookCount = await db.complaint.count({
     where: webhookWhere,
@@ -68,9 +65,8 @@ export async function GET(request: NextRequest) {
 
   const hourWhere: Record<string, unknown> = {
     createdAt: { gte: oneHourAgo },
+    ...scopeFilter,
   };
-  if (payload.role === 'BLOCK') hourWhere.block = payload.block;
-  else if (payload.role === 'DISTRICT') hourWhere.district = payload.block;
 
   const complaintsThisHour = await db.complaint.count({
     where: hourWhere,

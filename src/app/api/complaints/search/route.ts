@@ -4,9 +4,12 @@ import { db } from '@/lib/db';
 /**
  * GET /api/complaints/search
  *
- * Public endpoint for n8n workflows (WB-01 Check Duplicate) to search
+ * Internal endpoint for n8n workflows (WB-01 Check Duplicate) to search
  * existing complaints by phone and keywords.
- * No auth required — called by n8n internal workflow.
+ *
+ * Auth: X-N8N-SECRET header must match N8N_WEBHOOK_SECRET (fail-closed).
+ * Returns citizen PII (phone, name) so it must never be reachable by the
+ * public internet. n8n HTTP nodes calling this MUST send the x-n8n-secret header.
  *
  * Query params:
  *   phone - citizen phone number (WhatsApp number)
@@ -15,6 +18,11 @@ import { db } from '@/lib/db';
  */
 export async function GET(request: NextRequest) {
   try {
+    const secret = request.headers.get('x-n8n-secret');
+    if (!process.env.N8N_WEBHOOK_SECRET || secret !== process.env.N8N_WEBHOOK_SECRET) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const phone = searchParams.get('phone') || '';
     const keywords = searchParams.get('keywords') || '';

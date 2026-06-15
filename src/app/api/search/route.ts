@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
+import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
 
 // GET /api/search?q=xxx — global search for command palette
 export async function GET(request: NextRequest) {
@@ -29,11 +29,9 @@ export async function GET(request: NextRequest) {
     ],
   };
 
-  if (payload.role === 'BLOCK') {
-    complaintWhere.block = payload.block;
-  } else if (payload.role === 'DISTRICT') {
-    complaintWhere.district = payload.block;
-  }
+  // Scope-lock to the user's jurisdiction (governance role_level aware),
+  // ANDed with the search OR. Applied last so it can't be widened by the query.
+  Object.assign(complaintWhere, getComplaintScopeFilter(payload));
 
   // Build role-based where for users (admin only)
   const userWhere: Record<string, unknown> = {};

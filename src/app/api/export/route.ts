@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { verifyToken } from '@/lib/jwt';
+import { verifyToken, getComplaintScopeFilter } from '@/lib/jwt';
 
 // GET /api/export?format=csv&status=xxx&token=xxx — export complaints as CSV
 export async function GET(request: NextRequest) {
@@ -19,14 +19,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Only CSV format is supported' }, { status: 400 });
   }
 
-  // Build where clause based on role
-  const where: Record<string, unknown> = {};
-
-  if (payload.role === 'BLOCK') {
-    where.block = payload.block;
-  } else if (payload.role === 'DISTRICT') {
-    where.district = payload.block;
-  }
+  // Build where clause — scope-lock to the user's jurisdiction (governance
+  // role_level aware). Applied first so query params can never broaden it.
+  const where: Record<string, unknown> = { ...getComplaintScopeFilter(payload) };
 
   if (status) where.status = status;
 

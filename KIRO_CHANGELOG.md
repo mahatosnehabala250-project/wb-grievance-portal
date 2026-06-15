@@ -27,6 +27,36 @@
 
 ---
 
+### SESSION 21 — Claude Code (June 15, 2026): End-to-end security audit + fixes (PII leak closure, scope-lock legacy routes, RBAC geo-forcing, `complaint_nlp` RLS)
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). Full-codebase auth/scope audit, then fixed every real finding. DB hardening verified directly via Supabase SQL.
+
+#### 🧠 Why this session
+- User asked for "end to end verify audit". Audit verdict was **RED**: the RBAC build (Sessions 1–6) secured the *main* complaint routes, but several **legacy routes were never migrated** and still leaked citizen PII. Worst of all, a derived DB table (`complaint_nlp`) was readable/writable by the **public anon key**.
+
+#### 🔴 CRITICAL fixed
+1. **`/api/complaints/search`** & **`/api/n8n/complaints`** — were fully **unauthenticated** ("no auth — called by n8n") yet returned citizen name + phone + full rows. Added the codebase-standard **`x-n8n-secret` vs `N8N_WEBHOOK_SECRET`** fail-closed guard (same pattern as `check-duplicate`/`register`/`validate-block`).
+2. **`complaint_nlp` table — RLS was OFF while `anon` held full SELECT/INSERT/UPDATE/DELETE.** The public anon key (ships in the browser bundle) could hit `GET/POST .../rest/v1/complaint_nlp` directly and read/modify all NLP-enriched data. Migration `enable_rls_complaint_nlp`: `ENABLE` + `FORCE` RLS, added `service_role_complaint_nlp` (FOR ALL, the app's only real path) + `jurisdictional_read_complaint_nlp` (authenticated SELECT mirroring the `complaints` policy via the parent row). Verified: rls_on=true, forced=true, 2 policies. **App unaffected** — all 5 server consumers (`intelligence.ts`, `map/risk`, `advisor`, `cron/nlp-enrich`, `nlp-insights`) use `SUPABASE_SERVICE_ROLE_KEY`, which the service_role policy covers.
+3. **`/api/export`** — `?token=` auth was fine but scope was legacy `role==='BLOCK'/'DISTRICT'` only → governance role_levels (MP/MLA/DISTRICT_ADMIN/GP_COORD/KARYAKARTA) fell through to **no filter = state-wide CSV** of Name+Phone. Swapped to `getComplaintScopeFilter(payload)`.
+
+#### 🟠 HIGH fixed
+- **`/api/search`** & **`/api/activity-feed`** — same legacy `BLOCK/DISTRICT`-only scope (state-wide leak for every governance role). Replaced all branches with `getComplaintScopeFilter(payload)` (activity-feed: applied to complaint/webhook/hour where-clauses).
+- **`/api/ticket/[ticketNo]`** — authenticated but **no per-record scope check**; any staff could look up any ticket statewide. Now fetches the full row, runs `complaintInScope(payload, …)`, returns **404** (not 403) for out-of-scope so existence isn't leaked, and the response is trimmed to the citizen-facing subset (no phone).
+- **`/api/complaints/[id]/comments`** — GET had **no scope check** (existence only) and POST used legacy `BLOCK/DISTRICT`. Both now gated by `complaintInScope` (GET → 404, POST → 403).
+- **RBAC geo not forced into creator scope** (`src/lib/rbac.ts` `validateNewUserScope` + `/api/users` POST) — every geo check was guarded by `if (geo.X && …)`, so a **blank** field skipped validation and the route persisted null/blank or **un-cross-checked client values** (only MP's lok_sabha was force-set). Now `validateNewUserScope` returns a **resolved `geo`** with every omitted/owned field forced to the actor's jurisdiction (MP→seat, MLA→constituency, DISTRICT→district, BLOCK→block, GP→gp_code/name+parents). POST persists `verdict.geo` instead of raw client input → a scoped creator can never mint an unbound or cross-seat user. (PATCH still re-validates via `validateNewUserScope`; it reads `.ok` only, backward-compatible.)
+
+#### ✔️ Verification
+- `npx tsc --noEmit` — **clean on all touched files** (`export`, `search`, `activity-feed`, `ticket/[ticketNo]`, `complaints/search`, `n8n/complaints`, `complaints/[id]/comments`, `lib/rbac.ts`, `api/users`). Pre-existing repo-wide tsc errors (examples/, tests/, seed.ts, db.ts internal typing, leaderboard) are unrelated and predate this session.
+- `complaint_nlp` RLS state confirmed via SQL after migration.
+
+#### ⚠️ Next AI — Please Note (ACTION REQUIRED if these endpoints are live in n8n)
+- **`/api/complaints/search` and `/api/n8n/complaints` now require the `x-n8n-secret` header.** If any n8n HTTP node calls them, add header `x-n8n-secret = {{ $env.N8N_WEBHOOK_SECRET }}` (same value as Vercel `N8N_WEBHOOK_SECRET`). The primary intake (JS-01) and duplicate check (`check-duplicate`) already use the secret pattern, so these two may be unused legacy — verify before assuming breakage.
+- Residual (low): for an **MLA/DISTRICT** creating a GP_COORD/KARYAKARTA, the supplied `gp_code` is anchored to the creator's constituency/district but not individually verified against a gp→AC mapping (no such mapping table yet). Constituency/district binding is enforced; tighten when a gp↔AC map exists.
+- Roadmap unchanged: 1–9 done. Remaining: Level 10 (Autonomous Org). **The earlier `complaint_nlp` RLS TODO is now CLOSED.**
+
+---
+
 ### SESSION 20 — Claude Code (June 14, 2026): Level 8 — Network Intelligence (org/escalation chain; cascade honestly data-gated)
 
 #### 🤖 AI Tool Info
@@ -959,7 +989,7 @@ Standard Dashboard + Complaints views now respect the FULL hierarchy scope for a
 ### Supabase Project
 - Project ref: `sxdtipaspfolrpqrwadt`
 - URL: `https://sxdtipaspfolrpqrwadt.supabase.co`
-- Total migrations applied: 118
+- Total migrations applied: 119 (latest: `enable_rls_complaint_nlp`, Jun 15)
 
 ### GitHub Repo
 - `mahatosnehabala250-project/wb-grievance-portal`

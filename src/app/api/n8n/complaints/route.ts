@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-// GET /api/n8n/complaints — Public complaints query for n8n workflows (no auth)
+// GET /api/n8n/complaints — Internal complaints query for n8n workflows.
+// Auth: X-N8N-SECRET header must match N8N_WEBHOOK_SECRET (fail-closed).
+// Returns full complaint rows incl. citizen PII — must never be public.
 export async function GET(request: NextRequest) {
   try {
+    const secret = request.headers.get('x-n8n-secret');
+    if (!process.env.N8N_WEBHOOK_SECRET || secret !== process.env.N8N_WEBHOOK_SECRET) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const statusParam = searchParams.get('status');
     const assigned = searchParams.get('assigned');

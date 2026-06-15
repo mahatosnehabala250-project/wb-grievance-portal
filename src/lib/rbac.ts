@@ -310,8 +310,24 @@ export interface NewUserGeo {
 export async function validateNewUserScope(
   actor: JWTPayload,
   geo: NewUserGeo
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; geo: NewUserGeo } | { ok: false; error: string }> {
   const lvl = geo.role_level;
+
+  // Build the geography that will actually be persisted. Any field the caller
+  // omitted (or that the actor's role must own) is FORCED to the actor's own
+  // jurisdiction, so a scoped creator can never mint an unbound user or one
+  // tagged to a seat/district/block outside their scope. `overrides` win.
+  const resolve = (overrides: Partial<NewUserGeo>): NewUserGeo => ({
+    role_level: lvl,
+    constituency: geo.constituency ?? null,
+    lok_sabha_constituency: geo.lok_sabha_constituency ?? null,
+    district: geo.district ?? null,
+    block: geo.block ?? null,
+    gp_code: geo.gp_code ?? null,
+    gp_name: geo.gp_name ?? null,
+    assigned_villages: geo.assigned_villages ?? null,
+    ...overrides,
+  });
 
   if (!canCreateRoleLevel(actor, lvl)) {
     return { ok: false, error: `Your role cannot create ${lvl} users` };
@@ -337,24 +353,26 @@ export async function validateNewUserScope(
     return { ok: false, error: 'KARYAKARTA user requires gp_code or assigned_villages' };
   }
 
-  // ADMIN can place anyone anywhere
-  if (actor.role === 'ADMIN') return { ok: true };
+  // ADMIN can place anyone anywhere (no forcing — persist as supplied)
+  if (actor.role === 'ADMIN') return { ok: true, geo: resolve({}) };
 
   const actorLvl = actor.role_level;
 
   if (actorLvl === 'MP') {
     if (!actor.lok_sabha_constituency) return { ok: false, error: 'Your account has no lok_sabha_constituency set' };
     const acs = await assembliesForLokSabha(actor.lok_sabha_constituency);
+    // Every user the MP creates is anchored to the MP's parliamentary seat.
+    const forceSeat = { lok_sabha_constituency: actor.lok_sabha_constituency };
     if (lvl === 'MLA') {
       const inSeat = acs.some(a => norm(a) === norm(geo.constituency));
       if (!inSeat) return { ok: false, error: `${geo.constituency} is not an assembly under ${actor.lok_sabha_constituency} parliamentary seat` };
-      return { ok: true };
+      return { ok: true, geo: resolve(forceSeat) };
     }
     // Lower roles: block must belong to an AC under the seat (when block given)
     if (geo.block) {
       for (const ac of acs) {
         const blocks = await blocksForAssembly(ac);
-        if (blocks.some(b => norm(b) === norm(geo.block))) return { ok: true };
+        if (blocks.some(b => norm(b) === norm(geo.block))) return { ok: true, geo: resolve(forceSeat) };
       }
       return { ok: false, error: `Block ${geo.block} is outside your parliamentary seat` };
     }
@@ -362,7 +380,7 @@ export async function validateNewUserScope(
       const inSeat = acs.some(a => norm(a) === norm(geo.constituency));
       if (!inSeat) return { ok: false, error: `${geo.constituency} is outside your parliamentary seat` };
     }
-    return { ok: true };
+    return { ok: true, geo: resolve(forceSeat) };
   }
 
   if (actorLvl === 'MLA') {
@@ -374,7 +392,8 @@ export async function validateNewUserScope(
     if (geo.constituency && norm(geo.constituency) !== norm(actor.constituency)) {
       return { ok: false, error: 'You can only create users in your own constituency' };
     }
-    return { ok: true };
+    // Anchor to the MLA's assembly constituency regardless of what was sent.
+    return { ok: true, geo: resolve({ constituency: actor.constituency }) };
   }
 
   if (actorLvl === 'DISTRICT_ADMIN' || actor.role === 'DISTRICT') {
@@ -382,21 +401,30 @@ export async function validateNewUserScope(
     if (geo.district && norm(geo.district) !== norm(district)) {
       return { ok: false, error: 'You can only create users in your own district' };
     }
-    return { ok: true };
+    return { ok: true, geo: resolve({ district: district ?? null }) };
   }
 
   if (actorLvl === 'BLOCK_COORD' || actor.role === 'BLOCK') {
     if (geo.block && norm(geo.block) !== norm(actor.block)) {
       return { ok: false, error: 'You can only create users in your own block' };
     }
-    return { ok: true };
+    return { ok: true, geo: resolve({ block: actor.block ?? null, district: actor.district ?? geo.district ?? null }) };
   }
 
   if (actorLvl === 'GP_COORD') {
     if (geo.gp_code && norm(geo.gp_code) !== norm(actor.gp_code)) {
       return { ok: false, error: 'You can only create karyakartas in your own gram panchayat' };
     }
-    return { ok: true };
+    return {
+      ok: true,
+      geo: resolve({
+        gp_code: actor.gp_code ?? null,
+        gp_name: actor.gp_name ?? geo.gp_name ?? null,
+        block: actor.block ?? geo.block ?? null,
+        district: actor.district ?? geo.district ?? null,
+        constituency: actor.constituency ?? geo.constituency ?? null,
+      }),
+    };
   }
 
   return { ok: false, error: 'Your role cannot create users' };

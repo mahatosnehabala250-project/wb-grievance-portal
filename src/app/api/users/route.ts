@@ -128,12 +128,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Username already exists' }, { status: 409 });
     }
 
-    // Non-admin creators: force the new user's geography into their own scope
-    // when the field wasn't validated above (defence in depth)
-    let forcedLokSabha = lok_sabha_constituency || null;
-    if (payload.role !== 'ADMIN' && payload.role_level === 'MP') {
-      forcedLokSabha = payload.lok_sabha_constituency || forcedLokSabha;
-    }
+    // Authoritative geography = the resolved scope from validateNewUserScope.
+    // Every omitted/forced field is already anchored inside the creator's
+    // jurisdiction, so we persist `rg` rather than raw client input.
+    const rg = verdict.geo;
 
     const user = await db.user.create({
       data: {
@@ -141,18 +139,18 @@ export async function POST(request: NextRequest) {
         passwordHash: hashSync(password, 12),
         role: requestedRole,
         name,
-        block: blockValue || (payload.role_level === 'BLOCK_COORD' ? payload.block : ''),
-        district: district || payload.district || null,
+        block: rg.block || '',
+        district: rg.district || null,
         whatsappPhone: whatsappPhone || null,
         telegramChatId: telegramChatId || null,
         email: email || null,
         isDistrictHead: payload.role === 'ADMIN' ? (isDistrictHead || false) : false,
         role_level: targetLevel,
-        constituency: constituency || null,
-        lok_sabha_constituency: forcedLokSabha,
-        gp_code: gp_code || (payload.role_level === 'GP_COORD' ? payload.gp_code : null),
-        gp_name: gp_name || (payload.role_level === 'GP_COORD' ? payload.gp_name : null),
-        assigned_villages: assigned_villages || [],
+        constituency: rg.constituency || null,
+        lok_sabha_constituency: rg.lok_sabha_constituency || null,
+        gp_code: rg.gp_code || null,
+        gp_name: rg.gp_name || null,
+        assigned_villages: rg.assigned_villages || [],
       },
       select: USER_SELECT,
     });
