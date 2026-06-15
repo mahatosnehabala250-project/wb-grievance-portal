@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
+import { complaintInScope, canMutateComplaints } from '@/lib/rbac';
 
 // PATCH /api/complaints/[id]/escalate — escalate complaint urgency
 const URGENCY_LEVELS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
@@ -22,12 +23,12 @@ export async function PATCH(
     return NextResponse.json({ error: 'Complaint not found' }, { status: 404 });
   }
 
-  // Check permission
-  if (payload.role === 'BLOCK' && complaint.block !== payload.block) {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  // Geographic scope (governance role_level aware) + role gate (KARYAKARTA is read-only)
+  if (!complaintInScope(payload, complaint)) {
+    return NextResponse.json({ error: 'Access denied — outside your jurisdiction' }, { status: 403 });
   }
-  if (payload.role === 'DISTRICT' && complaint.district !== payload.block) {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  if (!canMutateComplaints(payload)) {
+    return NextResponse.json({ error: 'Your role cannot modify complaints' }, { status: 403 });
   }
 
   // Only allow escalation for OPEN or IN_PROGRESS complaints

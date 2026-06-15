@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
+import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
+import { canMutateComplaints } from '@/lib/rbac';
 
 // PATCH /api/complaints/bulk — bulk status update
 export async function PATCH(request: NextRequest) {
@@ -9,6 +10,11 @@ export async function PATCH(request: NextRequest) {
 
   const payload = await verifyToken(token);
   if (!payload) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+
+  // Role gate: KARYAKARTA is read-only
+  if (!canMutateComplaints(payload)) {
+    return NextResponse.json({ error: 'Your role cannot modify complaints' }, { status: 403 });
+  }
 
   try {
     const body = await request.json();
@@ -21,13 +27,9 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Valid status is required' }, { status: 400 });
     }
 
-    // Build where clause based on role
-    const where: Record<string, unknown> = { id: { in: ids } };
-    if (payload.role === 'BLOCK') {
-      where.block = payload.block;
-    } else if (payload.role === 'DISTRICT') {
-      where.district = payload.block;
-    }
+    // Scope-lock (governance role_level aware): updateMany only touches rows
+    // inside the actor's jurisdiction, ANDed with the requested ids.
+    const where: Record<string, unknown> = { id: { in: ids }, ...getComplaintScopeFilter(payload) };
 
     const result = await db.complaint.updateMany({
       where,

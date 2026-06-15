@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
+import { complaintInScope, canMutateComplaints } from '@/lib/rbac';
 
 // PATCH /api/complaints/[id]/reopen — reopen a resolved/rejected complaint
 export async function PATCH(
@@ -20,12 +21,12 @@ export async function PATCH(
     return NextResponse.json({ error: 'Complaint not found' }, { status: 404 });
   }
 
-  // Check permission
-  if (payload.role === 'BLOCK' && complaint.block !== payload.block) {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  // Geographic scope (governance role_level aware) + role gate (KARYAKARTA is read-only)
+  if (!complaintInScope(payload, complaint)) {
+    return NextResponse.json({ error: 'Access denied — outside your jurisdiction' }, { status: 403 });
   }
-  if (payload.role === 'DISTRICT' && complaint.district !== payload.block) {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  if (!canMutateComplaints(payload)) {
+    return NextResponse.json({ error: 'Your role cannot modify complaints' }, { status: 403 });
   }
 
   // Only allow reopening RESOLVED or REJECTED complaints

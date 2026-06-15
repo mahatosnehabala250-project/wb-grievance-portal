@@ -14,8 +14,9 @@ import {
  * 2. Logs activity for each escalation
  * 3. Cascades notifications to WB-03 (citizen) + WB-04 (officer)
  *
- * No auth required — called by n8n internal workflow.
- * Uses N8N_WEBHOOK_SECRET for optional verification.
+ * Auth: X-N8N-SECRET header must match N8N_WEBHOOK_SECRET (fail-closed). This is
+ * a bulk MUTATION (changes urgency + fires citizen/officer notifications), so it
+ * must never be triggerable by the public internet. WB-05 must send the header.
  */
 
 const URGENCY_MAP: Record<string, string> = {
@@ -27,6 +28,11 @@ const URGENCY_MAP: Record<string, string> = {
 
 export async function POST(request: NextRequest) {
   try {
+    const secret = request.headers.get('x-n8n-secret');
+    if (!process.env.N8N_WEBHOOK_SECRET || secret !== process.env.N8N_WEBHOOK_SECRET) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { complaints, report } = body;
 

@@ -55,6 +55,13 @@
 - Residual (low): for an **MLA/DISTRICT** creating a GP_COORD/KARYAKARTA, the supplied `gp_code` is anchored to the creator's constituency/district but not individually verified against a gp→AC mapping (no such mapping table yet). Constituency/district binding is enforced; tighten when a gp↔AC map exists.
 - Roadmap unchanged: 1–9 done. Remaining: Level 10 (Autonomous Org). **The earlier `complaint_nlp` RLS TODO is now CLOSED.**
 
+#### ➕ Addendum (same day, found while scoping Level 10's execution surfaces) — 4 more mutation routes hardened
+The audit's leaky-route inventory missed the **write/escalation** routes; mapping them for the Level-10 action queue surfaced the same flaw class. Fixed:
+- **`/api/complaints/[id]/escalate`** & **`/api/complaints/[id]/reopen`** — legacy `role==='BLOCK'/'DISTRICT'`-only scope **and no `canMutateComplaints` gate** → a governance role (MLA/KARYAKARTA) could escalate/reopen **any** complaint statewide, and read-only KARYAKARTA could mutate. Now `complaintInScope` + `canMutateComplaints`.
+- **`/api/complaints/escalate-batch`** — claimed "uses N8N_WEBHOOK_SECRET for optional verification" but **verified nothing** → a fully open bulk MUTATION (changes urgency + fires citizen/officer notifications). Added `x-n8n-secret` fail-closed guard. **WB-05 (SLA breach) must now send `x-n8n-secret`.**
+- **`/api/complaints/bulk`** — legacy `BLOCK/DISTRICT`-only scope on an `updateMany` → governance roles could bulk-update **any** ids statewide; no mutate gate. Now `getComplaintScopeFilter` + `canMutateComplaints`.
+- tsc clean on all four. These are prerequisites for the Level-10 action queue (which routes one-tap actions through them).
+
 ---
 
 ### SESSION 20 — Claude Code (June 14, 2026): Level 8 — Network Intelligence (org/escalation chain; cascade honestly data-gated)
