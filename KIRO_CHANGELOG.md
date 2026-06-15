@@ -27,6 +27,22 @@
 
 ---
 
+### SESSION 25 — Claude Code (June 15, 2026): UI redesign Phase C — in-app white-label branding editor
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). Frontend-only. Closes the redesign punch-list.
+
+#### ✅ NEW: `src/components/BrandingSettings.tsx` — live branding editor
+- Gear in the rail → a modal to set **org/brand name, leader name, accent colour** with a colour picker + live swatch. No code needed. Persisted per-browser via localStorage (`src/lib/branding.ts`: `loadBrandingOverride / saveBrandingOverride / clearBrandingOverride / softFromAccent`), merged over the config branding in `CommandCenter` (SSR-safe: base renders first, override applied after mount). "Reset" clears it. Honest scope: this is a local preview/override; true multi-tenant branding stays the config map (later a `client_branding` table). The accent flows through the whole command center (rail, gauge, hero, ⌘K bar).
+
+#### ✔️ Verification
+- `npx tsc --noEmit` clean on touched files. `next.config.ts` has `typescript.ignoreBuildErrors: true`, so the Vercel build is gated by runtime correctness; touched files are type-clean.
+
+#### 🏁 Redesign status
+- Phase A (shell + Aaj home + branding), B (rooms split + ⌘K + shareable brief), C (branding editor) — **DONE**. Optional future: a true image Daily-Brief card (html-to-image), Map as its own room, motion/live-pulse polish, and promoting branding to a DB table for server-rendered multi-tenant theming.
+
+---
+
 ### SESSION 24 — Claude Code (June 15, 2026): UI redesign Phase B — rooms split + ⌘K Advisor command bar + shareable Daily Brief
 
 #### 🤖 AI Tool Info

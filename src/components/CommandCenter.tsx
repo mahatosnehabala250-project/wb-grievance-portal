@@ -2,17 +2,21 @@
 
 /**
  * CommandCenter — the redesigned command center shell: a left "rooms" rail + a
- * personalized "Aaj" home, replacing the single long scroll. White-label branded.
- * Each capability is its own focused room; ⌘K opens the AI Chief-of-Staff anywhere.
- * Backend unchanged — pure frontend IA over the existing scope-locked engines.
+ * personalized "Aaj" home, replacing the single long scroll. White-label branded
+ * (editable in-app). Each capability is its own focused room; ⌘K opens the AI
+ * Chief-of-Staff anywhere. Backend unchanged — pure frontend IA.
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { Sun, LayoutDashboard, Zap, TrendingUp, Network, Brain, Target, Footprints, MessageSquare } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Sun, LayoutDashboard, Zap, TrendingUp, Network, Brain, Target, Footprints, MessageSquare, Settings } from 'lucide-react';
 import { AajHome } from '@/components/AajHome';
 import { AdvisorBar } from '@/components/AdvisorBar';
+import { BrandingSettings } from '@/components/BrandingSettings';
 import { IntelligenceCommandView } from '@/components/IntelligenceCommandView';
-import { resolveBranding, type BrandingScope } from '@/lib/branding';
+import {
+  resolveBranding, loadBrandingOverride, saveBrandingOverride, clearBrandingOverride,
+  type BrandingScope, type Branding,
+} from '@/lib/branding';
 
 type Room = 'aaj' | 'overview' | 'actions' | 'forecast' | 'network' | 'brain' | 'entity360' | 'field';
 
@@ -30,19 +34,22 @@ const ROOMS: Array<{ key: Room; label: string; icon: typeof Sun }> = [
 export function CommandCenter({ user }: { user?: (BrandingScope & { name?: string }) | null }) {
   const [room, setRoom] = useState<Room>('aaj');
   const [advisorOpen, setAdvisorOpen] = useState(false);
-  const branding = resolveBranding(user);
+  const [brandingOpen, setBrandingOpen] = useState(false);
+  const [override, setOverride] = useState<Partial<Branding> | null>(null);
+
+  // Load any local branding override after mount (SSR-safe: base renders first).
+  useEffect(() => { setOverride(loadBrandingOverride()); }, []);
 
   // ⌘K / Ctrl+K opens the Chief-of-Staff from anywhere.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setAdvisorOpen((v) => !v);
-      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setAdvisorOpen((v) => !v); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  const branding: Branding = { ...resolveBranding(user), ...(override || {}) };
 
   return (
     <div
@@ -55,7 +62,10 @@ export function CommandCenter({ user }: { user?: (BrandingScope & { name?: strin
           <span className="w-6 h-6 rounded-md flex items-center justify-center text-white text-[13px] shrink-0" style={{ background: branding.accent }} aria-hidden>
             <Sun className="w-3.5 h-3.5" />
           </span>
-          <span className="text-[13px] font-semibold leading-tight truncate">{branding.orgName}</span>
+          <span className="text-[13px] font-semibold leading-tight truncate flex-1">{branding.orgName}</span>
+          <button onClick={() => setBrandingOpen(true)} className="text-muted-foreground hover:text-foreground shrink-0" aria-label="Branding settings" title="Branding">
+            <Settings className="w-3.5 h-3.5" />
+          </button>
         </div>
         <div className="flex sm:flex-col gap-1 overflow-x-auto pb-1">
           {ROOMS.map(({ key, label, icon: Icon }) => {
@@ -98,6 +108,13 @@ export function CommandCenter({ user }: { user?: (BrandingScope & { name?: strin
       </div>
 
       <AdvisorBar open={advisorOpen} onClose={() => setAdvisorOpen(false)} branding={branding} />
+      <BrandingSettings
+        open={brandingOpen}
+        onClose={() => setBrandingOpen(false)}
+        value={branding}
+        onSave={(o) => { saveBrandingOverride(o); setOverride(o); }}
+        onReset={() => { clearBrandingOverride(); setOverride(null); }}
+      />
     </div>
   );
 }

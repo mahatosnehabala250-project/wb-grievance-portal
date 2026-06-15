@@ -58,6 +58,29 @@ export function resolveBranding(user?: BrandingScope | null): Branding {
   return DEFAULT_BRANDING;
 }
 
+// ── Local override (in-app branding editor) ──────────────────────────────
+// A client/admin can tweak branding live without code. Stored per-browser in
+// localStorage and merged over the resolved config. For true multi-tenant
+// branding, promote these to a `client_branding` table later.
+export const BRANDING_LS_KEY = 'cc_branding_override';
+
+export function loadBrandingOverride(): Partial<Branding> | null {
+  if (typeof window === 'undefined') return null;
+  try { const r = localStorage.getItem(BRANDING_LS_KEY); return r ? JSON.parse(r) : null; } catch { return null; }
+}
+export function saveBrandingOverride(o: Partial<Branding>): void {
+  if (typeof window === 'undefined') return;
+  try { localStorage.setItem(BRANDING_LS_KEY, JSON.stringify(o)); } catch { /* ignore */ }
+}
+export function clearBrandingOverride(): void {
+  if (typeof window === 'undefined') return;
+  try { localStorage.removeItem(BRANDING_LS_KEY); } catch { /* ignore */ }
+}
+/** Derive a soft (~12% alpha) bg from a hex accent. */
+export function softFromAccent(hex: string): string {
+  return /^#([0-9a-fA-F]{6})$/.test(hex) ? `${hex}1f` : 'rgba(186,117,23,0.12)';
+}
+
 /** Initials for an avatar chip. */
 export function initialsOf(name?: string): string {
   const n = (name || '').trim();
