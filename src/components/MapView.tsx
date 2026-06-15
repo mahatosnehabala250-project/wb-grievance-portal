@@ -79,12 +79,20 @@ const InnerMap = dynamic(
         shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
       });
       return import("react-leaflet").then(({ MapContainer, TileLayer, CircleMarker, Popup, Tooltip }) => {
-        const Component = ({ blocks, mode, onSelect, selectedKey, center, zoom }: {
+        const Component = ({ blocks, mode, onSelect, selectedKey, center, zoom, basemap }: {
           blocks: BlockData[]; mode: ViewMode; onSelect: (b: BlockData) => void;
-          selectedKey: string | null; center: [number, number]; zoom: number;
+          selectedKey: string | null; center: [number, number]; zoom: number; basemap: "street" | "satellite";
         }) => (
           <MapContainer center={center} zoom={zoom} style={{ height: "100%", width: "100%", minHeight: "500px" }} zoomControl>
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" opacity={0.9} />
+            {basemap === "satellite" ? (
+              <>
+                {/* Esri World Imagery — free, no API key. Reference overlay adds place/boundary labels on top of the imagery. */}
+                <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" attribution="Imagery &copy; Esri, Maxar, Earthstar Geographics" maxZoom={19} />
+                <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}" maxZoom={19} />
+              </>
+            ) : (
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" opacity={0.9} />
+            )}
             {blocks.map((b) => {
               const key = b.district + "||" + b.block;
               const color = colorFor(b, mode);
@@ -146,6 +154,7 @@ const MODE_LABELS: Record<ViewMode, string> = { risk: "🎯 Risk", anger: "😡 
 export function MapView() {
   const [blocks, setBlocks] = useState<BlockData[]>([]);
   const [mode, setMode] = useState<ViewMode>("risk");
+  const [basemap, setBasemap] = useState<"street" | "satellite">("street");
   const [selected, setSelected] = useState<BlockData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -200,6 +209,14 @@ export function MapView() {
             </button>
           ))}
         </div>
+        <div className="flex gap-1">
+          {(["street", "satellite"] as const).map((bm) => (
+            <button key={bm} onClick={() => setBasemap(bm)}
+              className={`px-2.5 py-1 rounded text-xs font-medium border transition-all ${basemap === bm ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-foreground"}`}>
+              {bm === "street" ? "🗺 Street" : "🛰 Satellite"}
+            </button>
+          ))}
+        </div>
         <div className="ml-auto flex gap-3 text-xs">
           <span className="text-red-400">🔴 {redZones} high-risk</span>
           <span className="text-orange-400">😡 {angryAreas} angry</span>
@@ -216,7 +233,7 @@ export function MapView() {
           ) : blocks.length === 0 ? (
             <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">No complaints in your jurisdiction yet.</div>
           ) : (
-            <InnerMap blocks={blocks} mode={mode} onSelect={setSelected} selectedKey={selectedKey} center={center} zoom={zoom} />
+            <InnerMap blocks={blocks} mode={mode} onSelect={setSelected} selectedKey={selectedKey} center={center} zoom={zoom} basemap={basemap} />
           )}
           {/* Legend */}
           <div className="absolute bottom-4 left-4 z-[500] bg-background/90 backdrop-blur border border-border rounded-lg p-3 text-xs space-y-1">

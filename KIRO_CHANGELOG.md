@@ -27,6 +27,26 @@
 
 ---
 
+### SESSION 30 — Claude Code (June 15, 2026): Satellite map layer (Level 14, Phase 1) — Street ↔ Satellite toggle
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). First slice of the Horizon-3 "Eyes Everywhere" vision (L14). Frontend-only, no API key, no backend.
+
+#### 🧠 Context
+- Roadmap reality-check: of the pasted Horizon 2/3 vision, the data-hungry features (L11 digital-twin, L12 grievance-epidemiology/protest-prediction) would produce FAKE numbers on 56 complaints — deferred until data grows (consistent with the Level-8 honest "no cross-village contagion yet" finding). Satellite verification (L14) is buildable now and free → started here. User picked it.
+
+#### ✅ Satellite basemap + toggle — `src/components/MapView.tsx`
+- `InnerMap` now takes a `basemap: 'street' | 'satellite'` prop. Satellite uses **Esri World Imagery** (`server.arcgisonline.com/.../World_Imagery`) — **free, no API key** — plus a transparent **Reference (boundaries + places)** overlay so village/block names stay readable on the imagery. Street stays OpenStreetMap.
+- Header gets a **🗺 Street / 🛰 Satellite** toggle (same button style as the risk/anger/resolution modes). All existing overlays (risk/anger/resolution circle-markers, popups, legend, ranked sidebar, scope-centering) work unchanged on both basemaps.
+
+#### ✔️ Verification
+- `npx tsc --noEmit` clean on `MapView.tsx`. No new dependency, no key, no backend change.
+
+#### ⚠️ Next AI — Please Note (Level 14 Phase 2 — later)
+- This is the satellite VIEW (foundation). True "infra verification" ("officer said road built; satellite says no") needs a Sentinel-2 / Sentinel Hub pipeline (before/after imagery by date + change detection) — a separate project with an imagery API + processing. Phase-1 toggle is the base it builds on.
+
+---
+
 ### SESSION 29 — Claude Code (June 15, 2026): Telegram brief → tappable ticket deep-link (rich + actionable)
 
 #### 🤖 AI Tool Info
