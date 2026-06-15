@@ -27,6 +27,24 @@
 
 ---
 
+### SESSION 27 — Claude Code (June 15, 2026): DB-backed white-label branding (true multi-tenant theming) — redesign punch-list CLOSED
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). Finishes the last optional redesign item.
+
+#### ✅ NEW: `client_branding` table + `/api/branding` route
+- Migration `create_client_branding`: `client_branding(scope_key PK, org_name, leader_name, tagline, accent, accent_soft, updated_by, updated_at)`. **RLS ENABLE + FORCE + service_role-only policy** (anon/authenticated blocked — verified anon sees 0). All access via the route (service_role); same hardening as `complaint_nlp`.
+- `src/app/api/branding/route.ts` — **GET** resolves the caller's branding by scope (constituency → lok_sabha → district → block, most-specific wins) with config fallback; **POST** lets a governance leader save branding for THEIR OWN scope (MP→seat, MLA→AC, DISTRICT_ADMIN→district, BLOCK_COORD→block; ADMIN must pass `scopeKey`; KARYAKARTA/GP/OFFICER → 403); **DELETE** resets. JWT-auth, scope-permission enforced server-side.
+- `CommandCenter` now fetches `/api/branding` on mount; effective branding precedence = **config ← DB ← local preview**. The in-app editor saves to the DB for the whole scope when authorized (toast confirms), else falls back to a local preview — so each MP/MLA sees their own brand from any browser/device, not just one.
+
+#### ✔️ Verification
+- `npx tsc --noEmit` clean on the route + `CommandCenter`. `client_branding` RLS forced; anon read = 0 (verified).
+
+#### 🏁 Redesign — fully DONE
+- Phases A–C + all optional polish: rooms split, "Today" home, ⌘K Advisor, shareable Daily Brief (text **and** PNG image), Map room, motion/live-pulse, and **DB-backed multi-tenant white-label branding**. Backend additions are isolated and RLS-hardened; Level 1–10 untouched.
+
+---
+
 ### SESSION 26 — Claude Code (June 15, 2026): "Aaj"→"Today" + Map room + image Daily-Brief card + motion polish
 
 #### 🤖 AI Tool Info
@@ -1119,7 +1137,7 @@ Standard Dashboard + Complaints views now respect the FULL hierarchy scope for a
 ### Supabase Project
 - Project ref: `sxdtipaspfolrpqrwadt`
 - URL: `https://sxdtipaspfolrpqrwadt.supabase.co`
-- Total migrations applied: 119 (latest: `enable_rls_complaint_nlp`, Jun 15)
+- Total migrations applied: 120 (latest: `create_client_branding`, Jun 15)
 
 ### GitHub Repo
 - `mahatosnehabala250-project/wb-grievance-portal`

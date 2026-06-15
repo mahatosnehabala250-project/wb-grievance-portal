@@ -14,6 +14,8 @@ import { AdvisorBar } from '@/components/AdvisorBar';
 import { BrandingSettings } from '@/components/BrandingSettings';
 import { IntelligenceCommandView } from '@/components/IntelligenceCommandView';
 import { MapView } from '@/components/MapView';
+import { toast } from 'sonner';
+import { authHeaders } from '@/lib/helpers';
 import {
   resolveBranding, loadBrandingOverride, saveBrandingOverride, clearBrandingOverride,
   type BrandingScope, type Branding,
@@ -38,9 +40,16 @@ export function CommandCenter({ user }: { user?: (BrandingScope & { name?: strin
   const [advisorOpen, setAdvisorOpen] = useState(false);
   const [brandingOpen, setBrandingOpen] = useState(false);
   const [override, setOverride] = useState<Partial<Branding> | null>(null);
+  const [serverBranding, setServerBranding] = useState<Partial<Branding> | null>(null);
 
-  // Load any local branding override after mount (SSR-safe: base renders first).
+  // After mount: local preview override + DB-resolved branding (SSR-safe — base first).
   useEffect(() => { setOverride(loadBrandingOverride()); }, []);
+  useEffect(() => {
+    fetch('/api/branding', { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (j?.branding) setServerBranding(j.branding); })
+      .catch(() => {});
+  }, []);
 
   // ⌘K / Ctrl+K opens the Chief-of-Staff from anywhere.
   useEffect(() => {
@@ -51,7 +60,8 @@ export function CommandCenter({ user }: { user?: (BrandingScope & { name?: strin
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const branding: Branding = { ...resolveBranding(user), ...(override || {}) };
+  // Precedence: config default ← DB (multi-tenant) ← local preview override.
+  const branding: Branding = { ...resolveBranding(user), ...(serverBranding || {}), ...(override || {}) };
 
   return (
     <div
@@ -116,8 +126,29 @@ export function CommandCenter({ user }: { user?: (BrandingScope & { name?: strin
         open={brandingOpen}
         onClose={() => setBrandingOpen(false)}
         value={branding}
-        onSave={(o) => { saveBrandingOverride(o); setOverride(o); }}
-        onReset={() => { clearBrandingOverride(); setOverride(null); }}
+        onSave={async (o) => {
+          try {
+            const res = await fetch('/api/branding', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(o) });
+            const j = await res.json().catch(() => ({}));
+            if (res.ok && j?.branding) {
+              setServerBranding(j.branding); clearBrandingOverride(); setOverride(null);
+              toast.success('Branding saved — aapke poore scope ke liye');
+            } else {
+              saveBrandingOverride(o); setOverride(o);
+              toast.message(j?.error ? `${j.error} — local preview save kiya` : 'Local preview save kiya');
+            }
+          } catch {
+            saveBrandingOverride(o); setOverride(o);
+            toast.message('Server save fail — local preview save kiya');
+          }
+        }}
+        onReset={async () => {
+          clearBrandingOverride(); setOverride(null);
+          try {
+            const res = await fetch('/api/branding', { method: 'DELETE', headers: authHeaders() });
+            if (res.ok) { setServerBranding(null); toast.success('Branding reset'); }
+          } catch { /* local already cleared */ }
+        }}
       />
     </div>
   );
