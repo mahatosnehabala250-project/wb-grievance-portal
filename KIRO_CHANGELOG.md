@@ -27,6 +27,31 @@
 
 ---
 
+### SESSION 24 — Claude Code (June 15, 2026): UI redesign Phase B — rooms split + ⌘K Advisor command bar + shareable Daily Brief
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). Frontend-only, continues SESSION 23. Goal: "baki sab jo kaam baki he finish karo" — finish the command-center redesign.
+
+#### ✅ Rooms split — `IntelligenceCommandView` now room-gated
+- Added a `room?` prop + a `show(key)` helper. The single long scroll is now split into focused rooms: **overview** (risk/KPIs/warnings/trend/category/hotspots/benchmark/sentiment/officers/PR+quick-wins), **forecast** (L6), **entity360** (L7 fusion), **network** (L8), **actions** (L10 ops), **brain** (L4 NLP), **field** (Wapas Jao). Backward-compatible: no `room` / `'all'` shows everything. Entering a lazy room **auto-loads** its data (no more hunting for a "Run" button). Implemented with conditional `hidden` classes (no destructive refactor) — every detailed card and the overview group gated; `tsc` clean.
+
+#### ✅ NEW: `src/components/AdvisorBar.tsx` — ⌘K Chief-of-Staff command bar
+- Press **⌘K / Ctrl+K anywhere** (or the rail "Advisor" button) → a command-palette overlay to ask the AI Chief-of-Staff (Bangla/Hindi/English). Reuses `POST /api/intelligence/advisor`; suggested prompts, Esc to close, scope-locked + aggregate-only footer. Self-contained, zero backend change.
+
+#### ✅ NEW: shareable Daily Brief (in `AajHome`)
+- "Brief" button composes a **WhatsApp/Telegram-ready** text (org + risk + KPIs + aaj ke 3 kaam + Chief-of-Staff line) and copies to clipboard. PR gold for the leader — forward-and-flex. (A polished image card is a future enhancement.)
+
+#### ✅ `CommandCenter` — full rooms rail
+- Rail now lists all rooms (Aaj + the 7 ICV rooms) + an Advisor (⌘K) entry; renders `AajHome` or `IntelligenceCommandView room={room}`. White-label branded throughout; responsive (rail stacks on mobile).
+
+#### ✔️ Verification
+- `npx tsc --noEmit` clean on `IntelligenceCommandView`, `CommandCenter`, `AdvisorBar`, `AajHome`, `page.tsx`. All Level 1–10 APIs unchanged.
+
+#### ⚠️ Next AI — Please Note
+- Remaining redesign polish (optional): an in-app **branding editor UI** (orgName/leader/accent without code; v1 branding is config in `src/lib/branding.ts`), a true **image** Daily-Brief card (needs html-to-image), Map as its own room (currently the separate `MapView` top-level view), and motion/live-pulse polish.
+
+---
+
 ### SESSION 23 — Claude Code (June 15, 2026): UI redesign Phase A — Command Center shell + personalized "Aaj" home + white-label branding
 
 #### 🤖 AI Tool Info

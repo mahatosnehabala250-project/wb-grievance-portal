@@ -237,7 +237,7 @@ function NetTreeNode({ node, depth }: { node: NetNode; depth: number }) {
 }
 
 /* ─── Main ─── */
-export function IntelligenceCommandView() {
+export function IntelligenceCommandView({ room }: { room?: string } = {}) {
   const [brief, setBrief] = useState<Brief | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -467,6 +467,18 @@ export function IntelligenceCommandView() {
       .catch(() => toast.error('Copy failed'));
   }, []);
 
+  // Room gating (driven by CommandCenter). No room / 'all' → show everything
+  // (backward-compatible). Entering a lazy room auto-loads its data.
+  const show = (k: string) => !room || room === 'all' || room === k;
+  useEffect(() => {
+    if (room === 'forecast' && !forecast && !forecastLoading) loadForecast();
+    else if (room === 'entity360' && !fusion && !fusionLoading) loadFusion();
+    else if (room === 'network' && !network && !networkLoading) loadNetwork();
+    else if (room === 'actions' && !operations && !operationsLoading) loadOperations();
+    else if (room === 'brain' && !nlp && !nlpLoading) loadNlp();
+    else if (room === 'field' && !wapas && !wapasLoading) loadWapas();
+  }, [room, forecast, forecastLoading, fusion, fusionLoading, network, networkLoading, operations, operationsLoading, nlp, nlpLoading, wapas, wapasLoading, loadForecast, loadFusion, loadNetwork, loadOperations, loadNlp, loadWapas]);
+
   if (loading) return (
     <div className="flex-1 flex items-center justify-center">
       <div className="text-center space-y-3">
@@ -521,6 +533,7 @@ export function IntelligenceCommandView() {
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-4">
 
+          <div className={`space-y-4 ${show('overview') ? '' : 'hidden'}`}>
           {/* ── AI Chief-of-Staff — ask anything about your jurisdiction ── */}
           <Card className="border shadow-sm bg-gradient-to-br from-indigo-500/5 to-violet-500/5 border-indigo-500/20">
             <CardHeader className="pb-1 pt-3 px-4">
@@ -945,9 +958,10 @@ export function IntelligenceCommandView() {
               </CardContent>
             </Card>
           </div>
+          </div>
 
           {/* ── Forecast / Early-Warning (Level 6 — honest, range-only) ── */}
-          <Card className="border shadow-sm border-cyan-500/20">
+          <Card className={`border shadow-sm border-cyan-500/20 ${show('forecast') ? '' : 'hidden'}`}>
             <CardHeader className="pb-1 pt-3 px-4">
               <CardTitle className="text-xs font-semibold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
@@ -1076,7 +1090,7 @@ export function IntelligenceCommandView() {
           </Card>
 
           {/* ── Data Fusion / Entity 360 (Level 7) ── */}
-          <Card className="border shadow-sm border-indigo-500/20">
+          <Card className={`border shadow-sm border-indigo-500/20 ${show('entity360') ? '' : 'hidden'}`}>
             <CardHeader className="pb-1 pt-3 px-4">
               <CardTitle className="text-xs font-semibold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
@@ -1196,7 +1210,7 @@ export function IntelligenceCommandView() {
           </Card>
 
           {/* ── Network Intelligence (Level 8) — org chain + weakest links ── */}
-          <Card className="border shadow-sm border-teal-500/20">
+          <Card className={`border shadow-sm border-teal-500/20 ${show('network') ? '' : 'hidden'}`}>
             <CardHeader className="pb-1 pt-3 px-4">
               <CardTitle className="text-xs font-semibold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
@@ -1276,7 +1290,7 @@ export function IntelligenceCommandView() {
           </Card>
 
           {/* ── Autonomous Operations / Action Queue (Level 10) — propose → one-tap approve ── */}
-          <Card className="border shadow-sm border-amber-500/30">
+          <Card className={`border shadow-sm border-amber-500/30 ${show('actions') ? '' : 'hidden'}`}>
             <CardHeader className="pb-1 pt-3 px-4">
               <CardTitle className="text-xs font-semibold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
@@ -1378,7 +1392,7 @@ export function IntelligenceCommandView() {
           </Card>
 
           {/* ── Row 5.5: NLP Brain — root-cause clusters, anger hotspots, entity watch ── */}
-          <Card className="border shadow-sm border-fuchsia-500/20">
+          <Card className={`border shadow-sm border-fuchsia-500/20 ${show('brain') ? '' : 'hidden'}`}>
             <CardHeader className="pb-1 pt-3 px-4">
               <CardTitle className="text-xs font-semibold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
@@ -1491,7 +1505,7 @@ export function IntelligenceCommandView() {
           </Card>
 
           {/* ── Row 6: "Wapas Jao" — closed-loop visit briefs ── */}
-          <Card className="border shadow-sm border-violet-500/20">
+          <Card className={`border shadow-sm border-violet-500/20 ${show('field') ? '' : 'hidden'}`}>
             <CardHeader className="pb-1 pt-3 px-4">
               <CardTitle className="text-xs font-semibold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
