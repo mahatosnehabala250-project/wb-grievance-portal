@@ -1123,39 +1123,42 @@ const GRADE_EMOJI: Record<string, string> = {
 };
 
 export function formatBriefForTelegram(b: IntelligenceBrief): string {
+  // Telegram rich text (parse_mode=HTML). Uses bold/italic + an EXPANDABLE
+  // blockquote so the brief stays compact but the detail is one tap away.
+  // n8n's "Send Brief via Telegram" node MUST set parse_mode = HTML.
   const g = GRADE_EMOJI[b.riskIndex.grade] || '⚪';
-  const lines: string[] = [];
-  lines.push(`🧠 <b>Daily Intel Brief — ${esc(b.scope.label)}</b>`);
-  lines.push(`📅 ${new Date(b.scope.generatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`);
-  lines.push('');
-  lines.push(`${g} <b>Risk: ${b.riskIndex.score}/100 (${b.riskIndex.grade})</b>`);
-  lines.push(`📊 Active: ${b.kpis.active} | Critical: ${b.kpis.critical} | SLA breach: ${b.kpis.slaBreached}`);
-  lines.push(`📈 7-din intake: ${b.kpis.filed7} (${b.kpis.momentumPct >= 0 ? '+' : ''}${b.kpis.momentumPct}% WoW) | Resolution: ${b.kpis.resolutionRate}%`);
+  const mo = `${b.kpis.momentumPct >= 0 ? '+' : ''}${b.kpis.momentumPct}%`;
+  const L: string[] = [];
+  L.push(`🧠 <b>Daily Intel Brief</b> — <b>${esc(b.scope.label)}</b>`);
+  L.push(`<i>📅 ${new Date(b.scope.generatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</i>`);
+  L.push('');
+  L.push(`${g} <b>Risk ${b.riskIndex.score}/100</b> · <i>${esc(b.riskIndex.grade)}</i>`);
+  L.push(`📊 Active <b>${b.kpis.active}</b> · Critical <b>${b.kpis.critical}</b> · SLA breach <b>${b.kpis.slaBreached}</b>`);
+  L.push(`📈 7-din <b>${b.kpis.filed7}</b> (${mo} WoW) · Resolution <b>${b.kpis.resolutionRate}%</b>`);
 
   if (b.warnings.length > 0) {
-    lines.push('');
-    lines.push('⚠️ <b>Warnings:</b>');
-    for (const w of b.warnings.slice(0, 3)) {
-      lines.push(`• ${esc(w.title)} — ${esc(w.detail)}`);
-    }
+    L.push('');
+    L.push('⚠️ <b>Warnings</b>');
+    const wl = b.warnings.slice(0, 4).map(w => `• <b>${esc(w.title)}</b> — ${esc(w.detail)}`).join('\n');
+    L.push(`<blockquote expandable>${wl}</blockquote>`);
   }
 
   if (b.hotspots.length > 0 && b.hotspots[0].risk > 0) {
     const h = b.hotspots[0];
-    lines.push('');
-    lines.push(`🔥 <b>Top hotspot:</b> ${esc(h.name)} (${h.active} active${h.critical ? `, ${h.critical} critical` : ''})`);
+    L.push('');
+    L.push(`🔥 <b>Top hotspot:</b> ${esc(h.name)} <i>(${h.active} active${h.critical ? `, ${h.critical} critical` : ''})</i>`);
   }
 
   if (b.quickWins.length > 0) {
     const q = b.quickWins[0];
-    lines.push(`🎯 <b>Aaj ka quick win:</b> ${esc(q.ticketNo)} — ${esc(q.issue.slice(0, 60))} (${q.daysOld}d old)`);
+    L.push(`🎯 <b>Today ka quick win:</b> <code>${esc(q.ticketNo)}</code> — ${esc(q.issue.slice(0, 60))} <i>(${q.daysOld}d old)</i>`);
   }
 
   if (b.benchmark?.percentile !== null && b.benchmark?.percentile !== undefined) {
-    lines.push(`🏆 Peer rank: better than ${b.benchmark.percentile}% (${esc(b.benchmark.label)})`);
+    L.push(`🏆 Peer rank: better than <b>${b.benchmark.percentile}%</b> <i>(${esc(b.benchmark.label)})</i>`);
   }
 
-  lines.push('');
-  lines.push('<i>JanSunwai Intelligence · scope-locked brief</i>');
-  return lines.join('\n');
+  L.push('');
+  L.push('<i>JanSunwai Intelligence · scope-locked brief</i>');
+  return L.join('\n');
 }

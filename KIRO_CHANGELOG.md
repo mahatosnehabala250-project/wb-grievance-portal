@@ -27,6 +27,30 @@
 
 ---
 
+### SESSION 28 — Claude Code (June 15, 2026): Telegram rich-text — daily brief upgraded to premium HTML + full sender audit
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). App-side change + live n8n audit via n8n MCP. No live citizen/LLM workflow was force-changed (safety — see below).
+
+#### 🧠 What "Telegram rich text" actually is
+- Telegram = `parse_mode: HTML` with `<b><i><u><s><code><pre><a><tg-spoiler><blockquote><blockquote expandable><tg-emoji>`. No brand-new system; **expandable blockquote** is the newest useful feature.
+
+#### ✅ Daily brief upgraded — `formatBriefForTelegram()` in `src/lib/intelligence.ts`
+- Now premium rich text: **bold** KPIs/headers, `<i>` dates, `<code>` ticket no, and warnings in an **`<blockquote expandable>`** (compact message, tap to expand). Dynamic text still escaped via `esc()` (Session-4 rule). "Aaj" → "Today". Flows automatically through JS-21 (its Telegram node already had `parseMode: HTML`).
+
+#### 🔎 Audit of ALL Telegram senders (n8n)
+- **JS-21 Daily Intel Brief** (`hPDe3mQWWf9bjWj8`): app-formatted, node `parseMode: HTML` ✅ — now premium rich.
+- **JS-04 Status Broadcaster** (`zxhMcvjLPbcuEzGz`): builds `statusMessageHtml` (escapes `&<>`), Telegram node `parseMode: HTML` ✅ — already HTML-safe (renders clean; no bold tags yet — optional cosmetic).
+- **JS-17 MP Weekly Brief** (`0TT4yfYrcQ11m5dU`) and **JS-01 Sahayak** (`YsUZwu99ckTnzekR`): messages are **LLM-generated**. Forcing `parse_mode: HTML` on raw model output is UNSAFE — a stray `<` or unbalanced tag makes Telegram reject the whole message (HTTP 400). These need a sanitize/convert step before going rich; NOT changed in this session to avoid breaking live citizen/AI delivery.
+
+#### ✔️ Verification
+- `npx tsc --noEmit` clean on `intelligence.ts`. JS-21/JS-04 node configs verified via n8n MCP (both already `parse_mode: HTML`).
+
+#### ⚠️ Next AI — Please Note
+- To make the LLM messages (JS-17, JS-01) rich SAFELY: add a small "Format Message" sanitizer that strips/escapes raw HTML from the model output and re-applies only whitelisted tags (or send Telegram `entities` instead of parse_mode). Test on a single chat before activating. Cosmetic bold for JS-04 is safe via escape-then-inject in its "Build Status Message" code node.
+
+---
+
 ### SESSION 27 — Claude Code (June 15, 2026): DB-backed white-label branding (true multi-tenant theming) — redesign punch-list CLOSED
 
 #### 🤖 AI Tool Info
