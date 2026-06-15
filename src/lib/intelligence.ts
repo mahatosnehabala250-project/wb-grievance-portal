@@ -1151,7 +1151,9 @@ export function formatBriefForTelegram(b: IntelligenceBrief): string {
 
   if (b.quickWins.length > 0) {
     const q = b.quickWins[0];
-    L.push(`🎯 <b>Today ka quick win:</b> <code>${esc(q.ticketNo)}</code> — ${esc(q.issue.slice(0, 60))} <i>(${q.daysOld}d old)</i>`);
+    // Tappable deep-link → opens the ticket tracker for this complaint in the app.
+    const url = `https://wb-grievance-portal.vercel.app/?ticket=${encodeURIComponent(q.ticketNo)}`;
+    L.push(`🎯 <b>Today ka quick win:</b> <a href="${url}">${esc(q.ticketNo)}</a> — ${esc(q.issue.slice(0, 60))} <i>(${q.daysOld}d old)</i>`);
   }
 
   if (b.benchmark?.percentile !== null && b.benchmark?.percentile !== undefined) {

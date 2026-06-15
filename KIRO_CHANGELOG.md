@@ -27,6 +27,22 @@
 
 ---
 
+### SESSION 29 — Claude Code (June 15, 2026): Telegram brief → tappable ticket deep-link (rich + actionable)
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). Verified a real working route existed before adding the link (no broken/guessed deep-links).
+
+#### ✅ Quick-win ticket is now a tappable link
+- `formatBriefForTelegram()` (`src/lib/intelligence.ts`): the daily-brief "Today ka quick win" ticket is now an `<a href="…/?ticket=WB-…">` link (was `<code>`). Tapping it opens the app and auto-loads that ticket's tracker.
+- `TicketTrackerDialog` (`src/components/TicketTrackerDialog.tsx`): new optional `initialTicket` prop — when the dialog opens with it set, it pre-fills + auto-searches (`handleSearch` refactored to accept an explicit value). Reuses the existing scope-locked `/api/ticket/[ticketNo]`.
+- `src/app/page.tsx`: reads `?ticket=WB-…` from the URL on mount (via `window.location.search` — no Suspense needed) → opens the tracker with `initialTicket`; clears `deepLinkTicket` on close so manual opens stay empty.
+- Spec-compliant Telegram HTML `<a href>` (verified against core.telegram.org formatting options). No public ticket page exists, so the link targets the dashboard tracker (leader is logged in); a logged-out tap shows the tracker's normal 401/login path.
+
+#### ✔️ Verification
+- `npx tsc --noEmit` clean on `intelligence.ts`, `TicketTrackerDialog.tsx`, `page.tsx`.
+
+---
+
 ### SESSION 28 — Claude Code (June 15, 2026): Telegram rich-text — daily brief upgraded to premium HTML + full sender audit
 
 #### 🤖 AI Tool Info

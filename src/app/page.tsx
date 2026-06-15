@@ -207,6 +207,14 @@ export default function HomePage() {
 
   // Ticket Tracker Dialog
   const [ticketTrackerOpen, setTicketTrackerOpen] = useState(false);
+  const [deepLinkTicket, setDeepLinkTicket] = useState<string | null>(null);
+  // Deep-link: /?ticket=WB-... (e.g. tapped from the Telegram daily brief) → open tracker
+  useEffect(() => {
+    try {
+      const t = new URLSearchParams(window.location.search).get('ticket');
+      if (t && t.trim()) { setDeepLinkTicket(t.trim().toUpperCase()); setTicketTrackerOpen(true); }
+    } catch { /* ignore */ }
+  }, []);
 
   // Dashboard refresh
   const dashboardRef = useRef<{ fetchDashboard: () => void } | null>(null);
@@ -929,7 +937,11 @@ export default function HomePage() {
       </Sheet>
 
       {/* ═══ TICKET TRACKER DIALOG ═══ */}
-      <TicketTrackerDialog open={ticketTrackerOpen} onOpenChange={setTicketTrackerOpen} />
+      <TicketTrackerDialog
+        open={ticketTrackerOpen}
+        onOpenChange={(v) => { setTicketTrackerOpen(v); if (!v) setDeepLinkTicket(null); }}
+        initialTicket={deepLinkTicket}
+      />
 
       {/* ═══ MOBILE BOTTOM NAVIGATION ═══ */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 mobile-bottom-nav-glass border-t border-border/50 print:hidden">

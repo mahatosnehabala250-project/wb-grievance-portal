@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Search, Ticket, MapPin, CalendarDays, Clock, CheckCircle2, XCircle, AlertTriangle, ArrowRight, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +31,7 @@ interface TicketResult {
 interface TicketTrackerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialTicket?: string | null;  // deep-link (e.g. from the Telegram brief) → auto-search
 }
 
 const STATUS_STAGES = ['OPEN', 'IN_PROGRESS', 'RESOLVED'];
@@ -48,25 +49,27 @@ const STATUS_ICONS: Record<string, typeof CheckCircle2> = {
   REJECTED: XCircle,
 };
 
-export function TicketTrackerDialog({ open, onOpenChange }: TicketTrackerDialogProps) {
+export function TicketTrackerDialog({ open, onOpenChange, initialTicket }: TicketTrackerDialogProps) {
   const [ticketInput, setTicketInput] = useState('');
   const [searching, setSearching] = useState(false);
   const [result, setResult] = useState<TicketResult | null>(null);
   const [error, setError] = useState('');
 
-  const handleSearch = useCallback(async () => {
-    if (!ticketInput.trim()) return;
+  const handleSearch = useCallback(async (value?: string) => {
+    const q = (value ?? ticketInput).trim().toUpperCase();
+    if (!q) return;
+    setTicketInput(q);
     setSearching(true);
     setError('');
     setResult(null);
 
     try {
-      const res = await fetch(`/api/ticket/${ticketInput.trim().toUpperCase()}`, { headers: authHeaders() });
+      const res = await fetch(`/api/ticket/${q}`, { headers: authHeaders() });
       if (res.ok) {
         const json = await res.json();
         setResult(json.ticket);
       } else if (res.status === 404) {
-        setError(`Ticket "${ticketInput.trim().toUpperCase()}" not found. Please check the ticket number and try again.`);
+        setError(`Ticket "${q}" not found. Please check the ticket number and try again.`);
       } else {
         setError('Failed to search ticket. Please try again.');
       }
@@ -75,6 +78,13 @@ export function TicketTrackerDialog({ open, onOpenChange }: TicketTrackerDialogP
     }
     setSearching(false);
   }, [ticketInput]);
+
+  // Deep-link: opened with an initialTicket (e.g. tapped from the Telegram brief)
+  // → pre-fill + auto-search.
+  useEffect(() => {
+    if (open && initialTicket) handleSearch(initialTicket);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialTicket]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleSearch();
@@ -124,7 +134,7 @@ export function TicketTrackerDialog({ open, onOpenChange }: TicketTrackerDialogP
                 disabled={searching}
               />
             </div>
-            <Button onClick={handleSearch} disabled={searching || !ticketInput.trim()} className="h-10 px-4 gap-1.5" style={{ backgroundColor: NAVY }}>
+            <Button onClick={() => handleSearch()} disabled={searching || !ticketInput.trim()} className="h-10 px-4 gap-1.5" style={{ backgroundColor: NAVY }}>
               <Search className="h-4 w-4" />
               Track
             </Button>
