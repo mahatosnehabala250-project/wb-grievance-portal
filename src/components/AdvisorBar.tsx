@@ -13,7 +13,7 @@ import { authHeaders } from '@/lib/helpers';
 import type { Branding } from '@/lib/branding';
 
 const SUGGESTED = [
-  'Aaj sabse zyada dhyan kahan dena chahiye?',
+  'Today sabse zyada dhyan kahan dena chahiye?',
   'Kaunse block mein gussa badh raha hai?',
   'Is hafte konse quick-wins close kar sakte hain?',
 ];

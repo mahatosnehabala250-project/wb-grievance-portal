@@ -1295,7 +1295,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
               <CardTitle className="text-xs font-semibold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
                   <Zap className="w-3.5 h-3.5 text-amber-500" /> Autonomous Operations
-                  <span className="text-[9px] normal-case font-normal">(aaj kya karna hai — ek tap pe approve)</span>
+                  <span className="text-[9px] normal-case font-normal">(today kya karna hai — ek tap pe approve)</span>
                 </span>
                 {!operations && (
                   <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={loadOperations} disabled={operationsLoading}>

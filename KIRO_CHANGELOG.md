@@ -27,6 +27,22 @@
 
 ---
 
+### SESSION 26 — Claude Code (June 15, 2026): "Aaj"→"Today" + Map room + image Daily-Brief card + motion polish
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). Frontend-only. User: use "Today" not "Aaj"; finish the optional polish items.
+
+#### ✅ Changes
+- **Label rename:** all user-facing "Aaj" → "Today" (rail label, Today-home heading, brief text, advisor prompt, operations hint). Internal keys/component names (`AajHome`, room key `aaj`) kept to avoid churn.
+- **Map room:** `MapView` (Risk/Anger/Resolution map) now a first-class room in `CommandCenter` (rail item between Overview and Forecast), not just a separate top-level view.
+- **Image Daily-Brief card:** `src/lib/briefImage.ts` renders the brief as a shareable **PNG** (pure Canvas 2D, 1080×1350, no new dependency) — branded header, risk score, KPIs, today's priorities, Chief-of-Staff line. `AajHome` now has **Text** (clipboard) + **Image** (download / native-share) buttons. PR-ready for WhatsApp/Instagram.
+- **Motion + live-pulse:** Today home content fades/slides in (framer-motion); a small accent "live" dot pulses by the scope label.
+
+#### ✔️ Verification
+- `npx tsc --noEmit` clean on `AajHome`, `CommandCenter`, `briefImage.ts`, `AdvisorBar`, `BrandingSettings`, `IntelligenceCommandView`.
+
+---
+
 ### SESSION 25 — Claude Code (June 15, 2026): UI redesign Phase C — in-app white-label branding editor
 
 #### 🤖 AI Tool Info

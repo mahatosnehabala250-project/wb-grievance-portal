@@ -8,22 +8,24 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Sun, LayoutDashboard, Zap, TrendingUp, Network, Brain, Target, Footprints, MessageSquare, Settings } from 'lucide-react';
+import { Sun, LayoutDashboard, Zap, TrendingUp, Network, Brain, Target, Footprints, MessageSquare, Settings, Map as MapIcon } from 'lucide-react';
 import { AajHome } from '@/components/AajHome';
 import { AdvisorBar } from '@/components/AdvisorBar';
 import { BrandingSettings } from '@/components/BrandingSettings';
 import { IntelligenceCommandView } from '@/components/IntelligenceCommandView';
+import { MapView } from '@/components/MapView';
 import {
   resolveBranding, loadBrandingOverride, saveBrandingOverride, clearBrandingOverride,
   type BrandingScope, type Branding,
 } from '@/lib/branding';
 
-type Room = 'aaj' | 'overview' | 'actions' | 'forecast' | 'network' | 'brain' | 'entity360' | 'field';
+type Room = 'aaj' | 'overview' | 'actions' | 'map' | 'forecast' | 'network' | 'brain' | 'entity360' | 'field';
 
 const ROOMS: Array<{ key: Room; label: string; icon: typeof Sun }> = [
-  { key: 'aaj', label: 'Aaj', icon: Sun },
+  { key: 'aaj', label: 'Today', icon: Sun },
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
   { key: 'actions', label: 'Actions', icon: Zap },
+  { key: 'map', label: 'Map', icon: MapIcon },
   { key: 'forecast', label: 'Forecast', icon: TrendingUp },
   { key: 'network', label: 'Network', icon: Network },
   { key: 'brain', label: 'Brain', icon: Brain },
@@ -102,6 +104,8 @@ export function CommandCenter({ user }: { user?: (BrandingScope & { name?: strin
             onOpenActions={() => setRoom('actions')}
             onOpenIntelligence={() => setRoom('overview')}
           />
+        ) : room === 'map' ? (
+          <MapView />
         ) : (
           <IntelligenceCommandView room={room} />
         )}
