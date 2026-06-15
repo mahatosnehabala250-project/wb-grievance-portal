@@ -27,6 +27,32 @@
 
 ---
 
+### SESSION 23 — Claude Code (June 15, 2026): UI redesign Phase A — Command Center shell + personalized "Aaj" home + white-label branding
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). Frontend-only re-architecture (backend untouched). User feedback: "sab ek scroll mein hai, UI advance nahi lagta" — for a product priced at ₹30L+ it must feel like a personal command center, not a long card stack.
+
+#### 🧠 The shift
+- From **one long scroll of ~16 cards** → a **command center with a left "rooms" rail + a personalized daily home**. Each capability eventually becomes its own full-screen room; this increment ships the shell + the home + per-client branding (the biggest perceived jump), deploy-safe, with zero loss of existing functionality.
+
+#### ✅ NEW: white-label branding — `src/lib/branding.ts`
+- `resolveBranding(user)` → `{ orgName, leaderName, tagline, accent, accentSoft }`, matched by the user's scope (constituency → lok sabha → district → block), neutral default fallback (`JanSunwai WB`, amber accent). v1 config-driven (`CLIENTS` map, no DB) — add a signed client = one entry. Justifies the setup fee: each MLA/MP gets "mera apna system" (own name + accent). `initialsOf()` helper for avatars.
+
+#### ✅ NEW: `src/components/AajHome.tsx` — the "Aaj" (Today) home room
+- 10-second executive glance: greeting by name + scope, one big risk gauge (SVG, grade-coloured), 3 key numbers (active / SLA-breach / is-hafte) from the brief, **AI-picked "aaj ke 3 kaam"** (top 3 of the Level-10 operations queue), the Chief-of-Staff one-liner (composed from the top warning / hotspot / risk driver — no LLM call on load), and the honest outcome line ("aapne N action liye · M ab resolved"). Reuses existing scope-locked APIs (`/api/intelligence/brief` + `/operations`) — no new backend. Themed by branding accent.
+
+#### ✅ NEW: `src/components/CommandCenter.tsx` — the shell
+- Left rooms rail (Aaj + Intelligence) + branded header; renders `AajHome` or the existing `IntelligenceCommandView` (untouched) per active room. Responsive (rail stacks on mobile). Mounted in `src/app/page.tsx` (replaces the direct `<IntelligenceCommandView/>` at the `intel_command` view), passed the session `user`.
+
+#### ✔️ Verification
+- `npx tsc --noEmit` clean on `branding.ts`, `AajHome.tsx`, `CommandCenter.tsx`, `page.tsx`. Existing `IntelligenceCommandView` and all Level 1–10 APIs unchanged.
+
+#### ⚠️ Next AI — Please Note
+- This is **Phase A** (shell + home + branding). **Next iterations** peel the existing Intelligence view into individual rooms (Map / Forecast / Network / Brain / Entity 360 / Field), and add the signature moves: ⌘K advisor command bar, per-client theming UI, and a shareable Daily-Brief image card. The existing view still holds all detailed cards under the "Intelligence" room until then.
+- To onboard a real client's branding: add one entry to `CLIENTS` in `src/lib/branding.ts` keyed by their constituency/lok-sabha/district (lowercased).
+
+---
+
 ### SESSION 22 — Claude Code (June 15, 2026): LEVEL 10 — Autonomous Operations / AI Chief-of-Staff Action Queue (roadmap 1–10 COMPLETE)
 
 #### 🤖 AI Tool Info

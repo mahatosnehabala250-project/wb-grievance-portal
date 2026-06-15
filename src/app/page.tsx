@@ -78,7 +78,7 @@ import { RaktaSahayakView } from '@/components/RaktaSahayakView';
 import { MLADashboardView } from '@/components/MLADashboardView';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MPCommandView } from '@/components/MPCommandView';
-import { IntelligenceCommandView } from '@/components/IntelligenceCommandView';
+import { CommandCenter } from '@/components/CommandCenter';
 import { GovernanceDashboardView } from '@/components/GovernanceDashboardView';
 import { MapView } from '@/components/MapView';
 import { SchemeKnowledgeView } from '@/components/SchemeKnowledgeView';
@@ -741,7 +741,7 @@ export default function HomePage() {
                   <GovernanceDashboardView />
                 )}
                 {view === 'intel_command' && (
-                  <IntelligenceCommandView />
+                  <CommandCenter user={user} />
                 )}
                 {view === 'intelligence' && (
                   <IntelligenceView />
