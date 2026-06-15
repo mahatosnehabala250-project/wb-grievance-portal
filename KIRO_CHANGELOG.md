@@ -41,13 +41,14 @@
 #### 🔎 Audit of ALL Telegram senders (n8n)
 - **JS-21 Daily Intel Brief** (`hPDe3mQWWf9bjWj8`): app-formatted, node `parseMode: HTML` ✅ — now premium rich.
 - **JS-04 Status Broadcaster** (`zxhMcvjLPbcuEzGz`): builds `statusMessageHtml` (escapes `&<>`), Telegram node `parseMode: HTML` ✅ — already HTML-safe (renders clean; no bold tags yet — optional cosmetic).
-- **JS-17 MP Weekly Brief** (`0TT4yfYrcQ11m5dU`) and **JS-01 Sahayak** (`YsUZwu99ckTnzekR`): messages are **LLM-generated**. Forcing `parse_mode: HTML` on raw model output is UNSAFE — a stray `<` or unbalanced tag makes Telegram reject the whole message (HTTP 400). These need a sanitize/convert step before going rich; NOT changed in this session to avoid breaking live citizen/AI delivery.
+- **JS-17 MP Weekly Brief** (`0TT4yfYrcQ11m5dU`): LLM-generated → **now made rich SAFELY** (user chose "MP only"). Its "Format Message" code node got a sanitizer: escape `&<>` FIRST (so any stray model `<`/unbalanced tag is harmless), then add ONLY balanced `<b>` tags (markdown `**`/`__` → bold, and section-header lines bold). `briefText` stays raw for the DB log. Both "Telegram to MP" + "Telegram to Admin" nodes set `parseMode: HTML` (verified saved). Sanitizer was unit-tested locally against adversarial inputs (stray `<`, `<script>`, unclosed tags, `&`) → always balanced `<b>` + zero stray `<>`; no live MP send was triggered (next run Mon 8 AM IST).
+- **JS-01 Sahayak** (`YsUZwu99ckTnzekR`): LLM chatbot replies — **intentionally left plain** (user scoped to MP-only). Same sanitizer pattern would make it safe if wanted later.
 
 #### ✔️ Verification
-- `npx tsc --noEmit` clean on `intelligence.ts`. JS-21/JS-04 node configs verified via n8n MCP (both already `parse_mode: HTML`).
+- `npx tsc --noEmit` clean on `intelligence.ts`. JS-21/JS-04 already `parse_mode: HTML` (verified). JS-17 sanitizer unit-tested (PASS) + parseMode HTML verified on both Telegram nodes via n8n MCP. Note: the n8n validator flags "unmatched expression brackets" on the Code nodes — that is a FALSE POSITIVE (it mis-reads the `}}` of `return [{ json: {…} }]` as a `{{ }}` expression); the JS is valid and the workflow runs.
 
 #### ⚠️ Next AI — Please Note
-- To make the LLM messages (JS-17, JS-01) rich SAFELY: add a small "Format Message" sanitizer that strips/escapes raw HTML from the model output and re-applies only whitelisted tags (or send Telegram `entities` instead of parse_mode). Test on a single chat before activating. Cosmetic bold for JS-04 is safe via escape-then-inject in its "Build Status Message" code node.
+- To make JS-01 Sahayak rich too: reuse the JS-17 escape-first → balanced-`<b>` sanitizer in its reply-formatting node + set the Telegram node `parseMode: HTML`. Cosmetic bold for JS-04 citizen status is safe via the same escape-then-inject in its "Build Status Message" code node. NEVER set `parse_mode: HTML` on raw LLM output without the sanitizer (Telegram 400 = message never delivered).
 
 ---
 
