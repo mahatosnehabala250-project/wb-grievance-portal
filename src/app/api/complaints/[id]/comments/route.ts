@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
-import { complaintInScope } from '@/lib/rbac';
+import { complaintInScope, canMutateComplaints } from '@/lib/rbac';
 
 // GET /api/complaints/[id]/comments — returns comments for a complaint
 export async function GET(
@@ -72,9 +72,12 @@ export async function POST(
   }
 
   // Scope check — caller may only comment inside their jurisdiction
-  // (governance role_level aware).
+  // (governance role_level aware) + role gate (KARYAKARTA is read-only).
   if (!complaintInScope(payload, complaint as Record<string, unknown>)) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  }
+  if (!canMutateComplaints(payload)) {
+    return NextResponse.json({ error: 'Your role cannot modify complaints' }, { status: 403 });
   }
 
   try {

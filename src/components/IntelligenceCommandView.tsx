@@ -126,6 +126,29 @@ interface NetworkData {
   caveats: string[];
 }
 
+/* Level 10 — Autonomous Operations / Action Queue */
+type OpActionType = 'ASSIGN_OFFICER' | 'ESCALATE' | 'CHASE_STATUS' | 'CLOSE_QUICKWIN' | 'REOPEN';
+interface OpItem {
+  id: string; complaintId: string; ticketNo: string;
+  actionType: OpActionType; title: string; why: string[]; score: number;
+  components: { urgency: number; age: number; anger: number };
+  riskTier: 'INTERNAL' | 'CITIZEN_FACING'; area: string;
+  execute: { method: 'PATCH' | 'POST'; route: string; body?: Record<string, unknown>; needs?: 'officer' | 'resolution' | 'confirm' };
+  executable: boolean; reason?: string;
+}
+interface Operations {
+  scope: { level: string; label: string; generatedAt: string };
+  canWrite: boolean;
+  items: OpItem[];
+  officers: Array<{ id: string; name: string; area: string }>;
+  stats: { proposed: number; actionedWindow: number; resolvedOfActioned: number; windowDays: number };
+  disabledTypes: Array<{ type: string; reason: string }>;
+  caveats: string[];
+}
+const ACTION_LABEL: Record<OpActionType, string> = {
+  ASSIGN_OFFICER: 'Assign', ESCALATE: 'Escalate', CHASE_STATUS: 'Chase', CLOSE_QUICKWIN: 'Close', REOPEN: 'Reopen',
+};
+
 const RISK_COLORS: Record<string, { c: string; bg: string; bar: string }> = {
   LOW:      { c: 'text-emerald-500', bg: 'bg-emerald-500/10', bar: '#10B981' },
   GUARDED:  { c: 'text-lime-500',    bg: 'bg-lime-500/10',    bar: '#84CC16' },
@@ -230,6 +253,11 @@ export function IntelligenceCommandView() {
   const [openNode, setOpenNode] = useState<string | null>(null);
   const [network, setNetwork] = useState<NetworkData | null>(null);
   const [networkLoading, setNetworkLoading] = useState(false);
+  const [operations, setOperations] = useState<Operations | null>(null);
+  const [operationsLoading, setOperationsLoading] = useState(false);
+  const [actingId, setActingId] = useState<string | null>(null);
+  const [officerSel, setOfficerSel] = useState<Record<string, string>>({});
+  const [resoSel, setResoSel] = useState<Record<string, string>>({});
   const [advQ, setAdvQ] = useState('');
   const [advAnswer, setAdvAnswer] = useState<string | null>(null);
   const [advLoading, setAdvLoading] = useState(false);
@@ -369,6 +397,60 @@ export function IntelligenceCommandView() {
       setFusionLoading(false);
     }
   }, []);
+
+  /* Level 10 — Autonomous Operations / Action Queue (on demand) */
+  const loadOperations = useCallback(async () => {
+    setOperationsLoading(true);
+    try {
+      const res = await fetch('/api/intelligence/operations', { headers: authHeaders() });
+      if (res.ok) {
+        const json = await res.json();
+        setOperations(json.data || null);
+      } else {
+        toast.error('Failed to load operations');
+      }
+    } catch {
+      toast.error('Failed to load operations');
+    } finally {
+      setOperationsLoading(false);
+    }
+  }, []);
+
+  /* Approve one queue item → fire the EXISTING audited route, then refresh. */
+  const runAction = useCallback(async (it: OpItem) => {
+    let body: Record<string, unknown> | undefined = it.execute.body;
+    if (it.execute.needs === 'officer') {
+      const oid = officerSel[it.id];
+      if (!oid) { toast.error('Pehle ek officer chuno'); return; }
+      body = { assignedToId: oid };
+    } else if (it.execute.needs === 'resolution') {
+      const r = (resoSel[it.id] || '').trim();
+      if (!r) { toast.error('Resolution note likho'); return; }
+      if (!window.confirm('Yeh ticket RESOLVED mark hoga aur citizen ko notification (WB-03) jayega. Confirm?')) return;
+      body = { status: 'RESOLVED', resolution: r };
+    } else if (it.execute.needs === 'confirm' || it.riskTier === 'CITIZEN_FACING') {
+      if (!window.confirm(`Confirm: ${it.title}?`)) return;
+    }
+    setActingId(it.id);
+    try {
+      const res = await fetch(it.execute.route, {
+        method: it.execute.method,
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.ok) {
+        toast.success(`${ACTION_LABEL[it.actionType]} done — ${it.ticketNo}`);
+        await loadOperations();
+      } else {
+        const j = await res.json().catch(() => ({}));
+        toast.error(j.error || 'Action failed');
+      }
+    } catch {
+      toast.error('Action failed');
+    } finally {
+      setActingId(null);
+    }
+  }, [officerSel, resoSel, loadOperations]);
 
   const copyVillageBrief = useCallback((v: WapasVillage) => {
     const lines = [
@@ -1188,6 +1270,108 @@ export function IntelligenceCommandView() {
                 <details className="text-[10px] text-muted-foreground">
                   <summary className="cursor-pointer font-semibold">⚠ What is real here ({network.caveats.length})</summary>
                   <ul className="list-disc pl-4 space-y-0.5 mt-1">{network.caveats.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                </details>
+              </CardContent>
+            )}
+          </Card>
+
+          {/* ── Autonomous Operations / Action Queue (Level 10) — propose → one-tap approve ── */}
+          <Card className="border shadow-sm border-amber-500/30">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-xs font-semibold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
+                <span className="flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-amber-500" /> Autonomous Operations
+                  <span className="text-[9px] normal-case font-normal">(aaj kya karna hai — ek tap pe approve)</span>
+                </span>
+                {!operations && (
+                  <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={loadOperations} disabled={operationsLoading}>
+                    {operationsLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Run'}
+                  </Button>
+                )}
+              </CardTitle>
+            </CardHeader>
+            {operations && (
+              <CardContent className="px-4 pb-3 space-y-3">
+                {/* Stats — honest correlation, never causation */}
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground gap-2">
+                  <span>Proposed <b className="text-foreground">{operations.stats.proposed}</b></span>
+                  <span className="flex-1 text-right">
+                    Pichhle {operations.stats.windowDays}d: aapne <b className="text-foreground">{operations.stats.actionedWindow}</b> action liye
+                    {operations.stats.actionedWindow > 0 && <> · <b className="text-emerald-500">{operations.stats.resolvedOfActioned}</b> ab resolved</>}
+                  </span>
+                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={loadOperations} disabled={operationsLoading}>
+                    <RefreshCw className={`w-3 h-3 ${operationsLoading ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
+
+                {!operations.canWrite && (
+                  <div className="text-[10px] rounded-lg bg-muted/30 p-2 text-muted-foreground">
+                    Read-only role — yeh queue <b>advisory</b> hai (koi approve button nahi).
+                  </div>
+                )}
+
+                {/* Action items — each bound to a real ticket + real execute route */}
+                {operations.items.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {operations.items.map((it) => {
+                      const tierBg = it.riskTier === 'CITIZEN_FACING' ? 'bg-rose-500/5 border-rose-500/20' : 'bg-amber-500/5 border-amber-500/15';
+                      return (
+                        <div key={it.id} className={`rounded-lg border p-2 ${tierBg}`}>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[8px] h-3.5 px-1 shrink-0">{it.actionType.replace('_', ' ')}</Badge>
+                            <span className="text-[11px] font-semibold flex-1 truncate">{it.title}</span>
+                            {it.riskTier === 'CITIZEN_FACING' && <Badge variant="outline" className="text-[7px] h-3 px-1 text-rose-500 border-rose-500/30">citizen</Badge>}
+                            <span className="text-[9px] font-mono text-muted-foreground">{it.score}</span>
+                          </div>
+                          <div className="text-[9px] text-muted-foreground mt-0.5 truncate">{it.area} · {it.why.join(' · ')}</div>
+                          {it.executable ? (
+                            <div className="flex items-center gap-1.5 mt-1.5">
+                              {it.execute.needs === 'officer' && (
+                                <select
+                                  className="text-[10px] h-6 rounded border bg-background px-1 flex-1 min-w-0"
+                                  value={officerSel[it.id] || ''}
+                                  onChange={(e) => setOfficerSel((s) => ({ ...s, [it.id]: e.target.value }))}
+                                >
+                                  <option value="">Officer chuno…</option>
+                                  {operations.officers.map((o) => <option key={o.id} value={o.id}>{o.name}{o.area ? ` (${o.area})` : ''}</option>)}
+                                </select>
+                              )}
+                              {it.execute.needs === 'resolution' && (
+                                <Input
+                                  className="h-6 text-[10px] flex-1 min-w-0"
+                                  placeholder="Resolution note…"
+                                  value={resoSel[it.id] || ''}
+                                  onChange={(e) => setResoSel((s) => ({ ...s, [it.id]: e.target.value }))}
+                                />
+                              )}
+                              <Button size="sm" className="h-6 text-[10px] px-2 shrink-0" disabled={actingId === it.id} onClick={() => runAction(it)}>
+                                {actingId === it.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <><CheckCircle2 className="w-3 h-3 mr-1" />{ACTION_LABEL[it.actionType]}</>}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="text-[9px] text-muted-foreground/70 italic mt-1">{it.reason || 'Not executable'}</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-muted-foreground italic">
+                    Abhi koi pending action nahi — sab clear hai (ya aapke scope mein kaam kam hai). Yeh honest hai, padding nahi.
+                  </div>
+                )}
+
+                {/* Honest gaps — never fake buttons */}
+                <div className="rounded-lg bg-muted/30 p-2">
+                  <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Abhi nahi (honest)</div>
+                  {operations.disabledTypes.map((d) => (
+                    <div key={d.type} className="text-[10px] text-muted-foreground/80">○ <span className="font-medium">{d.type.replace('_', ' ')}</span> — {d.reason}</div>
+                  ))}
+                </div>
+
+                <details className="text-[10px] text-muted-foreground">
+                  <summary className="cursor-pointer font-semibold">⚠ Yeh queue kaise kaam karti hai ({operations.caveats.length})</summary>
+                  <ul className="list-disc pl-4 space-y-0.5 mt-1">{operations.caveats.map((c, i) => <li key={i}>{c}</li>)}</ul>
                 </details>
               </CardContent>
             )}

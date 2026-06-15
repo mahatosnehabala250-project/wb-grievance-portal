@@ -12,6 +12,7 @@
 
 import { db } from '@/lib/db';
 import { getComplaintScopeFilter, JWTPayload } from '@/lib/jwt';
+import { canMutateComplaints, getUserListScope } from '@/lib/rbac';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -875,6 +876,238 @@ export async function computeNetwork(payload: JWTPayload): Promise<NetworkResult
       'Co-occurrence = categories sharing an area (co-location), never proven causation; thin on ~56 complaints.',
       'Competitor watch needs opposition/election/news data that is not connected.',
     ],
+  };
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * LEVEL 10 — Autonomous Operations / AI Chief-of-Staff Action Queue.
+ *
+ * A scope-locked PROPOSAL queue, NOT an autopilot. The engine spots a real
+ * signal on a real ticket, drafts the action + its ready-to-fire execute route,
+ * and a human approves with one tap — then an EXISTING audited route runs it.
+ *
+ * Honesty discipline (verified by adversarial review):
+ *  - Every item is built from the authoritative scoped complaint row-set, so it
+ *    always carries a REAL `id` for the [id] execute routes (signals only rank).
+ *  - Only action types with a real, scope-safe execution path exist.
+ *  - REOPEN comes from status=RESOLVED AND satisfactionRating<=2 (real rows) —
+ *    not from brief.wins[], which is sorted to EXCLUDE low ratings. Often empty.
+ *  - Low volume ⇒ short/empty queue. We say so; we never pad.
+ *  - Each execute.body is a single fixed field-set per action type. ESCALATE
+ *    bodies carry ONLY { urgency } (never status) so an INTERNAL action can
+ *    never silently fire a citizen (WB-03) notification.
+ *  - KARYAKARTA (canMutateComplaints=false) gets an advisory, read-only queue.
+ *  - No auto-pilot in v1: every write is human-approved.
+ *  - There is NO honest free-text citizen-message endpoint → RESPOND_CITIZEN is
+ *    surfaced as a disabled gap, never a fake "sent" button.
+ * Aggregate ops telemetry only — no individual-voter profiling (DPDP/ECI).
+ * ──────────────────────────────────────────────────────────────── */
+
+export type ActionType = 'ASSIGN_OFFICER' | 'ESCALATE' | 'CHASE_STATUS' | 'CLOSE_QUICKWIN' | 'REOPEN';
+
+export interface ActionItem {
+  id: string;                 // `${actionType}:${complaintId}`
+  complaintId: string;
+  ticketNo: string;
+  actionType: ActionType;
+  title: string;
+  why: string[];
+  score: number;              // 0–100, deterministic, no probabilities
+  components: { urgency: number; age: number; anger: number };
+  riskTier: 'INTERNAL' | 'CITIZEN_FACING';
+  area: string;
+  // Ready-to-fire on approval. `needs` = a sub-input the human must supply.
+  execute: { method: 'PATCH' | 'POST'; route: string; body?: Record<string, unknown>; needs?: 'officer' | 'resolution' | 'confirm' };
+  executable: boolean;        // false for read-only role
+  reason?: string;
+}
+
+export interface ActionQueue {
+  scope: { level: string; label: string; generatedAt: string };
+  canWrite: boolean;
+  items: ActionItem[];
+  officers: Array<{ id: string; name: string; area: string }>;  // scoped suggestions for ASSIGN
+  stats: { proposed: number; actionedWindow: number; resolvedOfActioned: number; windowDays: number };
+  disabledTypes: Array<{ type: string; reason: string }>;
+  caveats: string[];
+}
+
+const OPS_SLA_DAYS: Record<string, number> = { CRITICAL: 0.25, HIGH: 1, MEDIUM: 3, LOW: 7 };
+const URG_ORDER = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+const URG_WEIGHT: Record<string, number> = { CRITICAL: 100, HIGH: 70, MEDIUM: 40, LOW: 15 };
+// Higher = handle first when one ticket qualifies for several actions.
+const ACTION_PRIORITY: Record<ActionType, number> = { ASSIGN_OFFICER: 5, ESCALATE: 4, CHASE_STATUS: 3, CLOSE_QUICKWIN: 2, REOPEN: 1 };
+
+export async function computeOperations(payload: JWTPayload): Promise<ActionQueue> {
+  // Scope-locked authoritative row-set — the SOURCE of every action + its real id.
+  const where = getComplaintScopeFilter(payload);
+  const complaints: C[] = await db.complaint.findMany({ where, orderBy: { createdAt: 'desc' }, take: 3000 });
+  const canWrite = canMutateComplaints(payload);
+
+  // Per-ticket NLP anger (same batched pattern as computeNetwork).
+  const ids = complaints.map(c => str(c, 'id')).filter(Boolean);
+  const angerById = new Map<string, number>();
+  for (let i = 0; i < ids.length; i += 200) {
+    try {
+      const { data } = await supabase.from('complaint_nlp').select('complaint_id, anger_score').in('complaint_id', ids.slice(i, i + 200));
+      for (const r of (data || []) as unknown as C[]) {
+        const a = typeof r.anger_score === 'number' ? r.anger_score : null;
+        if (a !== null) angerById.set(str(r, 'complaint_id'), a);
+      }
+    } catch { /* anger is optional enrichment */ }
+  }
+
+  const now = Date.now();
+  const DAY = 86400000;
+  const candidates: ActionItem[] = [];
+
+  for (const c of complaints) {
+    const id = str(c, 'id');
+    if (!id) continue;
+    const ticketNo = str(c, 'ticketNo') || id.slice(0, 8);
+    const status = str(c, 'status');
+    const urgency = (str(c, 'urgency') || 'MEDIUM').toUpperCase();
+    const assignedToId = str(c, 'assignedToId');
+    const created = dt(c.createdAt);
+    const ageDays = created ? Math.floor((now - created.getTime()) / DAY) : 0;
+    const anger = angerById.get(id) ?? 0;
+    const area = subAreaOf(payload, c);
+    const slaT = OPS_SLA_DAYS[urgency] ?? 3;
+    const breached = isActive(c) && ageDays > slaT;
+    const rating = typeof c.satisfactionRating === 'number' ? c.satisfactionRating as number : null;
+
+    const urgencyW = URG_WEIGHT[urgency] ?? 30;
+    const ageW = Math.min(100, Math.round((ageDays / Math.max(slaT, 0.5)) * 35));
+    const angerW = Math.max(0, Math.min(100, Math.round(anger)));
+    const score = Math.round(0.45 * urgencyW + 0.35 * ageW + 0.20 * angerW);
+    const components = { urgency: urgencyW, age: ageW, anger: angerW };
+
+    const mk = (
+      actionType: ActionType, title: string, why: string[], riskTier: ActionItem['riskTier'],
+      execute: ActionItem['execute'], itemScore = score,
+    ): ActionItem => ({
+      id: `${actionType}:${id}`, complaintId: id, ticketNo, actionType, title, why,
+      score: Math.max(0, Math.min(100, itemScore)), components, riskTier, area, execute,
+      executable: canWrite,
+      reason: canWrite ? undefined : 'Read-only role — advisory only',
+    });
+
+    // 1) ASSIGN_OFFICER — active + unassigned (handle ownerless tickets first)
+    if (isActive(c) && !assignedToId) {
+      candidates.push(mk('ASSIGN_OFFICER',
+        `Assign an officer to ${ticketNo}`,
+        [`${urgency} urgency`, 'unassigned', `${ageDays}d old`, ...(anger >= 60 ? [`anger ${angerW}`] : [])],
+        'INTERNAL',
+        { method: 'PATCH', route: `/api/complaints/${id}`, needs: 'officer' },
+      ));
+    }
+    // 2) ESCALATE — active + SLA-breached + not already CRITICAL. Body = ONLY { urgency }.
+    if (breached && urgency !== 'CRITICAL') {
+      const next = URG_ORDER[Math.min(URG_ORDER.indexOf(urgency) + 1, URG_ORDER.length - 1)];
+      candidates.push(mk('ESCALATE',
+        `Escalate ${ticketNo} → ${next}`,
+        [`SLA breached — ${ageDays}d open at ${urgency}`, ...(anger >= 50 ? [`anger ${angerW}`] : [])],
+        'INTERNAL',
+        { method: 'PATCH', route: `/api/complaints/${id}`, body: { urgency: next } },
+      ));
+    }
+    // 3) CHASE_STATUS — stuck IN_PROGRESS > 7d → internal follow-up note
+    if (status === 'IN_PROGRESS' && ageDays > 7) {
+      candidates.push(mk('CHASE_STATUS',
+        `Chase stalled ticket ${ticketNo}`,
+        [`In progress ${ageDays}d with no resolution`, ...(anger >= 50 ? [`anger ${angerW}`] : [])],
+        'INTERNAL',
+        { method: 'POST', route: `/api/complaints/${id}/comments`, body: { content: `Follow-up requested — ${ageDays} days in progress with no update. Please advance this ticket.` } },
+      ));
+    }
+    // 4) CLOSE_QUICKWIN — old low/medium active ticket (human resolved it offline) → citizen-facing
+    if (isActive(c) && (urgency === 'LOW' || urgency === 'MEDIUM') && ageDays > 7) {
+      candidates.push(mk('CLOSE_QUICKWIN',
+        `Quick win — close ${ticketNo}`,
+        [`${urgency}, ${ageDays}d old — cheap to clear`, 'notifies citizen (WB-03) on close'],
+        'CITIZEN_FACING',
+        { method: 'PATCH', route: `/api/complaints/${id}`, needs: 'resolution' },
+        Math.round(score * 0.8),
+      ));
+    }
+    // 5) REOPEN — resolved but poorly rated (real rows; often empty). Never auto.
+    if (status === 'RESOLVED' && rating !== null && rating >= 1 && rating <= 2) {
+      candidates.push(mk('REOPEN',
+        `Reopen poorly-rated ${ticketNo}`,
+        [`Citizen rated ${rating}★ after resolution`, ...(anger >= 50 ? [`anger ${angerW}`] : [])],
+        'INTERNAL',
+        { method: 'PATCH', route: `/api/complaints/${id}/reopen`, needs: 'confirm' },
+        Math.round(40 + (2 - rating) * 18 + angerW * 0.2),
+      ));
+    }
+  }
+
+  // One action per ticket: highest ACTION_PRIORITY, then score.
+  const byTicket = new Map<string, ActionItem>();
+  for (const it of candidates) {
+    const prev = byTicket.get(it.complaintId);
+    if (!prev ||
+      ACTION_PRIORITY[it.actionType] > ACTION_PRIORITY[prev.actionType] ||
+      (ACTION_PRIORITY[it.actionType] === ACTION_PRIORITY[prev.actionType] && it.score > prev.score)) {
+      byTicket.set(it.complaintId, it);
+    }
+  }
+  const items = [...byTicket.values()].sort((a, b) => b.score - a.score).slice(0, 15);
+
+  // Scoped officer suggestions for ASSIGN (best-effort; the PATCH route is the authority).
+  let officers: ActionQueue['officers'] = [];
+  if (canWrite) {
+    try {
+      const us = await getUserListScope(payload);
+      let users: C[] = await db.user.findMany({ where: us.where as Record<string, string> });
+      if (us.postFilter) users = users.filter(u => us.postFilter!(u as Record<string, unknown>));
+      officers = users
+        .filter(u => u.isActive !== false && str(u, 'id') && str(u, 'id') !== (payload.userId || ''))
+        .map(u => ({ id: str(u, 'id'), name: str(u, 'name', 'username') || 'Unnamed', area: str(u, 'block', 'gp_name', 'village', 'district') }))
+        .slice(0, 30);
+    } catch { /* officer picker is optional */ }
+  }
+
+  // Outcome loop — derived from existing activity_logs (no new table). Honest correlation.
+  const windowDays = 14;
+  let actionedWindow = 0, resolvedOfActioned = 0;
+  if (payload.userId) {
+    try {
+      const since = new Date(now - windowDays * DAY);
+      const logs: C[] = await db.activityLog.findMany({ where: { actorId: payload.userId, createdAt: { gte: since } } });
+      const MUT = new Set(['ASSIGNED', 'ESCALATED', 'STATUS_CHANGED', 'RESOLVED', 'COMMENT', 'REOPENED', 'UNASSIGNED']);
+      const statusById = new Map(complaints.map(c => [str(c, 'id'), str(c, 'status')]));
+      const touched = new Set<string>();
+      for (const l of logs) {
+        if (str(l, 'actorId', 'actor_id') !== (payload.userId || '')) continue;
+        if (!MUT.has(str(l, 'action'))) continue;
+        actionedWindow++;
+        touched.add(str(l, 'complaintId', 'complaint_id'));
+      }
+      for (const cid of touched) if (statusById.get(cid) === 'RESOLVED') resolvedOfActioned++;
+    } catch { /* outcome panel is best-effort */ }
+  }
+
+  const caveats: string[] = [
+    'Yeh ek proposal queue hai, autopilot nahi — har action AAP approve karte ho, phir ek existing audited route execute karta hai.',
+    'Har item ek REAL ticket + real signal (urgency, SLA-age, NLP anger) se bana hai. Koi fabricated priority ya probability nahi.',
+    'Low volume (≈4 complaints/week) ki wajah se queue chhoti — kabhi sirf 2-3 items, ya khaali. Yeh honest hai, padding nahi.',
+    'Outcome panel sirf CORRELATION dikhata hai ("ab resolved"), causation claim nahi — AI ne resolve nahi kiya, aapne kiya.',
+    'Scope-locked: aapko sirf apni jurisdiction ke tickets dikhte hain; har write server-side complaintInScope + canMutateComplaints se dobara check hota hai.',
+  ];
+  if (!canWrite) caveats.unshift('Aapka role read-only hai (KARYAKARTA) — yeh queue advisory hai, approve buttons nahi aate.');
+
+  return {
+    scope: { level: payload.role_level || payload.role, label: scopeLabel(payload), generatedAt: new Date().toISOString() },
+    canWrite,
+    items,
+    officers,
+    stats: { proposed: items.length, actionedWindow, resolvedOfActioned, windowDays },
+    disabledTypes: [
+      { type: 'RESPOND_CITIZEN', reason: 'No honest free-text citizen-message endpoint exists yet. Citizen ko notify sirf status-change (WB-03) se hota hai — jab dedicated notify endpoint banega tab aayega.' },
+      { type: 'AUTO_PILOT', reason: 'v1 mein sab human-approve. Unattended writes (AI khud actions fire kare) intentionally OFF — political/legal safety.' },
+    ],
+    caveats,
   };
 }
 

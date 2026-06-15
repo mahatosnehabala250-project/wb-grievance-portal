@@ -27,6 +27,46 @@
 
 ---
 
+### SESSION 22 — Claude Code (June 15, 2026): LEVEL 10 — Autonomous Operations / AI Chief-of-Staff Action Queue (roadmap 1–10 COMPLETE)
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8), ultracode. Designed via a 6-agent workflow (discover execution+reuse surfaces → design → 3 adversarial verify lenses); every finding applied. Data feasibility verified directly via SQL.
+
+#### 🧠 What it is (and deliberately is NOT)
+- A scope-locked **proposal queue**, NOT an autopilot. Engine spots a real signal on a real ticket, drafts the action + its ready-to-fire execute route, and a human **approves with one tap** → an EXISTING audited route runs it. With ~4 complaints/week the queue is small-but-real; we say so and never pad.
+
+#### ✅ NEW: `computeOperations(payload)` + `ActionQueue`/`ActionItem` in `src/lib/intelligence.ts`
+- Builds the queue from the **authoritative scoped `findMany` row-set** (so every item carries a REAL `id` for the `[id]` execute routes). The Level 1–9 engines are reused only to rank/justify, never to source ids. Per-ticket NLP anger joined from `complaint_nlp` (same batched pattern as computeNetwork).
+- **5 action types — each mapped to a real, scope-safe execute route:**
+  - `ASSIGN_OFFICER` (active+unassigned) → `PATCH /complaints/[id] {assignedToId}` (scoped officer picker from `getUserListScope`)
+  - `ESCALATE` (SLA-breached, age>per-urgency-SLA) → `PATCH /complaints/[id] {urgency}` — body is **ONLY `{urgency}`**, never status, so an INTERNAL action can't silently fire WB-03 to a citizen
+  - `CHASE_STATUS` (stuck IN_PROGRESS >7d) → `POST /complaints/[id]/comments` (internal note)
+  - `CLOSE_QUICKWIN` (old LOW/MED active) → `PATCH /complaints/[id] {status:RESOLVED,resolution}` — **CITIZEN_FACING**, confirm + resolution text required
+  - `REOPEN` (status=RESOLVED AND `satisfactionRating`≤2) → `PATCH /complaints/[id]/reopen`
+- Deterministic score (0–100, `0.45·urgency + 0.35·age + 0.20·anger`) — no probabilities; one action per ticket (priority then score), cap 15.
+- **Outcome loop = existing `activity_logs`** (actorId + 14d window), NO new table: "you actioned N, M now resolved" as honest **correlation** (joins to current status), never causation; "No actions yet" on empty.
+- KARYAKARTA (`canMutateComplaints=false`) → advisory read-only queue, no approve buttons.
+
+#### ✅ NEW: thin `GET /api/intelligence/operations` + "Autonomous Operations" card in `IntelligenceCommandView.tsx`
+- Click-to-load card (mirrors Network/Fusion pattern): stats line, action rows with one-tap approve (inline officer `<select>` / resolution input / confirm for citizen-facing), honest **disabled gaps** (RESPOND_CITIZEN, AUTO_PILOT) and a caveats `<details>`.
+
+#### 🛡️ Adversarial review caught & FIXED before ship (honesty discipline)
+- **Fabrication cut:** original REOPEN trigger read low ratings from `brief.wins[]`, which is sorted to EXCLUDE low ratings → impossible. Re-sourced from real `satisfactionRating≤2` rows (often empty — renders empty honestly).
+- **Binding fix:** signals carry `ticketNo` only / area aggregates have no id; building `[id]` routes from them was unsound. Now all items come from the `findMany` row-set (real id); area signals are advisory context only.
+- **Auto-pilot dropped (v1):** every write is human-approved; no unattended load-time writes.
+- **No phantom vulns:** recon (read mid-edit) called escalate/reopen/bulk/escalate-batch unsafe; verify agents re-read HEAD and confirmed they are now fully guarded (fixed in SESSION 21 + addendum). The shipped spec/UI claims NO fake security bug.
+- **Real gap closed:** `POST /complaints/[id]/comments` lacked `canMutateComplaints` (KARYAKARTA could comment). Added the gate.
+
+#### ✔️ Verification
+- `npx tsc --noEmit` clean on all Level-10 files (`lib/intelligence.ts`, `api/intelligence/operations/route.ts`, `IntelligenceCommandView.tsx`, `comments/route.ts`).
+- SQL replication of the engine's triggers (ADMIN scope): ASSIGN 32, ESCALATE 31, CHASE 6, CLOSE 20, **REOPEN 1** — real items from real rows, no fabrication. Per-role scope yields smaller queues (honest).
+
+#### ⚠️ Next AI — Please Note
+- The action queue is **read-only**; execution happens on the EXISTING complaint routes (one-tap approve from the UI), which already enforce `complaintInScope` + `canMutateComplaints` + assignee scope. No new mutation endpoint, no new table.
+- **Roadmap 1–10 COMPLETE.** Future: a real citizen-notify endpoint would unlock RESPOND_CITIZEN (currently an honest disabled chip); a draft-then-approve auto-pilot for internal notes only.
+
+---
+
 ### SESSION 21 — Claude Code (June 15, 2026): End-to-end security audit + fixes (PII leak closure, scope-lock legacy routes, RBAC geo-forcing, `complaint_nlp` RLS)
 
 #### 🤖 AI Tool Info
