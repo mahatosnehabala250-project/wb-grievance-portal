@@ -27,6 +27,24 @@
 
 ---
 
+### SESSION 31 — Claude Code (June 15, 2026): Satellite infra-verification PoC (Level 14, Phase 2) — before/after by year
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). Free, no-key, no-backend. Tile sources curl-verified (HTTP 200 image/jpeg) before shipping.
+
+#### ✅ Time-travel satellite — `src/components/MapView.tsx`
+- In Satellite mode, a **year selector** (Recent · ’23 · ’20 · ’18). "Recent" = Esri World Imagery (current, high-res). 2018/2020/2023 = **EOX Sentinel-2 cloudless** yearly mosaics (10m, free, no API key: `tiles.maps.eox.at/wmts/.../s2cloudless-{year}_3857/...`). The Esri Reference labels overlay stays on top so place names show on every year.
+- **How it verifies:** zoom to an area, flip ’18 → Recent → SEE if a road/pond/check-dam/building appeared. Manual before/after "did the work actually happen" — the foundation of officer-claim verification, with zero cost.
+- `key={satYear}` on the TileLayer forces a clean swap when the year changes. EOX capped at maxZoom 16 (10m native) to avoid blurry over-zoom; Esri 19.
+
+#### ✔️ Verification
+- All tile endpoints curl-tested (EOX 2018/2020/2023 + Esri → HTTP 200 image/jpeg). `npx tsc --noEmit` clean on `MapView.tsx`.
+
+#### ⚠️ Honest scope / Next
+- This is **manual** before/after (human flips years + eyeballs change). 10m Sentinel-2 shows roads/ponds/built-up expansion clearly, but NOT a single small house. True **AUTO** change-detection (algorithmic NDVI / built-up diff that auto-flags "claim vs reality") is the next step — needs a processing pipeline (Sentinel Hub statistical API or raster diff), a bigger project. This PoC proves the value first, for free.
+
+---
+
 ### SESSION 30 — Claude Code (June 15, 2026): Satellite map layer (Level 14, Phase 1) — Street ↔ Satellite toggle
 
 #### 🤖 AI Tool Info

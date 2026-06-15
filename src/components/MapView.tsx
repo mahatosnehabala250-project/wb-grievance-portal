@@ -79,15 +79,28 @@ const InnerMap = dynamic(
         shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
       });
       return import("react-leaflet").then(({ MapContainer, TileLayer, CircleMarker, Popup, Tooltip }) => {
-        const Component = ({ blocks, mode, onSelect, selectedKey, center, zoom, basemap }: {
+        const Component = ({ blocks, mode, onSelect, selectedKey, center, zoom, basemap, satYear }: {
           blocks: BlockData[]; mode: ViewMode; onSelect: (b: BlockData) => void;
-          selectedKey: string | null; center: [number, number]; zoom: number; basemap: "street" | "satellite";
+          selectedKey: string | null; center: [number, number]; zoom: number;
+          basemap: "street" | "satellite"; satYear: "recent" | "2018" | "2020" | "2023";
         }) => (
           <MapContainer center={center} zoom={zoom} style={{ height: "100%", width: "100%", minHeight: "500px" }} zoomControl>
             {basemap === "satellite" ? (
               <>
-                {/* Esri World Imagery — free, no API key. Reference overlay adds place/boundary labels on top of the imagery. */}
-                <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" attribution="Imagery &copy; Esri, Maxar, Earthstar Geographics" maxZoom={19} />
+                {/* Recent = Esri World Imagery (current, high-res, free). 2018/2020/2023 =
+                    EOX Sentinel-2 cloudless yearly mosaics (10m, free, no key) — flip years
+                    to visually verify if infra (road / pond / building) appeared over time.
+                    Reference overlay keeps place/boundary labels on top either way. */}
+                <TileLayer
+                  key={satYear}
+                  url={satYear === "recent"
+                    ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                    : `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-${satYear}_3857/default/g/{z}/{y}/{x}.jpg`}
+                  attribution={satYear === "recent"
+                    ? "Imagery &copy; Esri, Maxar, Earthstar Geographics"
+                    : `Sentinel-2 cloudless ${satYear} &copy; EOX (modified Copernicus data)`}
+                  maxZoom={satYear === "recent" ? 19 : 16}
+                />
                 <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}" maxZoom={19} />
               </>
             ) : (
@@ -155,6 +168,7 @@ export function MapView() {
   const [blocks, setBlocks] = useState<BlockData[]>([]);
   const [mode, setMode] = useState<ViewMode>("risk");
   const [basemap, setBasemap] = useState<"street" | "satellite">("street");
+  const [satYear, setSatYear] = useState<"recent" | "2018" | "2020" | "2023">("recent");
   const [selected, setSelected] = useState<BlockData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -217,6 +231,17 @@ export function MapView() {
             </button>
           ))}
         </div>
+        {basemap === "satellite" && (
+          <div className="flex items-center gap-1">
+            {(["recent", "2023", "2020", "2018"] as const).map((y) => (
+              <button key={y} onClick={() => setSatYear(y)}
+                className={`px-2 py-1 rounded text-xs font-medium border transition-all ${satYear === y ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-foreground"}`}>
+                {y === "recent" ? "Recent" : `’${y.slice(2)}`}
+              </button>
+            ))}
+            <span className="text-[10px] text-muted-foreground ml-1 hidden md:inline">← saal flip karo, infra change dekho</span>
+          </div>
+        )}
         <div className="ml-auto flex gap-3 text-xs">
           <span className="text-red-400">🔴 {redZones} high-risk</span>
           <span className="text-orange-400">😡 {angryAreas} angry</span>
@@ -233,7 +258,7 @@ export function MapView() {
           ) : blocks.length === 0 ? (
             <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">No complaints in your jurisdiction yet.</div>
           ) : (
-            <InnerMap blocks={blocks} mode={mode} onSelect={setSelected} selectedKey={selectedKey} center={center} zoom={zoom} basemap={basemap} />
+            <InnerMap blocks={blocks} mode={mode} onSelect={setSelected} selectedKey={selectedKey} center={center} zoom={zoom} basemap={basemap} satYear={satYear} />
           )}
           {/* Legend */}
           <div className="absolute bottom-4 left-4 z-[500] bg-background/90 backdrop-blur border border-border rounded-lg p-3 text-xs space-y-1">
