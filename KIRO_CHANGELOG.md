@@ -27,6 +27,28 @@
 
 ---
 
+### SESSION 34 — Claude Code (June 16, 2026): DATA FIX — complaint assembly/Lok-Sabha backfill (geo mis-tagging) [Phase 1a]
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). Supabase DATA change (not code). Triggered by user spotting Baliguma village data was wrong.
+
+#### 🔴 Bug found
+- Baliguma (block Manbazar I) complaints were tagged `assembly_constituency='Bandwan'`, `parliamentary_constituency='Jhargram'` — WRONG. Authoritative `constituency_block_mapping` (+ Wikipedia) say **Manbazar I → Manbazar AC → Purulia LS**. Effect: the Purulia MP (scope `parliamentary_constituency='Purulia'`) and Manbazar MLA never saw them; the wrong (Bandwan) MLA did. Systemic: ~36 Purulia complaints had wrong/null AC+LS.
+
+#### ✅ Fix applied (Supabase UPDATE)
+- Backfilled `assembly_constituency` + `parliamentary_constituency` from `constituency_block_mapping` for ALL Purulia-block complaints **except Hura** (verified-correct: Manbazar I & Puncha → Manbazar/Purulia; Manbazar II → Bandwan/Jhargram; Purulia I/II → Purulia; Arsha → Balarampur/Purulia). Baliguma's 8 now correctly Manbazar/Purulia.
+- **Hura = SPLIT block** (Wikipedia: only 3 of Hura's GPs — Chatumadar, Daldali, Manguria Lalpur — are in Manbazar AC; the rest are in other Purulia-LS ACs). So Hura's AC was NOT force-set (would propagate error); only its `parliamentary_constituency` set to 'Purulia' (safe — all its ACs are Purulia LS). Hura AC needs village/GP-level resolution.
+
+#### 🧭 Verified geo facts (for future work)
+- `constituency_block_mapping` AC→Lok-Sabha column is CORRECT (Purulia LS = Balarampur, Baghmundi, Joypur, Purulia, Manbazar, Kashipur, Para; Bandwan→Jhargram; Raghunathpur→Bankura). Block→AC is mostly right but a few blocks genuinely SPLIT across ACs (Hura confirmed) → block→AC is approximate; true AC needs village/booth.
+- ~15 complaints are TEST data tagged to non-Purulia blocks (Krishnanagar, Siliguri, Rampurhat, Dinhata, …) — junk, left untouched.
+
+#### ⚠️ Next AI — Please Note (Phase 1b / root cause)
+- Root cause NOT yet fixed: NEW complaints still get AC/LS set at registration (the code/n8n that sets them is buggy) — find & correct it, else mis-tagging recurs.
+- Pending: gp_name is NULL on most complaints → needs LGD village→GP mapping (Phase 1b master table: Village→GP→Block→AC→LS→District). That table also resolves split-block AC (Hura) at village level.
+
+---
+
 ### SESSION 33 — Claude Code (June 16, 2026): Palantir-grade BLOCK CHOROPLETH — real CD-block boundaries, risk-shaded
 
 #### 🤖 AI Tool Info
