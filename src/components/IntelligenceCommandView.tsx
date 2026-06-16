@@ -32,6 +32,7 @@ import {
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { toast } from 'sonner';
 import { authHeaders } from '@/lib/helpers';
+import { downloadVillagePrCard } from '@/lib/prCard';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /* ─── Types (mirror of /api/intelligence/brief payload) ─── */
@@ -465,6 +466,20 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
     navigator.clipboard.writeText(lines.join('\n'))
       .then(() => toast.success(`${v.village} brief copied — WhatsApp pe paste karo`))
       .catch(() => toast.error('Copy failed'));
+  }, []);
+
+  /* Hyperlocal PR factory — per-village "humne ye kiya" achievement card (image).
+     AGGREGATE only (counts + categories), NO citizen names (public broadcast). */
+  const makeVillagePr = useCallback((v: WapasVillage) => {
+    const CAT_LABEL: Record<string, string> = {
+      WATER: 'Paani', ROAD: 'Sadak', HEALTH: 'Swasthya', ELECTRICITY: 'Bijli', RATION: 'Ration',
+      EDUCATION: 'Shiksha', PENSION: 'Pension', SANITATION: 'Safai', HOUSING: 'Awas', LAND: 'Zameen', OTHER: 'Anya',
+    };
+    const counts: Record<string, number> = {};
+    for (const it of v.items) { const c = (it.category || 'OTHER').toUpperCase(); counts[c] = (counts[c] || 0) + 1; }
+    const categories = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([c, n]) => ({ label: CAT_LABEL[c] || c, n }));
+    downloadVillagePrCard({ orgName: 'JanSunwai WB', village: v.village, count: v.count, avgRating: v.avgRating, categories, accent: '#BA7517' })
+      .catch(() => toast.error('PR card banane mein dikkat'));
   }, []);
 
   // Room gating (driven by CommandCenter). No room / 'all' → show everything
@@ -1546,6 +1561,13 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                           title="Copy visit brief"
                         >
                           <Copy className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="sm" className="h-6 px-1.5"
+                          onClick={(e) => { e.stopPropagation(); makeVillagePr(v); }}
+                          title="PR card — shareable achievement image"
+                        >
+                          <Megaphone className="w-3 h-3" />
                         </Button>
                       </div>
                       <AnimatePresence>

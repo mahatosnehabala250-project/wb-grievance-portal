@@ -27,6 +27,24 @@
 
 ---
 
+### SESSION 32 — Claude Code (June 15, 2026): Hyperlocal PR factory (Level 15, Phase 1) — per-village achievement card
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). Frontend-only, reuses existing Wapas-Jao resolved-complaint data. No new API, no backend.
+
+#### ✅ NEW: `src/lib/prCard.ts` + button in the "Wapas Jao" / Field section
+- A **Megaphone** button per village → generates a shareable **PNG achievement card** ("[village] — N shikayatein solve ✓") with a category breakdown bar chart + avg rating, branded header + footer. Pure Canvas 2D (no dependency), download / native-share.
+- **Privacy/ethics:** AGGREGATE only — counts + category breakdown + rating. **NO individual citizen names** (public broadcast → DPDP/consent), even though the underlying Wapas data has them (that's for the politician's private visit brief, not public PR).
+- **Honesty:** wording is "ab tak" (all-time resolved — the Wapas API is `status=RESOLVED`, not month-windowed), never a false "is mahine". Category breakdown computed from the returned items.
+
+#### ✔️ Verification
+- `npx tsc --noEmit` clean on `prCard.ts` + `IntelligenceCommandView.tsx`.
+
+#### ⚠️ Next AI — Please Note
+- Built as a viral/sales feature: "har gaon ka apna 'humne ye kiya' creative". A full factory (batch-generate all villages + auto-WhatsApp send) would build on this single-card generator + a send path (needs consent/opt-in handling).
+
+---
+
 ### SESSION 31 — Claude Code (June 15, 2026): Satellite infra-verification PoC (Level 14, Phase 2) — before/after by year
 
 #### 🤖 AI Tool Info
