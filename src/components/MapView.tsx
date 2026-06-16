@@ -68,6 +68,14 @@ function metricFor(b: BlockData, mode: ViewMode): number {
   return b.resolutionRate;
 }
 
+// Match a boundary polygon's block name to the API block data — tolerant of
+// case / hyphen / spacing AND roman-vs-digit suffix (Manbazar I == Manbazar 1).
+function normBlock(s: string): string {
+  let x = String(s || "").toUpperCase().replace(/[\s\-_.]/g, "");
+  x = x.replace(/III$/, "3").replace(/II$/, "2").replace(/I$/, "1");
+  return x;
+}
+
 // ---- Inner map (client-only) ----
 const InnerMap = dynamic(
   () =>
@@ -78,11 +86,11 @@ const InnerMap = dynamic(
         iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
         shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
       });
-      return import("react-leaflet").then(({ MapContainer, TileLayer, CircleMarker, Popup, Tooltip }) => {
-        const Component = ({ blocks, mode, onSelect, selectedKey, center, zoom, basemap, satYear }: {
+      return import("react-leaflet").then(({ MapContainer, TileLayer, CircleMarker, Popup, Tooltip, GeoJSON }) => {
+        const Component = ({ blocks, mode, onSelect, selectedKey, center, zoom, basemap, satYear, boundaries }: {
           blocks: BlockData[]; mode: ViewMode; onSelect: (b: BlockData) => void;
           selectedKey: string | null; center: [number, number]; zoom: number;
-          basemap: "street" | "satellite"; satYear: "recent" | "2018" | "2020" | "2023";
+          basemap: "street" | "satellite"; satYear: "recent" | "2018" | "2020" | "2023"; boundaries: any;
         }) => (
           <MapContainer center={center} zoom={zoom} style={{ height: "100%", width: "100%", minHeight: "500px" }} zoomControl>
             {basemap === "satellite" ? (
@@ -105,6 +113,28 @@ const InnerMap = dynamic(
               </>
             ) : (
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" opacity={0.9} />
+            )}
+            {/* Choropleth — real CD-block boundary polygons (LGD), shaded by the current mode */}
+            {boundaries && (
+              <GeoJSON
+                key={mode}
+                data={boundaries}
+                style={(feat: any) => {
+                  const b = blocks.find((x) => normBlock(x.block) === normBlock(feat?.properties?.block || ""));
+                  if (!b || b.total === 0) return { color: "#94a3b8", weight: 1, fillColor: "#94a3b8", fillOpacity: 0.06 };
+                  const c = colorFor(b, mode);
+                  return { color: c, weight: 1.5, fillColor: c, fillOpacity: 0.45 };
+                }}
+                onEachFeature={(feat: any, layer: any) => {
+                  const name = feat?.properties?.block || "";
+                  const b = blocks.find((x) => normBlock(x.block) === normBlock(name));
+                  const tip = b
+                    ? `${name} · ${mode === "resolution" ? metricFor(b, mode) + "% resolved" : mode === "anger" ? (b.avgAnger === null ? "no anger data" : "anger " + metricFor(b, mode)) : "risk " + metricFor(b, mode)}`
+                    : `${name} · no complaints`;
+                  layer.bindTooltip(tip, { sticky: true });
+                  if (b) layer.on("click", () => onSelect(b));
+                }}
+              />
             )}
             {blocks.map((b) => {
               const key = b.district + "||" + b.block;
@@ -170,6 +200,7 @@ export function MapView() {
   const [basemap, setBasemap] = useState<"street" | "satellite">("street");
   const [satYear, setSatYear] = useState<"recent" | "2018" | "2020" | "2023">("recent");
   const [selected, setSelected] = useState<BlockData | null>(null);
+  const [boundaries, setBoundaries] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -183,6 +214,8 @@ export function MapView() {
           return { ...d, lat: coords[0], lng: coords[1] };
         });
         setBlocks(result);
+        // CD-block boundary polygons for the choropleth (static public file, best-effort)
+        fetch("/purulia-blocks.geojson").then((r) => (r.ok ? r.json() : null)).then(setBoundaries).catch(() => {});
       } catch (e) {
         console.error(e);
       } finally {
@@ -258,7 +291,7 @@ export function MapView() {
           ) : blocks.length === 0 ? (
             <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">No complaints in your jurisdiction yet.</div>
           ) : (
-            <InnerMap blocks={blocks} mode={mode} onSelect={setSelected} selectedKey={selectedKey} center={center} zoom={zoom} basemap={basemap} satYear={satYear} />
+            <InnerMap blocks={blocks} mode={mode} onSelect={setSelected} selectedKey={selectedKey} center={center} zoom={zoom} basemap={basemap} satYear={satYear} boundaries={boundaries} />
           )}
           {/* Legend */}
           <div className="absolute bottom-4 left-4 z-[500] bg-background/90 backdrop-blur border border-border rounded-lg p-3 text-xs space-y-1">

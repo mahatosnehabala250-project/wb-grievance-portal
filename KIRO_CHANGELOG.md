@@ -27,6 +27,29 @@
 
 ---
 
+### SESSION 33 — Claude Code (June 16, 2026): Palantir-grade BLOCK CHOROPLETH — real CD-block boundaries, risk-shaded
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8), ultracode. Boundary source found + fetch-verified by a 13-agent workflow (no memory-asserted claims — every candidate was actually downloaded/queried).
+
+#### 🧠 Why
+- "Pins amateur lagte hain, shaded polygons professional." The map showed block-CENTROID circle markers (approximate). Now it shades the actual block AREAS — the Palantir look. (Verdict from the boundary-source hunt: datameet/GADM/gov portals were dead-ends or licence-blocked; the verified winner is below.)
+
+#### ✅ Data — verified free CD-block boundaries
+- Source: **`yashveeeeeeer/india-geodata` → `admin/blocks` → `LGD_Blocks.parquet`** (Govt of India LGD, **CC0/OGL** — commercial-safe). Confirmed by querying the real parquet: West Bengal → Purulia = **exactly the 20 portal CD blocks**, real polygons.
+- Extracted locally (python + pyarrow + shapely): filtered Purulia, simplified (tol 0.0008°), rounded coords (5dp), name-normalised to portal labels (BAGMUNDI→Baghmundi, BUNDWAN→Bandwan, JAIPUR→Joypur, RAGHUNATH PUR-I→Raghunathpur I, JHALDA-I→Jhalda I) → **`public/purulia-blocks.geojson` (79 KB, 20/20 matched)**. The 66 MB source parquet was processed then deleted (not committed).
+
+#### ✅ Map — `src/components/MapView.tsx`
+- Added a react-leaflet **`GeoJSON`** choropleth layer: each block polygon shaded by the current mode (risk / anger / resolution) via `colorFor`, no-data blocks faint grey. Click a polygon → selects that block; hover → tooltip with the metric. Matching uses `normBlock()` (case / hyphen / roman-vs-digit tolerant, e.g. "Manbazar I" == "Manbazar 1"). Works under BOTH street and satellite basemaps. Circle markers kept on top for active+critical load size. Boundary file fetched from `/public` on demand (not bundled).
+
+#### ✔️ Verification
+- `npx tsc --noEmit` clean on `MapView.tsx`. GeoJSON validated: 20 features, all Polygon, properties.block = portal labels.
+
+#### ⚠️ Next AI — Please Note
+- Phase 2 (other districts): same pipeline — filter the LGD parquet for the district, normalise names, drop a `<district>-blocks.geojson` in `/public`. Phase 3 (GP/village) only if a client needs it (village polygons are NOT cleanly free — the Census-2011 sub-district layer in WB == CD block, so it does NOT go below block). Attribution: LGD / india-geodata (CC0/OGL) — add a small credit if required.
+
+---
+
 ### SESSION 32 — Claude Code (June 15, 2026): Hyperlocal PR factory (Level 15, Phase 1) — per-village achievement card
 
 #### 🤖 AI Tool Info
