@@ -47,8 +47,15 @@
 #### ✔️ Verification
 - Baliguma + all Manbazar-I → Manbazar/Purulia; Hura villages → village-specific Kashipur/Manbazar; 14 remaining (null) are TEST complaints from non-Purulia districts.
 
+#### ✔️ Coverage verification (full Purulia, all 20 blocks)
+- **CONFIRMED COMPLETE: all 20 Purulia CD blocks = 2,711 villages in `lgd_villages`, every one with AC + LS + GP set + correct.** An earlier coverage query falsely reported "3 blocks missing (0 villages)" — that was a NAME-VARIANT artifact, NOT a data gap. `lgd_blocks`/`lgd_villages` store the LGD-official spellings **Bagmundi / Bundwan / Jaipur** (block_codes 3045/3048/3050 = 141/135/113 villages), whereas `constituency_block_mapping`, the public geojson, and Wikipedia use canonical **Baghmundi / Bandwan / Joypur**. The 389 villages were always present and correctly tagged (Baghmundi→Purulia, Bandwan→Jhargram, Joypur→Purulia).
+- **Spelling variant is BENIGN for live paths**: AC is derived per-VILLAGE (`lookup_village_coords` → `lgd_villages.village_name`), so block spelling is irrelevant to registration; the map matches `complaint.block` ↔ geojson `block` (canonical, LGD spelling preserved in feature `src`). The variant only bit ad-hoc name-joins against `constituency_block_mapping`. No complaint is mis/un-tagged because of it.
+- Verified: zero null-AC complaints belong to the 3 variant blocks; a village-name-ONLY backfill produces FALSE positives across districts (e.g. "Gopalnagar"/N-24-Pgs coincidentally matches a Manbazar village) — do NOT backfill on village name alone, always gate by district/block.
+
 #### ⚠️ Next AI — Please Note
-- `lgd_villages.lat/lng` are mostly NULL → village-level map dots need geocoding (Phase 2). `constituency_block_mapping` still oversimplifies the 3 split blocks (Hura→Manbazar etc.) — low impact now that complaints use village-level AC; regenerate from `lgd_villages` (majority AC) if a block-level table is still needed. ~14 test complaints from other districts are junk (consider deleting). A few Purulia villages didn't fuzzy-match `lgd_villages` (e.g. Keshyatard) → AC null.
+- **Only real remaining geo gap:** `lgd_villages.lat/lng` are NULL for all 2,711 → village-level map dots need geocoding (Phase 2; india-geodata census-village polygons give centroids).
+- `constituency_block_mapping` oversimplifies the 3 split blocks (Hura→Manbazar etc.) — low impact now that complaints use village-level AC; regenerate from `lgd_villages` (majority AC) if a block-level table is still needed.
+- Junk: ~13 null-AC complaints are test data from OTHER districts + 1 literal "Test Village" → delete-candidates. 1 real Purulia complaint (WB-26-PUR-001004 "Keshyatard", Hura) has a village name not in LGD → AC null.
 
 ---
 
