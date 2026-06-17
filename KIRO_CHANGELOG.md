@@ -27,6 +27,31 @@
 
 ---
 
+### SESSION 35 — Claude Code (June 16, 2026): ROOT-CAUSE geo fix — corrected `lgd_villages` + village-level backfill [Phase 1b]
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8), ultracode. 10-agent workflow fetched all 9 Purulia AC compositions from Wikipedia (Delimitation Commission orders) → an internally-consistent authoritative truth-map → reconciled the DB.
+
+#### 🧠 Root cause (found)
+- `register_complaint()` derives AC/LS/GP from the **`lgd_villages`** table (via `lookup_village_coords`). That table already holds the full **Village→GP→Block→AC→LS** hierarchy (+ lat/lng, mostly null). Baliguma was wrong because **`lgd_villages` itself had all 244 Manbazar I villages tagged AC=Bandwan/LS=Jhargram** (should be Manbazar/Purulia) — and registration faithfully copied it. So new complaints kept recurring wrong.
+- Both geo tables had DIFFERENT errors: `lgd_villages` (Manbazar-I wrong) AND `constituency_block_mapping` (Jhalda I → Joypur, should be Baghmundi). `lgd_villages` is the better source — it correctly SPLITS blocks across ACs (Hura, Arsha, Purulia I), which the block→AC table cannot.
+
+#### ✅ Authoritative truth-map (Wikipedia / Delimitation) — 20 Purulia CD blocks
+- **17 single-AC blocks** (safe block→AC) + **3 SPLIT blocks** needing GP-level: **Hura** = Manbazar (Chatumadar, Daldali, Manguria Lalpur GPs) + Kashipur (7 GPs); **Arsha** = Balarampur/Baghmundi/Joypur; **Purulia I** = Balarampur (6 GPs) + Purulia (2 GPs). AC→LS: Bandwan→Jhargram, Raghunathpur→Bankura, the other 7 → Purulia.
+
+#### ✅ Fixes applied (Supabase)
+- `lgd_villages`: Manbazar-I 244 villages → **Manbazar/Purulia**; Barabazar null-AC → Bandwan/Jhargram. (Root cause fixed AT SOURCE → new complaints now derive correctly, no code change.)
+- `constituency_block_mapping`: Jhalda I → **Baghmundi** (+ MLA Rahidas Mahato).
+- `complaints`: re-backfilled AC/LS **+ gp_name/gp_code** from corrected `lgd_villages` by (village+block). Village-level → SPLIT blocks now correct (Hura complaints → Kashipur/Manbazar by their actual GP). Baliguma = Manbazar/Purulia/Kamtajangidiri. 24 complaints got GP (was null).
+
+#### ✔️ Verification
+- Baliguma + all Manbazar-I → Manbazar/Purulia; Hura villages → village-specific Kashipur/Manbazar; 14 remaining (null) are TEST complaints from non-Purulia districts.
+
+#### ⚠️ Next AI — Please Note
+- `lgd_villages.lat/lng` are mostly NULL → village-level map dots need geocoding (Phase 2). `constituency_block_mapping` still oversimplifies the 3 split blocks (Hura→Manbazar etc.) — low impact now that complaints use village-level AC; regenerate from `lgd_villages` (majority AC) if a block-level table is still needed. ~14 test complaints from other districts are junk (consider deleting). A few Purulia villages didn't fuzzy-match `lgd_villages` (e.g. Keshyatard) → AC null.
+
+---
+
 ### SESSION 34 — Claude Code (June 16, 2026): DATA FIX — complaint assembly/Lok-Sabha backfill (geo mis-tagging) [Phase 1a]
 
 #### 🤖 AI Tool Info
