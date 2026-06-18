@@ -27,6 +27,27 @@
 
 ---
 
+### SESSION 36 — Claude Code (June 18, 2026): VERIFICATION — GP→AC mapping vs ECI Delimitation 2008 (100% correct) + village-polygon source assessed
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8), ultracode. Multi-agent workflow: 9 agents fetched each Purulia AC's OFFICIAL extent (ECI Delimitation of Parliamentary & Assembly Constituencies Order, 2008 — via Wikipedia mirrors + official purulia.gov.in/assembly-constituency). Then the DB's full GP-level claim (170 GP rows from `lgd_villages`) was diffed against that authoritative truth. (Workflow hit a session limit mid-run; the 9 AC extents completed, and the remaining GP→AC diff was finished manually against those extents.)
+
+#### ✅ RESULT: `lgd_villages` GP→AC→LS mapping is 100% CORRECT (170/170 GPs)
+- Verified against the official 2008 Delimitation Order. Every Gram Panchayat's assembly_constituency matches. This includes the hard cases:
+  - **3 SPLIT blocks exactly right:** Arsha 3-way (Arsha/Beldih/Mankiary→Joypur; Chatuhansa/Hensla/Puara→Balarampur; Hetgugui/Sirkabad→Baghmundi), Hura 2-way (Chatumadar/Daldali/Maguria-Lalpur→Manbazar; other 7 GPs→Kashipur), Purulia-I 2-way (Bhandarpuara-Chipida/Manara→Purulia; other 6→Balarampur).
+  - **Non-obvious whole blocks right:** Raghunathpur-II block→**Para** AC (not Raghunathpur); Puncha→Manbazar; Neturia/Santuri/Raghunathpur-I→Raghunathpur→**Bankura** LS; Manbazar-II→Bandwan→**Jhargram** LS.
+- AC numbers (official): 238 Bandwan(ST), 239 Balarampur, 240 Baghmundi, 241 Joypur, 242 Purulia, 243 Manbazar(ST), 244 Kashipur, 245 Para(SC), 246 Raghunathpur(SC). **The electoral hierarchy in our DB is authoritative-grade; register_complaint can be trusted for AC/LS derivation.**
+
+#### 📦 External asset assessed: `C:\Users\mahat\Downloads\purulia_village_shapefiles.tar.gz` (NOT in repo)
+- **REAL & useful for GEOMETRY:** 2,689 Purulia village POLYGONS, CRS WGS84, UTF-8, bbox lng 85.82–86.91 / lat 22.70–23.70 (= Purulia). Attributes incl. `vil_lgd` (LGD village code), `gp_code/gp_name`, `block_lgd/block_name`, `dist_lgd`=321, `ac_no`, `vilcode11/vilname11` (Census 2011), `vilnam_soi` (Survey of India).
+- **JOINABLE to our DB:** `vil_lgd` == `lgd_villages.village_code`. 60/60 random sample matched; 2,626 distinct codes cover ~97% of our 2,711 villages. → gives **village centroids = the missing lat/lng**, plus boundary polygons for a village-level map.
+- **⚠️ DO NOT import its `ac_no`/`gp_name`** — both are NOISY: `ac_no` has out-of-district/zero values (0, 247, 248, 249) and contamination inside otherwise-single-AC blocks (spatial-join edge artifacts); `gp_name` is scrambled in places (GPs from other blocks appear under a block). Our delimitation-verified DB hierarchy is cleaner. Use the file ONLY for geometry (lat/lng + polygons), keyed by `vil_lgd`.
+
+#### ⚠️ Next AI — Please Note
+- lat/lng backfill is now UNBLOCKED: compute polygon centroid per feature, join shapefile.vil_lgd → lgd_villages.village_code, write lat/lng. ~85 DB villages (+51 null-vil_lgd shapefile features) won't match by code — fall back to name match or leave null.
+
+---
+
 ### SESSION 35 — Claude Code (June 16, 2026): ROOT-CAUSE geo fix — corrected `lgd_villages` + village-level backfill [Phase 1b]
 
 #### 🤖 AI Tool Info
