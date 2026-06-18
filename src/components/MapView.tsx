@@ -87,12 +87,13 @@ const InnerMap = dynamic(
         shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
       });
       return import("react-leaflet").then(({ MapContainer, TileLayer, CircleMarker, Popup, Tooltip, GeoJSON }) => {
-        const Component = ({ blocks, mode, onSelect, selectedKey, center, zoom, basemap, satYear, boundaries }: {
+        const Component = ({ blocks, mode, onSelect, selectedKey, center, zoom, basemap, satYear, boundaries, showVillages, villageGeo, villageCounts }: {
           blocks: BlockData[]; mode: ViewMode; onSelect: (b: BlockData) => void;
           selectedKey: string | null; center: [number, number]; zoom: number;
           basemap: "street" | "satellite"; satYear: "recent" | "2018" | "2020" | "2023"; boundaries: any;
+          showVillages: boolean; villageGeo: any; villageCounts: Record<string, { total: number; active: number; critical: number; resolved: number }>;
         }) => (
-          <MapContainer center={center} zoom={zoom} style={{ height: "100%", width: "100%", minHeight: "500px" }} zoomControl>
+          <MapContainer preferCanvas center={center} zoom={zoom} style={{ height: "100%", width: "100%", minHeight: "500px" }} zoomControl>
             {basemap === "satellite" ? (
               <>
                 {/* Recent = Esri World Imagery (current, high-res, free). 2018/2020/2023 =
@@ -114,16 +115,43 @@ const InnerMap = dynamic(
             ) : (
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" opacity={0.9} />
             )}
+            {/* Village-level boundary choropleth (2,689 LGD village polygons, canvas-rendered).
+                Faint by default; villages with complaints light up (red=critical, amber=active,
+                green=all resolved). Joined to /api/map/villages by `v` = vil_lgd = village_code. */}
+            {showVillages && villageGeo && (
+              <GeoJSON
+                key={"vil-" + Object.keys(villageCounts).length}
+                data={villageGeo}
+                style={(feat: any) => {
+                  const v = feat?.properties?.v;
+                  const c = v ? villageCounts[v] : null;
+                  if (c && c.total > 0) {
+                    const col = c.critical > 0 ? "#ff3b3b" : c.active > 0 ? "#ffb000" : "#00c96e";
+                    return { color: col, weight: 1, fillColor: col, fillOpacity: 0.6 };
+                  }
+                  return { color: "#64748b", weight: 0.35, fillColor: "#64748b", fillOpacity: 0.04 };
+                }}
+                onEachFeature={(feat: any, layer: any) => {
+                  const p = feat?.properties || {};
+                  const c = p.v ? villageCounts[p.v] : null;
+                  layer.bindTooltip(
+                    `${p.n || "Village"}${p.b ? " · " + p.b : ""}${c ? ` · ${c.total} complaint${c.total > 1 ? "s" : ""}` : ""}`,
+                    { sticky: true }
+                  );
+                }}
+              />
+            )}
             {/* Choropleth — real CD-block boundary polygons (LGD), shaded by the current mode */}
             {boundaries && (
               <GeoJSON
-                key={mode}
+                key={mode + (showVillages ? "-v" : "")}
                 data={boundaries}
                 style={(feat: any) => {
                   const b = blocks.find((x) => normBlock(x.block) === normBlock(feat?.properties?.block || ""));
-                  if (!b || b.total === 0) return { color: "#94a3b8", weight: 1, fillColor: "#94a3b8", fillOpacity: 0.06 };
+                  // When the village layer is on, drop block fill to an outline so villages show through.
+                  if (!b || b.total === 0) return { color: "#94a3b8", weight: showVillages ? 1.2 : 1, fillColor: "#94a3b8", fillOpacity: showVillages ? 0 : 0.06 };
                   const c = colorFor(b, mode);
-                  return { color: c, weight: 1.5, fillColor: c, fillOpacity: 0.45 };
+                  return { color: c, weight: showVillages ? 2 : 1.5, fillColor: c, fillOpacity: showVillages ? 0 : 0.45 };
                 }}
                 onEachFeature={(feat: any, layer: any) => {
                   const name = feat?.properties?.block || "";
@@ -202,6 +230,9 @@ export function MapView() {
   const [selected, setSelected] = useState<BlockData | null>(null);
   const [boundaries, setBoundaries] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showVillages, setShowVillages] = useState(false);
+  const [villageGeo, setVillageGeo] = useState<any>(null);
+  const [villageCounts, setVillageCounts] = useState<Record<string, { total: number; active: number; critical: number; resolved: number }>>({});
 
   useEffect(() => {
     (async () => {
@@ -223,6 +254,18 @@ export function MapView() {
       }
     })();
   }, []);
+
+  // Village layer loads lazily on first toggle (3.6 MB boundary asset + scoped counts)
+  useEffect(() => {
+    if (!showVillages) return;
+    if (!villageGeo) fetch("/purulia-villages.geojson").then((r) => (r.ok ? r.json() : null)).then(setVillageGeo).catch(() => {});
+    fetch("/api/map/villages", { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (j?.data) setVillageCounts(j.data); })
+      .catch(() => {});
+  }, [showVillages, villageGeo]);
+
+  const villagesHit = useMemo(() => Object.keys(villageCounts).length, [villageCounts]);
 
   const selectedKey = selected ? selected.district + "||" + selected.block : null;
 
@@ -264,6 +307,11 @@ export function MapView() {
             </button>
           ))}
         </div>
+        <button onClick={() => setShowVillages((v) => !v)}
+          className={`px-2.5 py-1 rounded text-xs font-medium border transition-all ${showVillages ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-foreground"}`}
+          title="2,689 LGD village boundaries — gaon-by-gaon. Complaint waale gaon light up honge.">
+          🏘 Villages{showVillages && villagesHit > 0 ? ` (${villagesHit})` : ""}
+        </button>
         {basemap === "satellite" && (
           <div className="flex items-center gap-1">
             {(["recent", "2023", "2020", "2018"] as const).map((y) => (
@@ -291,7 +339,7 @@ export function MapView() {
           ) : blocks.length === 0 ? (
             <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">No complaints in your jurisdiction yet.</div>
           ) : (
-            <InnerMap blocks={blocks} mode={mode} onSelect={setSelected} selectedKey={selectedKey} center={center} zoom={zoom} basemap={basemap} satYear={satYear} boundaries={boundaries} />
+            <InnerMap blocks={blocks} mode={mode} onSelect={setSelected} selectedKey={selectedKey} center={center} zoom={zoom} basemap={basemap} satYear={satYear} boundaries={boundaries} showVillages={showVillages} villageGeo={villageGeo} villageCounts={villageCounts} />
           )}
           {/* Legend */}
           <div className="absolute bottom-4 left-4 z-[500] bg-background/90 backdrop-blur border border-border rounded-lg p-3 text-xs space-y-1">

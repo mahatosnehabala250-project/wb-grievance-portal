@@ -27,6 +27,21 @@
 
 ---
 
+### SESSION 38 — Claude Code (June 18, 2026): VILLAGE-LEVEL map layer (2,689 polygons, gaon-by-gaon choropleth)
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). Built the village-polygon map on top of the verified geo data (SESSION 36/37).
+
+#### ✅ What was built
+- **`public/purulia-villages.geojson`** (new, ~3.6 MB) — 2,689 LGD village boundary polygons simplified for web (coords→4 dp, holes dropped, minimal props `{v: vil_lgd, n: name, b: block}`). Generated from the verified shapefile.
+- **`src/app/api/map/villages/route.ts`** (new) — scope-locked (`getComplaintScopeFilter`) VILLAGE-level complaint aggregation. Resolves each complaint's free-text `village` → LGD `village_code` by name (within Purulia/321) and returns `{village_code: {total, active, critical, resolved}}`. Aggregate-only, no PII. Same scope boundary as `/api/map/risk`.
+- **`src/components/MapView.tsx`** — added a **🏘 Villages** toggle. Lazy-loads the boundary asset + scoped counts on first toggle, renders the 2,689 polygons via a **canvas renderer** (`preferCanvas`). Villages with complaints light up (red=critical / amber=active / green=all-resolved); others faint. Tooltip = village + block + complaint count. Joined by `v`=`vil_lgd`=`village_code`. When villages are on, the block choropleth drops to outline-only so villages show through.
+
+#### ⚠️ Next AI — Please Note
+- Complaint data is currently sparse (~tens, mostly test), so most villages render faint — the layer is the gaon-by-gaon FOUNDATION that lights up as real complaint volume grows. The village→code join is by name (collisions rare; picks first). 89 villages still lack lat/lng (unmatched in shapefile). For multi-district expansion, gate the village asset/endpoint by district.
+
+---
+
 ### SESSION 37 — Claude Code (June 18, 2026): lat/lng BACKFILL into lgd_villages from village polygons
 
 #### 🤖 AI Tool Info
