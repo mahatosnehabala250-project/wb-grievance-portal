@@ -27,6 +27,22 @@
 
 ---
 
+### SESSION 37 — Claude Code (June 18, 2026): lat/lng BACKFILL into lgd_villages from village polygons
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). Used the verified village-polygon shapefile (`purulia_village_shapefiles.tar.gz`, see SESSION 36) to fill the one remaining geo gap: village coordinates.
+
+#### ✅ What changed (Supabase — `lgd_villages`)
+- Computed the **area-weighted centroid** of each village polygon (Polygon/MultiPolygon, WGS84) in Node, joined `shapefile.vil_lgd` → `lgd_villages.village_code`, and wrote `lat`/`lng` (5-decimal ≈ 1 m).
+- **Result: 2,622 / 2,711 Purulia villages now have lat/lng** (was 0). All within Purulia bbox (lat 22.72–23.69, lng 85.83–86.90; out-of-range = 0). Centroids sanity-checked (e.g. Kashipur villages ~23.37, 86.7).
+- **89 villages still NULL** — their `village_code` had no matching `vil_lgd` in the shapefile (or the shapefile feature had null `vil_lgd`). Fallback: fuzzy name-match or leave null.
+- Only `lat`/`lng` were touched. The noisy `ac_no`/`gp_name` shapefile attributes were NOT imported (DB hierarchy stays authoritative — see SESSION 36).
+
+#### ⚠️ Next AI — Please Note
+- Village-level map dots are now possible (`lgd_villages.lat/lng`). Next geo step: village-level choropleth using the polygon boundaries (geojson kept in `Downloads/_shp_inspect/`), keyed by `vil_lgd`=`village_code`.
+
+---
+
 ### SESSION 36 — Claude Code (June 18, 2026): VERIFICATION — GP→AC mapping vs ECI Delimitation 2008 (100% correct) + village-polygon source assessed
 
 #### 🤖 AI Tool Info
