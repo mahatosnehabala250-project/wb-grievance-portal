@@ -14,6 +14,7 @@ import { AdvisorBar } from '@/components/AdvisorBar';
 import { BrandingSettings } from '@/components/BrandingSettings';
 import { IntelligenceCommandView } from '@/components/IntelligenceCommandView';
 import { MapView } from '@/components/MapView';
+import { OverviewDashboard } from '@/components/OverviewDashboard';
 import { toast } from 'sonner';
 import { authHeaders } from '@/lib/helpers';
 import {
@@ -116,6 +117,8 @@ export function CommandCenter({ user }: { user?: (BrandingScope & { name?: strin
           />
         ) : room === 'map' ? (
           <MapView />
+        ) : room === 'overview' ? (
+          <OverviewDashboard />
         ) : (
           <IntelligenceCommandView room={room} />
         )}
