@@ -29,6 +29,15 @@ interface MapData {
 const CYAN = "#22D3EE", AMBER = "#F59E0B", RED = "#EF4444", GREEN = "#34D399";
 const PANEL = "#0c1322", MAPBG = "#070b14", LINE = "rgba(34,211,238,0.35)";
 
+// Deterministic colour per Gram Panchayat — so adjacent villages of the same GP
+// share a hue and GP clusters are visible when boundaries are on.
+function gpColor(gp: string | null): string {
+  if (!gp) return "#475569";
+  let h = 0; for (let i = 0; i < gp.length; i++) h = (h * 31 + gp.charCodeAt(i)) % 360;
+  return `hsl(${h}, 72%, 62%)`;
+}
+const esc = (s: string) => String(s || "").replace(/[&<>]/g, (c) => (({ "&": "&amp;", "<": "&lt;", ">": "&gt;" } as Record<string, string>)[c]));
+
 const MODES: { key: Mode; label: string; icon: string }[] = [
   { key: "density", label: "Density", icon: "◍" },
   { key: "active", label: "Active", icon: "▲" },
@@ -54,7 +63,7 @@ const PURULIA_CENTER: [number, number] = [23.33, 86.36];
 const InnerMap = dynamic(
   () =>
     import("leaflet").then((L) =>
-      import("react-leaflet").then(({ MapContainer, TileLayer, CircleMarker, GeoJSON, Tooltip, useMap }) => {
+      import("react-leaflet").then(({ MapContainer, TileLayer, CircleMarker, GeoJSON, Tooltip, Marker, useMap }) => {
         function Fit({ points }: { points: VPoint[] }) {
           const map = useMap();
           useEffect(() => {
@@ -66,9 +75,33 @@ const InnerMap = dynamic(
           return null;
         }
 
-        const Component = ({ points, mode, basemap, boundaries, showBoundaries, onSelect }: {
+        // Village-name labels — only when zoomed in (>=12) and only for villages
+        // currently in view (viewport-limited, capped) so 2,689 labels never all
+        // render at once. At >=13 the Gram Panchayat name shows underneath.
+        function Labels({ pts }: { pts: { lat: number; lng: number; name: string; gp: string | null }[] }) {
+          const map = useMap();
+          const [vis, setVis] = useState<{ lat: number; lng: number; name: string; gp: string | null }[]>([]);
+          useEffect(() => {
+            const upd = () => {
+              if (map.getZoom() < 12) { setVis([]); return; }
+              const b = map.getBounds(); const out: { lat: number; lng: number; name: string; gp: string | null }[] = [];
+              for (const p of pts) { if (b.contains([p.lat, p.lng])) { out.push(p); if (out.length >= 130) break; } }
+              setVis(out);
+            };
+            upd(); map.on("moveend zoomend", upd);
+            return () => { map.off("moveend zoomend", upd); };
+          }, [map, pts]);
+          const z = map.getZoom();
+          return (<>{vis.map((p, i) => (
+            <Marker key={i} position={[p.lat, p.lng]} interactive={false}
+              icon={L.divIcon({ className: "", iconSize: [0, 0], html: `<div style="transform:translate(-50%,-50%);white-space:nowrap;font-family:ui-sans-serif,system-ui;font-size:11px;font-weight:600;color:#e2e8f0;text-shadow:0 0 4px #000,0 0 3px #000">${esc(p.name)}${z >= 13 && p.gp ? `<div style='font-size:9px;font-weight:400;color:#93c5fd;text-shadow:0 0 4px #000'>GP: ${esc(p.gp)}</div>` : ""}</div>` })} />
+          ))}</>);
+        }
+
+        const Component = ({ points, mode, basemap, boundaries, showBoundaries, onSelect, gpMap, labelPts }: {
           points: VPoint[]; mode: Mode; basemap: "dark" | "satellite";
           boundaries: any; showBoundaries: boolean; onSelect: (p: VPoint) => void;
+          gpMap: Record<string, [string, string]>; labelPts: { lat: number; lng: number; name: string; gp: string | null }[];
         }) => {
           const max = Math.max(1, ...points.map((p) => metricFor(p, mode)));
           return (
@@ -86,8 +119,21 @@ const InnerMap = dynamic(
               )}
 
               {showBoundaries && boundaries && (
-                <GeoJSON data={boundaries}
-                  style={() => ({ color: CYAN, weight: 0.4, opacity: 0.22, fillColor: CYAN, fillOpacity: 0.015 })} />
+                <GeoJSON key={Object.keys(gpMap).length} data={boundaries}
+                  style={(f: any) => {
+                    const code = f?.properties?.v;
+                    const gp = code && gpMap[code] ? gpMap[code][0] : null;
+                    const col = gpColor(gp);
+                    return { color: col, weight: 0.7, opacity: 0.5, fillColor: col, fillOpacity: 0.045 };
+                  }}
+                  onEachFeature={(f: any, layer: any) => {
+                    const p = f?.properties || {};
+                    const m = p.v && gpMap[p.v] ? gpMap[p.v] : null;
+                    layer.bindTooltip(
+                      `${p.n || "Village"}${m ? ` · GP: ${m[0]}` : ""}${p.b ? ` · ${p.b}` : ""}${m && m[1] ? ` · ${m[1]} AC` : ""}`,
+                      { sticky: true }
+                    );
+                  }} />
               )}
 
               {points.map((p) => {
@@ -120,6 +166,7 @@ const InnerMap = dynamic(
                     eventHandlers={{ click: () => onSelect(p) }} />
                 );
               })}
+              {showBoundaries && <Labels pts={labelPts} />}
               <Fit points={points} />
             </MapContainer>
           );
@@ -139,6 +186,7 @@ export function MapView() {
   const [showBoundaries, setShowBoundaries] = useState(true);
   const [selected, setSelected] = useState<VPoint | null>(null);
   const [loading, setLoading] = useState(true);
+  const [gpMap, setGpMap] = useState<Record<string, [string, string]>>({});
 
   useEffect(() => {
     (async () => {
@@ -149,10 +197,26 @@ export function MapView() {
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
       fetch("/purulia-villages.geojson").then((r) => (r.ok ? r.json() : null)).then(setBoundaries).catch(() => {});
+      fetch("/purulia-gp.json").then((r) => (r.ok ? r.json() : null)).then((j) => j && setGpMap(j)).catch(() => {});
     })();
   }, []);
 
   const points = data?.points || [];
+  const labelPts = useMemo(() => {
+    const b: any = boundaries;
+    if (!b?.features) return [] as { lat: number; lng: number; name: string; gp: string | null }[];
+    const out: { lat: number; lng: number; name: string; gp: string | null }[] = [];
+    for (const f of b.features) {
+      const g = f.geometry; if (!g) continue;
+      const ring = g.type === "Polygon" ? g.coordinates[0] : g.type === "MultiPolygon" ? g.coordinates[0][0] : null;
+      if (!ring || !ring.length) continue;
+      let sx = 0, sy = 0; for (const c of ring) { sx += c[0]; sy += c[1]; }
+      const code = f.properties?.v;
+      const gp = code && gpMap[code] ? gpMap[code][0] : null;
+      out.push({ lat: sy / ring.length, lng: sx / ring.length, name: f.properties?.n || "", gp });
+    }
+    return out;
+  }, [boundaries, gpMap]);
   const hotspots = useMemo(
     () => [...points].sort((a, b) => metricFor(b, mode) - metricFor(a, mode)).filter((p) => metricFor(p, mode) > 0).slice(0, 6),
     [points, mode]
@@ -223,7 +287,7 @@ export function MapView() {
           {loading ? (
             <div className="absolute inset-0 flex items-center justify-center text-sm" style={{ color: "#64748b", background: MAPBG }}>Loading command map…</div>
           ) : (
-            <InnerMap points={points} mode={mode} basemap={basemap} boundaries={boundaries} showBoundaries={showBoundaries} onSelect={setSelected} />
+            <InnerMap points={points} mode={mode} basemap={basemap} boundaries={boundaries} showBoundaries={showBoundaries} onSelect={setSelected} gpMap={gpMap} labelPts={labelPts} />
           )}
 
           {/* Density legend */}

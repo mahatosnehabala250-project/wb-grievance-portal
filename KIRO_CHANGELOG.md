@@ -27,6 +27,20 @@
 
 ---
 
+### SESSION 41 — Claude Code (June 20, 2026): Command Map — village-name labels + GP mapping on zoom-in
+
+#### 🐛 Fix (user report: "zoom-in pe gram panchayat mapping + village name nahi dikh raha")
+- The rebuilt dark map only showed faint village polygons + hover tooltips — no permanent village names, no GP grouping.
+
+#### ✅ What changed
+- **`public/purulia-gp.json`** (new, ~89 KB) — `{village_code: [gp_name, assembly]}` for all 2,711 Purulia villages, pulled from the **authoritative DB** (`lgd_villages` + `lgd_gram_panchayats`), NOT the noisy shapefile gp_name.
+- **`src/components/MapView.tsx`** — (1) village polygon outlines now **coloured by Gram Panchayat** (deterministic hue per GP → GP clusters become visible); (2) **village-name labels** appear at zoom ≥ 12, **viewport-limited + capped at 130** so 2,689 labels never all render; at zoom ≥ 13 the **GP name** shows under each village; (3) hover tooltip now reads `Village · GP: X · Block · AC`. Labels follow the ⬡ Villages toggle.
+
+#### ⚠️ Next AI — Please Note
+- GP grouping is colour-by-GP on the village polygons (we have no dissolved GP-boundary polygons; a true GP outline would need a union/dissolve of village polygons by gp — future). Labels are client-rendered divIcons; capped for perf.
+
+---
+
 ### SESSION 40 — Claude Code (June 19, 2026): Overview Dashboard — dark "Command Center" home (image-2 concept)
 
 #### 🤖 AI Tool Info
