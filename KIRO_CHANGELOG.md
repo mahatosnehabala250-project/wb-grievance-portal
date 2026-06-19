@@ -36,6 +36,7 @@
 - **`src/components/OverviewDashboard.tsx`** (new) — dark Command Center home, matching the Command Map aesthetic. **4 KPI cards** (Active, Critical, Resolution %, SLA breaches) each with a **mini SVG sparkline** + sub-stat; **Top {Districts/Blocks} by complaints** ranked bars; **AI Insight** card (computed summary + top problem-category bars + scope footer); **two charts** — Complaints over time (SVG area/line) and Complaints by category (SVG bars); **Critical alerts** list. All **dependency-free** (hand-drawn SVG charts), scope-locked.
 - **Data:** reuses the existing **`/api/dashboard`** (stats, byCategory, byGroup, monthlyTrend, criticalComplaints) — role-scoped via `getComplaintScopeFilter`.
 - **`src/components/CommandCenter.tsx`** — `overview` room now renders `<OverviewDashboard/>` (was `IntelligenceCommandView`).
+- **`src/app/page.tsx` + `src/lib/types.ts`** — surfaced as a **top-level "Overview" nav item** (new `view: 'overview'`, icon Gauge) in EVERY role's sidebar, right beside Intel Command. (Fix: it was only reachable buried inside Intel Command → "नहीं दिख रहा"; now it's a first-class sidebar entry.)
 
 #### ⚠️ Next AI — Please Note
 - Like the map, looks rich only with volume — current ~30 (mostly test) complaints → sparse KPIs/charts; the **demo-data seed** (still offered, not applied) fills it. `byGroup` is district for ADMIN/STATE, block for others (so MLA sees blocks, admin sees districts) — labels adapt. No "avg resolution time" KPI yet (not computed in /api/dashboard); used SLA breaches instead.

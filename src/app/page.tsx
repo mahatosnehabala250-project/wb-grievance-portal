@@ -81,6 +81,7 @@ import { MPCommandView } from '@/components/MPCommandView';
 import { CommandCenter } from '@/components/CommandCenter';
 import { GovernanceDashboardView } from '@/components/GovernanceDashboardView';
 import { MapView } from '@/components/MapView';
+import { OverviewDashboard } from '@/components/OverviewDashboard';
 import { SchemeKnowledgeView } from '@/components/SchemeKnowledgeView';
 import { N8nEndpointHealth } from '@/components/N8nEndpointHealth';
 import DeploymentGuideView from '@/components/DeploymentGuideView';
@@ -111,7 +112,7 @@ export default function HomePage() {
 
     if (isAdmin) {
       return [
-        { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('intel_command', 'Intel Command', BrainCircuit)] },
+        { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('overview', 'Overview', Gauge), item('intel_command', 'Intel Command', BrainCircuit)] },
         { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('chat', 'WhatsApp Chats', MessageSquare), item('map', 'Map', MapPin), item('rakta', 'রক্ত সহায়ক', Heart)] },
         { title: 'Insights', items: [item('analytics', t('analytics'), BarChart2), item('intelligence', 'Alert Engine', ShieldAlert), item('schemes', 'Schemes', BookOpen), item('liveData', 'Live Data', Radio)] },
         { title: 'Role Previews', items: [item('mp_command', 'MP Command', Crown), item('mla_dashboard', 'MLA Dashboard', Building2)] },
@@ -121,7 +122,7 @@ export default function HomePage() {
     }
     if (lvl === 'MP') {
       return [
-        { title: null, items: [item('mp_command', 'MP Command', Crown), item('intel_command', 'Intel Command', BrainCircuit)] },
+        { title: null, items: [item('mp_command', 'MP Command', Crown), item('overview', 'Overview', Gauge), item('intel_command', 'Intel Command', BrainCircuit)] },
         { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('map', 'Map', MapPin)] },
         { title: 'Team', items: [item('users', t('users'), Users)] },
         settingsSec,
@@ -129,7 +130,7 @@ export default function HomePage() {
     }
     if (lvl === 'MLA') {
       return [
-        { title: null, items: [item('mla_dashboard', 'MLA Dashboard', Building2), item('intel_command', 'Intel Command', BrainCircuit)] },
+        { title: null, items: [item('mla_dashboard', 'MLA Dashboard', Building2), item('overview', 'Overview', Gauge), item('intel_command', 'Intel Command', BrainCircuit)] },
         { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('map', 'Map', MapPin)] },
         { title: 'Team', items: [item('users', t('users'), Users)] },
         settingsSec,
@@ -137,7 +138,7 @@ export default function HomePage() {
     }
     if (lvl === 'DISTRICT_ADMIN') {
       return [
-        { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('intel_command', 'Intel Command', BrainCircuit)] },
+        { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('overview', 'Overview', Gauge), item('intel_command', 'Intel Command', BrainCircuit)] },
         { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('map', 'Map', MapPin), item('analytics', t('analytics'), BarChart2)] },
         { title: 'Team', items: [item('users', t('users'), Users)] },
         settingsSec,
@@ -145,7 +146,7 @@ export default function HomePage() {
     }
     if (lvl === 'BLOCK_COORD' || lvl === 'GP_COORD') {
       return [
-        { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('intel_command', 'Intel Command', BrainCircuit)] },
+        { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('overview', 'Overview', Gauge), item('intel_command', 'Intel Command', BrainCircuit)] },
         { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('map', 'Map', MapPin)] },
         { title: 'Team', items: [item('users', t('users'), Users)] },
         settingsSec,
@@ -153,14 +154,14 @@ export default function HomePage() {
     }
     if (lvl === 'KARYAKARTA') {
       return [
-        { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('intel_command', 'Intel Command', BrainCircuit)] },
+        { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('overview', 'Overview', Gauge), item('intel_command', 'Intel Command', BrainCircuit)] },
         { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('map', 'Map', MapPin)] },
         settingsSec,
       ];
     }
     // Legacy officer roles (BLOCK / DISTRICT / STATE)
     return [
-      { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('intel_command', 'Intel Command', BrainCircuit)] },
+      { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('overview', 'Overview', Gauge), item('intel_command', 'Intel Command', BrainCircuit)] },
       { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('chat', 'WhatsApp Chats', MessageSquare), item('map', 'Map', MapPin), item('rakta', 'রক্ত সহায়ক', Heart)] },
       { title: 'Insights', items: [item('analytics', t('analytics'), BarChart2), item('schemes', 'Schemes', BookOpen), item('liveData', 'Live Data', Radio)] },
       settingsSec,
@@ -750,6 +751,9 @@ export default function HomePage() {
                 )}
                 {view === 'intel_command' && (
                   <CommandCenter user={user} />
+                )}
+                {view === 'overview' && (
+                  <OverviewDashboard />
                 )}
                 {view === 'intelligence' && (
                   <IntelligenceView />
