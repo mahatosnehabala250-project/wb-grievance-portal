@@ -27,6 +27,17 @@
 
 ---
 
+### SESSION 42 — Claude Code (June 20, 2026): Command Map — level-of-detail (block default, villages on zoom-in)
+
+#### 🐛 Fix (user: "har village line mat dikhao, block hi dikha; zoom karne par village name dikhao")
+- The map drew all 2,689 village outlines + labels at every zoom = cluttered (stray labels confused the user).
+
+#### ✅ What changed (`src/components/MapView.tsx`)
+- **Zoom-aware LOD.** Default / zoomed-out: only the **20 CD-block boundaries** (cyan) + **block-name labels** — clean. **Zoom ≥ 12:** the village layer (GP-coloured outlines + village-name labels, GP names at ≥13) appears for the area in view; block labels hide. A `ZoomWatcher` tracks the live zoom. Block outlines stay thin for context at all zooms.
+- Uses the existing `public/purulia-blocks.geojson` (20 blocks) for the overview layer.
+
+---
+
 ### SESSION 41 — Claude Code (June 20, 2026): Command Map — village-name labels + GP mapping on zoom-in
 
 #### 🐛 Fix (user report: "zoom-in pe gram panchayat mapping + village name nahi dikh raha")

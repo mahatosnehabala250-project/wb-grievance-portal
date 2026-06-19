@@ -75,6 +75,16 @@ const InnerMap = dynamic(
           return null;
         }
 
+        function ZoomWatcher({ onZoom }: { onZoom: (z: number) => void }) {
+          const map = useMap();
+          useEffect(() => {
+            const u = () => onZoom(map.getZoom());
+            u(); map.on("zoomend", u);
+            return () => { map.off("zoomend", u); };
+          }, [map, onZoom]);
+          return null;
+        }
+
         // Village-name labels — only when zoomed in (>=12) and only for villages
         // currently in view (viewport-limited, capped) so 2,689 labels never all
         // render at once. At >=13 the Gram Panchayat name shows underneath.
@@ -98,11 +108,13 @@ const InnerMap = dynamic(
           ))}</>);
         }
 
-        const Component = ({ points, mode, basemap, boundaries, showBoundaries, onSelect, gpMap, labelPts }: {
+        const Component = ({ points, mode, basemap, boundaries, showBoundaries, onSelect, gpMap, labelPts, blockBoundaries, blockLabelPts }: {
           points: VPoint[]; mode: Mode; basemap: "dark" | "satellite";
           boundaries: any; showBoundaries: boolean; onSelect: (p: VPoint) => void;
           gpMap: Record<string, [string, string]>; labelPts: { lat: number; lng: number; name: string; gp: string | null }[];
+          blockBoundaries: any; blockLabelPts: { lat: number; lng: number; name: string }[];
         }) => {
+          const [zoom, setZoom] = useState(9);
           const max = Math.max(1, ...points.map((p) => metricFor(p, mode)));
           return (
             <MapContainer preferCanvas center={PURULIA_CENTER} zoom={9} zoomControl
@@ -118,13 +130,28 @@ const InnerMap = dynamic(
                   attribution='&copy; OpenStreetMap, &copy; CARTO' maxZoom={20} />
               )}
 
-              {showBoundaries && boundaries && (
-                <GeoJSON key={Object.keys(gpMap).length} data={boundaries}
+              <ZoomWatcher onZoom={setZoom} />
+
+              {/* BLOCK boundaries — always (clean overview, just 20 outlines) */}
+              {blockBoundaries && (
+                <GeoJSON data={blockBoundaries}
+                  style={() => ({ color: CYAN, weight: 1.3, opacity: 0.6, fillColor: CYAN, fillOpacity: 0.02 })}
+                  onEachFeature={(f: any, layer: any) => { const nm = f?.properties?.block || f?.properties?.BLOCK || ""; if (nm) layer.bindTooltip(nm, { sticky: true }); }} />
+              )}
+              {/* Block-name labels when zoomed OUT */}
+              {zoom < 12 && blockLabelPts.map((b, i) => (
+                <Marker key={"bl" + i} position={[b.lat, b.lng]} interactive={false}
+                  icon={L.divIcon({ className: "", iconSize: [0, 0], html: `<div style="transform:translate(-50%,-50%);white-space:nowrap;font-family:ui-sans-serif,system-ui;font-size:12px;font-weight:600;letter-spacing:0.04em;color:#bae6fd;text-shadow:0 0 5px #000,0 0 3px #000">${esc(b.name)}</div>` })} />
+              ))}
+
+              {/* VILLAGE detail — ONLY when zoomed IN (>=12) and toggle on */}
+              {showBoundaries && zoom >= 12 && boundaries && (
+                <GeoJSON key={"v" + Object.keys(gpMap).length} data={boundaries}
                   style={(f: any) => {
                     const code = f?.properties?.v;
                     const gp = code && gpMap[code] ? gpMap[code][0] : null;
                     const col = gpColor(gp);
-                    return { color: col, weight: 0.7, opacity: 0.5, fillColor: col, fillOpacity: 0.045 };
+                    return { color: col, weight: 0.7, opacity: 0.55, fillColor: col, fillOpacity: 0.05 };
                   }}
                   onEachFeature={(f: any, layer: any) => {
                     const p = f?.properties || {};
@@ -187,6 +214,7 @@ export function MapView() {
   const [selected, setSelected] = useState<VPoint | null>(null);
   const [loading, setLoading] = useState(true);
   const [gpMap, setGpMap] = useState<Record<string, [string, string]>>({});
+  const [blocks, setBlocks] = useState<any>(null);
 
   useEffect(() => {
     (async () => {
@@ -198,8 +226,23 @@ export function MapView() {
       finally { setLoading(false); }
       fetch("/purulia-villages.geojson").then((r) => (r.ok ? r.json() : null)).then(setBoundaries).catch(() => {});
       fetch("/purulia-gp.json").then((r) => (r.ok ? r.json() : null)).then((j) => j && setGpMap(j)).catch(() => {});
+      fetch("/purulia-blocks.geojson").then((r) => (r.ok ? r.json() : null)).then(setBlocks).catch(() => {});
     })();
   }, []);
+
+  const blockLabelPts = useMemo(() => {
+    const b: any = blocks;
+    if (!b?.features) return [] as { lat: number; lng: number; name: string }[];
+    const out: { lat: number; lng: number; name: string }[] = [];
+    for (const f of b.features) {
+      const g = f.geometry; if (!g) continue;
+      const ring = g.type === "Polygon" ? g.coordinates[0] : g.type === "MultiPolygon" ? g.coordinates[0][0] : null;
+      if (!ring || !ring.length) continue;
+      let sx = 0, sy = 0; for (const c of ring) { sx += c[0]; sy += c[1]; }
+      out.push({ lat: sy / ring.length, lng: sx / ring.length, name: f.properties?.block || f.properties?.BLOCK || "" });
+    }
+    return out;
+  }, [blocks]);
 
   const points = data?.points || [];
   const labelPts = useMemo(() => {
@@ -287,7 +330,7 @@ export function MapView() {
           {loading ? (
             <div className="absolute inset-0 flex items-center justify-center text-sm" style={{ color: "#64748b", background: MAPBG }}>Loading command map…</div>
           ) : (
-            <InnerMap points={points} mode={mode} basemap={basemap} boundaries={boundaries} showBoundaries={showBoundaries} onSelect={setSelected} gpMap={gpMap} labelPts={labelPts} />
+            <InnerMap points={points} mode={mode} basemap={basemap} boundaries={boundaries} showBoundaries={showBoundaries} onSelect={setSelected} gpMap={gpMap} labelPts={labelPts} blockBoundaries={blocks} blockLabelPts={blockLabelPts} />
           )}
 
           {/* Density legend */}
