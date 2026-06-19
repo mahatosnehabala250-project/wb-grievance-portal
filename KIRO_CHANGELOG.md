@@ -27,6 +27,23 @@
 
 ---
 
+### SESSION 39 — Claude Code (June 19, 2026): Command Map REBUILT from scratch — dark glowing intelligence map + AI Insight panel
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8). Full rewrite of the Map room to the "command center" aesthetic the founder approved (dark, glowing village hotspots, AI insight side-panel — modeled on the image-3 concept).
+
+#### ✅ What changed
+- **`src/components/MapView.tsx`** — REWRITTEN. Dark **CARTO dark_all** basemap (free, no key) + **glowing village hotspots** (soft halo + bright core CircleMarkers, color/size by metric) instead of the old big-red-blob block circles. Right-side **AI Insight panel**: active total + 7-day Δ%, computed AI summary, **Top hotspots** (clickable), **top issue categories** bars, density legend. Modes: **Density / Active / SLA-breach / Resolved**. Basemap toggle (Dark / Satellite-for-before-after). Faint village-boundary overlay (canvas). Auto-**fits to the caller's data** (no more opening on Nepal). Still role-adaptive + scope-locked.
+- **`src/app/api/map/villages/route.ts`** — extended: now returns `points[]` (village lat/lng + total/active/critical/resolved/**slaBreached**), `categories[]`, and `trend{last7,prior7,pct}` — all scope-locked, aggregate-only.
+
+#### 🎯 Side-benefit (fixes the earlier "map confusing" complaint)
+- Everything keys off **resolved Purulia `village_code`** → out-of-district **test/junk complaints (Siliguri, "Test Block", etc.) no longer plot** and no longer skew the center/ranking. The map is clean by construction.
+
+#### ⚠️ Next AI — Please Note
+- Plots only where we have village coords (**Purulia / district 321**). Whole-WB admin view needs other districts' village lat/lng (future). With current ~30 (mostly test) complaints the map looks SPARSE — a **demo dataset seed** (offered, not yet applied) will make it look dense like the concept. True smooth heat / 3D would need a MapLibre + deck.gl upgrade (deferred per founder: no 3D for now).
+
+---
+
 ### SESSION 38 — Claude Code (June 18, 2026): VILLAGE-LEVEL map layer (2,689 polygons, gaon-by-gaon choropleth)
 
 #### 🤖 AI Tool Info
