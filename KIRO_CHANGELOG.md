@@ -27,6 +27,21 @@
 
 ---
 
+### SESSION 44 — Claude Code (June 20, 2026): GEOMETRY AUDIT — full Purulia village-polygon integrity (internal 100% + external corroboration)
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8), ultracode. Deterministic node audit over all 2,689 polygons + a multi-agent Workflow (22-village stratified sample) cross-checked against EXTERNAL sources (OSM Nominatim reverse-geocode + web gazetteers).
+
+#### ✅ Findings — the dataset is SOUND (verification only, no data changed)
+- **Naming was NOT a bug.** The "Bardaha→Kamtajangidiri" issue was systematic: the SoI shapefile carries TWO names per polygon — `vilnam_soi` (Survey of India) and `vilname11` (Census/LGD). `vil_lgd` ↔ **`vilname11` = 100.0%** (2633/2634); ↔ `vilnam_soi` = 0.2%. The simplified geojson had used `vilnam_soi` for labels → SESSION 43 already fixed it (labels now use DB name by LGD code). e.g. code 332036: SoI "Bardaha", Census/LGD **"Baliguma"** (the correct one).
+- **Geometry is correct.** Point-in-block test: **2,688 / 2,689 (100.0%)** village centroids fall inside their claimed CD block; **0 wrong-block**; 1 border village just outside the *simplified* block polygon (simplification artifact). → `vil_lgd` ↔ polygon ↔ block all consistent, so the SESSION 37 lat/lng backfill is **valid (no corruption)**.
+- **External corroboration (Workflow, 22-village sample, 1/block + Baliguma + Bardaha):** **22/22 "consistent", 0 suspect, 0 contradiction.** Nominatim confirmed district=Purulia + state=WB + correct CD block for all 22; village name externally attested for 14/22 (8 exact, 6 close), 8 `unverifiable` (rural villages absent from OSM — expected, NOT a contradiction). Bardaha (331926) reverse-geocoded to Barabazar town pincode 723127 (matches), Baliguma (332036) to Manbazar-I — both confirmed distinct & correctly placed.
+
+#### ⚠️ Next AI — Please Note (optional hardening)
+- For positive proof of the 8 externally-`unverifiable` names, cross-walk all 2,689 `vil_lgd` codes against the official **LGD master / Census 2011 PCA** directory (stronger than OSM for rural India). Always key lookups on **LGD code, never bare name** (duplicate names exist: "Rangamati", "Dhabani"). The 1 out-of-block centroid is a boundary/simplification artifact, not a data error.
+
+---
+
 ### SESSION 43 — Claude Code (June 20, 2026): Command Map — village NAME now from authoritative DB (shapefile name↔code mismatch)
 
 #### 🐛 Bug (user: "Bardaha ka panchayat Kamtajangidiri kyun dikh raha hai?")
