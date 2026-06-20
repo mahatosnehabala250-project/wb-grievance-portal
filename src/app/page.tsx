@@ -753,7 +753,7 @@ export default function HomePage() {
                   <CommandCenter user={user} />
                 )}
                 {view === 'overview' && (
-                  <OverviewDashboard />
+                  <OverviewDashboard onOpenMap={() => setView('map')} />
                 )}
                 {view === 'intelligence' && (
                   <IntelligenceView />

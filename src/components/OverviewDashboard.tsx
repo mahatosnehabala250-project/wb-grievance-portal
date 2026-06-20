@@ -81,7 +81,18 @@ function Bars({ data }: { data: { category: string; count: number }[] }) {
   );
 }
 
-export function OverviewDashboard() {
+function CountUp({ value }: { value: number }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    let raf = 0; const start = performance.now(); const dur = 700;
+    const tick = (t: number) => { const p = Math.min(1, (t - start) / dur); setN(Math.round(value * (1 - Math.pow(1 - p, 3)))); if (p < 1) raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <>{n.toLocaleString()}</>;
+}
+
+export function OverviewDashboard({ onOpenMap }: { onOpenMap?: () => void }) {
   const [d, setD] = useState<Dash | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -115,34 +126,40 @@ export function OverviewDashboard() {
   }, [d, active, areaLabel]);
 
   const KPIS = d ? [
-    { label: "Active complaints", value: active, color: CYAN, sub: `${d.stats.todayComplaints} today`, spark, sparkColor: CYAN },
-    { label: "Critical", value: d.stats.critical, color: RED, sub: "needs attention", spark, sparkColor: RED },
-    { label: "Resolution rate", value: `${d.stats.resolutionRate}%`, color: GREEN, sub: `${d.stats.resolved} of ${d.stats.total} resolved`, spark: sparkRes, sparkColor: GREEN },
-    { label: "SLA breaches", value: d.stats.slaBreaches, color: AMBER, sub: "open > 7 days", spark, sparkColor: AMBER },
+    { label: "Active complaints", num: active, suffix: "", color: CYAN, sub: `${d.stats.todayComplaints} today`, spark, sparkColor: CYAN },
+    { label: "Critical", num: d.stats.critical, suffix: "", color: RED, sub: "needs attention", spark, sparkColor: RED },
+    { label: "Resolution rate", num: d.stats.resolutionRate, suffix: "%", color: GREEN, sub: `${d.stats.resolved} of ${d.stats.total} resolved`, spark: sparkRes, sparkColor: GREEN },
+    { label: "SLA breaches", num: d.stats.slaBreaches, suffix: "", color: AMBER, sub: "open > 7 days", spark, sparkColor: AMBER },
   ] : [];
 
   if (loading) return <div className="h-full flex items-center justify-center text-sm" style={{ background: BG, color: "#64748b" }}>Loading command center…</div>;
 
   return (
     <div className="h-full overflow-y-auto" style={{ background: BG }}>
+      <style>{`.kpi-card{transition:transform .15s ease, border-color .15s ease}.kpi-card:hover{transform:translateY(-2px);border-color:rgba(34,211,238,0.3)}`}</style>
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-3 flex-wrap" style={{ borderBottom: `1px solid ${HAIR}`, background: PANEL, position: "sticky", top: 0, zIndex: 10 }}>
         <span className="font-semibold text-sm flex items-center gap-2" style={{ color: "#e2e8f0" }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: GREEN, display: "inline-block", boxShadow: `0 0 8px ${GREEN}` }} /> Command Center
         </span>
         <span className="text-xs" style={{ color: "#64748b" }}>Live · grievance intelligence</span>
-        <span className="ml-auto text-xs px-2 py-1 rounded" style={{ background: "rgba(34,211,238,0.1)", color: CYAN }}>{d?.userRole || ""}</span>
+        <div className="ml-auto flex items-center gap-2">
+          {onOpenMap && (
+            <button onClick={onOpenMap} className="text-xs px-2.5 py-1 rounded font-medium" style={{ background: "rgba(34,211,238,0.12)", color: CYAN, border: "1px solid rgba(34,211,238,0.25)" }}>Open Command Map →</button>
+          )}
+          <span className="text-xs px-2 py-1 rounded" style={{ background: "rgba(34,211,238,0.1)", color: CYAN }}>{d?.userRole || ""}</span>
+        </div>
       </div>
 
       <div className="p-5 space-y-5" style={{ maxWidth: 1280, margin: "0 auto" }}>
         {/* KPI row */}
         <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
           {KPIS.map((k) => (
-            <div key={k.label} className="rounded-xl p-4" style={{ background: PANEL, border: `1px solid ${HAIR}` }}>
+            <div key={k.label} className="kpi-card rounded-xl p-4" style={{ background: PANEL, border: `1px solid ${HAIR}` }}>
               <div className="flex items-start justify-between">
                 <div>
                   <div className="text-xs" style={{ color: "#94a3b8" }}>{k.label}</div>
-                  <div className="text-3xl font-bold mt-1" style={{ color: "#f1f5f9" }}>{typeof k.value === "number" ? k.value.toLocaleString() : k.value}</div>
+                  <div className="text-3xl font-bold mt-1" style={{ color: "#f1f5f9" }}><CountUp value={k.num} />{k.suffix}</div>
                 </div>
                 <span style={{ width: 9, height: 9, borderRadius: "50%", background: k.color, boxShadow: `0 0 10px ${k.color}`, marginTop: 4 }} />
               </div>

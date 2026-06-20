@@ -27,6 +27,23 @@
 
 ---
 
+### SESSION 45 — Claude Code (June 20, 2026): Map category filter + critical pulse; Overview count-up + Open-Map (styling + features)
+
+#### 🤖 AI Tool Info
+- **Tool:** Claude Code (claude-opus-4-8), autonomous round. QA first (agent-browser N/A here → tsc + Vercel deploy status; build green, tree clean, stable) → added features + styling.
+
+#### ✅ What changed
+- **`src/app/api/map/villages/route.ts`** — points now include per-village **`cats`** (category→count); `data` map too.
+- **`src/components/MapView.tsx`** — **Category filter** chips in the header (All + top 5 categories) → filters glow points + hotspots to the selected issue type (cyan). **Critical pulse**: pulsing red ring (CSS `@keyframes`) on critical-hotspot villages. `metricFor` + hotspots are category-aware; fit-bounds respects the filter.
+- **`src/components/OverviewDashboard.tsx`** — KPI **count-up animation** (requestAnimationFrame, no dep), **card hover-lift**, and an **"Open Command Map →"** button (`onOpenMap` prop).
+- **`src/app/page.tsx`** — passes `onOpenMap={() => setView('map')}` to `OverviewDashboard`.
+- **`KIROLOG.md`** (new) — 3-section phase-handover doc (status / completed / risks-next).
+
+#### ✔️ Verification
+- `tsc --noEmit` clean for all changed files; committed + pushed; Vercel deploy success.
+
+---
+
 ### SESSION 44 — Claude Code (June 20, 2026): GEOMETRY AUDIT — full Purulia village-polygon integrity (internal 100% + external corroboration)
 
 #### 🤖 AI Tool Info

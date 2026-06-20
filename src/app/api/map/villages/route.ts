@@ -47,7 +47,7 @@ const norm = (s: string) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, 
 const ACTIVE = new Set(['OPEN', 'IN_PROGRESS', 'REGISTERED', 'ASSIGNED']);
 const SLA_DAYS: Record<string, number> = { CRITICAL: 0.25, HIGH: 1, MEDIUM: 3, LOW: 7 };
 
-interface Agg { code: string; name: string; lat: number; lng: number; total: number; active: number; critical: number; resolved: number; slaBreached: number; }
+interface Agg { code: string; name: string; lat: number; lng: number; total: number; active: number; critical: number; resolved: number; slaBreached: number; cats: Record<string, number>; }
 
 export async function GET(request: NextRequest) {
   try {
@@ -106,12 +106,13 @@ export async function GET(request: NextRequest) {
       matched++;
       const a = agg[code] || (agg[code] = {
         code, name: meta.name, lat: meta.lat ?? 0, lng: meta.lng ?? 0,
-        total: 0, active: 0, critical: 0, resolved: 0, slaBreached: 0,
+        total: 0, active: 0, critical: 0, resolved: 0, slaBreached: 0, cats: {},
       });
       const status = str(c, 'status');
       const urgency = str(c, 'urgency');
       const isActive = ACTIVE.has(status);
       a.total++;
+      a.cats[cat] = (a.cats[cat] || 0) + 1;
       if (isActive) a.active++;
       if (status === 'RESOLVED') a.resolved++;
       if (urgency === 'CRITICAL' && isActive) a.critical++;
@@ -121,7 +122,7 @@ export async function GET(request: NextRequest) {
     const all = Object.values(agg);
     const points = all.filter(a => a.lat && a.lng);
     const data: Record<string, Omit<Agg, 'code' | 'name' | 'lat' | 'lng'>> = {};
-    for (const a of all) data[a.code] = { total: a.total, active: a.active, critical: a.critical, resolved: a.resolved, slaBreached: a.slaBreached };
+    for (const a of all) data[a.code] = { total: a.total, active: a.active, critical: a.critical, resolved: a.resolved, slaBreached: a.slaBreached, cats: a.cats };
 
     const categories = Object.entries(cats).map(([label, n]) => ({ label, n })).sort((x, y) => y.n - x.n).slice(0, 6);
     const pct = prior7 > 0 ? Math.round(((last7 - prior7) / prior7) * 100) : (last7 > 0 ? 100 : 0);

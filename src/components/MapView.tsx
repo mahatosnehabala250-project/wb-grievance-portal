@@ -16,6 +16,7 @@ import { authHeaders } from "@/lib/helpers";
 interface VPoint {
   code: string; name: string; lat: number; lng: number;
   total: number; active: number; critical: number; resolved: number; slaBreached: number;
+  cats?: Record<string, number>;
 }
 type Mode = "density" | "active" | "sla" | "resolution";
 interface MapData {
@@ -45,7 +46,8 @@ const MODES: { key: Mode; label: string; icon: string }[] = [
   { key: "resolution", label: "Resolved", icon: "✓" },
 ];
 
-function metricFor(p: VPoint, m: Mode): number {
+function metricFor(p: VPoint, m: Mode, cat?: string | null): number {
+  if (cat) return p.cats?.[cat] || 0;
   return m === "density" ? p.total : m === "active" ? p.active : m === "sla" ? p.slaBreached : p.resolved;
 }
 function colorFor(p: VPoint, m: Mode, ratio: number): string {
@@ -108,14 +110,16 @@ const InnerMap = dynamic(
           ))}</>);
         }
 
-        const Component = ({ points, mode, basemap, boundaries, showBoundaries, onSelect, gpMap, labelPts, blockBoundaries, blockLabelPts }: {
+        const Component = ({ points, mode, basemap, boundaries, showBoundaries, onSelect, gpMap, labelPts, blockBoundaries, blockLabelPts, catFilter }: {
           points: VPoint[]; mode: Mode; basemap: "dark" | "satellite";
           boundaries: any; showBoundaries: boolean; onSelect: (p: VPoint) => void;
           gpMap: Record<string, string[]>; labelPts: { lat: number; lng: number; name: string; gp: string | null }[];
           blockBoundaries: any; blockLabelPts: { lat: number; lng: number; name: string }[];
+          catFilter: string | null;
         }) => {
           const [zoom, setZoom] = useState(9);
-          const max = Math.max(1, ...points.map((p) => metricFor(p, mode)));
+          const visiblePoints = catFilter ? points.filter((p) => (p.cats?.[catFilter] || 0) > 0) : points;
+          const max = Math.max(1, ...visiblePoints.map((p) => metricFor(p, mode, catFilter)));
           return (
             <MapContainer preferCanvas center={PURULIA_CENTER} zoom={9} zoomControl
               style={{ height: "100%", width: "100%", minHeight: "500px", background: MAPBG }}>
@@ -163,10 +167,10 @@ const InnerMap = dynamic(
                   }} />
               )}
 
-              {points.map((p) => {
-                const v = metricFor(p, mode);
+              {visiblePoints.map((p) => {
+                const v = metricFor(p, mode, catFilter);
                 const ratio = v / max;
-                const color = colorFor(p, mode, ratio);
+                const color = catFilter ? "#22D3EE" : colorFor(p, mode, ratio);
                 const halo = 10 + ratio * 36;
                 return (
                   <CircleMarker key={"h" + p.code} center={[p.lat, p.lng]} radius={halo}
@@ -174,17 +178,17 @@ const InnerMap = dynamic(
                     eventHandlers={{ click: () => onSelect(p) }}>
                     <Tooltip direction="top" opacity={0.95}>
                       <span style={{ fontFamily: "ui-sans-serif, system-ui", fontSize: 12 }}>
-                        <strong>{p.name}</strong> · {v} {mode === "sla" ? "SLA breach" : mode === "resolution" ? "resolved" : mode}
-                        {p.critical > 0 && mode !== "resolution" ? ` · ${p.critical} critical` : ""}
+                        <strong>{p.name}</strong> · {v} {catFilter ? catFilter.toLowerCase() : mode === "sla" ? "SLA breach" : mode === "resolution" ? "resolved" : mode}
+                        {!catFilter && p.critical > 0 && mode !== "resolution" ? ` · ${p.critical} critical` : ""}
                       </span>
                     </Tooltip>
                   </CircleMarker>
                 );
               })}
-              {points.map((p) => {
-                const v = metricFor(p, mode);
+              {visiblePoints.map((p) => {
+                const v = metricFor(p, mode, catFilter);
                 const ratio = v / max;
-                const color = colorFor(p, mode, ratio);
+                const color = catFilter ? "#22D3EE" : colorFor(p, mode, ratio);
                 const core = 3.5 + ratio * 5;
                 if (v === 0) return null;
                 return (
@@ -193,8 +197,13 @@ const InnerMap = dynamic(
                     eventHandlers={{ click: () => onSelect(p) }} />
                 );
               })}
+              {/* Pulsing ring on critical hotspots */}
+              {!catFilter && mode !== "resolution" && visiblePoints.filter((p) => p.critical > 0).map((p) => (
+                <Marker key={"p" + p.code} position={[p.lat, p.lng]} interactive={false}
+                  icon={L.divIcon({ className: "", iconSize: [0, 0], html: `<div class="crit-pulse"></div>` })} />
+              ))}
               {showBoundaries && <Labels pts={labelPts} />}
-              <Fit points={points} />
+              <Fit points={visiblePoints.length ? visiblePoints : points} />
             </MapContainer>
           );
         };
@@ -215,6 +224,7 @@ export function MapView() {
   const [loading, setLoading] = useState(true);
   const [gpMap, setGpMap] = useState<Record<string, string[]>>({});
   const [blocks, setBlocks] = useState<any>(null);
+  const [catFilter, setCatFilter] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -264,8 +274,8 @@ export function MapView() {
     return out;
   }, [boundaries, gpMap]);
   const hotspots = useMemo(
-    () => [...points].sort((a, b) => metricFor(b, mode) - metricFor(a, mode)).filter((p) => metricFor(p, mode) > 0).slice(0, 6),
-    [points, mode]
+    () => [...points].sort((a, b) => metricFor(b, mode, catFilter) - metricFor(a, mode, catFilter)).filter((p) => metricFor(p, mode, catFilter) > 0).slice(0, 6),
+    [points, mode, catFilter]
   );
   const activeTotal = data?.meta.activeTotal ?? 0;
   const criticalTotal = data?.meta.criticalTotal ?? 0;
@@ -286,6 +296,7 @@ export function MapView() {
 
   return (
     <div className="flex flex-col h-full" style={{ background: MAPBG }}>
+      <style>{`.crit-pulse{width:8px;height:8px;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 0 rgba(239,68,68,0.5);animation:critpulse 1.8s ease-out infinite}@keyframes critpulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,0.5)}70%{box-shadow:0 0 0 15px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}`}</style>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-2.5 flex-wrap flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: PANEL }}>
         <span className="font-semibold text-sm flex items-center gap-2" style={dim("#e2e8f0")}>
@@ -320,6 +331,20 @@ export function MapView() {
             ⬡ Villages
           </button>
         </div>
+        {topCats.length > 0 && (
+          <div className="flex gap-1 items-center">
+            <span className="text-[10px]" style={dim("#475569")}>filter</span>
+            <button onClick={() => setCatFilter(null)} className="px-2 py-1 rounded text-xs font-medium transition-all"
+              style={!catFilter ? { background: "rgba(34,211,238,0.16)", color: CYAN, border: `1px solid ${LINE}` } : { background: "transparent", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}>All</button>
+            {topCats.slice(0, 5).map((c) => (
+              <button key={c.label} onClick={() => setCatFilter(catFilter === c.label ? null : c.label)}
+                className="px-2 py-1 rounded text-xs font-medium transition-all"
+                style={catFilter === c.label ? { background: "rgba(34,211,238,0.16)", color: CYAN, border: `1px solid ${LINE}` } : { background: "transparent", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}>
+                {c.label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="ml-auto flex gap-3 text-xs items-center">
           <span style={dim("#f87171")}>● {criticalTotal} critical</span>
           <span style={dim("#38bdf8")}>● {activeTotal} active</span>
@@ -333,7 +358,7 @@ export function MapView() {
           {loading ? (
             <div className="absolute inset-0 flex items-center justify-center text-sm" style={{ color: "#64748b", background: MAPBG }}>Loading command map…</div>
           ) : (
-            <InnerMap points={points} mode={mode} basemap={basemap} boundaries={boundaries} showBoundaries={showBoundaries} onSelect={setSelected} gpMap={gpMap} labelPts={labelPts} blockBoundaries={blocks} blockLabelPts={blockLabelPts} />
+            <InnerMap points={points} mode={mode} basemap={basemap} boundaries={boundaries} showBoundaries={showBoundaries} onSelect={setSelected} gpMap={gpMap} labelPts={labelPts} blockBoundaries={blocks} blockLabelPts={blockLabelPts} catFilter={catFilter} />
           )}
 
           {/* Density legend */}
