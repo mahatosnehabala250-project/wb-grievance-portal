@@ -111,7 +111,7 @@ const InnerMap = dynamic(
         const Component = ({ points, mode, basemap, boundaries, showBoundaries, onSelect, gpMap, labelPts, blockBoundaries, blockLabelPts }: {
           points: VPoint[]; mode: Mode; basemap: "dark" | "satellite";
           boundaries: any; showBoundaries: boolean; onSelect: (p: VPoint) => void;
-          gpMap: Record<string, [string, string]>; labelPts: { lat: number; lng: number; name: string; gp: string | null }[];
+          gpMap: Record<string, string[]>; labelPts: { lat: number; lng: number; name: string; gp: string | null }[];
           blockBoundaries: any; blockLabelPts: { lat: number; lng: number; name: string }[];
         }) => {
           const [zoom, setZoom] = useState(9);
@@ -157,7 +157,7 @@ const InnerMap = dynamic(
                     const p = f?.properties || {};
                     const m = p.v && gpMap[p.v] ? gpMap[p.v] : null;
                     layer.bindTooltip(
-                      `${p.n || "Village"}${m ? ` · GP: ${m[0]}` : ""}${p.b ? ` · ${p.b}` : ""}${m && m[1] ? ` · ${m[1]} AC` : ""}`,
+                      `${(m && m[2]) || p.n || "Village"}${m ? ` · GP: ${m[0]}` : ""}${p.b ? ` · ${p.b}` : ""}${m && m[1] ? ` · ${m[1]} AC` : ""}`,
                       { sticky: true }
                     );
                   }} />
@@ -213,7 +213,7 @@ export function MapView() {
   const [showBoundaries, setShowBoundaries] = useState(true);
   const [selected, setSelected] = useState<VPoint | null>(null);
   const [loading, setLoading] = useState(true);
-  const [gpMap, setGpMap] = useState<Record<string, [string, string]>>({});
+  const [gpMap, setGpMap] = useState<Record<string, string[]>>({});
   const [blocks, setBlocks] = useState<any>(null);
 
   useEffect(() => {
@@ -255,8 +255,11 @@ export function MapView() {
       if (!ring || !ring.length) continue;
       let sx = 0, sy = 0; for (const c of ring) { sx += c[0]; sy += c[1]; }
       const code = f.properties?.v;
-      const gp = code && gpMap[code] ? gpMap[code][0] : null;
-      out.push({ lat: sy / ring.length, lng: sx / ring.length, name: f.properties?.n || "", gp });
+      const meta = code ? gpMap[code] : null;
+      const gp = meta ? meta[0] : null;
+      // Name comes from our authoritative DB (by LGD code), NOT the shapefile's
+      // vilnam_soi — some shapefile polygons pair the wrong name with a code.
+      out.push({ lat: sy / ring.length, lng: sx / ring.length, name: (meta && meta[2]) || f.properties?.n || "", gp });
     }
     return out;
   }, [boundaries, gpMap]);

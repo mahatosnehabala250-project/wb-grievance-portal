@@ -27,6 +27,20 @@
 
 ---
 
+### SESSION 43 — Claude Code (June 20, 2026): Command Map — village NAME now from authoritative DB (shapefile name↔code mismatch)
+
+#### 🐛 Bug (user: "Bardaha ka panchayat Kamtajangidiri kyun dikh raha hai?")
+- A village polygon whose shapefile name (`vilnam_soi`) was "Bardaha" carried the **wrong LGD code** `vil_lgd=332036`, which is actually **Baliguma** (Manbazar-I, GP Kamtajangidiri). So the label showed the shapefile NAME ("Bardaha") but the GP looked up BY CODE → "Kamtajangidiri" → inconsistent. Root cause: the open SoI village shapefile has some features where `vilnam_soi` and `vil_lgd` don't agree.
+
+#### ✅ Fix
+- **`public/purulia-gp.json`** regenerated as `{village_code: [gp_name, assembly, village_name]}` (added authoritative DB name) for all 2,711 villages.
+- **`src/components/MapView.tsx`** — village labels + polygon tooltips now take the **NAME from our DB keyed by LGD code** (same source as GP/AC), not the shapefile `vilnam_soi`. So name + GP + AC are always internally consistent. (e.g. code 332036 now labels "Baliguma · GP Kamtajangidiri" — consistent — instead of "Bardaha · Kamtajangidiri".)
+
+#### ⚠️ Next AI — Please Note
+- Deeper data-quality note: because a few shapefile polygons carry a mismatched `vil_lgd`, the exact polygon OUTLINE/centroid for that small set of villages may be geographically imperfect (this is why some `lgd_villages.lat/lng` from the SESSION 37 centroid backfill could be slightly off for mis-coded features). This does NOT affect complaint→GP/AC routing (that derives from registration by village name, not the shapefile). A full geometry audit vs an authoritative village-point source is a future task.
+
+---
+
 ### SESSION 42 — Claude Code (June 20, 2026): Command Map — level-of-detail (block default, villages on zoom-in)
 
 #### 🐛 Fix (user: "har village line mat dikhao, block hi dikha; zoom karne par village name dikhao")
