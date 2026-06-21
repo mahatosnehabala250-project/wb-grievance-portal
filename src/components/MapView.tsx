@@ -80,6 +80,8 @@ const InnerMap = dynamic(
         function ZoomWatcher({ onZoom }: { onZoom: (z: number) => void }) {
           const map = useMap();
           useEffect(() => {
+            // Hide the default "Leaflet" attribution prefix (keep tile credits for ToS)
+            (map as any).attributionControl?.setPrefix("JanSunwai WB");
             const u = () => onZoom(map.getZoom());
             u(); map.on("zoomend", u);
             return () => { map.off("zoomend", u); };
