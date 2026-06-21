@@ -258,6 +258,8 @@ export function MapView() {
   const [timeMode, setTimeMode] = useState(false);
   const [cursor, setCursor] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [windowDays, setWindowDays] = useState(14);
+  const [speed, setSpeed] = useState(1);
 
   useEffect(() => {
     (async () => {
@@ -311,7 +313,7 @@ export function MapView() {
 
   // ---- Time-slider: rolling 14-day heat window over the complaint event stream ----
   const DAY_MS = 86400000;
-  const TIME_WINDOW = 14 * DAY_MS;
+  const TIME_WINDOW = windowDays * DAY_MS;
   const series = useMemo(() => data?.series || [], [data]);
   const range = data?.range && data.range.max ? data.range : null;
 
@@ -339,9 +341,9 @@ export function MapView() {
     if (!playing || !timeMode || !range) return;
     const id = setInterval(() => {
       setCursor((c) => { const next = c + DAY_MS; return next > range.max ? range.min : next; });
-    }, 220);
+    }, Math.max(40, Math.round(220 / speed)));
     return () => clearInterval(id);
-  }, [playing, timeMode, range, DAY_MS]);
+  }, [playing, timeMode, range, DAY_MS, speed]);
 
   const nq = query.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
   const searchResults = useMemo(() => {
@@ -544,7 +546,23 @@ export function MapView() {
                   className="flex-1" style={{ accentColor: CYAN }} />
                 <div style={{ minWidth: 160, textAlign: "right" }}>
                   <div className="text-xs font-semibold" style={{ color: "#e2e8f0" }}>{fmtDate(cursor)}</div>
-                  <div style={{ fontSize: 10, color: "#64748b" }}>14-day heat · {windowTotal} complaints · {timePoints.length} villages</div>
+                  <div style={{ fontSize: 10, color: "#64748b" }}>{windowDays}-day heat · {windowTotal} complaints · {timePoints.length} villages</div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <div className="flex items-center gap-1">
+                  <span style={{ fontSize: 10, color: "#475569", marginRight: 2 }}>Window</span>
+                  {[7, 14, 30].map((d) => (
+                    <button key={d} onClick={() => setWindowDays(d)} className="px-2 py-0.5 rounded text-[11px] font-medium"
+                      style={windowDays === d ? { background: "rgba(34,211,238,0.18)", color: CYAN, border: `1px solid ${LINE}` } : { background: "transparent", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}>{d}d</button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1">
+                  <span style={{ fontSize: 10, color: "#475569", marginRight: 2 }}>Speed</span>
+                  {[0.5, 1, 2, 4].map((s) => (
+                    <button key={s} onClick={() => setSpeed(s)} className="px-2 py-0.5 rounded text-[11px] font-medium"
+                      style={speed === s ? { background: "rgba(34,211,238,0.18)", color: CYAN, border: `1px solid ${LINE}` } : { background: "transparent", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}>{s}×</button>
+                  ))}
                 </div>
               </div>
             </div>
