@@ -27,6 +27,14 @@
 
 ---
 
+### SESSION 49 — Claude Code (June 20, 2026): map TIME-SLIDER (play complaint flow over time)
+
+#### ✅ What was built
+- **`src/app/api/map/villages/route.ts`** — response now also returns a compact `series[]` (`{code, ts, crit, active}` per plottable complaint) + `range{min,max}` of timestamps. Aggregate-only, scope-locked as before.
+- **`src/components/MapView.tsx`** — **⏱ Timeline** toggle (header, mutually exclusive with 3D). When on, a bottom scrubber appears: **▶ play / ⏸**, a day-step slider over the full ~75-day range, and a live readout (date · complaints · villages). The map shows a **rolling 14-day heat window** — markers recompute per cursor position so you watch hotspots light up and cool down over time ("kab garm hua"). Playback advances 1 day / 220ms and loops. Map fit is **frozen** while scrubbing (no jump). Density legend hides while the bar is up.
+
+---
+
 ### SESSION 48 — Claude Code (June 20, 2026): map village SEARCH (local, no external geocoder)
 
 #### ✅ What was built

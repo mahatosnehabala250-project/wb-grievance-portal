@@ -85,6 +85,9 @@ export async function GET(request: NextRequest) {
     const agg: Record<string, Agg> = {};
     const cats: Record<string, number> = {};
     let last7 = 0, prior7 = 0, matched = 0;
+    // compact event stream for the time-slider (one row per plottable complaint)
+    const series: { code: string; ts: number; crit: boolean; active: boolean }[] = [];
+    let minTs = Infinity, maxTs = 0;
 
     for (const c of complaints) {
       const created = dt(c.createdAt ?? c.created_at);
@@ -117,6 +120,7 @@ export async function GET(request: NextRequest) {
       if (status === 'RESOLVED') a.resolved++;
       if (urgency === 'CRITICAL' && isActive) a.critical++;
       if (isActive && created && now - created.getTime() > (SLA_DAYS[urgency] || 3) * DAY) a.slaBreached++;
+      if (created) { const ts = created.getTime(); series.push({ code, ts, crit: urgency === 'CRITICAL', active: isActive }); if (ts < minTs) minTs = ts; if (ts > maxTs) maxTs = ts; }
     }
 
     const all = Object.values(agg);
@@ -131,6 +135,8 @@ export async function GET(request: NextRequest) {
       points,
       data,
       categories,
+      series,
+      range: { min: minTs === Infinity ? 0 : minTs, max: maxTs },
       trend: { last7, prior7, pct },
       meta: {
         villagesWithComplaints: all.length,

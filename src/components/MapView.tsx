@@ -24,6 +24,8 @@ interface MapData {
   categories: { label: string; n: number }[];
   trend: { last7: number; prior7: number; pct: number };
   meta: { villagesWithComplaints: number; plottable: number; activeTotal: number; criticalTotal: number };
+  series?: { code: string; ts: number; crit: boolean; active: boolean }[];
+  range?: { min: number; max: number };
 }
 
 // ---- Palette (dark console) ----
@@ -66,14 +68,15 @@ const InnerMap = dynamic(
   () =>
     import("leaflet").then((L) =>
       import("react-leaflet").then(({ MapContainer, TileLayer, CircleMarker, GeoJSON, Tooltip, Marker, useMap }) => {
-        function Fit({ points }: { points: VPoint[] }) {
+        function Fit({ points, freeze }: { points: VPoint[]; freeze?: boolean }) {
           const map = useMap();
           useEffect(() => {
+            if (freeze) return; // don't re-fit while scrubbing the timeline
             if (points.length === 0) { map.setView(PURULIA_CENTER, 9); return; }
             if (points.length === 1) { map.setView([points[0].lat, points[0].lng], 12); return; }
             const b = L.latLngBounds(points.map((p) => [p.lat, p.lng] as [number, number]));
             map.fitBounds(b.pad(0.25), { animate: true });
-          }, [points, map]);
+          }, [points, map, freeze]);
           return null;
         }
 
@@ -125,13 +128,14 @@ const InnerMap = dynamic(
           ))}</>);
         }
 
-        const Component = ({ points, mode, basemap, boundaries, showBoundaries, onSelect, gpMap, labelPts, blockBoundaries, blockLabelPts, catFilter, flyTarget }: {
+        const Component = ({ points, mode, basemap, boundaries, showBoundaries, onSelect, gpMap, labelPts, blockBoundaries, blockLabelPts, catFilter, flyTarget, freezeFit }: {
           points: VPoint[]; mode: Mode; basemap: "dark" | "satellite";
           boundaries: any; showBoundaries: boolean; onSelect: (p: VPoint) => void;
           gpMap: Record<string, string[]>; labelPts: { lat: number; lng: number; name: string; gp: string | null }[];
           blockBoundaries: any; blockLabelPts: { lat: number; lng: number; name: string }[];
           catFilter: string | null;
           flyTarget: { lat: number; lng: number; name: string } | null;
+          freezeFit?: boolean;
         }) => {
           const [zoom, setZoom] = useState(9);
           const visiblePoints = catFilter ? points.filter((p) => (p.cats?.[catFilter] || 0) > 0) : points;
@@ -220,7 +224,7 @@ const InnerMap = dynamic(
                   icon={L.divIcon({ className: "", iconSize: [0, 0], html: `<div class="crit-pulse"></div>` })} />
               ))}
               {showBoundaries && <Labels pts={labelPts} />}
-              <Fit points={visiblePoints.length ? visiblePoints : points} />
+              <Fit points={visiblePoints.length ? visiblePoints : points} freeze={freezeFit} />
             </MapContainer>
           );
         };
@@ -251,6 +255,9 @@ export function MapView() {
   const [query, setQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; name: string; code: string } | null>(null);
+  const [timeMode, setTimeMode] = useState(false);
+  const [cursor, setCursor] = useState(0);
+  const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -301,6 +308,40 @@ export function MapView() {
   }, [boundaries, gpMap]);
 
   const pointByCode = useMemo(() => { const m: Record<string, VPoint> = {}; for (const p of points) m[p.code] = p; return m; }, [points]);
+
+  // ---- Time-slider: rolling 14-day heat window over the complaint event stream ----
+  const DAY_MS = 86400000;
+  const TIME_WINDOW = 14 * DAY_MS;
+  const series = useMemo(() => data?.series || [], [data]);
+  const range = data?.range && data.range.max ? data.range : null;
+
+  const timePoints = useMemo(() => {
+    if (!timeMode || !series.length) return [] as VPoint[];
+    const m: Record<string, VPoint> = {};
+    const lo = cursor - TIME_WINDOW;
+    for (const e of series) {
+      if (e.ts > cursor || e.ts <= lo) continue;
+      const meta = pointByCode[e.code]; if (!meta) continue;
+      const v = m[e.code] || (m[e.code] = { code: e.code, name: meta.name, lat: meta.lat, lng: meta.lng, total: 0, active: 0, critical: 0, resolved: 0, slaBreached: 0, cats: {} });
+      v.total++; if (e.active) v.active++; if (e.crit && e.active) v.critical++;
+    }
+    return Object.values(m);
+  }, [timeMode, series, cursor, pointByCode, TIME_WINDOW]);
+
+  const windowTotal = useMemo(() => timePoints.reduce((s, p) => s + p.total, 0), [timePoints]);
+  const displayPoints = timeMode ? timePoints : points;
+  const fmtDate = (ts: number) => (ts ? new Date(ts).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—");
+
+  // when timeline turns on, start at the latest date (familiar full state)
+  useEffect(() => { if (timeMode && range) setCursor(range.max); }, [timeMode, range]);
+  // playback: advance one day every 220ms, loop back to start at the end
+  useEffect(() => {
+    if (!playing || !timeMode || !range) return;
+    const id = setInterval(() => {
+      setCursor((c) => { const next = c + DAY_MS; return next > range.max ? range.min : next; });
+    }, 220);
+    return () => clearInterval(id);
+  }, [playing, timeMode, range, DAY_MS]);
 
   const nq = query.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
   const searchResults = useMemo(() => {
@@ -417,10 +458,15 @@ export function MapView() {
           ))}
         </div>
         <div className="flex gap-1">
-          <button onClick={() => setView3d((v) => !v)}
+          <button onClick={() => setView3d((v) => { const nv = !v; if (nv) { setTimeMode(false); setPlaying(false); } return nv; })}
             className="px-2.5 py-1 rounded text-xs font-semibold transition-all"
             style={view3d ? { background: "rgba(34,211,238,0.2)", color: CYAN, border: `1px solid ${LINE}` } : { background: "transparent", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}>
             {view3d ? "🧊 3D" : "🗺 2D"}
+          </button>
+          <button onClick={() => setTimeMode((v) => { const nv = !v; if (nv) setView3d(false); else setPlaying(false); return nv; })}
+            className="px-2.5 py-1 rounded text-xs font-semibold transition-all"
+            style={timeMode ? { background: "rgba(34,211,238,0.2)", color: CYAN, border: `1px solid ${LINE}` } : { background: "transparent", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}>
+            ⏱ Timeline
           </button>
         </div>
         <div className="flex gap-1">
@@ -470,21 +516,39 @@ export function MapView() {
           ) : view3d ? (
             <Map3D points={points} boundaries={boundaries} />
           ) : (
-            <InnerMap points={points} mode={mode} basemap={basemap} boundaries={boundaries} showBoundaries={showBoundaries} onSelect={setSelected} gpMap={gpMap} labelPts={labelPts} blockBoundaries={blocks} blockLabelPts={blockLabelPts} catFilter={catFilter} flyTarget={flyTarget} />
+            <InnerMap points={displayPoints} mode={mode} basemap={basemap} boundaries={boundaries} showBoundaries={showBoundaries} onSelect={setSelected} gpMap={gpMap} labelPts={labelPts} blockBoundaries={blocks} blockLabelPts={blockLabelPts} catFilter={catFilter} flyTarget={flyTarget} freezeFit={timeMode} />
           )}
 
-          {/* Density legend */}
-          <div className="absolute bottom-4 left-4 z-[500] rounded-lg p-3 text-xs"
-            style={{ background: "rgba(12,19,34,0.88)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(6px)", color: "#cbd5e1" }}>
-            <div className="font-semibold uppercase tracking-wider mb-2" style={{ fontSize: 10, color: "#64748b" }}>
-              {mode === "resolution" ? "Resolved" : mode === "sla" ? "SLA breaches" : "Complaint density"}
+          {/* Density legend (hidden while the timeline bar is up) */}
+          {!timeMode && (
+            <div className="absolute bottom-4 left-4 z-[500] rounded-lg p-3 text-xs"
+              style={{ background: "rgba(12,19,34,0.88)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(6px)", color: "#cbd5e1" }}>
+              <div className="font-semibold uppercase tracking-wider mb-2" style={{ fontSize: 10, color: "#64748b" }}>
+                {mode === "resolution" ? "Resolved" : mode === "sla" ? "SLA breaches" : "Complaint density"}
+              </div>
+              <div className="flex items-center gap-2">
+                <span style={{ fontSize: 10, color: "#64748b" }}>Low</span>
+                <div style={{ width: 90, height: 8, borderRadius: 4, background: mode === "resolution" ? GREEN : `linear-gradient(90deg, ${CYAN}, ${AMBER}, ${RED})` }} />
+                <span style={{ fontSize: 10, color: "#64748b" }}>High</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span style={{ fontSize: 10, color: "#64748b" }}>Low</span>
-              <div style={{ width: 90, height: 8, borderRadius: 4, background: mode === "resolution" ? GREEN : `linear-gradient(90deg, ${CYAN}, ${AMBER}, ${RED})` }} />
-              <span style={{ fontSize: 10, color: "#64748b" }}>High</span>
+          )}
+
+          {/* Timeline scrubber — rolling 14-day heat window over the last ~75 days */}
+          {timeMode && range && (
+            <div className="absolute z-[600]" style={{ left: 16, right: 16, bottom: 16, background: "rgba(12,19,34,0.93)", border: "1px solid rgba(34,211,238,0.28)", borderRadius: 10, padding: "10px 14px", backdropFilter: "blur(6px)" }}>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setPlaying((p) => !p)} className="rounded text-sm flex-shrink-0" style={{ width: 32, height: 28, background: "rgba(34,211,238,0.16)", color: CYAN, border: `1px solid ${LINE}` }}>{playing ? "⏸" : "▶"}</button>
+                <input type="range" min={range.min} max={range.max} step={DAY_MS} value={cursor}
+                  onChange={(e) => setCursor(Number(e.target.value))}
+                  className="flex-1" style={{ accentColor: CYAN }} />
+                <div style={{ minWidth: 160, textAlign: "right" }}>
+                  <div className="text-xs font-semibold" style={{ color: "#e2e8f0" }}>{fmtDate(cursor)}</div>
+                  <div style={{ fontSize: 10, color: "#64748b" }}>14-day heat · {windowTotal} complaints · {timePoints.length} villages</div>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* AI Insight panel */}
