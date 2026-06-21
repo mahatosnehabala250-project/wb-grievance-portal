@@ -19,6 +19,7 @@ import {
   Footprints, Copy, ChevronDown, ChevronRight,
   Network, Layers, Frown, Building, Sparkles,
   Send, Lightbulb, Bot,
+  Wrench, ClipboardList, User, Flag, Lock,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -158,6 +159,19 @@ const RISK_COLORS: Record<string, { c: string; bg: string; bar: string }> = {
   SEVERE:   { c: 'text-red-500',     bg: 'bg-red-500/10',     bar: '#EF4444' },
 };
 
+// Anger (0-100) → colour + a grade that maps into RISK_COLORS so RiskGauge can be reused.
+const angerColor = (n: number) => (n >= 60 ? '#EF4444' : n >= 35 ? '#F59E0B' : '#10B981');
+const angerGrade = (n: number) => (n >= 60 ? 'SEVERE' : n >= 35 ? 'ELEVATED' : 'LOW');
+// Fusion priority grade (TOP/HIGH/WATCH/OK) → a RISK_COLORS grade.
+const gradeToRisk = (g: string) => (g === 'TOP' ? 'SEVERE' : g === 'HIGH' ? 'HIGH' : g === 'WATCH' ? 'GUARDED' : 'LOW');
+const gradeBar = (g: string) => RISK_COLORS[gradeToRisk(g)]?.bar || '#10B981';
+const EMO_COLOR: Record<string, string> = { angry: '#EF4444', frustrated: '#F97316', concerned: '#F59E0B', anxious: '#EAB308', neutral: '#94A3B8' };
+const ENTITY_BUCKET: Record<string, { label: string; color: string }> = {
+  infrastructure: { label: 'ढाँचा', color: '#3B82F6' },
+  schemes: { label: 'योजना', color: '#8B5CF6' },
+  officers: { label: 'अफ़सर', color: '#F59E0B' },
+};
+
 const CAT_COLORS: Record<string, string> = {
   WATER: '#3B82F6', ROAD: '#F59E0B', HEALTH: '#EF4444', ELECTRICITY: '#EAB308',
   RATION: '#10B981', EDUCATION: '#8B5CF6', OTHER: '#6B7280',
@@ -252,6 +266,8 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
   const [fusion, setFusion] = useState<Fusion | null>(null);
   const [fusionLoading, setFusionLoading] = useState(false);
   const [openNode, setOpenNode] = useState<string | null>(null);
+  const [brainExpand, setBrainExpand] = useState(false);
+  const [openCluster, setOpenCluster] = useState<string | null>(null);
   const [network, setNetwork] = useState<NetworkData | null>(null);
   const [networkLoading, setNetworkLoading] = useState(false);
   const [operations, setOperations] = useState<Operations | null>(null);
@@ -1104,13 +1120,13 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
             )}
           </Card>
 
-          {/* ── Data Fusion / Entity 360 (Level 7) ── */}
+          {/* ── Kahan Dhyan Dein (area priority fusion) ── */}
           <Card className={`border shadow-sm border-indigo-500/20 ${show('entity360') ? '' : 'hidden'}`}>
             <CardHeader className="pb-1 pt-3 px-4">
-              <CardTitle className="text-xs font-semibold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
-                <span className="flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-indigo-500" /> Area Fusion — Entity 360
-                  <span className="text-[9px] normal-case font-normal">(har ilake ka fused profile: grievance + anger + scheme-failure + political, priority-ranked)</span>
+              <CardTitle className="text-xs font-semibold flex items-center justify-between text-foreground tracking-tight">
+                <span className="flex flex-col gap-0.5">
+                  <span className="flex items-center gap-1.5 text-[13px] font-bold"><Target className="w-4 h-4 text-indigo-500" /> Kahan Dhyan Dein</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">Har ilake ka ek joda hua score — netaji ko ABHI kis area pe jaana hai aur kyun</span>
                 </span>
                 {!fusion && (
                   <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={loadFusion} disabled={fusionLoading}>
@@ -1123,103 +1139,144 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
               <CardContent className="px-4 pb-3 space-y-2.5">
                 {fusion.nodes.length === 0 ? (
                   <div className="text-[11px] text-muted-foreground italic py-2">No areas in scope yet.</div>
-                ) : (
+                ) : (() => {
+                  const PC = [
+                    { key: 'risk', label: 'gussa', color: '#EF4444' },
+                    { key: 'schemeLoad', label: 'yojana-fail', color: '#8B5CF6' },
+                    { key: 'concentration', label: 'ghanapan', color: '#3B82F6' },
+                    { key: 'recurrence', label: 'baar-baar', color: '#F59E0B' },
+                    { key: 'reservation', label: 'reserved', color: '#94A3B8' },
+                  ] as const;
+                  const top = fusion.nodes[0];
+                  const reasonOf = (nd: FusionNode) => {
+                    const c = nd.priority.components;
+                    const pairs: [string, number][] = [['risk', c.risk], ['schemeLoad', c.schemeLoad], ['concentration', c.concentration], ['recurrence', c.recurrence], ['reservation', c.reservation]];
+                    const dom = pairs.sort((a, b) => b[1] - a[1])[0][0];
+                    const anger = nd.sentiment.avgAnger ?? 0;
+                    if (dom === 'schemeLoad') return `${nd.schemeGrievance.pct}% shikayatein yojana-fail ki`;
+                    if (dom === 'concentration') return 'shikayatein yahin ghani — ek hi jagah dabav';
+                    if (dom === 'recurrence') return 'baar-baar wahi shikayat laut rahi';
+                    if (dom === 'reservation') return 'reserved seat — extra dhyan';
+                    return `${nd.grievance.active} active shikayat + gussa ${anger}`;
+                  };
+                  const StackedBar = (comps: FusionNode['priority']['components']) => {
+                    const tot = PC.reduce((s, p) => s + (comps[p.key] || 0), 0) || 1;
+                    return (
+                      <div className="flex h-2.5 rounded-full overflow-hidden">
+                        {PC.map(p => { const v = comps[p.key] || 0; return v ? <div key={p.key} title={`${p.label} ${Math.round(v)}`} style={{ width: `${(v / tot) * 100}%`, background: p.color }} /> : null; })}
+                      </div>
+                    );
+                  };
+                  return (
                   <>
-                    <div className="text-[10px] text-muted-foreground">Ranked by priority · grain: <span className="font-semibold">{fusion.nodeGrain}</span></div>
-                    {fusion.nodes.map((nd) => {
-                      const isOpen = openNode === nd.name;
-                      const gColor = nd.priority.grade === 'TOP' ? '#EF4444' : nd.priority.grade === 'HIGH' ? '#F59E0B' : nd.priority.grade === 'WATCH' ? '#84CC16' : '#10B981';
-                      return (
-                        <div key={nd.name} className="rounded-lg border border-indigo-500/15 bg-indigo-500/5 overflow-hidden">
-                          <div className="flex items-center gap-2 p-2 cursor-pointer hover:bg-indigo-500/10 transition-colors" onClick={() => setOpenNode(isOpen ? null : nd.name)}>
-                            {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
-                            <span className="text-[12px] font-semibold flex-1 truncate">{nd.name}</span>
-                            {nd.political?.reservation && nd.political.reservation !== 'GENERAL' && (
-                              <Badge variant="outline" className="text-[8px] h-3.5 px-1">{nd.political.reservation}</Badge>
-                            )}
-                            {nd.schemeGrievance.pct > 0 && (
-                              <span className="text-[9px] text-violet-600">{nd.schemeGrievance.pct}% scheme</span>
-                            )}
-                            {nd.sentiment.avgAnger !== null && (
-                              <span className="text-[9px] text-red-500 flex items-center gap-0.5"><Frown className="w-3 h-3" />{nd.sentiment.avgAnger}</span>
-                            )}
-                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded" style={{ background: gColor + '22', color: gColor }}>{nd.priority.score}</span>
-                          </div>
-                          <AnimatePresence>
-                            {isOpen && (
-                              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                                <div className="px-3 pb-2.5 pt-1 space-y-2 border-t border-indigo-500/10">
-                                  {/* Political */}
-                                  {nd.political && (
-                                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground flex-wrap">
-                                      <Building className="w-3 h-3" />
-                                      <span className="font-medium text-foreground">{nd.political.mla}</span>
-                                      <Badge variant="outline" className="text-[8px] h-3.5 px-1">{nd.political.party}</Badge>
-                                      <span>· {nd.political.constituency} ({nd.political.reservation}) · {nd.political.lokSabha} LS</span>
-                                    </div>
-                                  )}
-                                  {/* Grievance stat strip */}
-                                  <div className="grid grid-cols-4 gap-1.5 text-center">
-                                    {[
-                                      { l: 'Risk', v: nd.grievance.risk, c: 'text-red-500' },
-                                      { l: 'Active', v: nd.grievance.active, c: 'text-orange-500' },
-                                      { l: 'Critical', v: nd.grievance.critical, c: 'text-rose-500' },
-                                      { l: 'Resolved', v: `${nd.grievance.resolutionRate}%`, c: 'text-emerald-500' },
-                                    ].map(k => (
-                                      <div key={k.l} className="bg-muted/40 rounded p-1">
-                                        <div className={`text-sm font-bold font-mono ${k.c}`}>{k.v}</div>
-                                        <div className="text-[8px] text-muted-foreground uppercase">{k.l}</div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                  {/* Scheme-failure breakdown */}
-                                  {nd.schemeGrievance.count > 0 && (
-                                    <div>
-                                      <div className="text-[9px] font-semibold uppercase tracking-wider text-violet-600 mb-0.5">Scheme-failure grievances ({nd.schemeGrievance.count}, {nd.schemeGrievance.pct}%) <span className="normal-case font-normal text-muted-foreground">— complaint proxy, not coverage</span></div>
-                                      <div className="flex flex-wrap gap-1">
-                                        {nd.schemeGrievance.byScheme.map(s => (
-                                          <span key={s.scheme} className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600">{s.scheme} ×{s.count}</span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                  {/* Top causes */}
-                                  {nd.topCauses.length > 0 && (
-                                    <div className="text-[10px] text-muted-foreground">
-                                      <span className="font-semibold">Top causes:</span> {nd.topCauses.map(c => `${c.rootCause} (${c.count})`).join(' · ')}
-                                    </div>
-                                  )}
-                                  {/* Priority component breakdown (transparency) */}
-                                  <div className="text-[9px] text-muted-foreground">
-                                    Priority {nd.priority.score} = risk {nd.priority.components.risk}×.5 + scheme {nd.priority.components.schemeLoad}×.2 + concentration {nd.priority.components.concentration}×.15 + recurrence {nd.priority.components.recurrence}×.1{nd.priority.components.reservation ? ` + reserved +${nd.priority.components.reservation}` : ''}
-                                  </div>
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      );
-                    })}
+                    <div className="text-[10px] text-muted-foreground">{fusion.nodeGrain === 'block' ? 'Block-wise' : fusion.nodeGrain === 'village' ? 'Gaon-wise' : fusion.nodeGrain} · priority-ranked</div>
 
-                    {/* External data — not connected (the honest moat framing) */}
-                    <div className="rounded-lg bg-muted/30 p-2">
-                      <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
-                        <Network className="w-3 h-3" /> External data sources — not connected
+                    {/* HERO — #1 priority area */}
+                    <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl p-3"
+                      style={{ borderLeft: `4px solid ${gradeBar(top.priority.grade)}`, background: `linear-gradient(135deg, ${gradeBar(top.priority.grade)}1a, transparent)` }}>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Aaj sabse zyada dhyan yahan</div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[20px] font-black text-foreground leading-tight truncate">{top.name}</span>
+                            <Badge className="text-[8px] h-4 px-1.5 border-0 flex-shrink-0" style={{ background: gradeBar(top.priority.grade) + '22', color: gradeBar(top.priority.grade) }}>{top.priority.grade}</Badge>
+                          </div>
+                          <div className="text-[12px] text-muted-foreground mt-0.5">{reasonOf(top)}</div>
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-600">{top.grievance.active} active</span>
+                            {top.sentiment.avgAnger !== null && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: angerColor(top.sentiment.avgAnger) + '1a', color: angerColor(top.sentiment.avgAnger) }}>gussa {top.sentiment.avgAnger}</span>}
+                            {top.schemeGrievance.pct > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600">{top.schemeGrievance.pct}% yojana-fail</span>}
+                            {top.political && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{top.political.mla} · {top.political.party}</span>}
+                          </div>
+                          <Button size="sm" className="h-7 mt-2 text-[11px] px-2.5"
+                            onClick={() => { const t = `📍 DHYAN: ${top.name} (${top.priority.grade})\n${reasonOf(top)}\nActive ${top.grievance.active} · Critical ${top.grievance.critical} · Resolve ${top.grievance.resolutionRate}%${top.political ? `\nMLA ${top.political.mla} (${top.political.party})` : ''}\n— JanSunwai`; navigator.clipboard.writeText(t).then(() => toast.success('Area brief copied — staff ko bhejo')).catch(() => toast.error('Copy fail')); }}>
+                            <MapPin className="w-3.5 h-3.5 mr-1" /> Is ilake mein daura karo
+                          </Button>
+                        </div>
+                        <div className="shrink-0 hidden sm:block" style={{ transform: 'scale(0.72)', transformOrigin: 'right center' }}>
+                          <RiskGauge score={top.priority.score} grade={gradeToRisk(top.priority.grade)} />
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-1">
-                        {fusion.external.map(e => (
-                          <span key={e.source} className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground/70" title={e.note}>○ {e.source}</span>
-                        ))}
+                      <div className="mt-2">{StackedBar(top.priority.components)}</div>
+                    </motion.div>
+
+                    {/* LEADERBOARD — rest of the areas, stats always visible */}
+                    {fusion.nodes.length > 1 && (
+                      <div className="space-y-1.5">
+                        <div className="text-[11px] font-bold text-indigo-500 flex items-center gap-1"><Layers className="w-3.5 h-3.5" /> Ilakon ki priority</div>
+                        {fusion.nodes.slice(1).map((nd, idx) => {
+                          const isOpen = openNode === nd.name;
+                          const col = gradeBar(nd.priority.grade);
+                          const anger = nd.sentiment.avgAnger;
+                          return (
+                            <div key={nd.name} className="rounded-lg border overflow-hidden" style={{ borderColor: col + '30' }}>
+                              <div className="flex items-center gap-2 p-2 cursor-pointer hover:bg-muted/40" onClick={() => setOpenNode(isOpen ? null : nd.name)}>
+                                <span className="text-[10px] font-mono text-muted-foreground w-4 flex-shrink-0">{idx + 2}</span>
+                                <span className="text-[13px] font-bold truncate flex-shrink-0" style={{ maxWidth: '32%' }}>{nd.name}</span>
+                                <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden min-w-[20px]">
+                                  <div className="h-full rounded-full" style={{ width: `${nd.priority.score}%`, background: col }} />
+                                </div>
+                                <span className="text-[9px] text-orange-600 font-semibold flex-shrink-0">{nd.grievance.active}</span>
+                                {anger !== null && <span className="text-[9px] flex items-center gap-0.5 font-semibold flex-shrink-0" style={{ color: angerColor(anger) }}><Frown className="w-2.5 h-2.5" />{anger}</span>}
+                                {nd.schemeGrievance.pct > 0 && <span className="text-[9px] text-violet-600 flex-shrink-0">{nd.schemeGrievance.pct}%</span>}
+                                {nd.political?.reservation && nd.political.reservation !== 'GENERAL' && <Badge variant="outline" className="text-[7px] h-3 px-1 flex-shrink-0">{nd.political.reservation}</Badge>}
+                                <span className="text-[12px] font-mono font-black flex-shrink-0" style={{ color: col }}>{nd.priority.score}</span>
+                                {isOpen ? <ChevronDown className="w-3 h-3 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
+                              </div>
+                              <AnimatePresence>
+                                {isOpen && (
+                                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                                    <div className="px-3 pb-2.5 pt-1.5 space-y-2 border-t" style={{ borderColor: col + '20' }}>
+                                      {nd.political && (
+                                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground flex-wrap"><Building className="w-3 h-3" /><span className="font-medium text-foreground">{nd.political.mla}</span><Badge variant="outline" className="text-[8px] h-3.5 px-1">{nd.political.party}</Badge><span>· {nd.political.constituency} · {nd.political.lokSabha} LS</span></div>
+                                      )}
+                                      <div className="grid grid-cols-4 gap-1.5 text-center">
+                                        {([['Active', nd.grievance.active, 'text-orange-500'], ['Critical', nd.grievance.critical, 'text-rose-500'], ['Risk', nd.grievance.risk, 'text-red-500']] as [string, number, string][]).map(k => (
+                                          <div key={k[0]} className="bg-muted/40 rounded p-1"><div className={`text-base font-bold font-mono ${k[2]}`}>{k[1]}</div><div className="text-[8px] text-muted-foreground uppercase">{k[0]}</div></div>
+                                        ))}
+                                        <div className="bg-muted/40 rounded p-1 flex flex-col items-center justify-center">
+                                          <svg width="24" height="24" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="none" stroke="rgba(16,185,129,0.15)" strokeWidth="5" /><circle cx="18" cy="18" r="15" fill="none" stroke="#10B981" strokeWidth="5" strokeLinecap="round" strokeDasharray={2 * Math.PI * 15} strokeDashoffset={2 * Math.PI * 15 * (1 - nd.grievance.resolutionRate / 100)} transform="rotate(-90 18 18)" /></svg>
+                                          <div className="text-[8px] text-muted-foreground uppercase mt-0.5">{nd.grievance.resolutionRate}% hal</div>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <div className="text-[9px] text-muted-foreground mb-0.5">Score kis cheez se bana</div>
+                                        {StackedBar(nd.priority.components)}
+                                        <div className="flex flex-wrap gap-x-2 mt-0.5">{PC.map(p => (nd.priority.components[p.key] > 0) ? <span key={p.key} className="text-[8px]" style={{ color: p.color }}>● {p.label}</span> : null)}</div>
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        {nd.topCauses.length > 0 && (
+                                          <div><div className="text-[9px] font-semibold text-muted-foreground mb-1">Top wajah</div><div className="space-y-1">{nd.topCauses.slice(0, 4).map(tc => { const mx = nd.topCauses[0].count || 1; return (<div key={tc.rootCause}><div className="flex justify-between text-[9px] gap-1"><span className="truncate">{tc.rootCause}</span><span className="font-mono text-muted-foreground flex-shrink-0">{tc.count}</span></div><div className="h-1 rounded-full bg-muted overflow-hidden"><div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(tc.count / mx) * 100}%` }} /></div></div>); })}</div></div>
+                                        )}
+                                        {nd.schemeGrievance.count > 0 && (
+                                          <div><div className="text-[9px] font-semibold text-violet-600 mb-1">{nd.schemeGrievance.pct}% yojana-fail</div><div className="flex flex-wrap gap-1">{nd.schemeGrievance.byScheme.map(s => <span key={s.scheme} className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600">{s.scheme} ×{s.count}</span>)}</div></div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          );
+                        })}
                       </div>
-                      <div className="text-[8px] text-muted-foreground/70 mt-1">Framework ready — plug these in (census / election / news / scheme coverage) to deepen each profile. Never estimated.</div>
+                    )}
+
+                    {/* External — forward roadmap, not a confession */}
+                    <div className="rounded-lg border border-dashed border-muted-foreground/20 p-2">
+                      <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1"><Network className="w-3 h-3" /> Aage aur gehraai (roadmap)</div>
+                      <div className="flex flex-wrap gap-1">{fusion.external.map(e => <span key={e.source} className="text-[9px] px-1.5 py-0.5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground/70" title={e.note}>○ {e.source}</span>)}</div>
+                      <div className="text-[8px] text-muted-foreground/60 mt-1">Kabhi andaaza nahi — sirf jab asli data juड़ega (census / election / news).</div>
                     </div>
 
+                    {/* Trust footer */}
                     <details className="text-[10px] text-muted-foreground">
-                      <summary className="cursor-pointer font-semibold">⚠ What this fusion is — and isn&apos;t ({fusion.caveats.length})</summary>
-                      <ul className="list-disc pl-4 space-y-0.5 mt-1">{fusion.caveats.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                      <summary className="cursor-pointer font-medium flex items-center gap-1"><Lock className="w-3 h-3" /> ⓘ Yeh score kya hai</summary>
+                      <div className="mt-1 pl-1"><div className="mb-1">Aggregate-only · koi vyaktigat profiling nahi · DPDP/ECI-safe.</div><ul className="list-disc pl-4 space-y-0.5">{fusion.caveats.map((c, i) => <li key={i}>{c}</li>)}</ul></div>
                     </details>
                   </>
-                )}
+                  );
+                })()}
               </CardContent>
             )}
           </Card>
@@ -1406,18 +1463,27 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
             )}
           </Card>
 
-          {/* ── Row 5.5: NLP Brain — root-cause clusters, anger hotspots, entity watch ── */}
+          {/* ── Logon ki Asli Shikayat (AI text intelligence) ── */}
           <Card className={`border shadow-sm border-fuchsia-500/20 ${show('brain') ? '' : 'hidden'}`}>
             <CardHeader className="pb-1 pt-3 px-4">
-              <CardTitle className="text-xs font-semibold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
-                <span className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-fuchsia-500" /> NLP Brain — AI Text Intelligence
-                  <span className="text-[9px] normal-case font-normal">(complaint ke text se: asli wajah, gussa, baar-baar aane wale naam)</span>
+              <CardTitle className="text-xs font-semibold flex items-center justify-between text-foreground tracking-tight">
+                <span className="flex flex-col gap-0.5">
+                  <span className="flex items-center gap-1.5 text-[13px] font-bold"><Sparkles className="w-4 h-4 text-fuchsia-500" /> Logon ki Asli Shikayat</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">AI ne har shikayat ka text padha — log kis EK baat pe sabse zyada gusse mein hain</span>
                 </span>
-                {!nlp && (
+                {!nlp ? (
                   <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={loadNlp} disabled={nlpLoading}>
                     {nlpLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Analyze'}
                   </Button>
+                ) : nlp.coverage.enriched > 0 && (
+                  <span className="flex items-center gap-1.5 flex-shrink-0">
+                    <svg width="30" height="30" viewBox="0 0 36 36">
+                      <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(217,70,239,0.15)" strokeWidth="4" />
+                      <circle cx="18" cy="18" r="15" fill="none" stroke="#d946ef" strokeWidth="4" strokeLinecap="round"
+                        strokeDasharray={2 * Math.PI * 15} strokeDashoffset={2 * Math.PI * 15 * (1 - (nlp.coverage.total ? nlp.coverage.enriched / nlp.coverage.total : 0))} transform="rotate(-90 18 18)" />
+                    </svg>
+                    <span className="text-[9px] text-muted-foreground leading-tight">{Math.round((nlp.coverage.total ? nlp.coverage.enriched / nlp.coverage.total : 0) * 100)}%<br />AI-padhi</span>
+                  </span>
                 )}
               </CardTitle>
             </CardHeader>
@@ -1425,96 +1491,150 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
               <CardContent className="px-4 pb-3 space-y-3">
                 {nlp.coverage.enriched === 0 ? (
                   <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
-                    Abhi tak koi complaint analyze nahi hui ({nlp.coverage.total} in scope). n8n JS-22 (NLP Brain enrichment) har 30 min chalta hai — thodi der mein data aayega. Turant chahiye to n8n mein JS-22 "Execute" karo.
+                    Abhi tak koi complaint analyze nahi hui ({nlp.coverage.total} in scope). n8n JS-22 (NLP Brain enrichment) har 30 min chalta hai — thodi der mein data aayega.
                   </div>
-                ) : (
+                ) : (() => {
+                  const cl0 = nlp.clusters[0];
+                  const maxC = cl0?.count || 1;
+                  const shownClusters = brainExpand ? nlp.clusters : nlp.clusters.slice(0, 6);
+                  return (
                   <>
-                    {/* Coverage */}
-                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                      <span>AI-analyzed: <span className="font-mono font-semibold text-foreground">{nlp.coverage.enriched}/{nlp.coverage.total}</span></span>
-                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full bg-fuchsia-500" style={{ width: `${nlp.coverage.total ? (nlp.coverage.enriched / nlp.coverage.total) * 100 : 0}%` }} />
-                      </div>
-                    </div>
+                    {/* HERO takeaway band — biggest root cause */}
+                    {cl0 && (
+                      <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+                        className="rounded-xl p-3 flex items-center gap-3"
+                        style={{ borderLeft: `4px solid ${angerColor(cl0.avgAnger)}`, background: `linear-gradient(135deg, ${angerColor(cl0.avgAnger)}1a, transparent)` }}>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Sabse badi musibat</div>
+                          <div className="text-[19px] leading-tight font-black text-foreground">{cl0.rootCause}</div>
+                          <div className="text-[12px] text-muted-foreground mt-0.5">{cl0.count} shikayatein · {cl0.villages.length}+ gaon · gussa <span style={{ color: angerColor(cl0.avgAnger), fontWeight: 700 }}>{cl0.avgAnger}/100</span></div>
+                          <Button size="sm" className="h-7 mt-2 text-[11px] px-2.5"
+                            onClick={() => { const t = `🛠 WORK-ORDER — ${cl0.rootCause}\n${cl0.count} shikayatein · ${cl0.villages.join(', ')}${cl0.count > cl0.villages.length ? ' +aur' : ''}\nTickets: ${cl0.tickets.join(', ')}\n\nEk hi fix se ${cl0.count} shikayatein address hongi.\n— JanSunwai`; navigator.clipboard.writeText(t).then(() => toast.success('Work-order copied — staff ko WhatsApp karo')).catch(() => toast.error('Copy fail')); }}>
+                            <Wrench className="w-3.5 h-3.5 mr-1" /> Yeh theek karwao
+                          </Button>
+                        </div>
+                        <div className="shrink-0 hidden sm:block" style={{ transform: 'scale(0.78)', transformOrigin: 'right center' }}>
+                          <RiskGauge score={cl0.avgAnger} grade={angerGrade(cl0.avgAnger)} />
+                        </div>
+                      </motion.div>
+                    )}
 
-                    {/* Root-cause clusters — THE killer feature */}
+                    {/* RANKED root-cause clusters — ek fix, kayi hal */}
                     {nlp.clusters.length > 0 && (
                       <div>
-                        <div className="text-[10px] font-semibold uppercase tracking-wider text-fuchsia-600 dark:text-fuchsia-400 flex items-center gap-1 mb-1.5">
-                          <Layers className="w-3 h-3" /> Root-Cause Clusters — ek fix, kayi resolution
+                        <div className="text-[11px] font-bold flex items-center gap-1 mb-1.5 text-fuchsia-600 dark:text-fuchsia-400">
+                          <Layers className="w-3.5 h-3.5" /> Ek kaam, kayi shikayat hal
                         </div>
                         <div className="space-y-1.5">
-                          {nlp.clusters.map(c => (
-                            <div key={c.key} className="rounded-lg border border-fuchsia-500/15 bg-fuchsia-500/5 p-2">
-                              <div className="flex items-center gap-2">
-                                <Network className="w-3.5 h-3.5 text-fuchsia-500 flex-shrink-0" />
-                                <span className="text-[11px] font-semibold flex-1">{c.rootCause}</span>
-                                <Badge className="text-[9px] h-4 px-1.5 bg-fuchsia-500/15 text-fuchsia-600 border-0">{c.count} complaints</Badge>
-                                {c.avgAnger >= 60 && (
-                                  <span className="text-[9px] text-red-500 font-semibold flex items-center gap-0.5"><Frown className="w-3 h-3" />{c.avgAnger}</span>
+                          {shownClusters.map((c, i) => {
+                            const w = Math.max(8, Math.round((c.count / maxC) * 100));
+                            const col = angerColor(c.avgAnger);
+                            const isOpen = openCluster === c.key;
+                            return (
+                              <motion.div key={c.key} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
+                                className="rounded-lg border p-2 cursor-pointer" style={{ borderColor: col + '40', background: col + '0f' }}
+                                onClick={() => setOpenCluster(isOpen ? null : c.key)}>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[13px] font-bold flex-1 leading-tight">{c.rootCause}</span>
+                                  {i === 0 && <Badge className="text-[8px] h-4 px-1.5 border-0" style={{ background: col + '22', color: col }}>BADA MAUKA</Badge>}
+                                  <span className="text-[22px] font-black font-mono leading-none" style={{ color: col }}>{c.count}</span>
+                                </div>
+                                <div className="mt-1 h-2 rounded-full bg-muted overflow-hidden">
+                                  <motion.div initial={{ width: 0 }} animate={{ width: `${w}%` }} transition={{ delay: i * 0.04 + 0.1, duration: 0.5 }} className="h-full rounded-full" style={{ background: col }} />
+                                </div>
+                                <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                  {c.villages.slice(0, 4).map(v => <span key={v} className="text-[9px] px-1.5 py-0.5 rounded-full bg-background/60 border text-muted-foreground">{v}</span>)}
+                                  {c.count > 4 && <span className="text-[9px] text-muted-foreground">+{c.count - 4} aur</span>}
+                                  <span className="ml-auto text-[10px] flex items-center gap-0.5 font-semibold" style={{ color: col }}><Frown className="w-3 h-3" />{c.avgAnger}</span>
+                                </div>
+                                {isOpen && c.tickets.length > 0 && (
+                                  <div className="mt-1.5 pt-1.5 border-t text-[9px] font-mono text-muted-foreground break-all">{c.tickets.join(', ')}</div>
                                 )}
-                              </div>
-                              <div className="text-[9px] text-muted-foreground mt-0.5 pl-5">
-                                {c.villages.length > 0 && <span>{c.villages.join(', ')} · </span>}
-                                <span className="font-mono">{c.tickets.slice(0, 3).join(', ')}{c.count > 3 ? '…' : ''}</span>
-                              </div>
-                            </div>
-                          ))}
+                              </motion.div>
+                            );
+                          })}
                         </div>
+                        {nlp.clusters.length > 6 && (
+                          <button onClick={() => setBrainExpand(v => !v)} className="text-[10px] text-fuchsia-600 dark:text-fuchsia-400 font-semibold mt-1.5">
+                            {brainExpand ? '− kam dikhao' : `+ aur ${nlp.clusters.length - 6} dikhao`}
+                          </button>
+                        )}
                       </div>
                     )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {/* Anger hotspots */}
+                      {/* Anger heat strip */}
                       {nlp.angerHotspots.length > 0 && (
                         <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1 mb-1.5">
-                            <Frown className="w-3 h-3 text-red-500" /> Anger Hotspots
-                          </div>
+                          <div className="text-[11px] font-bold flex items-center gap-1 mb-1.5 text-red-500"><Flame className="w-3.5 h-3.5" /> Gussa sabse zyada kahan</div>
                           <div className="space-y-1">
-                            {nlp.angerHotspots.map(h => (
-                              <div key={h.name} className="flex items-center gap-2">
-                                <span className="text-[11px] flex-1 truncate">{h.name}</span>
-                                <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
-                                  <div className="h-full rounded-full" style={{ width: `${h.avgAnger}%`, background: h.avgAnger >= 60 ? '#EF4444' : h.avgAnger >= 35 ? '#F59E0B' : '#10B981' }} />
+                            {nlp.angerHotspots.map((h, i) => {
+                              const col = angerColor(h.avgAnger);
+                              return (
+                                <div key={h.name} className="flex items-center gap-2 rounded px-1.5 py-1" style={{ background: col + '0d', borderLeft: h.avgAnger >= 60 ? `2px solid ${col}` : '2px solid transparent' }}>
+                                  {i === 0 ? <Flame className="w-3 h-3 text-red-500 flex-shrink-0" /> : <span className="w-3 flex-shrink-0" />}
+                                  <span className="text-[11px] flex-1 truncate">{h.name}</span>
+                                  <div className="relative w-24 h-1.5 rounded-full bg-muted overflow-hidden">
+                                    <div className="h-full rounded-full" style={{ width: `${h.avgAnger}%`, background: col }} />
+                                    {h.peakAnger > h.avgAnger && <div className="absolute top-[-1px] w-px h-2.5 bg-foreground/60" style={{ left: `${Math.min(99, h.peakAnger)}%` }} />}
+                                  </div>
+                                  <span className="text-[11px] font-mono font-bold w-6 text-right" style={{ color: col }}>{h.avgAnger}</span>
                                 </div>
-                                <span className="text-[10px] font-mono w-6 text-right">{h.avgAnger}</span>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       )}
 
-                      {/* Entity watch */}
+                      {/* Entity chip cloud — 3 buckets */}
                       {nlp.entityWatch.length > 0 && (
                         <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1 mb-1.5">
-                            <Building className="w-3 h-3" /> Entity Watch — baar-baar aane wale
-                          </div>
-                          <div className="space-y-1">
-                            {nlp.entityWatch.map(e => (
-                              <div key={`${e.type}-${e.name}`} className="flex items-center gap-2 text-[11px]">
-                                <Badge variant="outline" className="text-[8px] h-3.5 px-1 flex-shrink-0">{e.type}</Badge>
-                                <span className="flex-1 truncate">{e.name}</span>
-                                <span className="font-mono text-muted-foreground">{e.count}×</span>
-                              </div>
-                            ))}
+                          <div className="text-[11px] font-bold flex items-center gap-1 mb-1.5 text-muted-foreground"><Building className="w-3.5 h-3.5" /> Baar-baar aane wale naam</div>
+                          <div className="space-y-2">
+                            {(['infrastructure', 'schemes', 'officers'] as const).map(grp => {
+                              const items = nlp.entityWatch.filter(e => e.type === grp);
+                              if (!items.length) return null;
+                              const bk = ENTITY_BUCKET[grp];
+                              const Icon = grp === 'infrastructure' ? Wrench : grp === 'schemes' ? ClipboardList : User;
+                              const maxN = Math.max(...items.map(e => e.count));
+                              return (
+                                <div key={grp}>
+                                  <div className="text-[9px] font-semibold uppercase tracking-wider mb-1 flex items-center gap-1" style={{ color: bk.color }}><Icon className="w-3 h-3" />{bk.label}</div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {items.map(e => <span key={e.name} className="rounded-full font-medium" style={{ background: bk.color + '18', color: bk.color, fontSize: 9 + Math.round((e.count / maxN) * 3), padding: '2px 8px', border: grp === 'officers' ? `1px solid ${bk.color}55` : 'none' }}>{e.name} ×{e.count}</span>)}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
                     </div>
 
-                    {/* Emotion mix + severity flags */}
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {nlp.emotionMix.map(e => (
-                        <span key={e.emotion} className="text-[9px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{e.emotion} ({e.count})</span>
-                      ))}
-                      {nlp.severityFlags.map(f => (
-                        <span key={f.flag} className="text-[9px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 font-medium">⚑ {f.flag.replace('_', ' ')} ({f.count})</span>
-                      ))}
+                    {/* Mood meter ribbon */}
+                    <div className="pt-2 border-t">
+                      <div className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">Ilake ka mahaul</div>
+                      {(() => { const tot = nlp.emotionMix.reduce((s, e) => s + e.count, 0) || 1; return (
+                        <div className="flex h-3 rounded-full overflow-hidden mb-1.5">
+                          {nlp.emotionMix.map(e => { const pct = (e.count / tot) * 100; return <div key={e.emotion} title={`${e.emotion} ${e.count}`} style={{ width: `${pct}%`, background: EMO_COLOR[e.emotion] || '#94A3B8' }} className="flex items-center justify-center">{pct > 12 && <span className="text-[8px] text-white/90 font-semibold">{Math.round(pct)}%</span>}</div>; })}
+                        </div>
+                      ); })()}
+                      <div className="flex flex-wrap gap-1">
+                        {nlp.severityFlags.filter(f => f.count > 0).map((f, i) => <span key={f.flag} className="rounded-full bg-red-500/10 text-red-600 dark:text-red-400 font-semibold flex items-center gap-0.5" style={{ fontSize: i === 0 ? 11 : 9, padding: '2px 8px' }}><Flag className="w-3 h-3" />{f.flag.replace(/_/g, ' ')} {f.count}</span>)}
+                      </div>
                     </div>
+
+                    {/* Trust footer */}
+                    <details className="text-[10px] text-muted-foreground">
+                      <summary className="cursor-pointer font-medium flex items-center gap-1"><Lock className="w-3 h-3" /> ⓘ Yeh kaise bana</summary>
+                      <div className="mt-1 pl-4 space-y-0.5">
+                        <div>AI ne <span className="font-mono text-foreground">{nlp.coverage.enriched}/{nlp.coverage.total}</span> shikayat ka text padha.</div>
+                        <div>Aggregate-only · koi vyaktigat profiling nahi · DPDP/ECI-safe.</div>
+                      </div>
+                    </details>
                   </>
-                )}
+                  );
+                })()}
               </CardContent>
             )}
           </Card>

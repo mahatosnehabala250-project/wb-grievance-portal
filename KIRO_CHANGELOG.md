@@ -27,6 +27,23 @@
 
 ---
 
+### SESSION 50 — Claude Code (June 22, 2026): Brain + Entity 360 — data diversified + full UX redesign (workflow-designed)
+
+#### Problem
+Founder: "Brain aur Entity 360 boring, samajh nahi aata, basic lagta hai." Two root causes found: (1) all 537 DEMO complaints were a single category (WATER) with one identical description → monotone clusters; (2) only 21/537 had NLP enrichment → Brain was nearly empty; (3) both pages were dense 9-10px monochrome text with no headline/visual/action.
+
+#### ✅ Data fix (Supabase, trigger-safe)
+- Verified `trg_js12_email` fires on UPDATE OF category too, but its function self-guards on `email_sent_at IS NULL`; all demo rows have it set → **no emails/WhatsApp sent** (confirmed 0 unguarded).
+- **Diversified** demo complaints into 10 realistic categories (Water 159 · Road 93 · Electricity 53 · Health 48 · Ration 43 · Education 43 · Pension 40 · Sanitation 25 · Housing 20 · Land 13) with matching Bengali descriptions (hash-bucketed, deterministic).
+- **Backfilled `complaint_nlp`** for all 537 (root_cause/root_cause_key/anger/emotion/entities/severity_flags from a per-category 3-variant catalog) → **30 root-cause clusters**, anger-by-block, entity-watch (handpump/PDS/PMGSY/BDO), emotion-mix all now populated.
+
+#### ✅ UX redesign — `IntelligenceCommandView.tsx` (designed via 3-lens Workflow + synthesis)
+- **Brain → "Logon ki Asli Shikayat"**: hero takeaway band (biggest root cause + anger RiskGauge + "Yeh theek karwao" work-order copy), ranked cluster bars (width=count, fill=anger color, "BADA MAUKA", tap→tickets), anger heat-strip (peak notch), 3-bucket entity chip-cloud (ढाँचा/योजना/अफ़सर, count-scaled), mood-meter ribbon, collapsible trust footer. Coverage shown as a 36px ring (not a bar).
+- **Entity 360 → "Kahan Dhyan Dein"**: #1-priority hero (grade pill + priority RiskGauge + auto plain-Hindi "kyun" + reason chips + "daura karo" copy), always-visible leaderboard (priority bar + active/anger/scheme micro-stats, tap→detail), priority-component stacked bar (replaces the formula string), 4 stat tiles incl. emerald resolution ring, top-causes mini-bars + scheme chips, external sources reframed as forward roadmap, single trust footer.
+- Helpers added: `angerColor/angerGrade/gradeToRisk/gradeBar`, `EMO_COLOR`, `ENTITY_BUCKET` (reuse existing `RiskGauge`/`RISK_COLORS`; no new chart lib). CommandCenter tabs renamed: Brain→"Asli Shikayat", Entity 360→"Kahan Dhyan".
+
+---
+
 ### SESSION 49 — Claude Code (June 20, 2026): map TIME-SLIDER (play complaint flow over time)
 
 #### ✅ What was built
