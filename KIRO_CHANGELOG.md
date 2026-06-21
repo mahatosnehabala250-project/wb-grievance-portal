@@ -27,6 +27,17 @@
 
 ---
 
+### SESSION 47 — Claude Code (June 20, 2026): 3D map (MapLibre GL) + 2D⟷3D toggle; Leaflet attribution rebranded
+
+#### ✅ What was built
+- **`src/components/Map3D.tsx`** (new) — GPU vector 3D view via **MapLibre GL** (dep `maplibre-gl@^4`). Free **CARTO dark vector** style, pitched (58°) view, NavigationControl. Village polygons (`purulia-villages.geojson`) **extruded by complaint count** into glowing fill-extrusion "data columns" (red=critical / amber=active / cyan), flat faint footprint for the rest. Drag-to-rotate. Same scoped data as the 2D map (joined by `vil_lgd`).
+- **`src/components/MapView.tsx`** — **2D ⟷ 3D toggle** in the header (swaps Leaflet `InnerMap` ↔ MapLibre `Map3D`, lazy/ssr:false). Also replaced the default **"Leaflet" attribution prefix → "JanSunwai WB"** (kept tile credits for ToS).
+
+#### ⚠️ Next AI — Please Note
+- 3D basemap uses the free CARTO dark style (boundary-neutral). For India-official boundaries, swap in **Mappls (MapmyIndia)** or **Bhuvan** vector style once an API key is available. Extrusion height scale = `cnt * 1800` (tune for drama). deck.gl was NOT added — pure MapLibre fill-extrusion keeps deps minimal.
+
+---
+
 ### SESSION 46 — Claude Code (June 20, 2026): DEMO data seed (537 complaints) + ⚠️ trigger-side-effect INCIDENT & remediation
 
 #### ✅ What was done

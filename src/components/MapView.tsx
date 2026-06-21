@@ -215,6 +215,11 @@ const InnerMap = dynamic(
   { ssr: false, loading: () => <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b", background: MAPBG }}>Loading command map…</div> }
 );
 
+const Map3D = dynamic(() => import("@/components/Map3D").then((m) => m.Map3D), {
+  ssr: false,
+  loading: () => <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b", background: MAPBG }}>Loading 3D engine…</div>,
+});
+
 // ---- Main export ----
 export function MapView() {
   const [data, setData] = useState<MapData | null>(null);
@@ -227,6 +232,7 @@ export function MapView() {
   const [gpMap, setGpMap] = useState<Record<string, string[]>>({});
   const [blocks, setBlocks] = useState<any>(null);
   const [catFilter, setCatFilter] = useState<string | null>(null);
+  const [view3d, setView3d] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -316,6 +322,13 @@ export function MapView() {
           ))}
         </div>
         <div className="flex gap-1">
+          <button onClick={() => setView3d((v) => !v)}
+            className="px-2.5 py-1 rounded text-xs font-semibold transition-all"
+            style={view3d ? { background: "rgba(34,211,238,0.2)", color: CYAN, border: `1px solid ${LINE}` } : { background: "transparent", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}>
+            {view3d ? "🧊 3D" : "🗺 2D"}
+          </button>
+        </div>
+        <div className="flex gap-1">
           {(["dark", "satellite"] as const).map((b) => (
             <button key={b} onClick={() => setBasemap(b)}
               className="px-2.5 py-1 rounded text-xs font-medium transition-all"
@@ -359,6 +372,8 @@ export function MapView() {
         <div className="flex-1 relative">
           {loading ? (
             <div className="absolute inset-0 flex items-center justify-center text-sm" style={{ color: "#64748b", background: MAPBG }}>Loading command map…</div>
+          ) : view3d ? (
+            <Map3D points={points} boundaries={boundaries} />
           ) : (
             <InnerMap points={points} mode={mode} basemap={basemap} boundaries={boundaries} showBoundaries={showBoundaries} onSelect={setSelected} gpMap={gpMap} labelPts={labelPts} blockBoundaries={blocks} blockLabelPts={blockLabelPts} catFilter={catFilter} />
           )}
