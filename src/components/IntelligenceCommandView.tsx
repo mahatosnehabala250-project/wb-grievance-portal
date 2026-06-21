@@ -1125,8 +1125,8 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
             <CardHeader className="pb-1 pt-3 px-4">
               <CardTitle className="text-xs font-semibold flex items-center justify-between text-foreground tracking-tight">
                 <span className="flex flex-col gap-0.5">
-                  <span className="flex items-center gap-1.5 text-[13px] font-bold"><Target className="w-4 h-4 text-indigo-500" /> Kahan Dhyan Dein</span>
-                  <span className="text-[10px] font-normal text-muted-foreground">Har ilake ka ek joda hua score — netaji ko ABHI kis area pe jaana hai aur kyun</span>
+                  <span className="flex items-center gap-1.5 text-[13px] font-bold"><Target className="w-4 h-4 text-indigo-500" /> Area Fusion — Entity 360</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">har ilake ka fused profile: grievance + anger + scheme-failure + political, priority-ranked</span>
                 </span>
                 {!fusion && (
                   <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={loadFusion} disabled={fusionLoading}>
@@ -1468,8 +1468,8 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
             <CardHeader className="pb-1 pt-3 px-4">
               <CardTitle className="text-xs font-semibold flex items-center justify-between text-foreground tracking-tight">
                 <span className="flex flex-col gap-0.5">
-                  <span className="flex items-center gap-1.5 text-[13px] font-bold"><Sparkles className="w-4 h-4 text-fuchsia-500" /> Logon ki Asli Shikayat</span>
-                  <span className="text-[10px] font-normal text-muted-foreground">AI ne har shikayat ka text padha — log kis EK baat pe sabse zyada gusse mein hain</span>
+                  <span className="flex items-center gap-1.5 text-[13px] font-bold"><Sparkles className="w-4 h-4 text-fuchsia-500" /> NLP Brain — AI Text Intelligence</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">complaint ke text se: asli wajah, gussa, baar-baar aane wale naam</span>
                 </span>
                 {!nlp ? (
                   <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={loadNlp} disabled={nlpLoading}>

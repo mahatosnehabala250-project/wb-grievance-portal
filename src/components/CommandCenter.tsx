@@ -31,8 +31,8 @@ const ROOMS: Array<{ key: Room; label: string; icon: typeof Sun }> = [
   { key: 'map', label: 'Map', icon: MapIcon },
   { key: 'forecast', label: 'Forecast', icon: TrendingUp },
   { key: 'network', label: 'Network', icon: Network },
-  { key: 'brain', label: 'Asli Shikayat', icon: Brain },
-  { key: 'entity360', label: 'Kahan Dhyan', icon: Target },
+  { key: 'brain', label: 'Brain', icon: Brain },
+  { key: 'entity360', label: 'Entity 360', icon: Target },
   { key: 'field', label: 'Field', icon: Footprints },
 ];
 
