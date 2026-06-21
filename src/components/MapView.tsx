@@ -89,6 +89,19 @@ const InnerMap = dynamic(
           return null;
         }
 
+        // Fly the map to a searched village + drop a glowing locator reticle.
+        function FlyTo({ target }: { target: { lat: number; lng: number; name: string } | null }) {
+          const map = useMap();
+          useEffect(() => {
+            if (target) map.flyTo([target.lat, target.lng], Math.max(map.getZoom(), 14), { duration: 1.1 });
+          }, [target, map]);
+          if (!target) return null;
+          return (
+            <Marker position={[target.lat, target.lng]} interactive={false} zIndexOffset={1000}
+              icon={L.divIcon({ className: "", iconSize: [0, 0], html: `<div style="position:relative;transform:translate(-50%,-50%);width:30px;height:30px"><div style="position:absolute;inset:0;border:2px solid #fff;border-radius:50%;box-shadow:0 0 12px #22d3ee,inset 0 0 6px #22d3ee;animation:reticle 1.6s ease-out infinite"></div><div style="position:absolute;top:50%;left:50%;width:6px;height:6px;background:#fff;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 6px #fff"></div></div>` })} />
+          );
+        }
+
         // Village-name labels — only when zoomed in (>=12) and only for villages
         // currently in view (viewport-limited, capped) so 2,689 labels never all
         // render at once. At >=13 the Gram Panchayat name shows underneath.
@@ -112,12 +125,13 @@ const InnerMap = dynamic(
           ))}</>);
         }
 
-        const Component = ({ points, mode, basemap, boundaries, showBoundaries, onSelect, gpMap, labelPts, blockBoundaries, blockLabelPts, catFilter }: {
+        const Component = ({ points, mode, basemap, boundaries, showBoundaries, onSelect, gpMap, labelPts, blockBoundaries, blockLabelPts, catFilter, flyTarget }: {
           points: VPoint[]; mode: Mode; basemap: "dark" | "satellite";
           boundaries: any; showBoundaries: boolean; onSelect: (p: VPoint) => void;
           gpMap: Record<string, string[]>; labelPts: { lat: number; lng: number; name: string; gp: string | null }[];
           blockBoundaries: any; blockLabelPts: { lat: number; lng: number; name: string }[];
           catFilter: string | null;
+          flyTarget: { lat: number; lng: number; name: string } | null;
         }) => {
           const [zoom, setZoom] = useState(9);
           const visiblePoints = catFilter ? points.filter((p) => (p.cats?.[catFilter] || 0) > 0) : points;
@@ -137,6 +151,7 @@ const InnerMap = dynamic(
               )}
 
               <ZoomWatcher onZoom={setZoom} />
+              <FlyTo target={flyTarget} />
 
               {/* BLOCK boundaries — always (clean overview, just 20 outlines) */}
               {blockBoundaries && (
@@ -233,6 +248,9 @@ export function MapView() {
   const [blocks, setBlocks] = useState<any>(null);
   const [catFilter, setCatFilter] = useState<string | null>(null);
   const [view3d, setView3d] = useState(false);
+  const [query, setQuery] = useState("");
+  const [showResults, setShowResults] = useState(false);
+  const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; name: string; code: string } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -263,6 +281,49 @@ export function MapView() {
   }, [blocks]);
 
   const points = data?.points || [];
+
+  // Searchable index of EVERY Purulia village (name + GP + centroid), built from
+  // our own boundary geojson + authoritative GP map — no external geocoder.
+  const villageIndex = useMemo(() => {
+    const b: any = boundaries;
+    if (!b?.features) return [] as { code: string; name: string; gp: string | null; lat: number; lng: number }[];
+    const out: { code: string; name: string; gp: string | null; lat: number; lng: number }[] = [];
+    for (const f of b.features) {
+      const g = f.geometry; if (!g) continue;
+      const ring = g.type === "Polygon" ? g.coordinates[0] : g.type === "MultiPolygon" ? g.coordinates[0][0] : null;
+      if (!ring || !ring.length) continue;
+      let sx = 0, sy = 0; for (const c of ring) { sx += c[0]; sy += c[1]; }
+      const code = f.properties?.v || "";
+      const meta = code ? gpMap[code] : null;
+      out.push({ code, name: (meta && meta[2]) || f.properties?.n || "", gp: meta ? meta[0] : null, lat: sy / ring.length, lng: sx / ring.length });
+    }
+    return out;
+  }, [boundaries, gpMap]);
+
+  const pointByCode = useMemo(() => { const m: Record<string, VPoint> = {}; for (const p of points) m[p.code] = p; return m; }, [points]);
+
+  const nq = query.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  const searchResults = useMemo(() => {
+    if (nq.length < 2) return [] as typeof villageIndex;
+    const starts: typeof villageIndex = [], incl: typeof villageIndex = [];
+    for (const v of villageIndex) {
+      const key = v.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (!key) continue;
+      if (key.startsWith(nq)) starts.push(v);
+      else if (key.includes(nq)) incl.push(v);
+    }
+    return [...starts, ...incl].slice(0, 8);
+  }, [nq, villageIndex]);
+
+  const gotoVillage = (v: { code: string; name: string; gp: string | null; lat: number; lng: number }) => {
+    setView3d(false);
+    setQuery(v.name);
+    setShowResults(false);
+    setFlyTarget({ lat: v.lat, lng: v.lng, name: v.name, code: v.code });
+    const pt = pointByCode[v.code];
+    setSelected(pt || { code: v.code, name: v.name, lat: v.lat, lng: v.lng, total: 0, active: 0, critical: 0, resolved: 0, slaBreached: 0, cats: {} });
+  };
+
   const labelPts = useMemo(() => {
     const b: any = boundaries;
     if (!b?.features) return [] as { lat: number; lng: number; name: string; gp: string | null }[];
@@ -304,12 +365,46 @@ export function MapView() {
 
   return (
     <div className="flex flex-col h-full" style={{ background: MAPBG }}>
-      <style>{`.crit-pulse{width:8px;height:8px;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 0 rgba(239,68,68,0.5);animation:critpulse 1.8s ease-out infinite}@keyframes critpulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,0.5)}70%{box-shadow:0 0 0 15px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}`}</style>
+      <style>{`.crit-pulse{width:8px;height:8px;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 0 rgba(239,68,68,0.5);animation:critpulse 1.8s ease-out infinite}@keyframes critpulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,0.5)}70%{box-shadow:0 0 0 15px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}.v-search-item:hover{background:rgba(34,211,238,0.12)}@keyframes reticle{0%{box-shadow:0 0 12px #22d3ee,inset 0 0 6px #22d3ee}50%{box-shadow:0 0 22px #22d3ee,inset 0 0 11px #22d3ee}100%{box-shadow:0 0 12px #22d3ee,inset 0 0 6px #22d3ee}}`}</style>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-2.5 flex-wrap flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: PANEL }}>
         <span className="font-semibold text-sm flex items-center gap-2" style={dim("#e2e8f0")}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: RED, display: "inline-block", boxShadow: `0 0 8px ${RED}` }} /> Command Map
         </span>
+
+        {/* Village search — local, no external geocoder */}
+        <div className="relative" style={{ width: 210 }}>
+          <input
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setShowResults(true); }}
+            onFocus={() => setShowResults(true)}
+            onBlur={() => setTimeout(() => setShowResults(false), 160)}
+            onKeyDown={(e) => { if (e.key === "Enter" && searchResults[0]) gotoVillage(searchResults[0]); if (e.key === "Escape") { setQuery(""); setShowResults(false); } }}
+            placeholder="🔍 Search any village…"
+            className="w-full px-2.5 py-1 rounded text-xs"
+            style={{ background: "rgba(255,255,255,0.05)", color: "#e2e8f0", border: "1px solid rgba(255,255,255,0.12)", outline: "none" }}
+          />
+          {query && (
+            <button onMouseDown={(e) => { e.preventDefault(); setQuery(""); setFlyTarget(null); setShowResults(false); }}
+              className="absolute" style={{ right: 6, top: 4, color: "#64748b", fontSize: 13 }}>×</button>
+          )}
+          {showResults && searchResults.length > 0 && (
+            <div className="absolute left-0 mt-1 rounded-lg overflow-hidden" style={{ top: "100%", zIndex: 1000, minWidth: 230, background: PANEL, border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 24px rgba(0,0,0,0.55)" }}>
+              {searchResults.map((v) => {
+                const pt = pointByCode[v.code];
+                return (
+                  <button key={v.code} className="v-search-item block w-full text-left px-3 py-1.5 text-xs" style={{ color: "#e2e8f0" }}
+                    onMouseDown={(e) => { e.preventDefault(); gotoVillage(v); }}>
+                    <span className="font-medium">{v.name}</span>
+                    {pt && pt.total > 0 && <span style={{ color: pt.critical > 0 ? "#f87171" : "#38bdf8" }}> · {pt.total}</span>}
+                    {v.gp && <span style={{ color: "#64748b" }}> · GP {v.gp}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         <div className="flex gap-1">
           {MODES.map((m) => (
             <button key={m.key} onClick={() => setMode(m.key)}
@@ -375,7 +470,7 @@ export function MapView() {
           ) : view3d ? (
             <Map3D points={points} boundaries={boundaries} />
           ) : (
-            <InnerMap points={points} mode={mode} basemap={basemap} boundaries={boundaries} showBoundaries={showBoundaries} onSelect={setSelected} gpMap={gpMap} labelPts={labelPts} blockBoundaries={blocks} blockLabelPts={blockLabelPts} catFilter={catFilter} />
+            <InnerMap points={points} mode={mode} basemap={basemap} boundaries={boundaries} showBoundaries={showBoundaries} onSelect={setSelected} gpMap={gpMap} labelPts={labelPts} blockBoundaries={blocks} blockLabelPts={blockLabelPts} catFilter={catFilter} flyTarget={flyTarget} />
           )}
 
           {/* Density legend */}

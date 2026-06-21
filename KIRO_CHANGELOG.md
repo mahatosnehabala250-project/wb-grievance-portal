@@ -27,6 +27,13 @@
 
 ---
 
+### SESSION 48 — Claude Code (June 20, 2026): map village SEARCH (local, no external geocoder)
+
+#### ✅ What was built
+- **`src/components/MapView.tsx`** — header **"🔍 Search any village…"** box with live autocomplete over **all ~2,689 Purulia villages**, built entirely from our own data (`purulia-villages.geojson` centroids + `purulia-gp.json` authoritative names/GP) — **no Bhuvan/ISRO/Mappls geocoder**. Selecting a result: switches to 2D, **flies the map** to the village (zoom 14) and drops a glowing locator **reticle**, and loads that village's complaint stats in the AI panel (shows 0 if none). Result rows show complaint count + GP. Verified the supplied Bhuvan token is geocoding-only + daily-expiry → not used.
+
+---
+
 ### SESSION 47 — Claude Code (June 20, 2026): 3D map (MapLibre GL) + 2D⟷3D toggle; Leaflet attribution rebranded
 
 #### ✅ What was built
