@@ -295,6 +295,8 @@ export function getToolSchemas(payload: JWTPayload): ToolDef[] {
       fn('assign_officer', 'Propose assigning an officer to a complaint (needs user confirmation before it runs).', { ticketNo: { type: 'string' }, officer: { type: 'string', description: 'officer name or id' } }, ['ticketNo', 'officer']),
       fn('update_status', 'Propose changing a complaint status / resolving it (needs user confirmation).', { ticketNo: { type: 'string' }, status: { type: 'string', enum: ['IN_PROGRESS', 'RESOLVED', 'REJECTED', 'OPEN'] }, resolutionNote: { type: 'string' } }, ['ticketNo', 'status']),
       fn('escalate_complaint', 'Propose escalating a complaint one urgency level (needs user confirmation).', { ticketNo: { type: 'string' } }, ['ticketNo']),
+      fn('add_note', 'Propose adding an internal note/comment to a complaint (needs user confirmation).', { ticketNo: { type: 'string' }, note: { type: 'string', description: 'the note text' } }, ['ticketNo', 'note']),
+      fn('reopen_complaint', 'Propose reopening a resolved/rejected complaint (needs user confirmation).', { ticketNo: { type: 'string' } }, ['ticketNo']),
     );
   }
 

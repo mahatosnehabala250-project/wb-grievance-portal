@@ -27,6 +27,14 @@
 
 ---
 
+### SESSION 54 — Claude Code (June 22, 2026): Saathi — cross-tab analytics + 2 new write-actions
+
+#### ✅ What was added
+- **`query_complaints` cross-tab** — optional `subGroupBy` for 2-dimension breakdowns (block × category, month × category, category × status, …). Pure server-side, scope always enforced. Widens "ask anything (data)" coverage without raw LLM SQL (deliberately NOT building raw text-to-SQL — a bad query = cross-jurisdiction/PII leak; if needed later, do it as a guarded read-only + table-whitelist + forced-scope task).
+- **Write-actions `add_note` + `reopen_complaint`** — both single-complaint, propose→confirm→existing audited route. `add_note` → POST `/api/complaints/[id]/comments` `{content}` (activity-logged, no external trigger). `reopen_complaint` → PATCH `/api/complaints/[id]/reopen` (only RESOLVED/REJECTED → OPEN, fires the legit single citizen-reopened notification). Both gated on `canMutateComplaints`. NO bulk writes (trigger-storm risk from the demo-seed incident). Wired in `shared.ts` (WRITE_TOOL_NAMES), `tools.ts` (schemas), `agent.ts` (kinds: note/reopen), `CommandAssistant.tsx` (confirm-card → route).
+
+---
+
 ### SESSION 53 — Claude Code (June 22, 2026): Saathi — general analytics tool + eval harness
 
 #### ✅ What was built (coverage for the long tail of questions)

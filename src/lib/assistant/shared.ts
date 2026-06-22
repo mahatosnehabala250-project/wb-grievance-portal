@@ -23,4 +23,4 @@ export const NAV_DESTINATIONS: Array<{ id: string; label: string; view: string; 
   { id: 'settings', label: 'Settings', view: 'settings' },
 ];
 
-export const WRITE_TOOL_NAMES = new Set(['assign_officer', 'update_status', 'escalate_complaint']);
+export const WRITE_TOOL_NAMES = new Set(['assign_officer', 'update_status', 'escalate_complaint', 'add_note', 'reopen_complaint']);

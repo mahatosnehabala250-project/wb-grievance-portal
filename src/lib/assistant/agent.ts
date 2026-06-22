@@ -25,7 +25,7 @@ export function assistantEnabled(): boolean {
 export interface ChatMsg { role: 'user' | 'assistant'; content: string }
 
 export interface NavigateDirective { destination: string; view: string; room?: string; label: string }
-export interface ProposedAction { id: string; kind: 'assign' | 'status' | 'escalate'; ticketNo: string; params: Record<string, unknown>; label: string }
+export interface ProposedAction { id: string; kind: 'assign' | 'status' | 'escalate' | 'note' | 'reopen'; ticketNo: string; params: Record<string, unknown>; label: string }
 export interface AssistantResult {
   answer: string;
   navigate?: NavigateDirective;
@@ -45,7 +45,7 @@ LANGUAGE: reply in the SAME language the user used (Bengali, Hindi/Hinglish, or 
 TOOLS:
 - Use READ tools (get_overview, search_complaints, get_complaint, top_hotspots, get_forecast, get_nlp_insights, get_priority_areas, get_network, get_pending_actions, get_leaderboard, list_team) to ground EVERY factual claim. Never invent numbers, tickets, areas, or names. If a tool returns an error or nothing, say so plainly.
 - Use the navigate tool when the user wants to open/see a page ("map kholo", "show forecast", "open complaints"). Available pages: ${dests}. After navigating, confirm in one short line.
-- WRITE tools (assign_officer, update_status, escalate_complaint) only PROPOSE an action — they are NOT executed until the user taps confirm. When you call one, tell the user you have prepared it and ask them to confirm.
+- WRITE tools (assign_officer, update_status, escalate_complaint, add_note, reopen_complaint) only PROPOSE an action — they are NOT executed until the user taps confirm. When you call one, tell the user you have prepared it and ask them to confirm.
 
 RULES:
 - All data is already limited to the user's own jurisdiction by the system — answer only from what tools return.
@@ -105,9 +105,11 @@ export async function runAssistant(history: ChatMsg[], ctx: ToolCtx): Promise<As
         else { result = { error: `unknown destination ${args.destination}` }; }
       } else if (WRITE_TOOL_NAMES.has(name)) {
         const ticketNo = String(args.ticketNo || '').trim();
-        const kind = name === 'assign_officer' ? 'assign' : name === 'escalate_complaint' ? 'escalate' : 'status';
+        const kind = name === 'assign_officer' ? 'assign' : name === 'escalate_complaint' ? 'escalate' : name === 'add_note' ? 'note' : name === 'reopen_complaint' ? 'reopen' : 'status';
         const label = kind === 'assign' ? `Assign ${args.officer} to ${ticketNo}`
           : kind === 'escalate' ? `Escalate ${ticketNo} by one urgency level`
+          : kind === 'note' ? `Add note to ${ticketNo}: "${String(args.note || '').slice(0, 60)}"`
+          : kind === 'reopen' ? `Reopen ${ticketNo}`
           : `Set ${ticketNo} → ${args.status}${args.resolutionNote ? ' (with note)' : ''}`;
         proposedActions.push({ id: `${name}:${ticketNo}:${proposedActions.length}`, kind: kind as ProposedAction['kind'], ticketNo, params: args, label });
         result = { ok: true, status: 'prepared — awaiting user confirmation' };

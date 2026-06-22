@@ -20,7 +20,7 @@ import { useAuthStore } from '@/lib/auth-store';
 import { useNav } from '@/lib/nav-context';
 
 interface Msg { role: 'user' | 'assistant'; content: string }
-interface ProposedAction { id: string; kind: 'assign' | 'status' | 'escalate'; ticketNo: string; params: Record<string, any>; label: string }
+interface ProposedAction { id: string; kind: 'assign' | 'status' | 'escalate' | 'note' | 'reopen'; ticketNo: string; params: Record<string, any>; label: string }
 
 const LANGS: Array<{ id: string; label: string }> = [
   { id: 'hi-IN', label: 'हिं' }, { id: 'bn-IN', label: 'বাং' }, { id: 'en-IN', label: 'EN' },
@@ -131,6 +131,10 @@ export function CommandAssistant() {
       let res: Response;
       if (a.kind === 'escalate') {
         res = await fetch(`/api/complaints/${id}/escalate`, { method: 'PATCH', headers: hdr });
+      } else if (a.kind === 'reopen') {
+        res = await fetch(`/api/complaints/${id}/reopen`, { method: 'PATCH', headers: hdr });
+      } else if (a.kind === 'note') {
+        res = await fetch(`/api/complaints/${id}/comments`, { method: 'POST', headers: hdr, body: JSON.stringify({ content: String(a.params.note || a.params.content || '') }) });
       } else if (a.kind === 'status') {
         res = await fetch(`/api/complaints/${id}`, { method: 'PATCH', headers: hdr, body: JSON.stringify({ status: a.params.status, resolution: a.params.resolutionNote || undefined }) });
       } else {
@@ -144,9 +148,9 @@ export function CommandAssistant() {
   }, []);
 
   const addProposed = useCallback((name: string, args: any) => {
-    const kind = name === 'assign_officer' ? 'assign' : name === 'escalate_complaint' ? 'escalate' : 'status';
+    const kind = name === 'assign_officer' ? 'assign' : name === 'escalate_complaint' ? 'escalate' : name === 'add_note' ? 'note' : name === 'reopen_complaint' ? 'reopen' : 'status';
     const ticketNo = String(args.ticketNo || '');
-    const label = kind === 'assign' ? `Assign ${args.officer} to ${ticketNo}` : kind === 'escalate' ? `Escalate ${ticketNo} by one level` : `Set ${ticketNo} → ${args.status}`;
+    const label = kind === 'assign' ? `Assign ${args.officer} to ${ticketNo}` : kind === 'escalate' ? `Escalate ${ticketNo} by one level` : kind === 'note' ? `Add note to ${ticketNo}` : kind === 'reopen' ? `Reopen ${ticketNo}` : `Set ${ticketNo} → ${args.status}`;
     setActions((s) => [...s, { id: `${name}:${ticketNo}:${s.length}`, kind: kind as ProposedAction['kind'], ticketNo, params: args, label }]);
   }, []);
 
