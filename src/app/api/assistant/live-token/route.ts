@@ -1,7 +1,7 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Modality } from '@google/genai';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
 import { getGeminiToolDeclarations } from '@/lib/assistant/tools';
 import { buildSystemPrompt } from '@/lib/assistant/agent';
@@ -34,6 +34,12 @@ export async function POST(request: NextRequest) {
         uses: 1,
         expireTime: new Date(now + 25 * 60 * 1000).toISOString(),       // token valid 25 min
         newSessionExpireTime: new Date(now + 2 * 60 * 1000).toISOString(), // must connect within 2 min
+        // Bind the model + version to the token (fixes "model not found for API version v1main").
+        liveConnectConstraints: {
+          model: LIVE_MODEL,
+          config: { responseModalities: [Modality.AUDIO] },
+        },
+        httpOptions: { apiVersion: 'v1alpha' },
       },
     });
 
