@@ -33,6 +33,9 @@ export { NAV_DESTINATIONS, WRITE_TOOL_NAMES };
 
 // ── helpers ──
 const cap = (s: string, n: number) => (s && s.length > n ? s.slice(0, n) + '…' : s);
+// Normalise an area name so "Manbazar 1" / "Manbazar I" / "Manbazar-I" all match.
+const ROMAN: Record<string, string> = { i: '1', ii: '2', iii: '3', iv: '4', v: '5' };
+const normArea = (s: string) => String(s || '').toLowerCase().replace(/[-_]/g, ' ').replace(/\b(i{1,3}|iv|v)\b/g, (m) => ROMAN[m] || m).replace(/[^a-z0-9]+/g, ' ').trim();
 const daysOld = (d: unknown) => {
   const t = d instanceof Date ? d.getTime() : typeof d === 'string' ? Date.parse(d) : NaN;
   return isNaN(t) ? null : Math.max(0, Math.round((Date.now() - t) / 86400000));
@@ -79,7 +82,7 @@ const READ_EXEC: Record<string, (args: any, ctx: ToolCtx) => Promise<any>> = {
     const and: any[] = [];
     if (typeof args.area === 'string' && args.area.trim()) {
       const a = args.area.trim();
-      and.push({ OR: [{ block: { contains: a, mode: 'insensitive' } }, { village: { contains: a, mode: 'insensitive' } }, { gp_name: { contains: a, mode: 'insensitive' } }] });
+      and.push({ OR: [{ block: { contains: a, mode: 'insensitive' } }, { village: { contains: a, mode: 'insensitive' } }] });
     }
     if (typeof args.query === 'string' && args.query.trim()) {
       const q = args.query.trim();
@@ -118,6 +121,26 @@ const READ_EXEC: Record<string, (args: any, ctx: ToolCtx) => Promise<any>> = {
       issue: cap(String(c.description || ''), 240), daysOld: daysOld(c.createdAt),
       assignedTo, resolution: c.resolution ? cap(String(c.resolution), 160) : null,
     };
+  },
+
+  async area_breakdown(args, ctx) {
+    const area = String(args.area || '').trim();
+    if (!area) return { error: 'area required' };
+    const rows: any[] = await db.complaint.findMany({ where: getComplaintScopeFilter(ctx.payload), take: 3000, select: { block: true, village: true, category: true, status: true, urgency: true } });
+    const target = normArea(area);
+    const matched = rows.filter((r) => [r.block, r.village].some((f) => f && normArea(String(f)).includes(target)));
+    if (matched.length === 0) return { area, total: 0, note: 'Is area mein koi complaint nahi (ya aapke scope ke bahar hai).' };
+    const byCat: Record<string, number> = {}; const byStatus: Record<string, number> = {};
+    let active = 0, critical = 0;
+    const ACTIVE_S = ['OPEN', 'IN_PROGRESS', 'REGISTERED', 'ASSIGNED'];
+    for (const r of matched) {
+      const c = String(r.category || 'OTHER'); byCat[c] = (byCat[c] || 0) + 1;
+      const s = String(r.status || ''); byStatus[s] = (byStatus[s] || 0) + 1;
+      if (ACTIVE_S.includes(s)) active++;
+      if (r.urgency === 'CRITICAL') critical++;
+    }
+    const byCategory = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([category, count]) => ({ category, count }));
+    return { area, total: matched.length, active, critical, topCategory: byCategory[0]?.category, byCategory, byStatus };
   },
 
   async top_hotspots(_args, ctx) {
@@ -203,6 +226,7 @@ export function getToolSchemas(payload: JWTPayload): ToolDef[] {
       limit: { type: 'number', description: 'max rows (default 8, max 20)' },
     }),
     fn('get_complaint', 'Full details of one complaint by ticket number.', { ticketNo: { type: 'string' } }, ['ticketNo']),
+    fn('area_breakdown', 'Total complaint count + top category + status split for ONE block/GP/village. Use for "X block/area mein kitni complaints / kaun si category sabse zyada".', { area: { type: 'string', description: 'block, GP, or village name (numeral-safe: "Manbazar 1" matches "Manbazar I")' } }, ['area']),
     fn('top_hotspots', 'Ranked hotspot areas by active/critical/risk.'),
     fn('get_forecast', 'Volume trajectory + SLA-breach risk (early-warning).'),
     fn('get_nlp_insights', 'AI text intelligence: root-cause clusters, anger hotspots, recurring entities (the "Brain").'),
