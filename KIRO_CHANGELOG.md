@@ -27,6 +27,21 @@
 
 ---
 
+### SESSION 56 — Claude Code (June 22, 2026): Saathi — fix script-mismatch data bug + TTS markdown + honesty
+
+#### 🐛 Critical bug fixed (from a live test)
+"Baliguma mein kitni complaints?" returned **593** (the GLOBAL total) instead of Baliguma's. Root cause: Hindi/Bengali voice → place names transcribed in **Devanagari/Bengali script** (बालিগুমা), but the DB stores **Latin** ("Baliguma"). Old `normArea` stripped all non-`[a-z0-9]` → **empty target** → `includes('')` matched EVERY row → returned the global total mislabeled as the area.
+- **Fix:** added a Devanagari/Bengali → Latin transliteration (`INDIC` map + `translit`) inside `normArea`, plus collapse-repeated-letters (vowel-length) and a bidirectional `areaMatch`. Empty target now returns "area not understood" (never match-all). Applied to `area_breakdown`, `query_complaints` (area filter), and `search_complaints` (transliterate before DB `contains`). (`src/lib/assistant/tools.ts`)
+- **Prompt honesty:** for a place question, if the tool returns total 0 / not-found, the model must SAY the area wasn't found — never substitute global numbers. (`agent.ts`)
+
+#### 🔊 Voice polish
+- TTS was reading "*" aloud as "star" (model used `*bold*`). Fixed both ends: `speak()` now strips markdown (`* _ \` # ~ > |`) before speaking, and the system prompt forbids asterisks/markdown ("spoken aloud").
+
+#### ⚠️ Still open (next)
+- "zoom karo / village ko map pe dikhao" only OPENS the map — it does NOT fly/zoom to the place yet (needs a map-focus directive: assistant → MapView flyTo). Web Speech is press-to-talk (re-click per turn, no barge-in) — **Gemini Live (⚡ toggle)** is the fix for continuous + barge-in + natural voice; the user's test was the Web Speech fallback, not Live.
+
+---
+
 ### SESSION 55 — Claude Code (June 22, 2026): Saathi — guarded text-to-SQL (`ask_data`) "ask anything"
 
 #### ✅ What was built (careful, security-first)

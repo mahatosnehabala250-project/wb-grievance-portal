@@ -50,7 +50,10 @@ export function CommandAssistant() {
 
   const speak = useCallback((text: string) => {
     if (!speakOn || typeof window === 'undefined' || !window.speechSynthesis) return;
-    try { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = lang; u.rate = 1.02; window.speechSynthesis.speak(u); } catch { /* noop */ }
+    // strip markdown so TTS doesn't read "*" as "star", "#" etc.
+    const clean = String(text).replace(/[*_`#~>|]+/g, '').replace(/\s{2,}/g, ' ').trim();
+    if (!clean) return;
+    try { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(clean); u.lang = lang; u.rate = 1.02; window.speechSynthesis.speak(u); } catch { /* noop */ }
   }, [speakOn, lang]);
 
   const send = useCallback(async (text: string) => {

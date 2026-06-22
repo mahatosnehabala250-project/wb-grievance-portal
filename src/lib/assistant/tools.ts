@@ -35,7 +35,22 @@ export { NAV_DESTINATIONS, WRITE_TOOL_NAMES };
 const cap = (s: string, n: number) => (s && s.length > n ? s.slice(0, n) + '…' : s);
 // Normalise an area name so "Manbazar 1" / "Manbazar I" / "Manbazar-I" all match.
 const ROMAN: Record<string, string> = { i: '1', ii: '2', iii: '3', iv: '4', v: '5' };
-const normArea = (s: string) => String(s || '').toLowerCase().replace(/[-_]/g, ' ').replace(/\b(i{1,3}|iv|v)\b/g, (m) => ROMAN[m] || m).replace(/[^a-z0-9]+/g, ' ').trim();
+// Minimal Devanagari/Bengali → Latin phonetic map: spoken place names get
+// transcribed in Hindi/Bengali script but the DB stores Latin names, so we
+// transliterate before matching (e.g. "बालিগুমা"/"বালিগুমা" → "baliguma").
+const INDIC: Record<string, string> = {
+  'अ':'a','आ':'a','इ':'i','ई':'i','उ':'u','ऊ':'u','ऋ':'ri','ए':'e','ऐ':'ai','ओ':'o','औ':'au',
+  'ा':'a','ि':'i','ी':'i','ु':'u','ू':'u','ृ':'ri','े':'e','ै':'ai','ो':'o','ौ':'au','ं':'n','ँ':'n','ः':'h','्':'',
+  'क':'k','ख':'kh','ग':'g','घ':'gh','ङ':'ng','च':'ch','छ':'chh','ज':'j','झ':'jh','ञ':'n','ट':'t','ठ':'th','ड':'d','ढ':'dh','ण':'n','त':'t','थ':'th','द':'d','ध':'dh','न':'n','प':'p','फ':'ph','ब':'b','भ':'bh','म':'m','य':'y','र':'r','ल':'l','ळ':'l','व':'v','श':'sh','ष':'sh','स':'s','ह':'h','ड़':'r','ढ़':'rh','क़':'q','ज़':'z','फ़':'f',
+  'অ':'o','আ':'a','ই':'i','ঈ':'i','উ':'u','ঊ':'u','ঋ':'ri','এ':'e','ঐ':'oi','ও':'o','ঔ':'ou',
+  'া':'a','ি':'i','ী':'i','ু':'u','ূ':'u','ৃ':'ri','ে':'e','ৈ':'oi','ো':'o','ৌ':'ou','ং':'ng','ঁ':'n','ঃ':'h','্':'',
+  'ক':'k','খ':'kh','গ':'g','ঘ':'gh','ঙ':'ng','চ':'ch','ছ':'chh','জ':'j','ঝ':'jh','ঞ':'n','ট':'t','ঠ':'th','ড':'d','ঢ':'dh','ণ':'n','ত':'t','থ':'th','দ':'d','ধ':'dh','ন':'n','প':'p','ফ':'ph','ব':'b','ভ':'bh','ম':'m','য':'j','র':'r','ল':'l','শ':'sh','ষ':'sh','স':'s','হ':'h','ড়':'r','ঢ়':'rh','য়':'y','ৎ':'t',
+};
+const translit = (s: string) => { let o = ''; for (const ch of String(s || '')) o += (INDIC[ch] !== undefined ? INDIC[ch] : ch); return o; };
+// Normalise + transliterate + collapse repeated letters (so vowel-length differences
+// like "baligumaa" vs "baliguma" still match).
+const normArea = (s: string) => translit(s).toLowerCase().replace(/[-_]/g, ' ').replace(/\b(i{1,3}|iv|v)\b/g, (m) => ROMAN[m] || m).replace(/[^a-z0-9]+/g, ' ').trim().replace(/(.)\1+/g, '$1');
+const areaMatch = (field: unknown, target: string) => { if (!field || !target) return false; const n = normArea(String(field)); return n.includes(target) || (n.length >= 3 && target.includes(n)); };
 
 // ── Guarded text-to-SQL (ask_data) ──
 // The LLM never sees the raw table: it can only query CTE `c` (already scope-
@@ -137,7 +152,7 @@ const READ_EXEC: Record<string, (args: any, ctx: ToolCtx) => Promise<any>> = {
     if (typeof args.category === 'string') where.category = args.category.toUpperCase();
     const and: any[] = [];
     if (typeof args.area === 'string' && args.area.trim()) {
-      const a = args.area.trim();
+      const a = normArea(args.area) || args.area.trim();
       and.push({ OR: [{ block: { contains: a, mode: 'insensitive' } }, { village: { contains: a, mode: 'insensitive' } }] });
     }
     if (typeof args.query === 'string' && args.query.trim()) {
@@ -184,7 +199,8 @@ const READ_EXEC: Record<string, (args: any, ctx: ToolCtx) => Promise<any>> = {
     if (!area) return { error: 'area required' };
     const rows: any[] = await db.complaint.findMany({ where: getComplaintScopeFilter(ctx.payload), take: 3000, select: { block: true, village: true, category: true, status: true, urgency: true } });
     const target = normArea(area);
-    const matched = rows.filter((r) => [r.block, r.village].some((f) => f && normArea(String(f)).includes(target)));
+    if (!target) return { area, total: 0, note: 'Area naam samajh nahi aaya — Latin spelling (e.g. "Baliguma") try karein.' };
+    const matched = rows.filter((r) => areaMatch(r.block, target) || areaMatch(r.village, target));
     if (matched.length === 0) return { area, total: 0, note: 'Is area mein koi complaint nahi (ya aapke scope ke bahar hai).' };
     const byCat: Record<string, number> = {}; const byStatus: Record<string, number> = {};
     let active = 0, critical = 0;
@@ -215,7 +231,7 @@ const READ_EXEC: Record<string, (args: any, ctx: ToolCtx) => Promise<any>> = {
 
     const rows: any[] = await db.complaint.findMany({ where, take: 4000, select: { block: true, village: true, district: true, assembly_constituency: true, category: true, status: true, urgency: true, createdAt: true } });
     let data = rows;
-    if (typeof args.area === 'string' && args.area.trim()) { const t = normArea(args.area); data = rows.filter((r) => [r.block, r.village].some((f) => f && normArea(String(f)).includes(t))); }
+    if (typeof args.area === 'string' && args.area.trim()) { const t = normArea(args.area); data = t ? rows.filter((r) => areaMatch(r.block, t) || areaMatch(r.village, t)) : []; }
 
     const ACTIVE_S = ['OPEN', 'IN_PROGRESS', 'REGISTERED', 'ASSIGNED'];
     const inMetric = (r: any) => metric === 'active' ? ACTIVE_S.includes(String(r.status)) : metric === 'critical' ? r.urgency === 'CRITICAL' : metric === 'resolved' ? String(r.status) === 'RESOLVED' : true;
