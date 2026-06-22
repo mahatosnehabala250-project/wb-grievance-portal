@@ -36,6 +36,62 @@ const cap = (s: string, n: number) => (s && s.length > n ? s.slice(0, n) + '…'
 // Normalise an area name so "Manbazar 1" / "Manbazar I" / "Manbazar-I" all match.
 const ROMAN: Record<string, string> = { i: '1', ii: '2', iii: '3', iv: '4', v: '5' };
 const normArea = (s: string) => String(s || '').toLowerCase().replace(/[-_]/g, ' ').replace(/\b(i{1,3}|iv|v)\b/g, (m) => ROMAN[m] || m).replace(/[^a-z0-9]+/g, ' ').trim();
+
+// ── Guarded text-to-SQL (ask_data) ──
+// The LLM never sees the raw table: it can only query CTE `c` (already scope-
+// filtered + PII-FREE — no name/phone/description) and `n` (AI signal). Plus
+// SELECT-only + table-allowlist + blocklist + read-only wrap + LIMIT.
+const SQL_COLS = 'id, "ticketNo" AS ticket, category, status, urgency, block, village, district, assembly_constituency AS ac, gp_code, "createdAt" AS created_at, "resolvedAt" AS resolved_at';
+
+/** Build the scope predicate as SQL from the (column-allowlisted) scope filter. Values are escaped. */
+function scopeToSql(payload: JWTPayload): string {
+  const f = getComplaintScopeFilter(payload) as Record<string, any>;
+  const allow = new Set(['assembly_constituency', 'parliamentary_constituency', 'district', 'block', 'gp_code', 'village']);
+  const esc = (v: unknown) => `'${String(v).replace(/'/g, "''")}'`;
+  const parts: string[] = [];
+  for (const k of Object.keys(f)) {
+    if (!allow.has(k)) continue;
+    const val = f[k];
+    if (val && typeof val === 'object' && Array.isArray(val.in)) parts.push(`${k} IN (${val.in.map(esc).join(', ') || "''"})`);
+    else parts.push(`${k} = ${esc(val)}`);
+  }
+  return parts.length ? parts.join(' AND ') : 'TRUE';
+}
+
+/** Validate an LLM-generated inner SELECT. Returns cleaned SQL or null if unsafe. */
+function validateInnerSql(sql: string): string | null {
+  let s = (sql || '').trim().replace(/;+\s*$/g, '');
+  if (!s || s.length > 1500) return null;
+  if (/[;]/.test(s) || /--|\/\*|\*\//.test(s)) return null;       // no multi-stmt / comments
+  const low = s.toLowerCase();
+  if (!low.startsWith('select')) return null;
+  if (/\b(insert|update|delete|drop|alter|truncate|create|grant|revoke|copy|into|merge|call|vacuum|analyze|set|begin|commit|rollback|comment|reindex|do|lock|listen)\b/.test(low)) return null;
+  if (/pg_|information_schema|pg_catalog|current_setting|current_user|session_user/.test(low)) return null;
+  // every FROM/JOIN target must be c or n (subqueries `from (` are not captured → allowed)
+  const re = /\b(?:from|join)\s+("?[a-zA-Z_][\w".]*"?)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s)) !== null) { const id = m[1].replace(/"/g, '').toLowerCase(); if (id !== 'c' && id !== 'n') return null; }
+  return s;
+}
+
+const DS_KEY = process.env.DEEPSEEK_API_KEY || '';
+const DS_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+const DS_BASE = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
+async function genSql(question: string): Promise<string | null> {
+  if (!DS_KEY) return null;
+  const sys = `You write ONE PostgreSQL SELECT to answer a question about civic grievance complaints.
+You may ONLY use these two already-provided tables (do NOT reference any other table or schema):
+  c(id, ticket, category, status, urgency, block, village, district, ac, gp_code, created_at, resolved_at)  -- one row per complaint, already scoped to the user's area
+  n(complaint_id, anger_score, emotion, root_cause, root_cause_key)  -- AI text signal; join with: n.complaint_id = c.id
+RULES: SELECT only. Use only tables c and n. No semicolons, no comments, no INTO, no CTEs of your own, one statement. Prefer GROUP BY + counts + ORDER BY. status ∈ {OPEN,IN_PROGRESS,REGISTERED,ASSIGNED,RESOLVED,REJECTED}; urgency ∈ {CRITICAL,HIGH,MEDIUM,LOW}. Output ONLY the SQL.`;
+  try {
+    const res = await fetch(`${DS_BASE}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${DS_KEY}` }, body: JSON.stringify({ model: DS_MODEL, temperature: 0, max_tokens: 400, messages: [{ role: 'system', content: sys }, { role: 'user', content: question }] }) });
+    if (!res.ok) return null;
+    const j = await res.json();
+    const out = j?.choices?.[0]?.message?.content?.trim() || '';
+    return out.replace(/```sql/gi, '').replace(/```/g, '').trim() || null;
+  } catch { return null; }
+}
 const daysOld = (d: unknown) => {
   const t = d instanceof Date ? d.getTime() : typeof d === 'string' ? Date.parse(d) : NaN;
   return isNaN(t) ? null : Math.max(0, Math.round((Date.now() - t) / 86400000));
@@ -180,6 +236,24 @@ const READ_EXEC: Record<string, (args: any, ctx: ToolCtx) => Promise<any>> = {
     return { groupBy, subGroupBy: subGroupBy || undefined, metric, timeRange, total, groups };
   },
 
+  async ask_data(args, ctx) {
+    const question = String(args.question || '').trim();
+    if (!question) return { error: 'question required' };
+    const inner0 = await genSql(question);
+    if (!inner0) return { error: 'Could not generate a query right now.' };
+    const inner = validateInnerSql(inner0);
+    if (!inner) return { error: 'That query was not safe to run — rephrase, or use a specific tool.', attempted: inner0.slice(0, 160) };
+    const scope = scopeToSql(ctx.payload);
+    const sql = `WITH c AS (SELECT ${SQL_COLS} FROM complaints WHERE ${scope}), n AS (SELECT complaint_id, anger_score, emotion, root_cause, root_cause_key FROM complaint_nlp) SELECT * FROM ( ${inner} ) _q LIMIT 200`;
+    try {
+      const rows = (await db.$queryRawUnsafe(sql)) as any[];
+      const clean = rows.slice(0, 50).map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, typeof v === 'bigint' ? Number(v) : v])));
+      return { sql: inner, rowCount: rows.length, rows: clean };
+    } catch (e) {
+      return { error: 'Query failed — rephrase.', detail: e instanceof Error ? e.message.slice(0, 140) : 'unknown' };
+    }
+  },
+
   async top_hotspots(_args, ctx) {
     const b = await computeIntelligenceBrief(ctx.payload);
     return { by: b.scope.subAreaLabel, hotspots: b.hotspots.slice(0, 8).map((h) => ({ name: h.name, active: h.active, critical: h.critical, slaBreached: h.slaBreached, risk: h.risk })) };
@@ -272,6 +346,7 @@ export function getToolSchemas(payload: JWTPayload): ToolDef[] {
       timeRange: { type: 'string', enum: ['last7', 'last30', 'last90', 'all'], description: 'time window (default all)' },
       limit: { type: 'number', description: 'top N groups (default 10)' },
     }, ['groupBy']),
+    fn('ask_data', 'FALLBACK for open-ended data questions the other tools cannot answer (unusual cross-cuts, ratios, "which X has highest avg anger", multi-condition aggregates). Runs a SAFE read-only, scope-locked aggregate query. Use get_overview / query_complaints / area_breakdown / search_complaints FIRST; only use ask_data when they do not fit.', { question: { type: 'string', description: 'the exact data question in plain language' } }, ['question']),
     fn('top_hotspots', 'Ranked hotspot areas by active/critical/risk.'),
     fn('get_forecast', 'Volume trajectory + SLA-breach risk (early-warning).'),
     fn('get_nlp_insights', 'AI text intelligence: root-cause clusters, anger hotspots, recurring entities (the "Brain").'),

@@ -27,6 +27,21 @@
 
 ---
 
+### SESSION 55 — Claude Code (June 22, 2026): Saathi — guarded text-to-SQL (`ask_data`) "ask anything"
+
+#### ✅ What was built (careful, security-first)
+`ask_data` tool (`src/lib/assistant/tools.ts`) — open-ended data questions the other tools can't answer, via a SAFE read-only SQL path. **The LLM never touches the raw table.** A focused DeepSeek call writes an inner SELECT that may ONLY use two server-built CTEs:
+- `c` = complaints **pre-filtered by `scopeToSql(payload)`** (so scope can't be widened) and **PII-FREE** (exposes id, ticket, category, status, urgency, block, village, district, ac, gp_code, created_at, resolved_at — NO name/phone/description), and
+- `n` = complaint_nlp signal (anger/emotion/root_cause), joined on `n.complaint_id = c.id`.
+
+Guards (layered): `validateInnerSql` rejects anything not starting with SELECT, any `;`/comments, DML/DDL keywords (insert/update/delete/drop/alter/create/grant/copy/into/set/…), `pg_`/`information_schema`, and any FROM/JOIN target that isn't `c`/`n`; then the inner is wrapped `WITH c…, n… SELECT * FROM (<inner>) _q LIMIT 200` and run via `db.$queryRawUnsafe`. Worst case = an in-scope, non-PII aggregate — never cross-jurisdiction, never citizen PII, never a mutation. Registered as a READ tool (also usable by the Live tool-proxy), positioned as a FALLBACK after the structured tools. Verified the scoped-CTE+join+wrap pattern runs on the real DB before shipping.
+
+#### ⚠️ Next AI — Please Note
+- `complaints` columns are mixed-case: snake (block, category, status, urgency, district, gp_code, assembly_constituency, …) but camelCase quoted (`"ticketNo"`, `"createdAt"`, `"resolvedAt"`); there is NO `rating` column. The CTE aliases the camel ones to snake so generated SQL stays simple.
+- Raw arbitrary text-to-SQL was deliberately avoided; this is the guarded version. Keep the PII-free + pre-scoped `c` CTE as the core guarantee if extending.
+
+---
+
 ### SESSION 54 — Claude Code (June 22, 2026): Saathi — cross-tab analytics + 2 new write-actions
 
 #### ✅ What was added
