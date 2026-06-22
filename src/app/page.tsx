@@ -64,6 +64,8 @@ import { UserManagementView } from '@/components/UserManagementView';
 import { AnalyticsView } from '@/components/AnalyticsView';
 import { SettingsView } from '@/components/SettingsView';
 import { HydrationGate } from '@/components/HydrationGate';
+import { NavProvider, type NavApi } from '@/lib/nav-context';
+import { CommandAssistant } from '@/components/CommandAssistant';
 import { CommandPalette, KeyboardShortcutsDialog, KeyboardShortcutHandler } from '@/components/CommandPalette';
 import { AnnouncementBanner } from '@/components/AnnouncementBanner';
 import { TicketTrackerDialog } from '@/components/TicketTrackerDialog';
@@ -190,6 +192,7 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, view]);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [pendingRoom, setPendingRoom] = useState<string | null>(null);
   const [newComplaintOpen, setNewComplaintOpen] = useState(false);
   const [initialComplaint, setInitialComplaint] = useState<Complaint | undefined>(undefined);
   const [initialFilterStatus, setInitialFilterStatus] = useState<string>('');
@@ -327,6 +330,17 @@ export default function HomePage() {
     setMobileSidebarOpen(false);
   }, []);
 
+  // Assistant-driven navigation (role-gated). CommandCenter consumes pendingRoom.
+  const allowedViews = new Set<string>([...navItems.map((i) => i.id), 'governance']);
+  const goTo = (v: string, room?: string): boolean => {
+    if (!allowedViews.has(v)) return false;
+    setView(v as ViewType);
+    if (room) setPendingRoom(room);
+    setMobileSidebarOpen(false);
+    return true;
+  };
+  const navApi: NavApi = { goTo, pendingRoom, consumePendingRoom: () => setPendingRoom(null), allowed: allowedViews };
+
   const handleViewAllNotifications = useCallback(() => {
     setView('complaints');
     setInitialFilterStatus('OPEN');
@@ -378,7 +392,9 @@ export default function HomePage() {
 
   return (
     <HydrationGate>
+    <NavProvider value={navApi}>
     <div className="min-h-screen flex flex-col bg-background">
+      <CommandAssistant />
       {/* Keyboard shortcut listener - placed after all variable declarations */}
       <KeyboardShortcutHandler
         shortcutOpen={shortcutOpen}
@@ -1083,6 +1099,7 @@ export default function HomePage() {
         onToggleTheme={() => setTheme(isDark ? 'light' : 'dark')}
       />
     </div>
+    </NavProvider>
     </HydrationGate>
   );
 }

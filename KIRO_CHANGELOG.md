@@ -27,6 +27,22 @@
 
 ---
 
+### SESSION 51 — Claude Code (June 22, 2026): "Saathi" — central role-aware voice assistant (Jarvis), Phase 1
+
+#### ✅ What was built (plan-mode → approved → built)
+A global, always-available voice/command assistant that hears a question/command (Hindi/Bengali/English), calls **tools** to fetch data or act, **answers aloud**, and **navigates** pages — strictly limited to the logged-in user's **RBAC scope**.
+- **`src/lib/assistant/tools.ts`** (new) — OpenAI-format tool schemas + server-side executors. Read tools (`get_overview`, `search_complaints`, `get_complaint`, `top_hotspots`, `get_forecast`, `get_nlp_insights`, `get_priority_areas`, `get_network`, `get_pending_actions`, `get_leaderboard`, `list_team`) run with the caller's JWT and reuse the SAME scope-locked logic (`getComplaintScopeFilter`, `computeIntelligenceBrief`, self-fetch of existing intelligence/* routes) — so the model **cannot** see out-of-scope data. PII (citizen name/phone) is never sent to the LLM. `navigate` + write tools are role-gated (writes only if `canMutateComplaints`).
+- **`src/lib/assistant/agent.ts`** (new) — DeepSeek function-calling loop (max 5 iters). Executes reads server-side; captures `navigate` directive + write `proposedActions` (writes never auto-run).
+- **`src/app/api/assistant/route.ts`** (new) — POST, verifyToken, runs the agent with `{payload, token, origin}`.
+- **`src/lib/nav-context.tsx`** (new) + `page.tsx`/`CommandCenter.tsx` wiring — `goTo(view, room?)` lifted so the assistant can open any role-allowed view AND any CommandCenter room (via `pendingRoom`).
+- **`src/components/CommandAssistant.tsx`** (new) — floating mic on every authenticated screen. Multi-turn, **Web Speech STT+TTS** (hi-IN/bn-IN/en-IN), speaks answers, runs navigation, renders write actions as **confirm cards** that call the existing **audited** PATCH routes (correct activity-log + notifications; no trigger bypass).
+
+#### ⚠️ Next AI — Please Note
+- Voice v1 = browser Web Speech API (free, Chrome/Edge). **Phase 2 = Gemini Live** realtime (continuous, barge-in) — same `/api/assistant` tool backend; user prefers Gemini for Bengali/Indian languages (GEMINI_API_KEY already set).
+- Brain = DeepSeek (function-calling). Security model: tools execute server-side with the JWT; scope filter applied to every read. Writes are propose→confirm→audited-route only.
+
+---
+
 ### SESSION 50 — Claude Code (June 22, 2026): Brain + Entity 360 — data diversified + full UX redesign (workflow-designed)
 
 #### Problem

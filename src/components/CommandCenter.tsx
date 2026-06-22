@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useNav } from '@/lib/nav-context';
 import { Sun, LayoutDashboard, Zap, TrendingUp, Network, Brain, Target, Footprints, MessageSquare, Settings, Map as MapIcon } from 'lucide-react';
 import { AajHome } from '@/components/AajHome';
 import { AdvisorBar } from '@/components/AdvisorBar';
@@ -38,6 +39,13 @@ const ROOMS: Array<{ key: Room; label: string; icon: typeof Sun }> = [
 
 export function CommandCenter({ user }: { user?: (BrandingScope & { name?: string }) | null }) {
   const [room, setRoom] = useState<Room>('aaj');
+  const nav = useNav();
+  // Assistant navigation: when page.tsx sets a pendingRoom, switch to it.
+  useEffect(() => {
+    const pr = nav?.pendingRoom;
+    if (pr && ROOMS.some((r) => r.key === pr)) { setRoom(pr as Room); nav?.consumePendingRoom(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nav?.pendingRoom]);
   const [advisorOpen, setAdvisorOpen] = useState(false);
   const [brandingOpen, setBrandingOpen] = useState(false);
   const [override, setOverride] = useState<Partial<Branding> | null>(null);
