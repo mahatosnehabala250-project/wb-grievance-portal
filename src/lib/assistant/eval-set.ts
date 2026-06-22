@@ -21,7 +21,7 @@ export const EVAL_SET: EvalItem[] = [
   { id: 'category-wise', q: 'Category-wise complaints ka breakdown do', expectTool: ['query_complaints'] },
   { id: 'block-most', q: 'Sabse zyada complaints kis block mein hain?', expectTool: ['query_complaints', 'top_hotspots'] },
   { id: 'critical-count', q: 'Kitni critical complaints hain abhi?', expectTool: ['get_overview', 'query_complaints', 'search_complaints'] },
-  { id: 'open-list', q: 'Open complaints dikhao', expectTool: ['search_complaints'] },
+  { id: 'open-list', q: 'Open complaints dikhao', expectTool: ['search_complaints', 'navigate'], note: '"dikhao" is ambiguous — listing inline OR opening the complaints page both valid' },
   { id: 'last7', q: 'Pichle 7 din mein kitni complaints aayi?', expectTool: ['query_complaints'] },
   { id: 'water-count', q: 'Paani (water) ki kitni complaints hain?', expectTool: ['query_complaints', 'search_complaints'] },
   { id: 'elec-30d', q: 'Electricity ki complaints last 30 days mein kitni?', expectTool: ['query_complaints'] },
