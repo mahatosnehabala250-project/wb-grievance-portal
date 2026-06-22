@@ -27,6 +27,18 @@
 
 ---
 
+### SESSION 53 — Claude Code (June 22, 2026): Saathi — general analytics tool + eval harness
+
+#### ✅ What was built (coverage for the long tail of questions)
+- **`query_complaints`** tool (`src/lib/assistant/tools.ts`) — one flexible, scope-locked analytics primitive: `count|active|critical|resolved` grouped by `category|block|village|status|urgency|assembly_constituency|district|month|none`, optional `status/urgency/category/area` filters + `timeRange` (last7/30/90/all). Collapses hundreds of "X by Y / trend / this-month / compare" questions into one tool. Area filter is numeral-safe (Manbazar 1 = Manbazar I).
+- **Eval harness** — `src/lib/assistant/eval-set.ts` (23 realistic questions tagged with expected tool / required text / expected navigation), `GET /api/assistant/eval?from&count` (admin/senior-gated; runs the slice through the REAL agent with the caller's JWT and scores tool-match + text + navigation, paged for maxDuration), and `scripts/eval-assistant.mjs` (CLI: signs an ADMIN token from `JWT_SECRET` env and paginates the endpoint, prints a scored table + pass-rate).
+
+#### ⚠️ Next AI — Please Note
+- Run the eval logged-in as ADMIN (browser console: `fetch('/api/assistant/eval?from=0&count=6',{headers:{Authorization:'Bearer '+localStorage.wb_token}}).then(r=>r.json()).then(d=>console.table(d.data.results))`) — repeat with from=6,12,18. Or CLI with the Vercel `JWT_SECRET`. Treat <90% pass as tool-description/prompt work, not a rebuild.
+- `JWT_SECRET` is NOT in local `.env` (Vercel-only), so the CLI needs it passed explicitly.
+
+---
+
 ### SESSION 52 — Claude Code (June 22, 2026): Saathi Phase 2 — Gemini Live (realtime voice), opt-in
 
 #### ✅ What was built (dep: `@google/genai@^2`)

@@ -143,6 +143,40 @@ const READ_EXEC: Record<string, (args: any, ctx: ToolCtx) => Promise<any>> = {
     return { area, total: matched.length, active, critical, topCategory: byCategory[0]?.category, byCategory, byStatus };
   },
 
+  // General analytics primitive — covers the long tail of "count X by Y (filtered, time-bound)" questions.
+  async query_complaints(args, ctx) {
+    const groupBy = String(args.groupBy || 'category');
+    const metric = String(args.metric || 'count');
+    const timeRange = String(args.timeRange || 'all');
+    const limit = Math.min(20, Math.max(1, Number(args.limit) || 10));
+    const where: Record<string, unknown> = {};
+    if (typeof args.status === 'string') where.status = args.status.toUpperCase();
+    if (typeof args.urgency === 'string') where.urgency = args.urgency.toUpperCase();
+    if (typeof args.category === 'string') where.category = args.category.toUpperCase();
+    const days = timeRange === 'last7' ? 7 : timeRange === 'last30' ? 30 : timeRange === 'last90' ? 90 : 0;
+    if (days > 0) where.createdAt = { gte: new Date(Date.now() - days * 86400000) };
+    Object.assign(where, getComplaintScopeFilter(ctx.payload)); // scope LAST
+
+    const rows: any[] = await db.complaint.findMany({ where, take: 4000, select: { block: true, village: true, district: true, assembly_constituency: true, category: true, status: true, urgency: true, createdAt: true } });
+    let data = rows;
+    if (typeof args.area === 'string' && args.area.trim()) { const t = normArea(args.area); data = rows.filter((r) => [r.block, r.village].some((f) => f && normArea(String(f)).includes(t))); }
+
+    const ACTIVE_S = ['OPEN', 'IN_PROGRESS', 'REGISTERED', 'ASSIGNED'];
+    const inMetric = (r: any) => metric === 'active' ? ACTIVE_S.includes(String(r.status)) : metric === 'critical' ? r.urgency === 'CRITICAL' : metric === 'resolved' ? String(r.status) === 'RESOLVED' : true;
+    const keyOf = (r: any): string => {
+      if (groupBy === 'month') { const d = r.createdAt instanceof Date ? r.createdAt : new Date(r.createdAt); return isNaN(d.getTime()) ? 'unknown' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
+      if (groupBy === 'none') return 'total';
+      const v = r[groupBy]; return v ? String(v) : '—';
+    };
+    const agg: Record<string, number> = {};
+    let total = 0;
+    for (const r of data) { if (!inMetric(r)) continue; total++; const k = keyOf(r); agg[k] = (agg[k] || 0) + 1; }
+    const groups = Object.entries(agg)
+      .sort((a, b) => groupBy === 'month' ? a[0].localeCompare(b[0]) : b[1] - a[1])
+      .slice(0, limit).map(([key, value]) => ({ key, value }));
+    return { groupBy, metric, timeRange, total, groups };
+  },
+
   async top_hotspots(_args, ctx) {
     const b = await computeIntelligenceBrief(ctx.payload);
     return { by: b.scope.subAreaLabel, hotspots: b.hotspots.slice(0, 8).map((h) => ({ name: h.name, active: h.active, critical: h.critical, slaBreached: h.slaBreached, risk: h.risk })) };
@@ -227,6 +261,13 @@ export function getToolSchemas(payload: JWTPayload): ToolDef[] {
     }),
     fn('get_complaint', 'Full details of one complaint by ticket number.', { ticketNo: { type: 'string' } }, ['ticketNo']),
     fn('area_breakdown', 'Total complaint count + top category + status split for ONE block/GP/village. Use for "X block/area mein kitni complaints / kaun si category sabse zyada".', { area: { type: 'string', description: 'block, GP, or village name (numeral-safe: "Manbazar 1" matches "Manbazar I")' } }, ['area']),
+    fn('query_complaints', 'Flexible analytics over complaints in scope: count/active/critical/resolved grouped by a dimension, optionally filtered + time-bounded. Use for "category-wise / block-wise / month-wise kitni", trends, "is mahine", comparisons, leaderboards by area.', {
+      groupBy: { type: 'string', enum: ['category', 'block', 'village', 'status', 'urgency', 'assembly_constituency', 'district', 'month', 'none'], description: 'dimension to group by' },
+      metric: { type: 'string', enum: ['count', 'active', 'critical', 'resolved'], description: 'what to measure (default count)' },
+      status: { type: 'string' }, urgency: { type: 'string' }, category: { type: 'string' }, area: { type: 'string', description: 'optional block/village filter (numeral-safe)' },
+      timeRange: { type: 'string', enum: ['last7', 'last30', 'last90', 'all'], description: 'time window (default all)' },
+      limit: { type: 'number', description: 'top N groups (default 10)' },
+    }, ['groupBy']),
     fn('top_hotspots', 'Ranked hotspot areas by active/critical/risk.'),
     fn('get_forecast', 'Volume trajectory + SLA-breach risk (early-warning).'),
     fn('get_nlp_insights', 'AI text intelligence: root-cause clusters, anger hotspots, recurring entities (the "Brain").'),
