@@ -72,8 +72,8 @@ export class LiveSession {
       callbacks: {
         onopen: () => this.cb.onStatus?.('live'),
         onmessage: (m: any) => this.onMessage(m),
-        onerror: (e: any) => this.cb.onStatus?.('error', e?.message || 'connection error'),
-        onclose: () => { if (!this.closed) this.cb.onStatus?.('closed'); },
+        onerror: (e: any) => { console.error('[Live] error', e); this.cb.onStatus?.('error', e?.message || 'connection error'); },
+        onclose: (e: any) => { console.error('[Live] closed', e?.code, e?.reason); if (!this.closed) this.cb.onStatus?.('error', `band ho gaya${e?.reason ? ': ' + String(e.reason).slice(0, 120) : ' (connection closed)'}`); },
       },
     });
 

@@ -45,6 +45,7 @@ export function CommandAssistant() {
   const liveModelRef = useRef('');
   const [liveStatus, setLiveStatus] = useState<'idle' | 'connecting' | 'live' | 'error'>('idle');
   const [liveCaption, setLiveCaption] = useState<{ u: string; m: string }>({ u: '', m: '' });
+  const [liveError, setLiveError] = useState('');
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [msgs, actions, loading]);
 
@@ -163,13 +164,13 @@ export function CommandAssistant() {
       try { recRef.current?.stop(); } catch { /* noop */ }
       try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
       setListening(false);
-      setLiveStatus('connecting');
+      setLiveStatus('connecting'); setLiveError('');
       const { LiveSession } = await import('@/lib/assistant/live');
       const sess = new LiveSession({
-        onStatus: (s) => {
-          if (s === 'live') setLiveStatus('live');
+        onStatus: (s: string, msg?: string) => {
+          if (s === 'live') { setLiveStatus('live'); setLiveError(''); }
           else if (s === 'connecting') setLiveStatus('connecting');
-          else { setLiveStatus(s === 'error' ? 'error' : 'idle'); liveRef.current = null; }
+          else { setLiveStatus(s === 'error' ? 'error' : 'idle'); if (s === 'error' && msg) setLiveError(msg); liveRef.current = null; }
         },
         onUserText: (d) => { liveUserRef.current += d; setLiveCaption({ u: liveUserRef.current, m: liveModelRef.current }); },
         onModelText: (d) => { liveModelRef.current += d; setLiveCaption((c) => ({ ...c, m: liveModelRef.current })); },
@@ -184,8 +185,8 @@ export function CommandAssistant() {
       liveRef.current = sess;
       await sess.start();
     } catch (e: any) {
-      toast.error(e?.message || 'Live shuru nahi hua — mic permission / browser check karein');
-      setLiveStatus('idle'); liveRef.current = null;
+      const msg = e?.message || 'Live shuru nahi hua — mic permission / browser check karein';
+      toast.error(msg); setLiveError(msg); setLiveStatus('error'); liveRef.current = null;
     }
   }, [nav, addProposed]);
 
@@ -234,7 +235,7 @@ export function CommandAssistant() {
               <div className="rounded-lg px-2 py-1.5 mb-1" style={{ background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.35)' }}>
                 <div className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: '#c4b5fd' }}>
                   <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: liveStatus === 'live' ? '#ef4444' : liveStatus === 'error' ? '#f59e0b' : '#a78bfa' }} />
-                  {liveStatus === 'live' ? 'Live — boliye (Gemini)' : liveStatus === 'error' ? 'Live error — phir try karein' : 'Connecting…'}
+                  {liveStatus === 'live' ? 'Live — boliye (Gemini)' : liveStatus === 'error' ? `Live error: ${liveError || 'phir try karein'}` : 'Connecting…'}
                 </div>
                 {liveCaption.u && <div className="text-[11px] text-slate-300 mt-1 italic">“{liveCaption.u}”</div>}
                 {liveCaption.m && <div className="text-[11px] text-slate-100 mt-0.5">{liveCaption.m}</div>}
