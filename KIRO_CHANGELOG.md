@@ -27,6 +27,22 @@
 
 ---
 
+### SESSION 52 — Claude Code (June 22, 2026): Saathi Phase 2 — Gemini Live (realtime voice), opt-in
+
+#### ✅ What was built (dep: `@google/genai@^2`)
+Realtime, continuous voice on top of the SAME tool/RBAC backend. Opt-in **⚡ toggle** in the assistant; Web Speech (Phase 1) stays as the default/fallback.
+- **`src/lib/assistant/shared.ts`** (new, client-safe) — `NAV_DESTINATIONS` + `WRITE_TOOL_NAMES` moved here so the browser Live code never imports server-only `tools.ts` (which pulls db/prisma). `tools.ts` re-exports them.
+- **`src/app/api/assistant/live-token/route.ts`** (new) — mints a **short-lived ephemeral token** (server-side, `ai.authTokens.create`, 25-min / connect-within-2-min) so `GEMINI_API_KEY` never reaches the browser. Returns token + model (`GEMINI_LIVE_MODEL`, default `gemini-2.0-flash-live-001`) + system instruction + role-filtered Gemini function declarations (`getGeminiToolDeclarations` converts the OpenAI schemas → Gemini Schema).
+- **`src/app/api/assistant/tool/route.ts`** (new) — executes ONE **read** tool for a Live session with the caller's JWT (scope-locked); navigate/write are client-side. RBAC holds even though audio is browser↔Gemini direct.
+- **`public/pcm-capture-worklet.js`** + **`src/lib/assistant/live.ts`** (new) — `LiveSession`: ephemeral connect, mic→PCM16 16kHz via AudioWorklet → `sendRealtimeInput`, plays 24kHz audio out (gapless scheduler + barge-in on `interrupted`), routes `toolCall`s (read→`/api/assistant/tool`, navigate→`goTo`, write→confirm card), streams input/output transcripts.
+- **`src/components/CommandAssistant.tsx`** — ⚡ Live toggle (dynamic-imports `live.ts` so the SDK stays out of the default bundle), live transcript banner, turn-complete → push to history.
+
+#### ⚠️ Next AI — Please Note
+- Two things most likely to need a tweak after live testing: the **model id** (`GEMINI_LIVE_MODEL` env — try `gemini-2.5-flash-native-audio-preview-09-2025` for better Bengali) and ephemeral-token API shape (SDK `@google/genai@2.9`). Live needs a real browser + mic + Chrome/Edge; verify mic permission + autoplay.
+- Security unchanged: tools run server-side with JWT scope; ephemeral token is single-use + short-lived; writes still propose→confirm→audited route.
+
+---
+
 ### SESSION 51 — Claude Code (June 22, 2026): "Saathi" — central role-aware voice assistant (Jarvis), Phase 1
 
 #### ✅ What was built (plan-mode → approved → built)

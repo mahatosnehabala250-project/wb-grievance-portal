@@ -33,7 +33,7 @@ export interface AssistantResult {
   usedTools: string[];
 }
 
-function systemPrompt(payload: JWTPayload): string {
+export function buildSystemPrompt(payload: JWTPayload): string {
   const role = payload.role_level || payload.role;
   const dests = NAV_DESTINATIONS.map((d) => `${d.id} (${d.label})`).join(', ');
   return `You are "Saathi", the voice assistant inside JanSunwai — a grievance-redressal command centre for a West Bengal public representative / officer. The current user's role is ${role}.
@@ -71,7 +71,7 @@ async function deepseek(messages: any[], tools: any[] | null): Promise<any> {
 export async function runAssistant(history: ChatMsg[], ctx: ToolCtx): Promise<AssistantResult> {
   const tools = getToolSchemas(ctx.payload);
   const messages: any[] = [
-    { role: 'system', content: systemPrompt(ctx.payload) },
+    { role: 'system', content: buildSystemPrompt(ctx.payload) },
     ...history.slice(-8).map((m) => ({ role: m.role, content: m.content })),
   ];
 

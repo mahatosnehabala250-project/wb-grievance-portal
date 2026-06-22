@@ -18,6 +18,7 @@ import { JWTPayload, getComplaintScopeFilter } from '@/lib/jwt';
 import { canMutateComplaints, complaintInScope } from '@/lib/rbac';
 import { db } from '@/lib/db';
 import { computeIntelligenceBrief } from '@/lib/intelligence';
+import { NAV_DESTINATIONS, WRITE_TOOL_NAMES } from './shared';
 
 export interface ToolCtx {
   payload: JWTPayload;
@@ -27,27 +28,8 @@ export interface ToolCtx {
 
 type ToolDef = { type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } };
 
-// ── Navigation destinations (client maps id → view / room) ──
-export const NAV_DESTINATIONS: Array<{ id: string; label: string; view: string; room?: string }> = [
-  { id: 'home', label: 'Home / Today', view: 'intel_command', room: 'aaj' },
-  { id: 'overview', label: 'Overview dashboard', view: 'overview' },
-  { id: 'complaints', label: 'Complaints list', view: 'complaints' },
-  { id: 'map', label: 'Command Map', view: 'map' },
-  { id: 'intel_command', label: 'Intel Command', view: 'intel_command', room: 'aaj' },
-  { id: 'actions', label: 'Action queue', view: 'intel_command', room: 'actions' },
-  { id: 'forecast', label: 'Forecast / early-warning', view: 'intel_command', room: 'forecast' },
-  { id: 'network', label: 'Network intelligence', view: 'intel_command', room: 'network' },
-  { id: 'brain', label: 'Brain (AI text intelligence)', view: 'intel_command', room: 'brain' },
-  { id: 'entity360', label: 'Entity 360 (area priority)', view: 'intel_command', room: 'entity360' },
-  { id: 'field', label: 'Field / Wapas Jao', view: 'intel_command', room: 'field' },
-  { id: 'users', label: 'Team / users', view: 'users' },
-  { id: 'analytics', label: 'Analytics', view: 'analytics' },
-  { id: 'mp_command', label: 'MP Command', view: 'mp_command' },
-  { id: 'mla_dashboard', label: 'MLA Dashboard', view: 'mla_dashboard' },
-  { id: 'settings', label: 'Settings', view: 'settings' },
-];
-
-export const WRITE_TOOL_NAMES = new Set(['assign_officer', 'update_status', 'escalate_complaint']);
+// Navigation destinations + write-tool names live in ./shared (client-safe); re-export.
+export { NAV_DESTINATIONS, WRITE_TOOL_NAMES };
 
 // ── helpers ──
 const cap = (s: string, n: number) => (s && s.length > n ? s.slice(0, n) + '…' : s);
@@ -248,4 +230,25 @@ export function getToolSchemas(payload: JWTPayload): ToolDef[] {
   }
 
   return tools;
+}
+
+// ── Gemini (Live) function declarations — convert OpenAI schemas → Gemini Schema ──
+function toGeminiSchema(s: any): any {
+  if (!s || typeof s !== 'object') return s;
+  const o: any = {};
+  for (const [k, v] of Object.entries(s)) {
+    if (k === 'type' && typeof v === 'string') o[k] = (v as string).toUpperCase();
+    else if (k === 'properties' && v && typeof v === 'object') o[k] = Object.fromEntries(Object.entries(v as any).map(([pk, pv]) => [pk, toGeminiSchema(pv)]));
+    else if (k === 'items') o[k] = toGeminiSchema(v);
+    else o[k] = v;
+  }
+  return o;
+}
+
+export function getGeminiToolDeclarations(payload: JWTPayload): Array<Record<string, unknown>> {
+  return getToolSchemas(payload).map((t) => {
+    const p = t.function.parameters as any;
+    const hasProps = p && p.properties && Object.keys(p.properties).length > 0;
+    return { name: t.function.name, description: t.function.description, ...(hasProps ? { parameters: toGeminiSchema(p) } : {}) };
+  });
 }
