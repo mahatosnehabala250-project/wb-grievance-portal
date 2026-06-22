@@ -57,7 +57,7 @@ export class LiveSession {
     if (j?.enabled === false || !j?.data?.token) throw new Error(j?.error || 'Live not configured');
     const { token, model, systemInstruction, tools } = j.data;
 
-    const ai = new GoogleGenAI({ apiKey: token, httpOptions: { apiVersion: 'v1beta' } });
+    const ai = new GoogleGenAI({ apiKey: token });
     this.playCtx = new AudioContext({ sampleRate: 24000 });
 
     this.session = await ai.live.connect({

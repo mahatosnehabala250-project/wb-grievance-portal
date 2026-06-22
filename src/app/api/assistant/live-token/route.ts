@@ -14,7 +14,7 @@ import { buildSystemPrompt } from '@/lib/assistant/agent';
  * re-checks the JWT scope — so RBAC holds even though audio is browser↔Gemini direct.
  */
 const GEMINI_KEY = process.env.GEMINI_API_KEY || '';
-const LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-2.0-flash-live-001';
+const LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,7 +39,6 @@ export async function POST(request: NextRequest) {
           model: LIVE_MODEL,
           config: { responseModalities: [Modality.AUDIO] },
         },
-        httpOptions: { apiVersion: 'v1beta' }, // live session must target v1beta (where the live model lives)
       },
     });
 
