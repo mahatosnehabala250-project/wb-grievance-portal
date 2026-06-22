@@ -163,18 +163,21 @@ const READ_EXEC: Record<string, (args: any, ctx: ToolCtx) => Promise<any>> = {
 
     const ACTIVE_S = ['OPEN', 'IN_PROGRESS', 'REGISTERED', 'ASSIGNED'];
     const inMetric = (r: any) => metric === 'active' ? ACTIVE_S.includes(String(r.status)) : metric === 'critical' ? r.urgency === 'CRITICAL' : metric === 'resolved' ? String(r.status) === 'RESOLVED' : true;
-    const keyOf = (r: any): string => {
-      if (groupBy === 'month') { const d = r.createdAt instanceof Date ? r.createdAt : new Date(r.createdAt); return isNaN(d.getTime()) ? 'unknown' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
-      if (groupBy === 'none') return 'total';
-      const v = r[groupBy]; return v ? String(v) : '—';
+    const subGroupBy = typeof args.subGroupBy === 'string' ? args.subGroupBy : '';
+    const dimOf = (r: any, g: string): string => {
+      if (g === 'month') { const d = r.createdAt instanceof Date ? r.createdAt : new Date(r.createdAt); return isNaN(d.getTime()) ? 'unknown' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
+      if (!g || g === 'none') return 'total';
+      const v = r[g]; return v ? String(v) : '—';
     };
+    const keyOf = (r: any): string => { const a = dimOf(r, groupBy); const b = subGroupBy ? dimOf(r, subGroupBy) : ''; return b ? `${a} › ${b}` : a; };
     const agg: Record<string, number> = {};
     let total = 0;
     for (const r of data) { if (!inMetric(r)) continue; total++; const k = keyOf(r); agg[k] = (agg[k] || 0) + 1; }
+    const monthSort = (groupBy === 'month' || subGroupBy === 'month') && !(groupBy !== 'month' && subGroupBy !== 'month');
     const groups = Object.entries(agg)
-      .sort((a, b) => groupBy === 'month' ? a[0].localeCompare(b[0]) : b[1] - a[1])
+      .sort((a, b) => monthSort ? a[0].localeCompare(b[0]) : b[1] - a[1])
       .slice(0, limit).map(([key, value]) => ({ key, value }));
-    return { groupBy, metric, timeRange, total, groups };
+    return { groupBy, subGroupBy: subGroupBy || undefined, metric, timeRange, total, groups };
   },
 
   async top_hotspots(_args, ctx) {
@@ -262,7 +265,8 @@ export function getToolSchemas(payload: JWTPayload): ToolDef[] {
     fn('get_complaint', 'Full details of one complaint by ticket number.', { ticketNo: { type: 'string' } }, ['ticketNo']),
     fn('area_breakdown', 'Total complaint count + top category + status split for ONE block/GP/village. Use for "X block/area mein kitni complaints / kaun si category sabse zyada".', { area: { type: 'string', description: 'block, GP, or village name (numeral-safe: "Manbazar 1" matches "Manbazar I")' } }, ['area']),
     fn('query_complaints', 'Flexible analytics over complaints in scope: count/active/critical/resolved grouped by a dimension, optionally filtered + time-bounded. Use for "category-wise / block-wise / month-wise kitni", trends, "is mahine", comparisons, leaderboards by area.', {
-      groupBy: { type: 'string', enum: ['category', 'block', 'village', 'status', 'urgency', 'assembly_constituency', 'district', 'month', 'none'], description: 'dimension to group by' },
+      groupBy: { type: 'string', enum: ['category', 'block', 'village', 'status', 'urgency', 'assembly_constituency', 'district', 'month', 'none'], description: 'primary dimension to group by' },
+      subGroupBy: { type: 'string', enum: ['category', 'block', 'village', 'status', 'urgency', 'district', 'month'], description: 'optional second dimension for a cross-tab, e.g. block × category' },
       metric: { type: 'string', enum: ['count', 'active', 'critical', 'resolved'], description: 'what to measure (default count)' },
       status: { type: 'string' }, urgency: { type: 'string' }, category: { type: 'string' }, area: { type: 'string', description: 'optional block/village filter (numeral-safe)' },
       timeRange: { type: 'string', enum: ['last7', 'last30', 'last90', 'all'], description: 'time window (default all)' },
