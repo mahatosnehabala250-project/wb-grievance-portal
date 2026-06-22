@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
           model: LIVE_MODEL,
           config: { responseModalities: [Modality.AUDIO] },
         },
-        httpOptions: { apiVersion: 'v1alpha' },
+        httpOptions: { apiVersion: 'v1beta' }, // live session must target v1beta (where the live model lives)
       },
     });
 

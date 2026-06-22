@@ -39,6 +39,8 @@ export function CommandAssistant() {
   const [actions, setActions] = useState<ProposedAction[]>([]);
   const recRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const convoRef = useRef(false);            // hands-free conversation active
+  const startListenRef = useRef<() => void>(() => {});
   // Gemini Live (realtime) — opt-in
   const liveRef = useRef<any>(null);
   const liveUserRef = useRef('');
@@ -54,7 +56,13 @@ export function CommandAssistant() {
     // strip markdown so TTS doesn't read "*" as "star", "#" etc.
     const clean = String(text).replace(/[*_`#~>|]+/g, '').replace(/\s{2,}/g, ' ').trim();
     if (!clean) return;
-    try { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(clean); u.lang = lang; u.rate = 1.02; window.speechSynthesis.speak(u); } catch { /* noop */ }
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(clean); u.lang = lang; u.rate = 1.02;
+      // hands-free: after speaking the reply, reopen the mic for the next turn
+      u.onend = () => { if (convoRef.current && !liveRef.current) setTimeout(() => startListenRef.current?.(), 300); };
+      window.speechSynthesis.speak(u);
+    } catch { /* noop */ }
   }, [speakOn, lang]);
 
   const send = useCallback(async (text: string) => {
@@ -92,11 +100,10 @@ export function CommandAssistant() {
   }, [loading, msgs, nav, speak]);
 
   // ── Web Speech STT ──
-  const toggleListen = useCallback(() => {
+  const startListening = useCallback(() => {
     if (typeof window === 'undefined' || liveRef.current) return;
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { toast.error('Is browser mein voice support nahi — Chrome/Edge use karein, ya type karein.'); return; }
-    if (listening) { try { recRef.current?.stop(); } catch { /* noop */ } setListening(false); return; }
     try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
     const rec = new SR();
     rec.lang = lang; rec.interimResults = true; rec.maxAlternatives = 1; rec.continuous = false;
@@ -106,7 +113,16 @@ export function CommandAssistant() {
     rec.onend = () => { setListening(false); const t = finalText.trim(); if (t) send(t); };
     recRef.current = rec;
     try { rec.start(); setListening(true); } catch { setListening(false); }
-  }, [listening, lang, send]);
+  }, [lang, send]);
+
+  useEffect(() => { startListenRef.current = startListening; }, [startListening]);
+
+  const toggleListen = useCallback(() => {
+    if (liveRef.current) return;
+    if (listening) { try { recRef.current?.stop(); } catch { /* noop */ } setListening(false); convoRef.current = false; return; }
+    convoRef.current = true; // enter hands-free: keep listening after each reply
+    startListening();
+  }, [listening, startListening]);
 
   // ── Confirm a proposed write → run the EXISTING audited route ──
   const resolveComplaintId = async (ticketNo: string): Promise<string | null> => {
@@ -163,7 +179,7 @@ export function CommandAssistant() {
     try {
       try { recRef.current?.stop(); } catch { /* noop */ }
       try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
-      setListening(false);
+      setListening(false); convoRef.current = false;
       setLiveStatus('connecting'); setLiveError('');
       const { LiveSession } = await import('@/lib/assistant/live');
       const sess = new LiveSession({
@@ -197,7 +213,7 @@ export function CommandAssistant() {
   return (
     <>
       {/* Launcher */}
-      <button onClick={() => setOpen((o) => !o)} aria-label="Saathi assistant"
+      <button onClick={() => setOpen((o) => { const n = !o; if (!n) { convoRef.current = false; try { recRef.current?.stop(); window.speechSynthesis?.cancel(); } catch { /* noop */ } } return n; })} aria-label="Saathi assistant"
         className="fixed bottom-6 right-6 z-[60] w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-transform hover:scale-105"
         style={{ background: 'linear-gradient(135deg,#7c3aed,#22d3ee)', boxShadow: '0 8px 30px rgba(124,58,237,0.5)' }}>
         {listening ? <span className="absolute inset-0 rounded-full animate-ping" style={{ background: 'rgba(34,211,238,0.5)' }} /> : null}
