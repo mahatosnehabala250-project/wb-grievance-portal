@@ -1,7 +1,7 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenAI, Modality } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
 import { getGeminiToolDeclarations } from '@/lib/assistant/tools';
 import { buildSystemPrompt } from '@/lib/assistant/agent';
@@ -27,18 +27,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Gemini Live not configured — set GEMINI_API_KEY', enabled: false }, { status: 200 });
     }
 
-    const ai = new GoogleGenAI({ apiKey: GEMINI_KEY, httpOptions: { apiVersion: 'v1alpha' } });
+    const ai = new GoogleGenAI({ apiKey: GEMINI_KEY });
     const now = Date.now();
+    // Per Gemini docs: ephemeral tokens require apiVersion v1alpha set INSIDE the
+    // create config (NOT on the client). The token then enforces the live session
+    // version; the browser connects with just `apiKey: token` (no apiVersion).
     const ephemeral = await ai.authTokens.create({
       config: {
         uses: 1,
         expireTime: new Date(now + 25 * 60 * 1000).toISOString(),       // token valid 25 min
         newSessionExpireTime: new Date(now + 2 * 60 * 1000).toISOString(), // must connect within 2 min
-        // Bind the model + version to the token (fixes "model not found for API version v1main").
-        liveConnectConstraints: {
-          model: LIVE_MODEL,
-          config: { responseModalities: [Modality.AUDIO] },
-        },
+        httpOptions: { apiVersion: 'v1alpha' },
       },
     });
 
