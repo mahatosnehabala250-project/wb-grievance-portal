@@ -27,6 +27,23 @@
 
 ---
 
+### SESSION 57 — Claude Code (June 22, 2026): FOCUS decision — রক্ত সহায়ক (blood) removed from main; audit docs
+
+#### 🎯 Founder decisions (FOCUS.md)
+Product is for **MLA + MP offices** (grievance OS). **Blood-donor module OUT of main.**
+
+#### ✅ What was done
+- **Archive first:** full code preserved on branch **`archive/rakta-sahayak-blood`** (pushed) — restore anytime.
+- **Removed from main:** `api/blood*`, `api/blood-donors/*`, `api/blood-requests/*`, `api/donor/*`, `api/cascade/*` (donor cascade), crons `sos-queue-drainer`, `bandit-trainer`, `cascade-override-expiry`, `decrement-invitations` (+ their `vercel.json` entries); pages `dashboard/blood`, `donor/*`, `verify/[id]` (certificate); components `RaktaSahayakView`, `donor/*`; `rakta` view from nav/ViewType/render; 12 blood test files. Also deleted dead `PerformanceLeaderboard` + `SystemHealthWidget` (audit finding). Net: **~26 routes + 8 pages + 5 components off main.**
+- **Kept (shared by complaints bot):** `cron/whatsapp-outbox-drainer` (generic outbox), `lib/flowStack` + `lib/cascade/tierSchedule` (bot lib internals — blood-flow branches unused now; cleanup later if desired). DB tables untouched (donor data preserved).
+- Also added `PRODUCT_AUDIT.md` (measured khichdi map: 24 views/125 routes/76 tables, 4-products-in-1, dead code, 6-view simplification blueprint) + `FOCUS.md` (5 founder questions).
+
+#### ⚠️ Next AI — Please Note
+- If any **n8n workflow** still posts to blood endpoints (SOS/donor flows), it will now 404 — disable those n8n workflows.
+- Remaining FOCUS answers pending: positioning (govern-OS vs intel), pricing, DPDP posture. Next big task: 24→6 view simplification (blueprint in PRODUCT_AUDIT §6).
+
+---
+
 ### SESSION 56 — Claude Code (June 22, 2026): Saathi — fix script-mismatch data bug + TTS markdown + honesty
 
 #### 🐛 Critical bug fixed (from a live test)

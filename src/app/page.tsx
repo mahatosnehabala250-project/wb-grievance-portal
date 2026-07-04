@@ -76,7 +76,6 @@ import N8NWorkflowsView from '@/components/N8NWorkflowsView';
 import WB01WorkflowDetailView from '@/components/WB01WorkflowDetailView';
 import { IntelligenceView } from '@/components/IntelligenceView';
 import { ChatDashboard } from '@/components/ChatDashboard';
-import { RaktaSahayakView } from '@/components/RaktaSahayakView';
 import { MLADashboardView } from '@/components/MLADashboardView';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MPCommandView } from '@/components/MPCommandView';
@@ -115,7 +114,7 @@ export default function HomePage() {
     if (isAdmin) {
       return [
         { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('overview', 'Overview', Gauge), item('intel_command', 'Intel Command', BrainCircuit)] },
-        { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('chat', 'WhatsApp Chats', MessageSquare), item('map', 'Map', MapPin), item('rakta', 'রক্ত সহায়ক', Heart)] },
+        { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('chat', 'WhatsApp Chats', MessageSquare), item('map', 'Map', MapPin)] },
         { title: 'Insights', items: [item('analytics', t('analytics'), BarChart2), item('intelligence', 'Alert Engine', ShieldAlert), item('schemes', 'Schemes', BookOpen), item('liveData', 'Live Data', Radio)] },
         { title: 'Role Previews', items: [item('mp_command', 'MP Command', Crown), item('mla_dashboard', 'MLA Dashboard', Building2)] },
         { title: 'System', items: [item('users', t('users'), Users), item('audit', t('auditLog'), History), item('systemStatus', t('systemStatus'), Activity), item('integrations', 'Integrations', Zap), item('n8n', 'n8n Workflows', Workflow), item('wb01Workflow', 'WB-01 Workflow', MessageSquare), item('endpointHealth', 'Endpoint Health', Activity), item('deployment', 'Deployment', Server)] },
@@ -164,7 +163,7 @@ export default function HomePage() {
     // Legacy officer roles (BLOCK / DISTRICT / STATE)
     return [
       { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('overview', 'Overview', Gauge), item('intel_command', 'Intel Command', BrainCircuit)] },
-      { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('chat', 'WhatsApp Chats', MessageSquare), item('map', 'Map', MapPin), item('rakta', 'রক্ত সহায়ক', Heart)] },
+      { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('chat', 'WhatsApp Chats', MessageSquare), item('map', 'Map', MapPin)] },
       { title: 'Insights', items: [item('analytics', t('analytics'), BarChart2), item('schemes', 'Schemes', BookOpen), item('liveData', 'Live Data', Radio)] },
       settingsSec,
     ];
@@ -749,9 +748,6 @@ export default function HomePage() {
                 )}
                 {view === 'chat' && (
                   <ChatDashboard />
-                )}
-                {view === 'rakta' && (
-                  <RaktaSahayakView />
                 )}
                 {view === 'map' && (
                   <MapView />
