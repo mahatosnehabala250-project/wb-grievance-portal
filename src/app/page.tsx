@@ -121,6 +121,10 @@ export default function HomePage() {
       : lvl === 'MLA' ? item('mla_dashboard', 'Home', Building2)
       : item('dashboard', 'Home', LayoutDashboard);
 
+    // Team (user management): admins + governance hierarchy roles. NOTE: many DB
+    // users carry role_level='OFFICER' alongside base roles (ADMIN/BLOCK/DISTRICT/
+    // STATE) — so gate on BOTH, never on role_level alone.
+    const showTeam = isAdmin || ['MP', 'MLA', 'DISTRICT_ADMIN', 'BLOCK_COORD', 'GP_COORD'].includes(lvl);
     const core: NavSection = {
       title: null,
       items: [
@@ -128,7 +132,7 @@ export default function HomePage() {
         item('complaints', t('complaints'), FileText),
         item('map', 'Map', MapPin),
         item('intel_command', 'Intelligence', BrainCircuit),
-        ...(lvl !== 'KARYAKARTA' && lvl !== 'OFFICER' ? [item('users', 'Team', Users)] : []),
+        ...(showTeam ? [item('users', 'Team', Users)] : []),
         item('settings', t('settings'), Settings),
       ],
     };
@@ -149,8 +153,10 @@ export default function HomePage() {
         },
       ];
     }
-    // Legacy officers keep WhatsApp Chats (operational need)
-    if (!user?.role_level && (user?.role === 'BLOCK' || user?.role === 'DISTRICT' || user?.role === 'STATE')) {
+    // Legacy/base officers (BLOCK/DISTRICT/STATE with no governance designation
+    // beyond 'OFFICER') keep WhatsApp Chats — it's their operational tool.
+    const isLegacyOfficer = (lvl === 'OFFICER') && (user?.role === 'BLOCK' || user?.role === 'DISTRICT' || user?.role === 'STATE');
+    if (isLegacyOfficer) {
       return [{ ...core, items: [...core.items.slice(0, 2), item('chat', 'WhatsApp Chats', MessageSquare), ...core.items.slice(2)] }];
     }
     return [core];
