@@ -27,6 +27,16 @@
 
 ---
 
+### SESSION 58 — Claude Code (June 22, 2026): IA simplification — every role gets 6 destinations
+
+#### ✅ What changed (`src/app/page.tsx` navSections rewrite)
+Per PRODUCT_AUDIT §6 blueprint: **Home · Complaints · Map · Intelligence · Team · Settings** for every role (KARYAKARTA/OFFICER: no Team; legacy officers: +WhatsApp Chats). Role homes preserved (MP→MP Command as "Home", MLA→MLA Dashboard as "Home"). "Intel Command" renamed **Intelligence** — Overview/Forecast/Brain/Entity360/Actions/Field all live inside it as rooms. **ADMIN** keeps everything via a tucked "System" section (chat/analytics/alert-engine/schemes/liveData/audit/status/integrations/n8n/wb01/endpointHealth/deployment/MP-MLA previews). Top-level `overview` removed from all navs (room remains); assistant NAV destination `overview` remapped to intel_command+room. Stale views auto-bounce to role home via the existing `allowed` guard.
+
+#### Net effect
+MLA/MP sidebar: 6 items (was ~8 across 4 sections). Admin: 6 + System. Saathi (✨) = universal front door.
+
+---
+
 ### SESSION 57 — Claude Code (June 22, 2026): FOCUS decision — রক্ত সহায়ক (blood) removed from main; audit docs
 
 #### 🎯 Founder decisions (FOCUS.md)

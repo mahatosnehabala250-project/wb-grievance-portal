@@ -105,68 +105,55 @@ export default function HomePage() {
   type NavItem = { id: ViewType; label: string; icon: React.ElementType };
   type NavSection = { title: string | null; items: NavItem[] };
 
+  // ─── SIMPLIFIED IA (Session 57): 6 destinations for every role ───
+  //   Home · Complaints · Map · Intelligence · Team · Settings
+  // Overview/forecast/brain/entity360 etc. live INSIDE Intelligence (rooms).
+  // ADMIN additionally gets a tucked-away "System" section (ops console).
+  // Saathi (✨) is the universal front door on every screen.
   const navSections: NavSection[] = (() => {
     const lvl = user?.role_level || 'OFFICER';
     const isAdmin = user?.role === 'ADMIN';
     const item = (id: ViewType, label: string, icon: React.ElementType): NavItem => ({ id, label, icon });
-    const settingsSec: NavSection = { title: null, items: [item('settings', t('settings'), Settings)] };
+
+    const homeItem =
+      isAdmin ? item('dashboard', t('dashboard'), LayoutDashboard)
+      : lvl === 'MP' ? item('mp_command', 'Home', Crown)
+      : lvl === 'MLA' ? item('mla_dashboard', 'Home', Building2)
+      : item('dashboard', 'Home', LayoutDashboard);
+
+    const core: NavSection = {
+      title: null,
+      items: [
+        homeItem,
+        item('complaints', t('complaints'), FileText),
+        item('map', 'Map', MapPin),
+        item('intel_command', 'Intelligence', BrainCircuit),
+        ...(lvl !== 'KARYAKARTA' && lvl !== 'OFFICER' ? [item('users', 'Team', Users)] : []),
+        item('settings', t('settings'), Settings),
+      ],
+    };
 
     if (isAdmin) {
       return [
-        { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('overview', 'Overview', Gauge), item('intel_command', 'Intel Command', BrainCircuit)] },
-        { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('chat', 'WhatsApp Chats', MessageSquare), item('map', 'Map', MapPin)] },
-        { title: 'Insights', items: [item('analytics', t('analytics'), BarChart2), item('intelligence', 'Alert Engine', ShieldAlert), item('schemes', 'Schemes', BookOpen), item('liveData', 'Live Data', Radio)] },
-        { title: 'Role Previews', items: [item('mp_command', 'MP Command', Crown), item('mla_dashboard', 'MLA Dashboard', Building2)] },
-        { title: 'System', items: [item('users', t('users'), Users), item('audit', t('auditLog'), History), item('systemStatus', t('systemStatus'), Activity), item('integrations', 'Integrations', Zap), item('n8n', 'n8n Workflows', Workflow), item('wb01Workflow', 'WB-01 Workflow', MessageSquare), item('endpointHealth', 'Endpoint Health', Activity), item('deployment', 'Deployment', Server)] },
-        settingsSec,
+        core,
+        {
+          title: 'System', items: [
+            item('chat', 'WhatsApp Chats', MessageSquare), item('analytics', t('analytics'), BarChart2),
+            item('intelligence', 'Alert Engine', ShieldAlert), item('schemes', 'Schemes', BookOpen),
+            item('liveData', 'Live Data', Radio), item('audit', t('auditLog'), History),
+            item('systemStatus', t('systemStatus'), Activity), item('integrations', 'Integrations', Zap),
+            item('n8n', 'n8n Workflows', Workflow), item('wb01Workflow', 'WB-01 Workflow', MessageSquare),
+            item('endpointHealth', 'Endpoint Health', Activity), item('deployment', 'Deployment', Server),
+            item('mp_command', 'MP Preview', Crown), item('mla_dashboard', 'MLA Preview', Building2),
+          ],
+        },
       ];
     }
-    if (lvl === 'MP') {
-      return [
-        { title: null, items: [item('mp_command', 'MP Command', Crown), item('overview', 'Overview', Gauge), item('intel_command', 'Intel Command', BrainCircuit)] },
-        { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('map', 'Map', MapPin)] },
-        { title: 'Team', items: [item('users', t('users'), Users)] },
-        settingsSec,
-      ];
+    // Legacy officers keep WhatsApp Chats (operational need)
+    if (!user?.role_level && (user?.role === 'BLOCK' || user?.role === 'DISTRICT' || user?.role === 'STATE')) {
+      return [{ ...core, items: [...core.items.slice(0, 2), item('chat', 'WhatsApp Chats', MessageSquare), ...core.items.slice(2)] }];
     }
-    if (lvl === 'MLA') {
-      return [
-        { title: null, items: [item('mla_dashboard', 'MLA Dashboard', Building2), item('overview', 'Overview', Gauge), item('intel_command', 'Intel Command', BrainCircuit)] },
-        { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('map', 'Map', MapPin)] },
-        { title: 'Team', items: [item('users', t('users'), Users)] },
-        settingsSec,
-      ];
-    }
-    if (lvl === 'DISTRICT_ADMIN') {
-      return [
-        { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('overview', 'Overview', Gauge), item('intel_command', 'Intel Command', BrainCircuit)] },
-        { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('map', 'Map', MapPin), item('analytics', t('analytics'), BarChart2)] },
-        { title: 'Team', items: [item('users', t('users'), Users)] },
-        settingsSec,
-      ];
-    }
-    if (lvl === 'BLOCK_COORD' || lvl === 'GP_COORD') {
-      return [
-        { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('overview', 'Overview', Gauge), item('intel_command', 'Intel Command', BrainCircuit)] },
-        { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('map', 'Map', MapPin)] },
-        { title: 'Team', items: [item('users', t('users'), Users)] },
-        settingsSec,
-      ];
-    }
-    if (lvl === 'KARYAKARTA') {
-      return [
-        { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('overview', 'Overview', Gauge), item('intel_command', 'Intel Command', BrainCircuit)] },
-        { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('map', 'Map', MapPin)] },
-        settingsSec,
-      ];
-    }
-    // Legacy officer roles (BLOCK / DISTRICT / STATE)
-    return [
-      { title: null, items: [item('dashboard', t('dashboard'), LayoutDashboard), item('overview', 'Overview', Gauge), item('intel_command', 'Intel Command', BrainCircuit)] },
-      { title: 'Operations', items: [item('complaints', t('complaints'), FileText), item('chat', 'WhatsApp Chats', MessageSquare), item('map', 'Map', MapPin)] },
-      { title: 'Insights', items: [item('analytics', t('analytics'), BarChart2), item('schemes', 'Schemes', BookOpen), item('liveData', 'Live Data', Radio)] },
-      settingsSec,
-    ];
+    return [core];
   })();
 
   const navItems = navSections.flatMap((s) => s.items);

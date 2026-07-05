@@ -6,7 +6,7 @@
 
 export const NAV_DESTINATIONS: Array<{ id: string; label: string; view: string; room?: string }> = [
   { id: 'home', label: 'Home / Today', view: 'intel_command', room: 'aaj' },
-  { id: 'overview', label: 'Overview dashboard', view: 'overview' },
+  { id: 'overview', label: 'Overview dashboard', view: 'intel_command', room: 'overview' },
   { id: 'complaints', label: 'Complaints list', view: 'complaints' },
   { id: 'map', label: 'Command Map', view: 'map' },
   { id: 'intel_command', label: 'Intel Command', view: 'intel_command', room: 'aaj' },
