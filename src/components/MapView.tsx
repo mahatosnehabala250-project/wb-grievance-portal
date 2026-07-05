@@ -32,6 +32,19 @@ interface MapData {
 const CYAN = "#22D3EE", AMBER = "#F59E0B", RED = "#EF4444", GREEN = "#34D399";
 const PANEL = "#0c1322", MAPBG = "#070b14", LINE = "rgba(34,211,238,0.35)";
 
+// ---- Politics layer (2021 verified results) ----
+interface PolAc {
+  ac: string; reservation: string;
+  winner: string; winnerParty: string; winnerVotes: number;
+  runnerUp: string; runnerUpParty: string; runnerUpVotes: number;
+  margin: number; marginPct: number;
+  grievance: { total: number; active: number; critical: number; topCategory: string | null };
+  battleground: number;
+}
+interface PoliticsData { year: number; source: string; acs: PolAc[]; note: string }
+const PARTY_COLOR: Record<string, string> = { AITC: "#1B9E4B", BJP: "#F97316", INC: "#38BDF8", AJSU: "#A78BFA", CPM: "#EF4444" };
+const partyColor = (p: string) => PARTY_COLOR[p] || "#94A3B8";
+
 // Deterministic colour per Gram Panchayat — so adjacent villages of the same GP
 // share a hue and GP clusters are visible when boundaries are on.
 function gpColor(gp: string | null): string {
@@ -128,7 +141,7 @@ const InnerMap = dynamic(
           ))}</>);
         }
 
-        const Component = ({ points, mode, basemap, boundaries, showBoundaries, onSelect, gpMap, labelPts, blockBoundaries, blockLabelPts, catFilter, flyTarget, freezeFit }: {
+        const Component = ({ points, mode, basemap, boundaries, showBoundaries, onSelect, gpMap, labelPts, blockBoundaries, blockLabelPts, catFilter, flyTarget, freezeFit, polByAc }: {
           points: VPoint[]; mode: Mode; basemap: "dark" | "satellite";
           boundaries: any; showBoundaries: boolean; onSelect: (p: VPoint) => void;
           gpMap: Record<string, string[]>; labelPts: { lat: number; lng: number; name: string; gp: string | null }[];
@@ -136,6 +149,7 @@ const InnerMap = dynamic(
           catFilter: string | null;
           flyTarget: { lat: number; lng: number; name: string } | null;
           freezeFit?: boolean;
+          polByAc?: Record<string, PolAc> | null;
         }) => {
           const [zoom, setZoom] = useState(9);
           const visiblePoints = catFilter ? points.filter((p) => (p.cats?.[catFilter] || 0) > 0) : points;
@@ -169,8 +183,31 @@ const InnerMap = dynamic(
                   icon={L.divIcon({ className: "", iconSize: [0, 0], html: `<div style="transform:translate(-50%,-50%);white-space:nowrap;font-family:ui-sans-serif,system-ui;font-size:12px;font-weight:600;letter-spacing:0.04em;color:#bae6fd;text-shadow:0 0 5px #000,0 0 3px #000">${esc(b.name)}</div>` })} />
               ))}
 
+              {/* POLITICS overlay — villages tinted by 2021 winning party (all zooms) */}
+              {polByAc && boundaries && (
+                <GeoJSON key={"pol" + Object.keys(gpMap).length} data={boundaries}
+                  style={(f: any) => {
+                    const code = f?.properties?.v;
+                    const acName = code && gpMap[code] ? gpMap[code][1] : null;
+                    const pa = acName ? polByAc[acName] : undefined;
+                    const col = pa ? partyColor(pa.winnerParty) : "#475569";
+                    // battleground (tight margin) glows hotter
+                    const heat = pa ? 0.12 + (pa.battleground / 100) * 0.38 : 0.05;
+                    return { color: col, weight: 0.3, opacity: 0.35, fillColor: col, fillOpacity: heat };
+                  }}
+                  onEachFeature={(f: any, layer: any) => {
+                    const code = f?.properties?.v;
+                    const m = code && gpMap[code] ? gpMap[code] : null;
+                    const pa = m && m[1] ? polByAc[m[1]] : undefined;
+                    if (pa) layer.bindTooltip(
+                      `${(m && m[2]) || ""} · ${pa.ac} AC · ${pa.winnerParty} +${pa.margin.toLocaleString()} votes (2021) · BG ${pa.battleground}`,
+                      { sticky: true }
+                    );
+                  }} />
+              )}
+
               {/* VILLAGE detail — ONLY when zoomed IN (>=12) and toggle on */}
-              {showBoundaries && zoom >= 12 && boundaries && (
+              {!polByAc && showBoundaries && zoom >= 12 && boundaries && (
                 <GeoJSON key={"v" + Object.keys(gpMap).length} data={boundaries}
                   style={(f: any) => {
                     const code = f?.properties?.v;
@@ -258,6 +295,25 @@ export function MapView() {
   const [timeMode, setTimeMode] = useState(false);
   const [cursor, setCursor] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [polMode, setPolMode] = useState(false);
+  const [politics, setPolitics] = useState<PoliticsData | null>(null);
+  const [polLoading, setPolLoading] = useState(false);
+
+  const togglePolitics = () => {
+    setPolMode((v) => {
+      const nv = !v;
+      if (nv) { setView3d(false); setTimeMode(false); setPlaying(false); }
+      return nv;
+    });
+    if (!politics && !polLoading) {
+      setPolLoading(true);
+      fetch('/api/map/politics', { headers: authHeaders() })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => j?.data && setPolitics(j.data))
+        .catch(() => {})
+        .finally(() => setPolLoading(false));
+    }
+  };
   const [windowDays, setWindowDays] = useState(14);
   const [speed, setSpeed] = useState(1);
 
@@ -465,10 +521,15 @@ export function MapView() {
             style={view3d ? { background: "rgba(34,211,238,0.2)", color: CYAN, border: `1px solid ${LINE}` } : { background: "transparent", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}>
             {view3d ? "🧊 3D" : "🗺 2D"}
           </button>
-          <button onClick={() => setTimeMode((v) => { const nv = !v; if (nv) setView3d(false); else setPlaying(false); return nv; })}
+          <button onClick={() => setTimeMode((v) => { const nv = !v; if (nv) { setView3d(false); setPolMode(false); } else setPlaying(false); return nv; })}
             className="px-2.5 py-1 rounded text-xs font-semibold transition-all"
             style={timeMode ? { background: "rgba(34,211,238,0.2)", color: CYAN, border: `1px solid ${LINE}` } : { background: "transparent", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}>
             ⏱ Timeline
+          </button>
+          <button onClick={togglePolitics}
+            className="px-2.5 py-1 rounded text-xs font-semibold transition-all"
+            style={polMode ? { background: "rgba(249,115,22,0.2)", color: "#fb923c", border: "1px solid rgba(249,115,22,0.4)" } : { background: "transparent", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}>
+            🗳 Politics
           </button>
         </div>
         <div className="flex gap-1">
@@ -518,7 +579,7 @@ export function MapView() {
           ) : view3d ? (
             <Map3D points={points} boundaries={boundaries} />
           ) : (
-            <InnerMap points={displayPoints} mode={mode} basemap={basemap} boundaries={boundaries} showBoundaries={showBoundaries} onSelect={setSelected} gpMap={gpMap} labelPts={labelPts} blockBoundaries={blocks} blockLabelPts={blockLabelPts} catFilter={catFilter} flyTarget={flyTarget} freezeFit={timeMode} />
+            <InnerMap points={displayPoints} mode={mode} basemap={basemap} boundaries={boundaries} showBoundaries={showBoundaries} onSelect={setSelected} gpMap={gpMap} labelPts={labelPts} blockBoundaries={blocks} blockLabelPts={blockLabelPts} catFilter={catFilter} flyTarget={flyTarget} freezeFit={timeMode} polByAc={polMode && politics ? Object.fromEntries(politics.acs.map((a) => [a.ac, a])) : null} />
           )}
 
           {/* Density legend (hidden while the timeline bar is up) */}
@@ -573,11 +634,48 @@ export function MapView() {
         <div className="w-80 flex-shrink-0 overflow-y-auto" style={{ background: PANEL, borderLeft: "1px solid rgba(255,255,255,0.06)" }}>
           <div className="p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold tracking-widest" style={dim(CYAN)}>AI INSIGHT</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(34,211,238,0.12)", color: CYAN }}>BETA</span>
+              <span className="text-xs font-semibold tracking-widest" style={dim(polMode ? "#fb923c" : CYAN)}>{polMode ? "BATTLEGROUND 2021" : "AI INSIGHT"}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: polMode ? "rgba(249,115,22,0.12)" : "rgba(34,211,238,0.12)", color: polMode ? "#fb923c" : CYAN }}>{polMode ? "ECI" : "BETA"}</span>
             </div>
 
-            {selected ? (
+            {polMode ? (
+              !politics ? (
+                <div className="text-xs" style={dim("#64748b")}>{polLoading ? "Loading 2021 results…" : "Political layer load nahi hua."}</div>
+              ) : (
+                <>
+                  <div className="rounded-lg p-3" style={{ background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.18)" }}>
+                    <div className="text-[10px] uppercase tracking-wider" style={dim("#94a3b8")}>Sabse garam seat</div>
+                    <div className="text-lg font-black" style={dim("#f1f5f9")}>{politics.acs[0].ac}</div>
+                    <div className="text-xs mt-0.5" style={dim("#cbd5e1")}>
+                      {politics.acs[0].winnerParty} sirf <b style={{ color: "#fb923c" }}>{politics.acs[0].margin.toLocaleString()}</b> vote se jeeti ({politics.acs[0].marginPct}%)
+                      {politics.acs[0].grievance.active > 0 && <> · abhi <b style={{ color: "#f87171" }}>{politics.acs[0].grievance.active}</b> active shikayat{politics.acs[0].grievance.topCategory ? ` (top: ${politics.acs[0].grievance.topCategory})` : ""}</>}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    {politics.acs.map((a, i) => (
+                      <div key={a.ac} className="rounded-lg px-2 py-1.5" style={{ background: "rgba(255,255,255,0.03)", borderLeft: `3px solid ${partyColor(a.winnerParty)}` }}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono" style={dim("#64748b")}>{String(i + 1).padStart(2, "0")}</span>
+                          <span className="text-xs font-bold flex-1 truncate" style={dim("#e2e8f0")}>{a.ac}{a.reservation !== "GENERAL" ? ` (${a.reservation})` : ""}</span>
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ background: partyColor(a.winnerParty) + "22", color: partyColor(a.winnerParty) }}>{a.winnerParty}</span>
+                          <span className="text-sm font-black font-mono" style={{ color: a.battleground >= 60 ? "#fb923c" : "#94a3b8" }}>{a.battleground}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                            <div style={{ width: `${a.battleground}%`, height: "100%", borderRadius: 3, background: a.battleground >= 60 ? "#fb923c" : "#64748b" }} />
+                          </div>
+                          <span className="text-[10px] font-mono" style={dim("#94a3b8")}>±{a.margin.toLocaleString()}</span>
+                          {a.grievance.active > 0 && <span className="text-[10px]" style={dim("#f87171")}>▲{a.grievance.active}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-[9px] leading-relaxed" style={dim("#475569")}>
+                    BG score = 2021 margin ki tangi (60%) + aaj ka active-complaint pressure (40%). {politics.note}
+                  </div>
+                </>
+              )
+            ) : selected ? (
               <div className="rounded-lg p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
                 <div className="text-xs" style={dim("#64748b")}>Selected village</div>
                 <div className="text-lg font-semibold" style={dim("#e2e8f0")}>{selected.name}</div>

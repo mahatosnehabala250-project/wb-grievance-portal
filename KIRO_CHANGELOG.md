@@ -27,6 +27,22 @@
 
 ---
 
+### SESSION 59 — Claude Code (June 22, 2026): 🗳 POLITICAL LAYER — verified 2021 results × live grievance (the weapon, Phase A)
+
+#### Why
+Founder feedback: "sab intelligence toy lagta hai, Palantir jaisa weapon nahi." Root cause = single thin (mostly demo) data stream. The Palantir move is DATA FUSION — so this session fuses the first REAL external dataset: 2021 WB assembly election results.
+
+#### ✅ What was built
+- **Verified 2021 results for all 9 Purulia ACs** fetched from Wikipedia/ECI-derived pages (winner, party, votes, runner-up, margin): Balarampur **BJP +423 (0.21%!)**, Para BJP +4,007, Raghunathpur BJP +5,438, Purulia BJP +7,018, Kashipur BJP +7,387, Joypur BJP +12,200, Baghmundi AITC +13,969, Manbazar AITC +15,516, Bandwan AITC +18,831. Seeded into new table **`election_results_ac`** (public record; source noted).
+- **`GET /api/map/politics`** (new) — joins the 2021 results with scope-locked live complaint aggregates per AC and computes a **Battleground Index** (0-100) = margin-tightness (60%) + active-grievance pressure (40%).
+- **MapView "🗳 Politics" mode** — villages tinted by 2021 winning party (AITC green / BJP saffron etc., via village→AC from purulia-gp.json), fill intensity = battleground heat; tooltips show "village · AC · party +margin (2021) · BG score"; side panel becomes a **Battleground 2021 ranking** (hottest seat hero + per-AC margin/party/BG bars + live active complaints). Mutually exclusive with 3D/Timeline.
+
+#### ⚠️ Next AI — Please Note
+- **Phase B = booth-level** (ECI Form-20 PDFs per AC at ceowestbengal → parse → booth→village mapping) — that's the full weapon; current layer is AC-grain.
+- Ethics: election results are PUBLIC data; complaints stay scope-locked aggregate. No voter-level anything.
+
+---
+
 ### SESSION 58 — Claude Code (June 22, 2026): IA simplification — every role gets 6 destinations
 
 #### ✅ What changed (`src/app/page.tsx` navSections rewrite)
