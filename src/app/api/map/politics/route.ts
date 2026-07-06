@@ -36,6 +36,20 @@ export async function GET(request: NextRequest) {
       .eq('year', 2021);
     if (error || !results) return NextResponse.json({ error: 'No election data' }, { status: 500 });
 
+    // Booth-level stats where Form-20 has been ingested (EVM votes; postal not included)
+    const { data: boothRows } = await supabase
+      .from('election_results_booth')
+      .select('ac, bjp, aitc')
+      .eq('year', 2021);
+    const boothStats: Record<string, { booths: number; bjpWon: number; aitcWon: number; razorThin: number }> = {};
+    for (const b of (boothRows || []) as Array<{ ac: string; bjp: number | null; aitc: number | null }>) {
+      const s = boothStats[b.ac] || (boothStats[b.ac] = { booths: 0, bjpWon: 0, aitcWon: 0, razorThin: 0 });
+      s.booths++;
+      const bjp = b.bjp ?? 0, aitc = b.aitc ?? 0;
+      if (bjp > aitc) s.bjpWon++; else if (aitc > bjp) s.aitcWon++;
+      if (Math.abs(bjp - aitc) <= 25) s.razorThin++;
+    }
+
     // Scope-locked live grievance aggregates per AC
     const rows: Array<Record<string, unknown>> = await db.complaint.findMany({
       where: getComplaintScopeFilter(payload),
@@ -73,6 +87,7 @@ export async function GET(request: NextRequest) {
         margin: r.margin, marginPct,
         grievance: { total: g.total, active: g.active, critical: g.critical, topCategory: topCat },
         battleground,
+        booths: boothStats[ac] || null,
       };
     }).sort((a, b) => b.battleground - a.battleground);
 

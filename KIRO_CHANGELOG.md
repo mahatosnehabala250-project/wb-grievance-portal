@@ -27,6 +27,22 @@
 
 ---
 
+### SESSION 60 — Claude Code (June 22, 2026): 🗳 Phase B pilot — BOOTH-LEVEL data (Balarampur, Form-20 OCR)
+
+#### ✅ What was done (real ECI booth data in the product)
+- **Correct AC numbers found** (my first guess was wrong): Purulia district = **238 Bandwan … 246 Raghunathpur; 239 = Balarampur** (verified via purulia.gov.in / Wikipedia list). Downloaded real **ECI Form-20 GE2021 PDFs** from ceowestbengal (`/Downloads/Election/GE2021/Form20/<AC>_Form20.pdf`). They are **scanned** (no text layer).
+- **Gemini-vision OCR pipeline** (scratchpad `ocr_form20.js`): pdf-lib splits into 2-page chunks → `gemini-2.5-flash` inline-PDF prompt → JSONL booth rows {ps,bjp,aitc,valid,nota}. Balarampur candidates probed first (Baneswar Mahato BJP col-3, Shantiram Mahato AITC col-4).
+- **301 booths extracted + seeded** into new **`election_results_booth`** table (unique ac+year+ps, generated `margin` column). Validation vs official: EVM sums BJP 83,886 / AITC 84,641 — ~5-6% below official 89,521/89,098, consistent with **postal ballots excluded** from booth rows; labelled as EVM-only.
+- **THE STORY:** Balarampur booths split **150 BJP vs 150 AITC**, and **52 booths decided by ≤25 votes** — that + 423 overall margin is the demo line.
+- `/api/map/politics` now returns per-AC `booths` stats (booths/bjpWon/aitcWon/razorThin); Battleground hero card shows the booth-level line.
+
+#### ⚠️ Next AI — Please Note
+- **Gap:** booths 229–238 missing from OCR (pages 10-11 chunk under-read; 301 of ~312) — re-OCR that page slice to fill. Gemini free tier hit 429s; retries handle it.
+- **Phase B2:** booth→village mapping needs the CEO **polling-station list** (PS names/locations) — Form-20 has only PS numbers. Then village-level margins on the map.
+- Remaining 8 ACs: same pipeline (`ocr_form20.js <pdf> ac<NNN> probe` first to get candidate column order, write `_prompt.txt`, then `extract`).
+
+---
+
 ### SESSION 59 — Claude Code (June 22, 2026): 🗳 POLITICAL LAYER — verified 2021 results × live grievance (the weapon, Phase A)
 
 #### Why

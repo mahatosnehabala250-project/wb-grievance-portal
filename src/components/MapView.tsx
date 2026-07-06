@@ -40,6 +40,7 @@ interface PolAc {
   margin: number; marginPct: number;
   grievance: { total: number; active: number; critical: number; topCategory: string | null };
   battleground: number;
+  booths?: { booths: number; bjpWon: number; aitcWon: number; razorThin: number } | null;
 }
 interface PoliticsData { year: number; source: string; acs: PolAc[]; note: string }
 const PARTY_COLOR: Record<string, string> = { AITC: "#1B9E4B", BJP: "#F97316", INC: "#38BDF8", AJSU: "#A78BFA", CPM: "#EF4444" };
@@ -650,6 +651,11 @@ export function MapView() {
                       {politics.acs[0].winnerParty} sirf <b style={{ color: "#fb923c" }}>{politics.acs[0].margin.toLocaleString()}</b> vote se jeeti ({politics.acs[0].marginPct}%)
                       {politics.acs[0].grievance.active > 0 && <> · abhi <b style={{ color: "#f87171" }}>{politics.acs[0].grievance.active}</b> active shikayat{politics.acs[0].grievance.topCategory ? ` (top: ${politics.acs[0].grievance.topCategory})` : ""}</>}
                     </div>
+                    {politics.acs[0].booths && (
+                      <div className="text-[11px] mt-1.5 rounded px-2 py-1" style={{ background: "rgba(255,255,255,0.05)", color: "#e2e8f0" }}>
+                        🗳 Booth-level (Form-20 EVM): {politics.acs[0].booths.booths} booths — BJP <b>{politics.acs[0].booths.bjpWon}</b> · AITC <b>{politics.acs[0].booths.aitcWon}</b> · <b style={{ color: "#fb923c" }}>{politics.acs[0].booths.razorThin}</b> booths ≤25 vote se decide
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     {politics.acs.map((a, i) => (
