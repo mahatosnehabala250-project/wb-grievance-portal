@@ -36,18 +36,20 @@ export async function GET(request: NextRequest) {
       .eq('year', 2021);
     if (error || !results) return NextResponse.json({ error: 'No election data' }, { status: 500 });
 
-    // Booth-level stats where Form-20 has been ingested (EVM votes; postal not included)
+    // Booth-level stats where Form-20 has been ingested (EVM votes; postal not
+    // included). w/r = winner-party / runner-up-party candidate votes per booth.
     const { data: boothRows } = await supabase
       .from('election_results_booth')
-      .select('ac, bjp, aitc')
+      .select('ac, w, r')
       .eq('year', 2021);
-    const boothStats: Record<string, { booths: number; bjpWon: number; aitcWon: number; razorThin: number }> = {};
-    for (const b of (boothRows || []) as Array<{ ac: string; bjp: number | null; aitc: number | null }>) {
-      const s = boothStats[b.ac] || (boothStats[b.ac] = { booths: 0, bjpWon: 0, aitcWon: 0, razorThin: 0 });
+    const boothStats: Record<string, { booths: number; winnerWon: number; runnerWon: number; razorThin: number }> = {};
+    for (const b of (boothRows || []) as Array<{ ac: string; w: number | null; r: number | null }>) {
+      if (b.w === null && b.r === null) continue;
+      const s = boothStats[b.ac] || (boothStats[b.ac] = { booths: 0, winnerWon: 0, runnerWon: 0, razorThin: 0 });
       s.booths++;
-      const bjp = b.bjp ?? 0, aitc = b.aitc ?? 0;
-      if (bjp > aitc) s.bjpWon++; else if (aitc > bjp) s.aitcWon++;
-      if (Math.abs(bjp - aitc) <= 25) s.razorThin++;
+      const w = b.w ?? 0, r = b.r ?? 0;
+      if (w > r) s.winnerWon++; else if (r > w) s.runnerWon++;
+      if (Math.abs(w - r) <= 25) s.razorThin++;
     }
 
     // Scope-locked live grievance aggregates per AC

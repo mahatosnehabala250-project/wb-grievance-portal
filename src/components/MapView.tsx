@@ -40,7 +40,7 @@ interface PolAc {
   margin: number; marginPct: number;
   grievance: { total: number; active: number; critical: number; topCategory: string | null };
   battleground: number;
-  booths?: { booths: number; bjpWon: number; aitcWon: number; razorThin: number } | null;
+  booths?: { booths: number; winnerWon: number; runnerWon: number; razorThin: number } | null;
 }
 interface PoliticsData { year: number; source: string; acs: PolAc[]; note: string }
 const PARTY_COLOR: Record<string, string> = { AITC: "#1B9E4B", BJP: "#F97316", INC: "#38BDF8", AJSU: "#A78BFA", CPM: "#EF4444" };
@@ -653,7 +653,7 @@ export function MapView() {
                     </div>
                     {politics.acs[0].booths && (
                       <div className="text-[11px] mt-1.5 rounded px-2 py-1" style={{ background: "rgba(255,255,255,0.05)", color: "#e2e8f0" }}>
-                        🗳 Booth-level (Form-20 EVM): {politics.acs[0].booths.booths} booths — BJP <b>{politics.acs[0].booths.bjpWon}</b> · AITC <b>{politics.acs[0].booths.aitcWon}</b> · <b style={{ color: "#fb923c" }}>{politics.acs[0].booths.razorThin}</b> booths ≤25 vote se decide
+                        🗳 Booth-level (Form-20 EVM): {politics.acs[0].booths.booths} booths — {politics.acs[0].winnerParty} <b>{politics.acs[0].booths.winnerWon}</b> · {politics.acs[0].runnerUpParty} <b>{politics.acs[0].booths.runnerWon}</b> · <b style={{ color: "#fb923c" }}>{politics.acs[0].booths.razorThin}</b> booths ≤25 vote se decide
                       </div>
                     )}
                   </div>
@@ -671,6 +671,7 @@ export function MapView() {
                             <div style={{ width: `${a.battleground}%`, height: "100%", borderRadius: 3, background: a.battleground >= 60 ? "#fb923c" : "#64748b" }} />
                           </div>
                           <span className="text-[10px] font-mono" style={dim("#94a3b8")}>±{a.margin.toLocaleString()}</span>
+                          {a.booths && a.booths.razorThin > 0 && <span className="text-[10px]" title={`${a.booths.razorThin} booths ≤25 votes`} style={dim("#fb923c")}>🗳{a.booths.razorThin}</span>}
                           {a.grievance.active > 0 && <span className="text-[10px]" style={dim("#f87171")}>▲{a.grievance.active}</span>}
                         </div>
                       </div>
