@@ -27,6 +27,22 @@
 
 ---
 
+### SESSION 61 — Claude Code (June 22, 2026): 🗳 booth rollout — 1 more AC captured, a QUALITY GATE saved us
+
+#### ✅ Done
+- Booth table generalized to **w/r (winner/runner-up)** columns — Baghmundi's runner-up is AJSU and Joypur's is INC, so bjp/aitc columns didn't fit. politics API + Battleground panel now party-aware (winnerWon/runnerWon). Deployed.
+- All 8 remaining Form-20 PDFs downloaded via **curl** (node fetch fails TLS on ceowestbengal). Batch pipeline committed to repo: `scripts/batch_form20.js` (restartable, per-AC candidate names embedded) + `scripts/seed_booths_wr.js`.
+- **Bandwan (flash): 288/~340 booths** captured before daily quota died (partial saved in scratchpad `ac238_partial.jsonl`; plausible vs official).
+
+#### 🚨 Quality gate caught bad data (important lesson)
+`gemini-2.5-flash-lite` (tried when flash quota exhausted) extracted Baghmundi + half of Joypur — but **validation vs official totals FAILED**: Baghmundi runner-up sum came out ABOVE the official count (impossible; postal only adds). Root cause: multiple same-surname "Mahato" candidates → lite misidentified columns. **Rejected, not seeded.** Rule going forward: NEVER seed OCR output whose candidate sums don't reconcile with official results (±~6% postal gap). `flash` output validates; `lite` does not for this task.
+
+#### ⚠️ Next AI — Please Note
+- Gemini free-tier daily quota ≈ 2 ACs/day on flash (resets ~12:30pm IST / midnight PT). To finish all ACs in one run, enable billing on the Gemini key (also unblocks ⚡ Gemini Live which errors 1008 access-denied on free tier).
+- Remaining: Bandwan refill (pages 13-18), Baghmundi/Joypur/Purulia/Manbazar/Kashipur/Para/Raghunathpur, Balarampur booths 229-238 gap. Run: `OCR_MODEL=gemini-2.5-flash node scripts/batch_form20.js <nums>` from a dir with the PDFs, then seed + VALIDATE.
+
+---
+
 ### SESSION 60 — Claude Code (June 22, 2026): 🗳 Phase B pilot — BOOTH-LEVEL data (Balarampur, Form-20 OCR)
 
 #### ✅ What was done (real ECI booth data in the product)
