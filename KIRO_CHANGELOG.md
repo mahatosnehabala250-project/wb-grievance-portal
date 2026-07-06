@@ -27,6 +27,22 @@
 
 ---
 
+### SESSION 64 — Claude Code (July 6, 2026): 🔒 JS-03 hardcoded Supabase SERVICE ROLE key removed (Session-63 security debt cleared)
+
+#### ✅ Done — LIVE via n8n API (workflow `ujYm0XWJ93I55GC0`, new version active)
+- **JS-03 "Prepare Messages" Code node** mein hardcoded `SUPABASE_KEY` (service_role JWT, exp 2035) + inline `$http.request` to `rpc/get_constituency_for_block` **hata diya**.
+- **Naya HTTP Request node "Get Constituency"** add kiya — wahi RPC call, par existing **"Supabase account" credential** (`2g6ksgz4oy9Ye7kP`, same as Fetch Complaint / Find Officer / Find Karyakarta) ke through. Named params (`p_district`, `p_block`), **NO** `Prefer: params=single-object` header (function named params leta hai — Find Officer wale pattern se alag, purane inline call jaisa hi).
+- **Rewire:** `Find Officer → Get Constituency → Prepare Messages` (pehle Find Officer seedha Prepare Messages mein jata tha). Prepare Messages ab constituency `$('Get Constituency').first().json` se padhta hai, try/catch ke saath.
+- **Fail-safe preserved:** purana code errors silently swallow karta tha (constituency = null par dispatch chalta rehta tha). Naye node pe `alwaysOutputData: true` + `onError: continueRegularOutput` + `neverError: true` — lookup fail ho to bhi dispatch kabhi block nahi hoga.
+- Settings preserved: `availableInMCP`, `errorWorkflow`, `timezone: Asia/Kolkata`, `callerPolicy`.
+- Verified after update: hardcoded key **0 occurrences** in workflow JSON, `$http.request` gone, new versionId == activeVersionId, workflow active. Live dispatch test NAHI kiya (real WhatsApp/Telegram/email jate).
+
+#### ⚠️ Next AI / User — Please Note
+- **Service role key ROTATE karo** (Supabase project `sxdtipaspfolrpqrwadt` → Settings → API → JWT secret / service_role regenerate): purani key n8n workflow JSON + **version history** (22 versions) + n8n MCP context mein leak ho chuki hai. Rotate karne ke baad n8n ka **"Supabase account" credential update** karna hoga (aur jahan bhi service_role key use hoti hai — Vercel env vars check karo). Yeh manual step hai, is session mein NAHI kiya.
+- JS-03 ka Hindi citizenMsg garbled wala minor bug (Session 63 note) abhi bhi pending hai — is refactor mein message text ko touch nahi kiya.
+
+---
+
 ### SESSION 63 — Claude Code (July 6, 2026): 📱 Telegram brief "alag type" ROOT-CAUSED + fixed live in n8n (parseMode → parse_mode)
 
 #### 🔎 Root cause (user complaint: "subha daily message different type ata he")
