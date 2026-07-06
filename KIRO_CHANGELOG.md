@@ -27,6 +27,32 @@
 
 ---
 
+### SESSION 63 — Claude Code (July 6, 2026): 📱 Telegram brief "alag type" ROOT-CAUSED + fixed live in n8n (parseMode → parse_mode)
+
+#### 🔎 Root cause (user complaint: "subha daily message different type ata he")
+1. **`parseMode` vs `parse_mode`** — n8n Telegram node ka ASLI parameter `additionalFields.parse_mode` (snake_case) hai. Session-28 mein `parseMode` (camelCase) set hua tha — node unknown key ko **silently ignore** karta hai → Telegram ko koi parse_mode nahi gaya → messages mein **literal `<b>` tags** dikhte the. PROOF: JS-17 ke Jul-6 execution (id 7576) mein Telegram API response `text` ke andar raw `<b>` + entities mein sirf `url` (koi `bold` nahi). Session-28 ka "parseMode HTML verified" galat verification tha — key save hui thi par node use nahi karta.
+2. **Duplicate weekly brief** — JS-17 "Telegram to MP" aur "Telegram to Admin" dono same chat (1214722668) pe ja rahe the → har Monday wahi brief 2x.
+3. **Timezone bug** — JS-17 settings mein timezone nahi tha (server UTC+2) → cron `30 2 * * 1` **6:00 AM IST** pe fire ho raha tha, 8 AM nahi. (JS-21 mein `Asia/Kolkata` set hai isliye woh sahi 7 AM chalti hai.)
+4. Perception "alag type": JS-21 (roz 7 AM, app-formatted deterministic) + JS-17 (Monday, DeepSeek LLM Hinglish prose) — do alag senders, dono raw tags ke saath.
+
+#### ✅ Fixed LIVE via n8n MCP (no code push needed for these)
+- **JS-21** `hPDe3mQWWf9bjWj8`: Send Brief node → `parse_mode: HTML`.
+- **JS-17** `0TT4yfYrcQ11m5dU`: dono Telegram nodes → `parse_mode: HTML`; cron → `0 8 * * 1` + settings timezone `Asia/Kolkata` (ab sach mein Mon 8 AM IST); naya Code node **"Skip If Same As MP"** (Format Message → skip → Telegram to Admin) — adminTgId === mpTgId ho to admin send skip.
+- **JS-04** `zxhMcvjLPbcuEzGz`: Notify via Telegram → `parse_mode: HTML` (text HTML-escaped hai, ab `&amp;` render hoga).
+- **JS-12** `ee8Ttjih5vJ1ZPsK`: 5/5 send nodes → `parse_mode: HTML` (ek node galti se `parseMode: MarkdownV2` tha — sab builders HTML-escape karte hain, Staff Reply real `<b>` use karta hai, isliye HTML hi sahi).
+- **JS-03**: dono Telegram nodes deliberately plain-text (no escaping) — NOT touched (parse_mode lagana unsafe hota).
+
+#### ✔️ Live verification
+- JS-17 ko temp webhook laga ke trigger kiya (execution **7626**, success): Telegram response mein **7 bold entities**, text mein zero literal tags; "Skip If Same As MP" ne 0 items diye → **sirf 1 message** gaya. Temp webhook remove kar diya (workflow wapas 11 nodes, schedule-only trigger).
+- NOTE: is test se user ke chat pe ek extra weekly brief gaya (Jul 6, ~10:42 PM IST) + mp_notifications mein 1 log row — expected side-effect.
+
+#### ⚠️ Next AI — Please Note
+- **n8n Telegram node gotcha:** parameter `parse_mode` hai, `parseMode` NAHI. Config JSON mein galat key chupchap save ho jaati hai par ignore hoti hai — "saved" ≠ "applied". Verify hamesha execution ke `entities` se karo.
+- JS-03 "Prepare Messages" code node mein **Supabase SERVICE ROLE key hardcoded** hai — credential mein move karna chahiye (security debt, flagged Jul 6).
+- JS-03 ka Hindi citizenMsg Bengali script mein garbled hai ("আপনার শিকায়ত... কো সৌংপী গেই") — minor bug, kabhi Hindi-language complaint aaye to weird dikhega.
+
+---
+
 ### SESSION 62 — Claude Code (July 6, 2026): 🔒 Security hardening — auth guards on all unauth n8n/ai routes
 
 #### ✅ Done
