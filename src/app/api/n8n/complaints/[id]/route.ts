@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { n8nSecretOk } from '@/lib/n8nAuth';
 
-// PATCH /api/n8n/complaints/[id] — Public update for n8n workflows (no auth)
-// Used by WB-02 to assign officers and update complaint fields
+// PATCH /api/n8n/complaints/[id] — n8n update (WB-02 assign/update). Requires X-N8N-SECRET.
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!n8nSecretOk(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const { id } = await params;
 

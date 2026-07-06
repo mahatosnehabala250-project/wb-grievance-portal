@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isAuthedOrN8n } from '@/lib/n8nAuth';
 import ZAI from 'z-ai-web-dev-sdk';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -147,6 +148,7 @@ function bodyFallback(_field: string): string {
 // ── Route Handler ────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
+  if (!(await isAuthedOrN8n(request))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const body: ProcessComplaintRequest = await request.json();
 

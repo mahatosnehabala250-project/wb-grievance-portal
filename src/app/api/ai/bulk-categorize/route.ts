@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isAuthedOrN8n } from '@/lib/n8nAuth';
 import { db } from '@/lib/db';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -54,6 +55,7 @@ function mockAIAnalysis(): Omit<AIResult, 'complaintId' | 'ticketNo'> {
 // ── Route Handler ────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
+  if (!(await isAuthedOrN8n(request))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const body: BulkCategorizeRequest = await request.json();
 

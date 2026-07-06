@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { n8nSecretOk } from '@/lib/n8nAuth';
 
 // POST /api/n8n/reports/save — Save daily report (WB-06)
 // For now just logs and returns success (Airtable not connected yet)
 export async function POST(request: NextRequest) {
+  if (!n8nSecretOk(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const body = await request.json();
     const { reportType, content, stats } = body;

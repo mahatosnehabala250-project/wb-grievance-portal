@@ -437,7 +437,7 @@ function AIBrainTestPanel() {
     try {
       const res = await fetch('/api/ai/process-complaint', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: testText.trim(), district: 'Nadia', block: 'Krishnanagar-I' }),
       });
       const data = await res.json();

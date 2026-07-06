@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { n8nSecretOk } from '@/lib/n8nAuth';
 
-// GET /api/n8n/stats — Public dashboard stats for n8n (WB-06)
-// Returns same stats as dashboard but without auth
+// GET /api/n8n/stats — dashboard stats for n8n (WB-06). Requires X-N8N-SECRET.
 export async function GET(request: NextRequest) {
+  if (!n8nSecretOk(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const { searchParams } = new URL(request.url);
     const fromParam = searchParams.get('from');

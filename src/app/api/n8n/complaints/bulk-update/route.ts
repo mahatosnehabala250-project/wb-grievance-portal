@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { n8nSecretOk } from '@/lib/n8nAuth';
 
 // POST /api/n8n/complaints/bulk-update — Bulk update from Airtable (WB-08)
 // Accepts an array of complaints with id + fields to update
 export async function POST(request: NextRequest) {
+  if (!n8nSecretOk(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const body = await request.json();
     const { complaints } = body;

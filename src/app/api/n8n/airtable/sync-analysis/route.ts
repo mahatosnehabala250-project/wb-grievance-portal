@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { n8nSecretOk } from '@/lib/n8nAuth';
 
-// POST /api/n8n/airtable/sync-analysis — Sync AI analysis to Airtable (WB-07)
-// For now just logs and returns success (Airtable not connected yet)
+// POST /api/n8n/airtable/sync-analysis — Sync AI analysis to Airtable (WB-07). Requires X-N8N-SECRET.
 export async function POST(request: NextRequest) {
+  if (!n8nSecretOk(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const body = await request.json();
     const { complaintId, analysis } = body;

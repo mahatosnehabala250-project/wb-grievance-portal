@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createTraceLogger } from '@/lib/trace/logger';
+import { n8nSecretOk } from '@/lib/n8nAuth';
 
-// POST /api/n8n/sms/send — SMS sending stub for n8n (WB-03)
-// For now just logs and returns success (SMS gateway not configured yet)
+// POST /api/n8n/sms/send — SMS sending stub for n8n (WB-03). Requires X-N8N-SECRET.
 export async function POST(request: NextRequest) {
+  if (!n8nSecretOk(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   // Trace logger: carries the inbound X-Trace-Id (or a fresh uuid7) on every
   // line so outbound-send attempts are reconstructable (Req 27.4, Design §v1.1.8).
   const log = createTraceLogger(request, { route: '/api/n8n/sms/send' });

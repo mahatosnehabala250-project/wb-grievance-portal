@@ -27,6 +27,28 @@
 
 ---
 
+### SESSION 62 — Claude Code (July 6, 2026): 🔒 Security hardening — auth guards on all unauth n8n/ai routes
+
+#### ✅ Done
+- **New helper** `src/lib/n8nAuth.ts`:
+  - `n8nSecretOk(request)` — fail-closed check that `X-N8N-SECRET` header === `process.env.N8N_WEBHOOK_SECRET` (returns false if the env var is unset).
+  - `isAuthedOrN8n(request)` — passes if the request has a valid user JWT **OR** the n8n secret (for routes the frontend also calls).
+- **AI routes** (frontend + n8n callers) guarded with `isAuthedOrN8n` as the first line of the handler:
+  - `POST /api/ai/process-complaint`, `POST /api/ai/smart-reply`, `POST /api/ai/bulk-categorize`.
+  - Fixed the one frontend caller — `IntegrationsView.tsx` admin "test" button now sends `authHeaders()` so it still works after the guard.
+- **n8n-only routes** guarded with `n8nSecretOk` (401 without the secret):
+  - `POST /api/n8n/complaints/bulk-update`, `PATCH /api/n8n/complaints/[id]`, `POST /api/n8n/reports/save`, `GET /api/n8n/stats`, `POST /api/n8n/sms/send`, `POST /api/n8n/airtable/bulk-upsert`, `POST /api/n8n/airtable/sync-analysis`.
+- Already-guarded (verified, unchanged): `/api/n8n/complaints` (GET), `/api/n8n/cascade-trigger` (POST) — both had inline `X-N8N-SECRET` checks.
+- Deliberately left public: `/api/webhook/complaint` + `airtable-webhook` (citizen/WhatsApp intake — hard-guarding breaks the pipeline; recommend rate-limiting instead). `/api/n8n/airtable/complaints` (GET) returns only an empty stub array (no leak).
+- Typecheck: changed files clean (`tsc --noEmit`). Pre-existing 46 errors in unrelated files (examples/, prisma/seed.ts, skills/, cron/classifier-calibration, leaderboard) untouched.
+
+#### 🚨 ACTION REQUIRED — update n8n HTTP Request nodes
+These routes now **401 unless the workflow sends header `X-N8N-SECRET: <N8N_WEBHOOK_SECRET>`**. Add that header to the HTTP Request nodes that call:
+- `bulk-update` (WB-08), `complaints/[id]` PATCH (WB-02), `reports/save` (WB-06), `stats` (WB-06), `sms/send` (WB-03), `airtable/bulk-upsert` (WB-08), `airtable/sync-analysis` (WB-07).
+The secret is already in Vercel env; use the same value in n8n's credential/header. Until then, those specific workflow steps will fail with 401.
+
+---
+
 ### SESSION 61 — Claude Code (June 22, 2026): 🗳 booth rollout — 1 more AC captured, a QUALITY GATE saved us
 
 #### ✅ Done
