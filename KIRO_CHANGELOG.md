@@ -27,6 +27,34 @@
 
 ---
 
+### SESSION 65 — Claude Code (July 7, 2026): 🧪 MLA-demo readiness E2E test — 5 dispatch bugs found & fixed LIVE, Gmail OAuth dead
+
+#### 🔎 Context
+User Purulia ke ek MLA ko demo dikhane wala hai. Full MLA user journey E2E test kiya (portal login → RBAC scoping → complaint → JS-03 dispatch → notifications). Test safe tha: saare messages user ke apne number pe, dept email temporarily user ke Gmail pe route kiya (baad mein restore), test complaint delete kar diya.
+
+#### ✅ Portal (Vercel prod) — MLA journey PASS
+- `mla_demo` / (password CLAUDE_HANDOFF_SESSION_5.md mein) login ✓
+- `/api/complaints`: 104 complaints, **100% Bandwan AC only** (scoping perfect) ✓
+- `/api/users`: creatableRoles = BLOCK_COORD/GP_COORD/KARYAKARTA/OFFICER, list scoped ✓
+
+#### 🐛 5 bugs found → 4 fixed LIVE (JS-03 `ujYm0XWJ93I55GC0` + DB)
+1. **`get_officer_for_complaint` runtime-BROKEN tha** — `u."displayName"`/`u."notifyVia"` reference karta tha, column `name` hai. **Har dispatch chupchap ADMIN-fallback pe ja raha tha** (isliye kabhi notice nahi hua — fallback numbers user ke apne hain). FIXED via migration `fix_get_officer_for_complaint_displayname` (`u.name`). Ab Manbazar I/II → "Soumyadeep Mahato" sahi milta hai.
+2. **Race: parallel branch** — `Fetch Dept Email` parallel tha, serial-chain refactor ke baad Prepare Messages usse pehle chal gaya ("Node hasn't been executed"). FIXED: pura chain ab **linear**: `Fetch Complaint → Find Officer → Get Constituency → Fetch Dept Email → Prepare Messages`.
+3. **`Fetch Dept Email` mein `authentication: "none"`** — credential attach tha par apply nahi ho raha tha → hamesha 401. FIXED: `predefinedCredentialType`/`supabaseApi`.
+4. **`Notify Citizen WA` galat input padhta tha** — uska input `Assign Officer in DB` ka output hai jo `Prefer: return=minimal` se KHALI hota hai → `citizenPhone` undefined → crash (citizen ko JS-03 se kabhi message nahi gaya tha). FIXED: ab `$('Prepare Messages').first().json` se padhta hai.
+5. **`Build Karyakarta Msg` skip-crash** — no-karyakarta case mein `{skip:true}` item return karta tha → WhatsApp node crash. FIXED: ab `return []` (downstream nodes chalte hi nahi).
+
+#### ✔️ Final E2E run (execution 7696) — proof
+- Citizen WA delivered ✓ (wamid mila), Officer WA ✓, Officer Telegram ✓ (message_id 89, "(Bandwan)" constituency included — Session-64 refactor bhi E2E verified)
+- DB: complaint → `ASSIGNED`, officer Soumyadeep Mahato, constituency=Bandwan, constituency_mla=Labsen Baskey ✓
+
+#### ❌ Abhi bhi broken / user action needed
+- **Gmail OAuth credential (`rvEKYjHTJ61TNSo4`) invalid_grant — REVOKED/EXPIRED.** Dept emails ja hi nahi rahe (pata nahi kab se). n8n UI → Credentials → "Gmail account" → Reconnect. Uske baad Email Department node phir chalega.
+- **`karyakartas` table 0 rows** — JS-03 ka karyakarta alert feature data ke bina dead hai. Demo se pehle kam se kam 1-2 real karyakarta rows dalo (ya UserManagement se banao par ye ALAG table hai, users nahi!).
+- Email Department node Gmail fail hone pe pura execution rok deta hai (Find Karyakarta us run mein nahi chala) — Gmail reconnect ke baad theek, ya node pe "continue on error" socho.
+
+---
+
 ### SESSION 64 — Claude Code (July 6, 2026): 🔒 JS-03 hardcoded Supabase SERVICE ROLE key removed (Session-63 security debt cleared)
 
 #### ✅ Done — LIVE via n8n API (workflow `ujYm0XWJ93I55GC0`, new version active)
