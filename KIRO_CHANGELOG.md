@@ -27,6 +27,23 @@
 
 ---
 
+### SESSION 66 — Claude Code (July 7, 2026): 🗺️ Purulia full geo-mapping audit (Dist→AC→Block→GP→Village) + spelling fix + constituency backfill
+
+#### ✅ Audit result — data 100% clean
+- 9 ACs, 20 blocks, 170 GPs, 2,711 villages — 0 orphans, 0 NULL AC/PC/gp_code, 0 duplicate village codes, har GP exactly 1 AC mein. Full mapping: **`PURULIA_GEO_MAPPING.md`** (naya file, repo root).
+- Split blocks correctly handled at village level: Arsha (3 ACs), Hura (2), Purulia-I (2).
+- 89/2711 villages (3.3%) mein lat/lng nahi — sirf map pins pe असर.
+
+#### 🐛 Bug found & FIXED: `get_constituency_for_block` exact-match tha
+- LGD block spellings (Bundwan/Bagmundi/Jaipur/Manbazar-Ii/Raghunath Pur-I...) pe **11/20 lookups NULL** dete the → **110/581 real complaints (~19%)** ko constituency stamp nahi milta tha.
+- FIXED via migration `fix_get_constituency_for_block_spelling_variants`: space/hyphen/case normalization + 3 alias (bundwan→bandwan, bagmundi→baghmundi, jaipur→joypur). Ab **saare 20 LGD + saare complaint spellings resolve** hote hain (verified).
+- **Backfill:** complaints.constituency NULL tha 549/581 pe → village-derived `assembly_constituency` se (fallback: block lookup) **580/581 stamped** (1 = 'Test Block' row, expected). Sirf constituency/constituency_mla columns update kiye — trigger analysis pehle kiya, koi n8n notification fire NahI hua (dispatch/status/category triggers untouched columns pe hain).
+
+#### ⚠️ Next AI — Please Note
+- Do naming systems zinda hain: ECI-style (`constituency_block_mapping`) vs LGD-style (`lgd_blocks`). Block-name compare karte waqt HAMESHA normalize karo ya `get_constituency_for_block` use karo. rbac.ts ka `blocksForAssembly` cbm spellings deta hai — complaints mein LGD spellings bhi aati hain (BLOCK_COORD scope match kabhi-kabhi miss kar sakta hai; MLA/MP scope village-derived AC se safe hai).
+
+---
+
 ### SESSION 65 — Claude Code (July 7, 2026): 🧪 MLA-demo readiness E2E test — 5 dispatch bugs found & fixed LIVE, Gmail OAuth dead
 
 #### 🔎 Context
