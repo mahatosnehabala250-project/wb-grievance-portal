@@ -27,6 +27,27 @@
 
 ---
 
+### SESSION 67 — Claude Code (July 7, 2026): 🏛️ OFFICIAL-source verification (ECI/purulia.gov.in) + BOOTH-wise mapping pilot (Bandwan AC live)
+
+#### ✅ Official verification (Supabase ke bahar ke sources se — user ne manga tha)
+- **20 blocks, 170 GPs** — purulia.gov.in (official district site) ✓
+- **Saare 9 AC compositions** ECI Delimitation Order No.18 (2006/2008) se **EXACT match** — split-block GP lists tak: Balarampur←Purulia-I{Chakaltore,Dimdiha,Durku,Garafusra,Lagda,Sonaijuri}+Arsha{Chatuhansa,Hensla,Puara}; Baghmundi←Arsha{Hetgugui,Sirkabad}; Joypur←Arsha{Arsha,Beldih,Mankiary}; Kashipur←Hura{7 GPs}; Manbazar←Hura{Chatumadar,Daldali,Maguria-Lalpur}; Purulia←Purulia-I{Bhandarpuara-Chipida,Manara} ✓✓
+- **Sabhi 9 mla_name = 2026 election ke REAL winners** (myneta/ECI): Labsen Baskey, Jaladhar Mahato, Rahidas Mahato, Biswajit Mahato, Sudip Kumar Mukherjee, Mayna Murmu, Kamalakanta Hansda, Nadiar Chand Bouri, Mamoni Bauri — sab BJP ✓. 2021 results table bhi Wikipedia se cross-checked (Bandwan 2021: Rajib Lochan Saren AITC ✓).
+- NOTE: 2026 SIR ke baad AC numbers badle: Bandwan ab **238** (pehle 236-series). PS lists purulia.gov.in pe AC 238-246.
+
+#### 🗳️ NEW: `polling_stations` table — Bandwan AC booth-wise mapping (pilot)
+- Source: official PS list PDF (purulia.gov.in, Apr 2026) — scanned PDF tha, **Gemini OCR** se 366 booths (343 main + auxiliary) extract kiye.
+- Migration `create_polling_stations_table`; har booth: ps_no, school/building, village_raw + **LGD match** (village_code, gp_code, gp_name, block_name, match_score) — pg_trgm fuzzy match village-name AUR school-name dono se.
+- Result: **366 booths → saare 25 GPs, teeno blocks** (Barabazar 186, Bundwan 93, Manbazar-II 87). Match quality: 262 strong (≥0.6), 60 medium, 44 weak (<0.4 — manual review: `SELECT ps_no, ps_name, village_raw FROM polling_stations WHERE match_score<0.4`).
+- Ab possible: karyakarta ko booth assign karna, complaint→village→booth chain, booth-wise tracking.
+- Baaki 8 ACs ke PS list PDFs ke URLs same purulia.gov.in page pe hain — same pipeline (scratchpad script: Gemini OCR → INSERT → fuzzy match) repeat karna hai.
+
+#### ℹ️ Aur notes
+- **Supabase service-role key ROTATE ho chuki hai** ✓ (purani JS-03 wali key ab "Invalid API key" deti hai — Session 64 ki recommendation poori hui). Vercel env + n8n credential naye key se chal rahe hain.
+- PS 340 (Karru Pry. School) ka village_raw='upar para' — school naam se matched.
+
+---
+
 ### SESSION 66 — Claude Code (July 7, 2026): 🗺️ Purulia full geo-mapping audit (Dist→AC→Block→GP→Village) + spelling fix + constituency backfill
 
 #### ✅ Audit result — data 100% clean
