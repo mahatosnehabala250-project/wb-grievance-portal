@@ -97,6 +97,26 @@
 | Santuri (6 GP, 104 v) | Balitora(27), Garsika(14), Muradi(12), Ramchandrapur-Kotaldi(14), Santuri(16), Tarabari(21) |
 
 ---
+
+## 🗳️ Booth-wise mapping (`polling_stations` table — added Jul 7-8, 2026)
+Source: official PS list PDFs (purulia.gov.in, Apr 2026 SIR — new AC numbers 238-246), Gemini-OCR extracted, LGD fuzzy-matched (village + school name). **2,802 booths → all 170 GPs**; per-AC GP coverage exactly matches the official AC→GP mapping above.
+
+| AC (2026 no.) | Booths | GPs covered | Strong match (≥0.6) | Weak (<0.4, needs local verify) |
+|---|---|---|---|---|
+| Bandwan (238) | 366 | 25/25 ✓ | 262 | 44 |
+| Balarampur (239) | 283 | 16/16 ✓ | 155 | 75 |
+| Baghmundi (240) | 304 | 20/20 ✓ | 193 | 63 |
+| Joypur (241) | 313 | 19/19 ✓ | 185 | 58 |
+| Purulia (242) | 307 | 11/11 ✓ | 124 | 145 *(municipality wards — LGD rural mein nahi)* |
+| Manbazar (243) | 314 | 23/23 ✓ | 223 | 50 |
+| Kashipur (244) | 298 | 20/20 ✓ | 162 | 50 |
+| Para (245) | 299 | 16/16 ✓ | 167 | 66 |
+| Raghunathpur (246) | 318 | 20/20 ✓ | 156 | 76 |
+| **TOTAL** | **2,802** | **170/170** ✓ | 1,627 (58%) | 627 (22%) |
+
+- Weak matches review: `SELECT ac, ps_no, ps_name, village_raw FROM polling_stations WHERE match_score < 0.4 ORDER BY ac, id;` — mostly municipality wards (Purulia/Jhalda/Raghunathpur towns) + hamlet-only names; ek baar karyakarta se verify karake `village_code`/`gp_code` manually set karo.
+- ⚠️ `election_results_booth` (2021) ke PS numbers PURANE hain — 2026 SIR ke baad numbering badli hai; 2021 booth results ko naye booth list se number-pe-number JOIN mat karo.
+
 **Totals cross-check:** GPs 20+16+25+19+20+23+16+11+20 = **170** ✓ · Villages 318+198+504+281+299+382+243+153+333 = **2,711** ✓
 
 > Note: municipal/urban areas (Purulia, Jhalda, Raghunathpur municipalities) LGD *rural* villages mein nahi hote — ye mapping rural GP-level hai, jo grievance portal ka scope hai.

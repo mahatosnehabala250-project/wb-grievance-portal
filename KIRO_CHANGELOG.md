@@ -27,6 +27,21 @@
 
 ---
 
+### SESSION 68 — Claude Code (July 8, 2026): 🗳️ BOOTH-wise mapping COMPLETE — saare 9 ACs, 2,802 booths, 170/170 GPs
+
+#### ✅ Done
+- Baaki 8 ACs (239-246) ke official PS list PDFs (purulia.gov.in, Apr 2026 SIR) → Gemini OCR → `polling_stations` insert → LGD fuzzy-match. Bandwan (Session 67) milake ab **2,802 booths**.
+- **Har AC ka GP coverage official mapping se EXACT** (Bandwan 25, Balarampur 16, Baghmundi 20, Joypur 19, Purulia 11, Manbazar 23, Kashipur 20, Para 16, Raghunathpur 20 = 170/170 ✓).
+- Match quality: 1,627 strong (58%) + 548 medium (20%) + 627 weak (22%). Weak zyada tar **municipality wards** (Purulia AC 145 — town booths, LGD rural mein nahi hote) + hamlet-only names. Review query PURULIA_GEO_MAPPING.md mein.
+- PURULIA_GEO_MAPPING.md mein booth section add hua.
+- Insert anon key se hua (service key rotate ho chuki hai ✓); `polling_stations` pe RLS nahi hai — production app expose karne se pehle RLS policy lagao ya sirf server-side read karo.
+
+#### ⚠️ Next AI — Please Note
+- **2021 booth results (`election_results_booth`) ke PS numbers ≠ 2026 PS numbers** (SIR re-numbering). Number-pe-number join INVALID hai. Historical booth analysis ke liye 2021 PS list chahiye hogi.
+- 627 weak matches: karyakarta ground-verification loop banao (ya admin UI mein manual assign) — `WHERE match_score < 0.4`.
+
+---
+
 ### SESSION 67 — Claude Code (July 7, 2026): 🏛️ OFFICIAL-source verification (ECI/purulia.gov.in) + BOOTH-wise mapping pilot (Bandwan AC live)
 
 #### ✅ Official verification (Supabase ke bahar ke sources se — user ne manga tha)
