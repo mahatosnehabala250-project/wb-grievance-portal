@@ -27,6 +27,21 @@
 
 ---
 
+### SESSION 69 — Claude Code (July 8, 2026): 🖥️ Booths PORTAL INTEGRATION (frontend+backend) — multi-agent build
+
+#### ✅ New feature: Booth Directory in the portal
+- **`src/app/api/booths/route.ts`** (new): GET (RBAC-scoped booth list — ADMIN/STATE sab, MP apni seat ke ACs, MLA apna AC, DISTRICT sab, BLOCK_COORD apna block via normalized match, GP_COORD apna gp_code, KARYAKARTA sirf apne assigned booths) + PATCH (karyakarta assign/unassign + village-mapping manual correction, dono scope-checked; corrected village bhi actor ke jurisdiction ke andar hona chahiye).
+- **`src/components/BoothsView.tsx`** (new): ek simple "Booth Directory" screen — AC/GP filter, search, weak-only toggle, match badges (OK/Check/Verify), karyakarta assign dropdown. Koi intelligence-style clutter nahi.
+- **Wiring**: `page.tsx` nav mein 'Booths' (Vote icon, core menu — Map ke baad), `ViewType` mein 'booths'.
+- **DB**: `polling_stations.karyakarta_user_id` column + index; **RLS enabled** (no policies → sirf service-role; portal server + n8n hi access karte hain).
+- Build process: Fable orchestrator + 4 × Sonnet-5 worker agents (2 parallel builders, 1 wiring, 1 tsc-verify). Verifier ne ek scope-escape gap pakda tha (GP_COORD apne GP ke bahar booth remap kar sakta tha) — orchestrator ne fix kiya (`boothInScope` re-check on corrected mapping).
+- `tsc --noEmit`: booth files clean. NOTE: repo mein kaafi PRE-EXISTING type errors hain (tests/, examples/, db.ts, leaderboard...) — wo untouched hain, list Session-69 verify report mein.
+
+#### 📦 Bhi commit hua: stranded "Handoffs & Consent" files
+- `HandoffsConsentView.tsx`, `api/handoffs/route.ts`, `api/admin/consent/` + page.tsx ke handoffs edits — ye kisi pichhle session ka finished-but-UNCOMMITTED kaam working tree mein pada tha; page.tsx isse import karta hai isliye saath commit karna zaroori tha (warna Vercel build fail).
+
+---
+
 ### SESSION 68 — Claude Code (July 8, 2026): 🗳️ BOOTH-wise mapping COMPLETE — saare 9 ACs, 2,802 booths, 170/170 GPs
 
 #### ✅ Done

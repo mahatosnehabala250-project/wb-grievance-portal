@@ -14,7 +14,7 @@ import {
   Settings, CircleHelp, Monitor, Mail, Volume2, LayoutGrid, Keyboard,
   UserCheck, GitCompareArrows, CalendarClock, History, Tag, ClipboardList,
   AlertCircle, Info, CheckCircle2 as CheckCircleFill, Sparkles, Megaphone,
-  ArrowUp, Flame, CalendarRange, TimerReset, Server, Radio, Workflow, BookOpen, BrainCircuit, Heart, ShieldAlert,
+  ArrowUp, Flame, CalendarRange, TimerReset, Server, Radio, Workflow, BookOpen, BrainCircuit, Heart, ShieldAlert, HeartHandshake, Vote,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -85,8 +85,10 @@ import { MapView } from '@/components/MapView';
 import { OverviewDashboard } from '@/components/OverviewDashboard';
 import { SchemeKnowledgeView } from '@/components/SchemeKnowledgeView';
 import { N8nEndpointHealth } from '@/components/N8nEndpointHealth';
+import { HandoffsConsentView } from '@/components/HandoffsConsentView';
 import DeploymentGuideView from '@/components/DeploymentGuideView';
 import LiveDataMonitor from '@/components/LiveDataMonitor';
+import { BoothsView } from '@/components/BoothsView';
 export default function HomePage() {
   const { user, isAuthenticated, logout, checkAuth } = useAuthStore();
   const { theme, setTheme } = useTheme();
@@ -131,6 +133,7 @@ export default function HomePage() {
         homeItem,
         item('complaints', t('complaints'), FileText),
         item('map', 'Map', MapPin),
+        item('booths', 'Booths', Vote),
         item('intel_command', 'Intelligence', BrainCircuit),
         ...(showTeam ? [item('users', 'Team', Users)] : []),
         item('settings', t('settings'), Settings),
@@ -142,7 +145,8 @@ export default function HomePage() {
         core,
         {
           title: 'System', items: [
-            item('chat', 'WhatsApp Chats', MessageSquare), item('analytics', t('analytics'), BarChart2),
+            item('chat', 'WhatsApp Chats', MessageSquare), item('handoffs', 'Handoffs & Consent', HeartHandshake),
+            item('analytics', t('analytics'), BarChart2),
             item('intelligence', 'Alert Engine', ShieldAlert), item('schemes', 'Schemes', BookOpen),
             item('liveData', 'Live Data', Radio), item('audit', t('auditLog'), History),
             item('systemStatus', t('systemStatus'), Activity), item('integrations', 'Integrations', Zap),
@@ -745,6 +749,9 @@ export default function HomePage() {
                 {view === 'map' && (
                   <MapView />
                 )}
+                {view === 'booths' && (
+                  <BoothsView />
+                )}
                 {view === 'mp_command' && (user?.role_level === 'MP' || user?.role === 'ADMIN') && (
                   <MPCommandView />
                 )}
@@ -774,6 +781,9 @@ export default function HomePage() {
                 )}
                 {view === 'liveData' && (
                   <LiveDataMonitor />
+                )}
+                {view === 'handoffs' && user?.role === 'ADMIN' && (
+                  <HandoffsConsentView />
                 )}
               </ErrorBoundary>
               </motion.div>
