@@ -27,6 +27,21 @@
 
 ---
 
+### SESSION 70 — Claude Code (July 8, 2026): 📣 Karyakarta alerts LIVE — users table se, TELEGRAM-only (cost ₹0)
+
+#### ✅ Done
+- **`get_karyakarta_for_gp` REWRITTEN** (migration `karyakarta_alerts_from_users_telegram_first`): ab legacy khali `karyakartas` table ki jagah **portal `users` table** se padhta hai (role_level='KARYAKARTA', isActive, telegramChatId required). Single source of truth — Team se user banao, wahi login + alerts. GP-name normalized match + block-level fallback. Return type badla (karyakarta_id uuid→text) isliye DROP+CREATE.
+- **JS-03 Telegram-only**: "Notify Karyakarta WA" node DELETE (ab 14 nodes); Build Karyakarta Msg sirf Telegram id wale karyakarta pe emit karta hai. WhatsApp conversation cost karyakarta alerts pe ab ZERO.
+- **Email Department node: `onError: continueRegularOutput`** — Gmail OAuth dead hone se ab ground-alerts block nahi hote (pehle Email error pe Find Karyakarta chalta hi nahi tha).
+- `karyakarta_demo` ko demo ke liye Telegram chat id (owner ki) + notifyVia='telegram' diya.
+- **E2E VERIFIED (execution 7762, full SUCCESS — JS-03 ka pehla 100% green run)**: test complaint (Kamta Jangidiri GP) → officer assign → citizen WA → officer WA+TG → **karyakarta Telegram delivered** (msg 93). Test complaint delete kar diya.
+
+#### ⚠️ Notes
+- Gmail credential ab bhi reconnect karna hai (emails abhi bhi nahi jate — bas ab wo baaki flow nahi rokta).
+- Legacy `karyakartas` table ab UNUSED — mat bharo, users table hi use karo (Team → Add User → Karyakarta + Telegram chat ID; Telegram id lene ke liye JS-12 staff self-link flow hai).
+
+---
+
 ### SESSION 69 — Claude Code (July 8, 2026): 🖥️ Booths PORTAL INTEGRATION (frontend+backend) — multi-agent build
 
 #### ✅ New feature: Booth Directory in the portal
