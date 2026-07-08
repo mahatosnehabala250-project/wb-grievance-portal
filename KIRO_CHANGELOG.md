@@ -27,6 +27,22 @@
 
 ---
 
+### SESSION 71 — Claude Code (July 8, 2026): 🩸 Blood-removal PREP + 🎯 War Room design (n8n DOWN — live fix queued)
+
+#### ⚠️ n8n DOWN — core ask blocked
+- Owner ne kaha: WhatsApp bot ke "hii" reply se blood/donor (রক্ত সহায়ক) option **totally hatao**. Wo reply LIVE n8n bot (JS-01v2 CEO Router → Blood/Donor agents + welcome menu) banata hai. **n8n server down tha (HTTPS 000, 5+ retries)** — na reply dekh saka na edit. Isliye blind delete NAHI kiya.
+- Discovery: blood/donor koi menu-line nahi — **75 files** mein gutha hua sub-product (router core ceoRouter.ts/classifier.ts + ~29 test files incl. 4 high-risk property tests + 4 prompts + DonorPoolTable + 3 DB tables + RLS). BLOOD_REMOVAL_PLAN.md dekho.
+
+#### ✅ Prepared (Fable orchestrator + 3× Sonnet-5 workers, no destructive changes)
+- **`scratchpad/remove_blood_n8n.js`** (ready, NOT run): `inspect` mode n8n up hote hi live reply DIKHAYEGA (owner ka "dekho" step) + kaunse node blood/donor mention karte hain; `apply` mode backup-first blood/donor nodes + welcome-menu ki blood lines strip karta hai, phir GET karke assert karta hai zero blood bacha. Dynamic id discovery, idempotent. **Run order: inspect → eyeball → apply.**
+- **`WAR_ROOM.md`** (new): War Room feature design — TV-friendly single-pane command center; booth-heat + hotspot booths (complaint load × election margin) + karyakarta activity + live complaint ticker; sab EXISTING data se (polling_stations, complaints, election_results_booth, /api/map/politics). ~5-7 dev-days. Election-window 2-3× premium upsell.
+- **`BLOOD_REMOVAL_PLAN.md`** (new): exact 75-file blast-radius, sequenced — (1) n8n live fix first (only thing citizen sees), (2) portal code refactor behind it, (3) DB drop LAST (destructive, backup + explicit confirm). Property-test churn = biggest risk.
+
+#### ⏭️ Next (jab n8n up ho)
+- `node remove_blood_n8n.js inspect` → reply dekho → `apply` → verify. Phir portal code removal (plan ke hisaab se). DB drop alag confirmed migration.
+
+---
+
 ### SESSION 70 — Claude Code (July 8, 2026): 📣 Karyakarta alerts LIVE — users table se, TELEGRAM-only (cost ₹0)
 
 #### ✅ Done
