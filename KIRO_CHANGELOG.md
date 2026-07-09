@@ -27,6 +27,25 @@
 
 ---
 
+### SESSION 72 — Claude Code (July 8, 2026): ✅ Blood REMOVED from live WhatsApp bot (n8n back up)
+
+#### 🔎 Live reply "dekha" (inspect) — architecture repo se ALAG nikli
+- Live JS-01 = **"Sahayak — Citizen AI Agent"** (`YsUZwu99ckTnzekR`) — ek single LangChain AI Agent (NOT the repo's JS-01v2 Blood/Donor branch design). "hii" reply idle-menu mein 2 blood lines thi: `🩸 রক্ত দরকার...` + `❤️ ডোনার হতে চান...`. Blood logic AI Agent ke system message + 5 tool nodes mein.
+
+#### ✅ Applied LIVE (backup-first, verified) — JS-01 new version active
+- **Welcome menu**: dono blood/donor lines HATAYI. Naya reply: নমস্কার → শুধু "📋 সরকারি অভিযোগ দায়ের করুন" → "কী সাহায্য করব?"
+- **AI Agent system message**: blood/donor sari lines removed (CONTEXT-FIRST donor/blood, BLOOD REQUEST/DONOR REG flows, Distinctions ka PAUSE/RESUME/DONATED).
+- **5 blood tool nodes DELETED**: RegisterDonor, CreateBloodRequest, DonorRespond, UpdateDonorStatus, SeekerConfirm (29→24 nodes). **CheckDuplicate RAKHA** (complaint flow use karta hai).
+- Verify: system message blood-free PASS, tool nodes gone PASS, zero blood/donor/রক্ত/ডোনার anywhere in JS-01 nodes, versionId==activeVersionId, active. Backup: `scratchpad/n8n_backup_YsUZwu99ckTnzekR_*.json`.
+- **JS-15 (Rakta Matching) + JS-16 (Rakta Donor-Accept) DEACTIVATED** — ab orphan the (JS-01 se koi blood request bante hi nahi). Reversible (delete nahi kiya). CEO Orchestrator pehle se inactive.
+
+#### ⏭️ Bacha (non-urgent — citizen ab blood dekhta hi nahi)
+- Portal CODE refactor (BLOOD_REMOVAL_PLAN.md — 75 files, router core + ~29 tests) — jab bolo.
+- DB tables (blood_donors/blood_requests/donation_history) — destructive, alag backup+confirm migration.
+- JS-15/16 + Rakta DB RPCs delete karna ho to bata dena (abhi safe-off hain).
+
+---
+
 ### SESSION 71 — Claude Code (July 8, 2026): 🩸 Blood-removal PREP + 🎯 War Room design (n8n DOWN — live fix queued)
 
 #### ⚠️ n8n DOWN — core ask blocked
