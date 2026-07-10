@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { notifyN8NNewComplaint } from '@/lib/n8n-webhook';
+import { n8nSecretOk } from '@/lib/n8nAuth';
 
-// POST /api/webhook/complaint — Webhook for n8n to push complaints
+// POST /api/webhook/complaint — Webhook for n8n to push complaints.
+// SECURITY (2026-07-10 audit): fail-closed M2M gate. This legacy route inserts
+// complaints with attacker-controlled PII and fires the notify cascade; the live
+// bot uses /api/complaints/register (which is already gated). Require the shared
+// secret so this can never be POSTed anonymously.
 export async function POST(request: NextRequest) {
+  if (!n8nSecretOk(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const body = await request.json();
 

@@ -27,6 +27,23 @@
 
 ---
 
+### SESSION 73 — Claude Code (July 10, 2026): 🔍 Full CEO app-review (6 agents) + 🔒 live security holes CLOSED
+
+#### 🔍 Review (Fable advisor + 6× Sonnet-5, live code+DB+n8n) → **APP_REVIEW.md**
+- Verdict: **engineering real & good, product not real yet — 0 real users.** 90% demo data, real WhatsApp inflow flatlined 2026-06-25 (15 days dark), karyakarta table = 1 person, 0/2,802 booths assigned, War Room = design-only (0 code), FOCUS.md 5 questions still blank.
+- Frontend "demo feel" root-caused: frozen fake "AI Brain — Live" widget (DashboardView.tsx:79-97), fake Bulk-AI-Categorization that lies "saved" (ComplaintsView.tsx:373-425), hardcoded response-time + sidebar pills.
+- n8n: JS-01 intake real; JS-03 Jul-7 bugs already fixed (Session 65/70, exec 7762 green); JS-08 Watchdog alert routing broken (failures silent); `src/lib/n8n-webhook.ts` posts to WB-02/03/04 paths that don't exist.
+
+#### 🔒 Security — LIVE holes found & CLOSED this session
+- **anon-reachable PII RPCs revoked**: `register_complaint`, `get_citizen_telegram`, `upsert_citizen_profile` (both overloads) — anyone with the public anon key could insert complaints / leak citizen Telegram ids / overwrite profiles. Migration `security_hardening_revoke_anon_and_enable_rls_v2`. Verified anon=false, **service_role still works (bot unaffected)**.
+- **RLS enabled** on `election_results_ac` + `election_results_booth` (were fully open).
+- **Unauth webhook locked**: `src/app/api/webhook/complaint/route.ts` now fail-closed behind `n8nSecretOk`.
+- STILL OPEN (P1): GitHub PAT in git remote URL; stale `supabase-migration.sql` landmine (USING(true) service-role-bypass policies); 82 SECURITY DEFINER fns unaudited.
+
+#### ⏭️ P0 next: (1) get ONE real office live 30 days, (2) kill demo-feel UI (½ day), (3) fix JS-08 alerting. See APP_REVIEW.md §3.
+
+---
+
 ### SESSION 72 — Claude Code (July 8, 2026): ✅ Blood REMOVED from live WhatsApp bot (n8n back up)
 
 #### 🔎 Live reply "dekha" (inspect) — architecture repo se ALAG nikli
