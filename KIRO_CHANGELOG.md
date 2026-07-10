@@ -27,6 +27,24 @@
 
 ---
 
+### SESSION 74 — Claude Code (July 10, 2026): 🧪 Role-system E2E verify (all 6 levels) + booths/map scope hardening
+
+#### ✅ Verified LIVE (4 agents created real test users at each level, logged in, probed, cleaned up)
+- **Complaints scoping: PASS all 6 levels** (MP→7 ACs, MLA→own AC only, DISTRICT→district, BLOCK_COORD→own block, GP_COORD→own gp_code, KARYAKARTA→gp fallback). `getComplaintScopeFilter`/`complaintInScope` solid.
+- **User-management + creatableRoles: PASS all 6** (each sees only lower ranks in own geography; KARYAKARTA 403 by design).
+- **Create-user FRONTEND form: PASS all 6** (UserManagementView shows right fields per role — Lok Sabha/constituency/block/gp_code — matches server `validateNewUserScope`).
+- **MAP: scoped ✓** — MapView uses `/api/map/villages` + `/api/map/politics`, both use `getComplaintScopeFilter` (MLA sees only their AC). `/risk` also scoped.
+
+#### 🔧 Fixed
+- **`/api/booths` GET — defense-in-depth**: added final `booths.filter(b => boothInScope(scope, b))` so a GP_COORD/KARYAKARTA can NEVER receive another GP's/worker's booths through any query path. (Committed code already applied gp_code/karyakarta filters correctly — an agent reported a leak I could not reproduce from the code; this makes it structurally impossible regardless.)
+- **`/api/map/block-stats` — was UNSCOPED** (authed but returned all-district complaints to any role; not used by the UI but reachable by URL). Now scope-locked via `db.complaint.findMany({ where: getComplaintScopeFilter(payload) })`.
+- tsc: both edited files clean (pre-existing repo errors untouched).
+
+#### ⚠️ Known (non-leak) UX gap
+- Booths default view for BLOCK_COORD/GP_COORD may need the frontend to auto-narrow (BoothsView only auto-selects AC when meta.acs.length===1 = MLA only). Re-verify live once login rate-limit resets. Not a security issue — scope is enforced server-side.
+
+---
+
 ### SESSION 73 — Claude Code (July 10, 2026): 🔍 Full CEO app-review (6 agents) + 🔒 live security holes CLOSED
 
 #### 🔍 Review (Fable advisor + 6× Sonnet-5, live code+DB+n8n) → **APP_REVIEW.md**

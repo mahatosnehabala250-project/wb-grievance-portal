@@ -193,6 +193,11 @@ export async function GET(request: NextRequest) {
       booths = booths.slice(offset, offset + limit);
     }
 
+    // Defense-in-depth: re-assert the caller's scope on every returned row, so a
+    // scope leak is impossible even if a query clause above is ever wrong (a
+    // GP_COORD/KARYAKARTA must never receive another GP's or another worker's booths).
+    booths = booths.filter((b) => boothInScope(scope, b));
+
     // Enrich with karyakarta display name.
     const karyakartaIds = [...new Set(
       booths

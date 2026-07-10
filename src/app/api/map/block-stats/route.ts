@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { verifyToken, getTokenFromRequest } from "@/lib/jwt";
+import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from "@/lib/jwt";
+import { db } from "@/lib/db";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// NOTE: superseded by /api/map/risk (scope-locked). Kept for back-compat but
-// now requires auth so it no longer leaks all-district data to anonymous callers.
+// NOTE: superseded by /api/map/risk (scope-locked). Kept for back-compat.
+// SECURITY (2026-07-10 audit): now scope-locked via getComplaintScopeFilter — an
+// MLA/BLOCK_COORD etc. only sees their own jurisdiction's block stats, not the
+// whole district (previously it returned all complaints to any authed caller).
 export async function GET(request: NextRequest) {
   try {
     const token = getTokenFromRequest(request);
@@ -16,13 +19,11 @@ export async function GET(request: NextRequest) {
     const payload = await verifyToken(token);
     if (!payload) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
 
-    // Fetch complaint stats by block
-    const { data: complaints, error: ce } = await supabase
-      .from("complaints")
-      .select("district, block, constituency, status, category")
-      .not("district","is",null)
-      .not("block","is",null);
-    if (ce) throw ce;
+    // Fetch complaint stats by block — SCOPED to the caller's jurisdiction.
+    const complaints = await db.complaint.findMany({
+      where: getComplaintScopeFilter(payload),
+      select: { district: true, block: true, constituency: true, status: true, category: true },
+    });
 
     // Fetch village coordinates
     const { data: villages, error: ve } = await supabase
