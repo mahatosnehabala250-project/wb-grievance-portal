@@ -27,6 +27,14 @@
 
 ---
 
+### SESSION 75 — Claude Code (July 10, 2026): 🛠️ Booths UI gaps fixed (inline Add-Karyakarta + GP_COORD in dropdown)
+
+- **BoothsView.tsx**: (1) "+ Add Karyakarta" button + compact Dialog — create a karyakarta (name/username/password/WhatsApp/Telegram/GP code, prefilled from current AC/GP) without leaving the Booths screen; on success refreshes the assign dropdowns live. (2) Assign dropdown now includes **GP_COORD** users too (backend already allowed it; UI only listed KARYAKARTA) — shown as "Name (GP Coord)". `loadKaryakartas` refactored to a reusable callback.
+- tsc: BoothsView.tsx clean; no other file touched. Sonnet-5 executor, Fable-orchestrated.
+- Next: booth-level hotspot targeting (War Room core — election margin × live complaints per booth).
+
+---
+
 ### SESSION 74 — Claude Code (July 10, 2026): 🧪 Role-system E2E verify (all 6 levels) + booths/map scope hardening
 
 #### ✅ Verified LIVE (4 agents created real test users at each level, logged in, probed, cleaned up)

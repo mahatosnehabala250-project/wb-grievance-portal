@@ -1,18 +1,22 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, MapPin, Vote, ShieldAlert } from 'lucide-react';
+import { Search, MapPin, Vote, ShieldAlert, UserPlus } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/lib/auth-store';
 import { NAVY } from '@/lib/constants';
@@ -41,6 +45,21 @@ interface KaryakartaOption {
   role_level: string;
 }
 
+interface NewKaryakartaForm {
+  name: string;
+  username: string;
+  password: string;
+  whatsappPhone: string;
+  telegramChatId: string;
+  gp_code: string;
+  gp_name: string;
+  block: string;
+}
+
+const EMPTY_NEW_KARYAKARTA: NewKaryakartaForm = {
+  name: '', username: '', password: '', whatsappPhone: '', telegramChatId: '', gp_code: '', gp_name: '', block: '',
+};
+
 const ALL_GPS = '__ALL_GPS__';
 const UNASSIGN = '__UNASSIGN__';
 
@@ -68,6 +87,10 @@ export function BoothsView() {
   const [karyakartasLoaded, setKaryakartasLoaded] = useState(false);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
 
+  const [addKaryakartaOpen, setAddKaryakartaOpen] = useState(false);
+  const [newKaryakarta, setNewKaryakarta] = useState<NewKaryakartaForm>({ ...EMPTY_NEW_KARYAKARTA });
+  const [creatingKaryakarta, setCreatingKaryakarta] = useState(false);
+
   const fetchBooths = useCallback(async (ac: string) => {
     setLoading(true);
     try {
@@ -94,28 +117,29 @@ export function BoothsView() {
 
   useEffect(() => { fetchBooths(selectedAc); }, [selectedAc, fetchBooths]);
 
-  // Karyakarta options for assignment — only fetched once, only for actors who may assign.
+  // Karyakarta options for assignment — includes both KARYAKARTA and GP_COORD
+  // users, since booths can be assigned to either. Exposed as a reusable
+  // loader so it can be re-run after creating a new karyakarta inline.
+  const loadKaryakartas = useCallback(async () => {
+    try {
+      const res = await fetch('/api/users?role=ALL', { headers: authHeaders() });
+      if (res.ok) {
+        const json = await res.json();
+        const list = (json.users || []).filter((u: Record<string, unknown>) => u.role_level === 'KARYAKARTA' || u.role_level === 'GP_COORD');
+        setKaryakartas(list.map((u: Record<string, unknown>) => ({ id: u.id as string, name: u.name as string, role_level: u.role_level as string })));
+      }
+      // 403 or any other non-ok: silently fall back to plain text display
+    } catch {
+      // silent — falls back to plain text
+    }
+    setKaryakartasLoaded(true);
+  }, []);
+
+  // Only fetched for actors who may assign.
   useEffect(() => {
     if (!canAssign) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/users?role=ALL', { headers: authHeaders() });
-        if (res.ok) {
-          const json = await res.json();
-          if (!cancelled) {
-            const list = (json.users || []).filter((u: Record<string, unknown>) => u.role_level === 'KARYAKARTA');
-            setKaryakartas(list.map((u: Record<string, unknown>) => ({ id: u.id as string, name: u.name as string, role_level: u.role_level as string })));
-          }
-        }
-        // 403 or any other non-ok: silently fall back to plain text display
-      } catch {
-        // silent — falls back to plain text
-      }
-      if (!cancelled) setKaryakartasLoaded(true);
-    })();
-    return () => { cancelled = true; };
-  }, [canAssign]);
+    loadKaryakartas();
+  }, [canAssign, loadKaryakartas]);
 
   const showAssignSelect = canAssign && karyakartasLoaded && karyakartas.length >= 0;
 
@@ -179,6 +203,62 @@ export function BoothsView() {
     setUpdatingId(null);
   }, [karyakartas]);
 
+  const openAddKaryakarta = useCallback(() => {
+    // Prefill GP/block from the currently filtered GP if one is selected,
+    // otherwise fall back to the first booth of the loaded list.
+    const source = gpFilter !== ALL_GPS ? booths.find((b) => b.gp_name === gpFilter) : booths[0];
+    setNewKaryakarta({
+      ...EMPTY_NEW_KARYAKARTA,
+      gp_code: source?.gp_code || '',
+      gp_name: source?.gp_name || '',
+      block: source?.block_name || '',
+    });
+    setAddKaryakartaOpen(true);
+  }, [booths, gpFilter]);
+
+  const handleAddKaryakarta = useCallback(async () => {
+    if (!newKaryakarta.name.trim() || !newKaryakarta.username.trim() || !newKaryakarta.gp_code.trim()) {
+      toast.error('Name, username and GP code are required');
+      return;
+    }
+    if (newKaryakarta.password.length < 8) {
+      toast.error('Password must be at least 8 characters');
+      return;
+    }
+    setCreatingKaryakarta(true);
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          username: newKaryakarta.username,
+          password: newKaryakarta.password,
+          name: newKaryakarta.name,
+          role: 'BLOCK',
+          role_level: 'KARYAKARTA',
+          gp_code: newKaryakarta.gp_code,
+          gp_name: newKaryakarta.gp_name,
+          block: newKaryakarta.block,
+          district: 'Purulia',
+          whatsappPhone: newKaryakarta.whatsappPhone,
+          telegramChatId: newKaryakarta.telegramChatId,
+        }),
+      });
+      if (res.status === 201) {
+        toast.success('Karyakarta added');
+        setAddKaryakartaOpen(false);
+        setNewKaryakarta({ ...EMPTY_NEW_KARYAKARTA });
+        loadKaryakartas();
+      } else {
+        const json = await res.json().catch(() => null);
+        toast.error(json?.error || 'Failed to create karyakarta');
+      }
+    } catch {
+      toast.error('Network error');
+    }
+    setCreatingKaryakarta(false);
+  }, [newKaryakarta, loadKaryakartas]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -235,6 +315,17 @@ export function BoothsView() {
         >
           <ShieldAlert className="h-3.5 w-3.5" />Weak only
         </Button>
+
+        {canAssign && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 text-xs gap-1.5"
+            onClick={openAddKaryakarta}
+          >
+            <UserPlus className="h-3.5 w-3.5" />Add Karyakarta
+          </Button>
+        )}
       </div>
 
       {/* Stats chips */}
@@ -326,7 +417,9 @@ export function BoothsView() {
                             <SelectContent>
                               <SelectItem value={UNASSIGN}>Unassign</SelectItem>
                               {karyakartas.map((k) => (
-                                <SelectItem key={k.id} value={k.id}>{k.name}</SelectItem>
+                                <SelectItem key={k.id} value={k.id}>
+                                  {k.role_level === 'GP_COORD' ? `${k.name} (GP Coord)` : k.name}
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -340,6 +433,62 @@ export function BoothsView() {
           </Table>
         </div>
       </Card>
+
+      {/* Add Karyakarta Dialog */}
+      <Dialog open={addKaryakartaOpen} onOpenChange={setAddKaryakartaOpen}>
+        <DialogContent className="sm:max-w-md border-0 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold">Add Karyakarta</DialogTitle>
+            <DialogDescription>Register a new karyakarta without leaving the Booths screen.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-widest">Full Name</Label>
+                <Input value={newKaryakarta.name} onChange={(e) => setNewKaryakarta((p) => ({ ...p, name: e.target.value }))} placeholder="Full name" className="h-9 text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-widest">Username</Label>
+                <Input value={newKaryakarta.username} onChange={(e) => setNewKaryakarta((p) => ({ ...p, username: e.target.value }))} placeholder="username" className="h-9 text-sm" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-widest">Password</Label>
+              <Input value={newKaryakarta.password} onChange={(e) => setNewKaryakarta((p) => ({ ...p, password: e.target.value }))} placeholder="Min 8 characters" className="h-9 text-sm" type="password" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-widest">WhatsApp Number</Label>
+                <Input value={newKaryakarta.whatsappPhone} onChange={(e) => setNewKaryakarta((p) => ({ ...p, whatsappPhone: e.target.value }))} placeholder="919876543210" className="h-9 text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-widest">Telegram Chat ID</Label>
+                <Input value={newKaryakarta.telegramChatId} onChange={(e) => setNewKaryakarta((p) => ({ ...p, telegramChatId: e.target.value }))} placeholder="Get from @get_id_bot on Telegram" className="h-9 text-sm" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-widest">GP Code (LGD)</Label>
+                <Input value={newKaryakarta.gp_code} onChange={(e) => setNewKaryakarta((p) => ({ ...p, gp_code: e.target.value }))} placeholder="e.g. 111050" className="h-9 text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-widest">GP Name</Label>
+                <Input value={newKaryakarta.gp_name} onChange={(e) => setNewKaryakarta((p) => ({ ...p, gp_name: e.target.value }))} placeholder="Gram Panchayat name" className="h-9 text-sm" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-widest">Block</Label>
+              <Input value={newKaryakarta.block} onChange={(e) => setNewKaryakarta((p) => ({ ...p, block: e.target.value }))} placeholder="Block name" className="h-9 text-sm" />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 mt-3">
+            <Button variant="outline" onClick={() => setAddKaryakartaOpen(false)} className="text-sm">Cancel</Button>
+            <Button onClick={handleAddKaryakarta} disabled={creatingKaryakarta} className="text-sm text-white" style={{ backgroundColor: NAVY }}>
+              {creatingKaryakarta ? 'Adding…' : 'Add Karyakarta'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
