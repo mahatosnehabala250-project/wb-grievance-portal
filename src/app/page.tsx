@@ -14,7 +14,7 @@ import {
   Settings, CircleHelp, Monitor, Mail, Volume2, LayoutGrid, Keyboard,
   UserCheck, GitCompareArrows, CalendarClock, History, Tag, ClipboardList,
   AlertCircle, Info, CheckCircle2 as CheckCircleFill, Sparkles, Megaphone,
-  ArrowUp, Flame, CalendarRange, TimerReset, Server, Radio, Workflow, BookOpen, BrainCircuit, Heart, ShieldAlert, HeartHandshake, Vote,
+  ArrowUp, Flame, CalendarRange, TimerReset, Server, Radio, Workflow, BookOpen, BrainCircuit, Heart, ShieldAlert, HeartHandshake, Vote, Swords,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -90,6 +90,7 @@ import DeploymentGuideView from '@/components/DeploymentGuideView';
 import LiveDataMonitor from '@/components/LiveDataMonitor';
 import { BoothsView } from '@/components/BoothsView';
 import { HotspotsView } from '@/components/HotspotsView';
+import { WarRoomView } from '@/components/WarRoomView';
 export default function HomePage() {
   const { user, isAuthenticated, logout, checkAuth } = useAuthStore();
   const { theme, setTheme } = useTheme();
@@ -128,6 +129,7 @@ export default function HomePage() {
     // users carry role_level='OFFICER' alongside base roles (ADMIN/BLOCK/DISTRICT/
     // STATE) — so gate on BOTH, never on role_level alone.
     const showTeam = isAdmin || ['MP', 'MLA', 'DISTRICT_ADMIN', 'BLOCK_COORD', 'GP_COORD'].includes(lvl);
+    const showWarRoom = isAdmin || ['MP', 'MLA', 'DISTRICT_ADMIN'].includes(lvl);
     const core: NavSection = {
       title: null,
       items: [
@@ -136,6 +138,7 @@ export default function HomePage() {
         item('map', 'Map', MapPin),
         item('booths', 'Booths', Vote),
         item('hotspots', 'Hotspots', Flame),
+        ...(showWarRoom ? [item('war_room', 'War Room', Swords)] : []),
         item('intel_command', 'Intelligence', BrainCircuit),
         ...(showTeam ? [item('users', 'Team', Users)] : []),
         item('settings', t('settings'), Settings),
@@ -756,6 +759,9 @@ export default function HomePage() {
                 )}
                 {view === 'hotspots' && (
                   <HotspotsView />
+                )}
+                {view === 'war_room' && (
+                  <WarRoomView />
                 )}
                 {view === 'mp_command' && (user?.role_level === 'MP' || user?.role === 'ADMIN') && (
                   <MPCommandView />

@@ -27,6 +27,14 @@
 
 ---
 
+### SESSION 77 — Claude Code (July 10, 2026): ⚔️ WAR ROOM — TV-friendly command center (premium demo screen)
+
+- **New `/api/war-room`** (scoped, single aggregation over the caller's in-scope complaints): kpis {open, breached, slaAtRisk, resolvedToday, total, avgOpenAgeDays}, ticker (15 recent), hotspotGPs (top 8), blockHeat, karyakartaActivity {karyakartaCount, assignedBooths, totalBooths — honest/small today}, battleground (Balarampur, same scope-safe access rule as hotspots — never grants on base role 'DISTRICT').
+- **New `WarRoomView.tsx`** + nav "War Room" (Swords icon, gated to ADMIN/MP/MLA/DISTRICT_ADMIN) + ViewType. Forced-dark cockpit: header with live clock + LIVE pulse, 30s auto-refresh, 6 KPI tiles, Priority-GPs + Block-Heat (left), Live-Feed ticker (right), Balarampur battleground band. Real numbers only, no vanity/fake widgets; karyakarta line honest ("assign more in Booths" when low).
+- tsc: target files clean. Fable-orchestrated, Sonnet-5 executors.
+
+---
+
 ### SESSION 76 — Claude Code (July 10, 2026): 🔥 HOTSPOTS feature — booth/GP-level political targeting (demo centerpiece)
 
 - **New `/api/hotspots`** (scoped via getComplaintScopeFilter): ranks the caller's GPs by open + SLA-breached complaints ("where to send karyakarta"), top category per GP. + **Balarampur battleground overlay**: 20 closest-margin 2021 booths (from election_results_booth, labelled with village/GP via polling_stations), only for callers whose scope includes Balarampur. Deliberately does NOT join complaints to booths by PS number (2021↔2026 renumbering unsafe).
