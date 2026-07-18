@@ -27,6 +27,16 @@
 
 ---
 
+### SESSION 76 — Claude Code (July 10, 2026): 🔥 HOTSPOTS feature — booth/GP-level political targeting (demo centerpiece)
+
+- **New `/api/hotspots`** (scoped via getComplaintScopeFilter): ranks the caller's GPs by open + SLA-breached complaints ("where to send karyakarta"), top category per GP. + **Balarampur battleground overlay**: 20 closest-margin 2021 booths (from election_results_booth, labelled with village/GP via polling_stations), only for callers whose scope includes Balarampur. Deliberately does NOT join complaints to booths by PS number (2021↔2026 renumbering unsafe).
+- **New `HotspotsView.tsx`** + nav item "Hotspots" (Flame icon) + ViewType. One clean MLA-facing screen: Priority-GPs table (breach rows red-tinted) + Battleground-booths table (BJP saffron / AITC green, margin).
+- **Bug caught & fixed**: initial winner logic used `w>=r` (winner-votes ≥ runnerup-votes = always true → every booth showed BJP). Fixed to `bjp vs aitc` actual party votes.
+- Works with REAL data across all 9 ACs (388 open complaints, 562 with gp_code); booth-election overlay = Balarampur only (301 booths) until other ACs' Form-20 is loaded.
+- tsc: target files clean. Fable-orchestrated, Sonnet-5 executors.
+
+---
+
 ### SESSION 75 — Claude Code (July 10, 2026): 🛠️ Booths UI gaps fixed (inline Add-Karyakarta + GP_COORD in dropdown)
 
 - **BoothsView.tsx**: (1) "+ Add Karyakarta" button + compact Dialog — create a karyakarta (name/username/password/WhatsApp/Telegram/GP code, prefilled from current AC/GP) without leaving the Booths screen; on success refreshes the assign dropdowns live. (2) Assign dropdown now includes **GP_COORD** users too (backend already allowed it; UI only listed KARYAKARTA) — shown as "Name (GP Coord)". `loadKaryakartas` refactored to a reusable callback.

@@ -89,6 +89,7 @@ import { HandoffsConsentView } from '@/components/HandoffsConsentView';
 import DeploymentGuideView from '@/components/DeploymentGuideView';
 import LiveDataMonitor from '@/components/LiveDataMonitor';
 import { BoothsView } from '@/components/BoothsView';
+import { HotspotsView } from '@/components/HotspotsView';
 export default function HomePage() {
   const { user, isAuthenticated, logout, checkAuth } = useAuthStore();
   const { theme, setTheme } = useTheme();
@@ -134,6 +135,7 @@ export default function HomePage() {
         item('complaints', t('complaints'), FileText),
         item('map', 'Map', MapPin),
         item('booths', 'Booths', Vote),
+        item('hotspots', 'Hotspots', Flame),
         item('intel_command', 'Intelligence', BrainCircuit),
         ...(showTeam ? [item('users', 'Team', Users)] : []),
         item('settings', t('settings'), Settings),
@@ -751,6 +753,9 @@ export default function HomePage() {
                 )}
                 {view === 'booths' && (
                   <BoothsView />
+                )}
+                {view === 'hotspots' && (
+                  <HotspotsView />
                 )}
                 {view === 'mp_command' && (user?.role_level === 'MP' || user?.role === 'ADMIN') && (
                   <MPCommandView />
