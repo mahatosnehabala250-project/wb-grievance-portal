@@ -34,6 +34,8 @@
 - **Bug caught & fixed**: initial winner logic used `w>=r` (winner-votes ≥ runnerup-votes = always true → every booth showed BJP). Fixed to `bjp vs aitc` actual party votes.
 - Works with REAL data across all 9 ACs (388 open complaints, 562 with gp_code); booth-election overlay = Balarampur only (301 booths) until other ACs' Form-20 is loaded.
 - tsc: target files clean. Fable-orchestrated, Sonnet-5 executors.
+- **LIVE VERIFIED**: ADMIN → 397 open / 128 GPs, top = Agardi-Chitra (Kashipur) 9 open/8 breached HEALTH; battleground booths real razor-thin (PS 28 AITC by 1, PS 173 tie 220-220). MLA-Bandwan correctly scoped to 73 open / 20 Bandwan GPs.
+- **2nd bug caught & fixed live** (`65d6bff`): Balarampur booth overlay was leaking to a Bandwan MLA because seeded MLA/MP users carry base `role='DISTRICT'`. Removed that grant; now overlay only for ADMIN/STATE/DISTRICT_ADMIN/MP, an MLA whose own AC is Balarampur, or anyone with Balarampur complaints in-scope. Re-verified: Bandwan MLA now gets 0 booths + note.
 
 ---
 
