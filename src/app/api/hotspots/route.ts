@@ -135,11 +135,15 @@ export async function GET(request: NextRequest) {
 
     // ── Balarampur battleground overlay ──────────────────────
     const lvl = payload.role_level;
+    // NOTE: do NOT grant on base `role === 'DISTRICT'` — seeded MLA/MP users
+    // carry base role 'DISTRICT' alongside role_level MLA/MP, so that would leak
+    // Balarampur's booth data to a Bandwan MLA. Grant only to genuinely wide
+    // scopes, an MLA whose own AC is Balarampur, or anyone whose in-scope
+    // complaints already include Balarampur (sawBalarampur).
     const hasBalarampurAccess =
       sawBalarampur ||
       payload.role === 'ADMIN' ||
       payload.role === 'STATE' ||
-      payload.role === 'DISTRICT' ||
       lvl === 'DISTRICT_ADMIN' ||
       lvl === 'MP' ||
       (lvl === 'MLA' && payload.constituency === 'Balarampur');
