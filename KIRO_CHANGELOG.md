@@ -32,6 +32,9 @@
 - **New `/api/war-room`** (scoped, single aggregation over the caller's in-scope complaints): kpis {open, breached, slaAtRisk, resolvedToday, total, avgOpenAgeDays}, ticker (15 recent), hotspotGPs (top 8), blockHeat, karyakartaActivity {karyakartaCount, assignedBooths, totalBooths — honest/small today}, battleground (Balarampur, same scope-safe access rule as hotspots — never grants on base role 'DISTRICT').
 - **New `WarRoomView.tsx`** + nav "War Room" (Swords icon, gated to ADMIN/MP/MLA/DISTRICT_ADMIN) + ViewType. Forced-dark cockpit: header with live clock + LIVE pulse, 30s auto-refresh, 6 KPI tiles, Priority-GPs + Block-Heat (left), Live-Feed ticker (right), Balarampur battleground band. Real numbers only, no vanity/fake widgets; karyakarta line honest ("assign more in Booths" when low).
 - tsc: target files clean. Fable-orchestrated, Sonnet-5 executors.
+- **Bug fixed live** (`5456d65`): initial select included invalid camelCase cols `gpName`/`assemblyConstituency` (not real DB columns) → Postgrest 500. Removed; real cols only.
+- **LIVE VERIFIED**: ADMIN → 397 open/143 breached/594 total, 15-row ticker, 8 hotspots, 30-block heat, 12 battleground booths. MLA-Bandwan → 73 open/31 breached scoped to Bandwan, battleground=0 + note (scope-safe), 0/366 booths, block-heat=3.
+- Minor known: ADMIN karyakarta-coverage denominator caps at Supabase's 1000-row default (shows /1000 not /2802) — cosmetic since assigned=0; fix later with paged count if needed.
 
 ---
 
