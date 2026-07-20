@@ -72,7 +72,10 @@ function matchTier(score: number | null): { label: string; className: string } {
 
 export function BoothsView() {
   const user = useAuthStore((s) => s.user);
-  const canAssign = user?.role_level !== 'KARYAKARTA' && user?.role_level !== 'OFFICER';
+  // ADMIN/STATE/DISTRICT/BLOCK base roles carry role_level 'OFFICER' but must still
+  // be able to assign — gate on base role, not role_level alone (mirror the API).
+  const privilegedBase = ['ADMIN', 'STATE', 'DISTRICT', 'BLOCK'].includes(user?.role || '');
+  const canAssign = user?.role_level !== 'KARYAKARTA' && (privilegedBase || user?.role_level !== 'OFFICER');
 
   const [booths, setBooths] = useState<Booth[]>([]);
   const [acs, setAcs] = useState<string[]>([]);

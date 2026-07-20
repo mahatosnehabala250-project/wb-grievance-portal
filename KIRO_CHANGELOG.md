@@ -27,6 +27,23 @@
 
 ---
 
+### SESSION 78 — Claude Code (July 20, 2026): 🧪 LIVE real-world flow test — core loop PASSES, 2 real bugs fixed
+
+#### ✅ Verified LIVE end-to-end (real dispatch, notifications to owner's numbers)
+- Full complaint lifecycle: `register_complaint` intake → JS-03 dispatch (exec 8551, all 14 nodes success) → **Citizen WA + Officer WA + Officer Telegram (msg 132) + Karyakarta Telegram (msg 133) all delivered** → status ASSIGNED (officer + constituency written) → RESOLVED → JS-04 fired (exec 8556) → citizen WhatsApp status notification → cleanup. Email Department failed (Gmail dead) but onError:continue kept the run green.
+- n8n health: JS-01 15/15 ✓, JS-03 ✓ (post-fix), JS-04 ✓, JS-05 ✓, blood JS-15/16 off ✓.
+
+#### 🔴 Bugs found & FIXED
+1. **Booth assign blocked ADMIN**: gate checked `role_level==='OFFICER'` but ADMIN/STATE/DISTRICT/BLOCK all carry role_level 'OFFICER' (legacy) → no admin could assign booths. Fixed in `booths/route.ts` PATCH + `BoothsView.tsx` canAssign to gate on base role (privilegedBase) not role_level alone.
+2. **JS-08 Watchdog 100% broken** (the global error-alert safety net): "Get Admin" returned a null telegramChatId → "chat_id is empty". Fixed in DB — both ADMIN rows now carry the owner's telegram (1214722668) + whatsapp (918918213286), so any future failure actually alerts.
+
+#### ⚠️ Found, NOT yet fixed (flagged)
+- **Gmail dept-email still dead** (credential rvEKYjHTJ61TNSo4) — 0% delivery to gov dept emails, silently masked by onError:continue. Reconnect or replace the leg.
+- **register_complaint intake geo-derivation** can silently leave assembly_constituency null on a GP/block-name mismatch (test used Manbazar-I GP with 'Manbazar II' block). Dispatch's separate get_constituency_for_block corrects `constituency` but not the intake row's `assembly_constituency` — worth reconciling the two lookups.
+- **create-user API hardening**: POST /api/users silently defaults role_level to 'OFFICER' if a client passes only `role` — the UI form sends role_level correctly (safe), but the raw API should reject/validate to prevent a mis-provisioned MLA seeing statewide data. (Task-worthy.)
+
+---
+
 ### SESSION 77 — Claude Code (July 10, 2026): ⚔️ WAR ROOM — TV-friendly command center (premium demo screen)
 
 - **New `/api/war-room`** (scoped, single aggregation over the caller's in-scope complaints): kpis {open, breached, slaAtRisk, resolvedToday, total, avgOpenAgeDays}, ticker (15 recent), hotspotGPs (top 8), blockHeat, karyakartaActivity {karyakartaCount, assignedBooths, totalBooths — honest/small today}, battleground (Balarampur, same scope-safe access rule as hotspots — never grants on base role 'DISTRICT').

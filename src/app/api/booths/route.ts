@@ -234,7 +234,11 @@ export async function PATCH(request: NextRequest) {
   if (!payload) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
 
   const lvl = payload.role_level;
-  if (lvl === 'KARYAKARTA' || lvl === 'OFFICER' || (!lvl && payload.role === 'OFFICER')) {
+  // Read-only = KARYAKARTA always, or a bare OFFICER account. NOTE: ADMIN/STATE/
+  // DISTRICT/BLOCK base roles carry role_level 'OFFICER' too (legacy) — they must
+  // still be able to assign, so gate on base role, not role_level alone.
+  const privilegedBase = ['ADMIN', 'STATE', 'DISTRICT', 'BLOCK'].includes(payload.role);
+  if (lvl === 'KARYAKARTA' || (!privilegedBase && (lvl === 'OFFICER' || !lvl))) {
     return NextResponse.json({ error: 'Your role has read-only access to booths' }, { status: 403 });
   }
 
