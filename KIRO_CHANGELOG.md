@@ -27,6 +27,14 @@
 
 ---
 
+### SESSION 80 — Claude Code (July 20, 2026): ⚡ War Room ACTION PLAN (Task #1) — view → action surface
+
+- **`/api/war-room`** extended (additive): new `actions` { callList (5 oldest open complaints w/ phone), assignGPs (top hotspot GPs with 0 karyakarta-covered booths), breachedUnassigned {count, topBlocks} } + `sinceYesterday` { newComplaints, resolvedLast24h, newlyBreachedLast24h }. Same single complaints fetch + one bounded polling_stations query.
+- **`WarRoomView.tsx`**: new "⚡ আজকের কাজ / Today's Actions" panel under the header — prioritized rows: 🚨 Review breached-unassigned → goTo('complaints'); 📍 Assign karyakarta for uncovered hotspot GPs → goTo('booths'); 📞 Call citizen → real `tel:` link (one-tap on office phone). "✅ All clear" empty state + "Since yesterday" delta strip. Uses useNav().
+- First thing that makes War Room genuinely DO something vs re-skin. tsc clean, no other files touched. Fable-orchestrated, Sonnet-5.
+
+---
+
 ### SESSION 78 — Claude Code (July 20, 2026): 🧪 LIVE real-world flow test — core loop PASSES, 2 real bugs fixed
 
 #### ✅ Verified LIVE end-to-end (real dispatch, notifications to owner's numbers)

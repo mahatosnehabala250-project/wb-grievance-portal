@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo, type CSSProperties, type ElementType } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, type CSSProperties, type ElementType, type ReactNode } from 'react';
 import {
-  Swords, Radio, Flame, Vote, Users, Clock, AlertTriangle, CheckCircle2, ShieldAlert, MapPin,
+  Swords, Radio, Flame, Vote, Users, Clock, AlertTriangle, CheckCircle2, ShieldAlert, MapPin, Zap,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -14,6 +15,7 @@ import { toast } from 'sonner';
 import { authHeaders } from '@/lib/helpers';
 import { NAVY } from '@/lib/constants';
 import { EmptyState } from '@/components/common';
+import { useNav } from '@/lib/nav-context';
 
 interface Kpis {
   open: number;
@@ -71,6 +73,43 @@ interface WarRoomMeta {
   constituency?: string;
 }
 
+interface CallListItem {
+  ticketNo: string;
+  citizenName: string | null;
+  issue: string;
+  block: string | null;
+  gp_name: string | null;
+  phone: string | null;
+  ageDays: number;
+}
+
+interface AssignGP {
+  gp_name: string;
+  block: string | null;
+  assembly_constituency: string | null;
+  open: number;
+  breached: number;
+  coveredBooths: number;
+  totalBooths: number;
+}
+
+interface BreachedUnassigned {
+  count: number;
+  topBlocks: { block: string; count: number }[];
+}
+
+interface WarRoomActions {
+  callList: CallListItem[];
+  assignGPs: AssignGP[];
+  breachedUnassigned: BreachedUnassigned;
+}
+
+interface SinceYesterday {
+  newComplaints: number;
+  resolvedLast24h: number;
+  newlyBreachedLast24h: number;
+}
+
 interface WarRoomData {
   kpis: Kpis;
   ticker: TickerItem[];
@@ -78,12 +117,16 @@ interface WarRoomData {
   blockHeat: BlockHeat[];
   karyakartaActivity: KaryakartaActivity;
   battleground: BattlegroundBooth[];
+  actions?: WarRoomActions;
+  sinceYesterday?: SinceYesterday;
   note?: string;
   meta: WarRoomMeta;
 }
 
 const EMPTY_KPIS: Kpis = { open: 0, breached: 0, resolvedToday: 0, total: 0, slaAtRisk: 0, avgOpenAgeDays: 0 };
 const EMPTY_KARYAKARTA: KaryakartaActivity = { karyakartaCount: 0, assignedBooths: 0, totalBooths: 0 };
+const EMPTY_ACTIONS: WarRoomActions = { callList: [], assignGPs: [], breachedUnassigned: { count: 0, topBlocks: [] } };
+const EMPTY_SINCE_YESTERDAY: SinceYesterday = { newComplaints: 0, resolvedLast24h: 0, newlyBreachedLast24h: 0 };
 
 const REFRESH_MS = 30_000;
 const TOP_GPS = 8;
@@ -148,7 +191,24 @@ function KpiTile({ label, value, icon: Icon, color, sub, loading }: {
   );
 }
 
+function ActionRow({ accent, button, children }: {
+  accent: 'red' | 'amber' | 'slate'; button: ReactNode; children: ReactNode;
+}) {
+  const accentClass = accent === 'red'
+    ? 'border-red-500/40 bg-red-500/10'
+    : accent === 'amber'
+      ? 'border-amber-500/30 bg-amber-500/5'
+      : 'border-slate-800 bg-slate-900/50';
+  return (
+    <div className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 ${accentClass}`}>
+      <p className="text-xs sm:text-sm text-slate-200 leading-snug min-w-0">{children}</p>
+      <div className="shrink-0">{button}</div>
+    </div>
+  );
+}
+
 export function WarRoomView() {
+  const nav = useNav();
   const [data, setData] = useState<WarRoomData | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -193,6 +253,8 @@ export function WarRoomView() {
   const karyakarta = data?.karyakartaActivity || EMPTY_KARYAKARTA;
   const battleground = data?.battleground || [];
   const meta = data?.meta || {};
+  const actions = data?.actions || EMPTY_ACTIONS;
+  const sinceYesterday = data?.sinceYesterday || EMPTY_SINCE_YESTERDAY;
 
   const ticker = useMemo(
     () => [...(data?.ticker || [])].sort((a, b) => a.ageHours - b.ageHours).slice(0, TOP_TICKER),
@@ -204,6 +266,18 @@ export function WarRoomView() {
     [battleground],
   );
   const maxBlockOpen = useMemo(() => blockHeat.reduce((m, b) => Math.max(m, b.open), 0), [blockHeat]);
+
+  const assignGPActions = useMemo(() => actions.assignGPs.slice(0, 4), [actions.assignGPs]);
+  const callListActions = useMemo(
+    () => actions.callList.filter((c) => !!c.phone).slice(0, 5),
+    [actions.callList],
+  );
+  const breachedUnassigned = actions.breachedUnassigned;
+  const breachedBlocksSummary = useMemo(
+    () => (breachedUnassigned.topBlocks || []).map((b) => `${b.block} (${b.count})`).join(', '),
+    [breachedUnassigned.topBlocks],
+  );
+  const hasActions = breachedUnassigned.count > 0 || assignGPActions.length > 0 || callListActions.length > 0;
 
   const coveragePct = karyakarta.totalBooths > 0
     ? Math.round((karyakarta.assignedBooths / karyakarta.totalBooths) * 100)
@@ -253,6 +327,77 @@ export function WarRoomView() {
             <p className="text-[11px] text-slate-400 italic px-1">{data.note}</p>
           )}
 
+          {/* Today's Actions panel — the point of this screen: what to DO right now */}
+          <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.04] p-3.5 sm:p-4 space-y-2.5">
+            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+              <Zap className="h-4 w-4 text-amber-400" />
+              ⚡ আজকের কাজ / Today&apos;s Actions
+            </h3>
+            {initialLoading ? (
+              <div className="space-y-1.5">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full rounded-lg bg-slate-800" />
+                ))}
+              </div>
+            ) : !hasActions ? (
+              <p className="text-xs sm:text-sm text-emerald-300 flex items-center gap-1.5 py-1">
+                ✅ All clear — no urgent actions
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {breachedUnassigned.count > 0 && (
+                  <ActionRow
+                    accent="red"
+                    button={
+                      <Button size="sm" variant="destructive" onClick={() => nav?.goTo('complaints')}>
+                        Review
+                      </Button>
+                    }
+                  >
+                    🚨 <strong>{breachedUnassigned.count}</strong> breached complaints have no officer
+                    {breachedBlocksSummary ? ` — ${breachedBlocksSummary}` : ''}
+                  </ActionRow>
+                )}
+                {assignGPActions.map((g, i) => (
+                  <ActionRow
+                    key={`assign-${g.gp_name}-${i}`}
+                    accent="amber"
+                    button={
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-amber-500/40 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200"
+                        onClick={() => nav?.goTo('booths')}
+                      >
+                        Assign
+                      </Button>
+                    }
+                  >
+                    📍 <strong>{g.gp_name}</strong> ({g.block || '—'}): {g.open} open, {g.coveredBooths}/{g.totalBooths} booths covered — no karyakarta
+                  </ActionRow>
+                ))}
+                {callListActions.map((c, i) => (
+                  <ActionRow
+                    key={`call-${c.ticketNo}-${i}`}
+                    accent="slate"
+                    button={
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="outline"
+                        className="border-sky-500/40 text-sky-300 hover:bg-sky-500/10 hover:text-sky-200"
+                      >
+                        <a href={`tel:${c.phone}`}>Call</a>
+                      </Button>
+                    }
+                  >
+                    📞 {c.ticketNo} · {c.citizenName || 'Citizen'} · {c.issue} · {c.ageDays}d
+                  </ActionRow>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* KPI row */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <KpiTile label="Open" value={String(kpis.open)} icon={Radio} color="#7DD3FC" loading={initialLoading} />
@@ -269,6 +414,16 @@ export function WarRoomView() {
               loading={initialLoading}
             />
           </div>
+
+          {/* Since yesterday strip */}
+          {!initialLoading && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500 px-1">
+              <span className="font-bold uppercase tracking-widest text-slate-600">Since yesterday</span>
+              <span>🆕 {sinceYesterday.newComplaints} new</span>
+              <span>✅ {sinceYesterday.resolvedLast24h} resolved</span>
+              <span>⚠️ {sinceYesterday.newlyBreachedLast24h} newly breached</span>
+            </div>
+          )}
 
           {/* Middle: Priority GPs + Block Heat (left) / Live Feed (right) */}
           <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-4">

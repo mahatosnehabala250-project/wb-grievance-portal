@@ -120,10 +120,12 @@ export async function GET(request: NextRequest) {
       select: {
         ticketNo: true,
         citizenName: true,
+        phone: true,
         issue: true,
         category: true,
         village: true,
         gp_name: true,
+        gp_code: true,
         block: true,
         assembly_constituency: true,
         urgency: true,
@@ -207,6 +209,7 @@ export async function GET(request: NextRequest) {
       assembly_constituency: string;
       block: string;
       gp_name: string;
+      gp_code: string | null;
       open: number;
       breached: number;
       openCats: Record<string, number>;
@@ -235,9 +238,13 @@ export async function GET(request: NextRequest) {
 
       const key = `${ac}||${block}||${gpName}`;
       if (!groups[key]) {
-        groups[key] = { assembly_constituency: ac, block, gp_name: gpName, open: 0, breached: 0, openCats: {} };
+        groups[key] = { assembly_constituency: ac, block, gp_name: gpName, gp_code: null, open: 0, breached: 0, openCats: {} };
       }
       const g = groups[key];
+      if (!g.gp_code) {
+        const code = str(c, 'gp_code', 'gpCode');
+        if (code) g.gp_code = code;
+      }
       if (isOpen) {
         g.open++;
         g.openCats[category] = (g.openCats[category] || 0) + 1;
@@ -261,6 +268,130 @@ export async function GET(request: NextRequest) {
     const blockHeat = Object.entries(blockMap)
       .map(([block, v]) => ({ block, open: v.open, breached: v.breached }))
       .sort((a, b) => b.open - a.open);
+
+    // ── 4b. Actions — "do this today" (call list / assign GPs / breached-unassigned) ──
+    const ONE_DAY_MS = 86400000;
+    const since24h = new Date(now.getTime() - ONE_DAY_MS);
+
+    // (a) Call list — 5 oldest still-open complaints with a phone number, oldest first.
+    const callList = complaints
+      .filter((c) => !CLOSED.has(str(c, 'status')) && !!str(c, 'phone'))
+      .sort((a, b) => (dateOf(a, 'createdAt')?.getTime() ?? 0) - (dateOf(b, 'createdAt')?.getTime() ?? 0))
+      .slice(0, 5)
+      .map((c) => {
+        const created = dateOf(c, 'createdAt');
+        const issueRaw = str(c, 'issue');
+        return {
+          ticketNo: str(c, 'ticketNo') || null,
+          citizenName: str(c, 'citizenName') || null,
+          issue: issueRaw.length > 50 ? issueRaw.slice(0, 50).trimEnd() + '…' : issueRaw,
+          block: str(c, 'block') || null,
+          gp_name: str(c, 'gp_name', 'gpName') || null,
+          phone: str(c, 'phone'),
+          ageDays: created ? Math.round(((now.getTime() - created.getTime()) / ONE_DAY_MS) * 10) / 10 : null,
+        };
+      });
+
+    // (b) Assign GPs — top hotspot GPs that currently have zero karyakarta-assigned booths.
+    // Guarded in its own try/catch: booth-coverage lookup failure shouldn't fail the endpoint.
+    type UncoveredGP = {
+      gp_name: string;
+      block: string;
+      assembly_constituency: string;
+      open: number;
+      breached: number;
+      gp_code: string | null;
+      coveredBooths: number;
+      totalBooths: number;
+    };
+    let assignGPs: UncoveredGP[] = [];
+    try {
+      const top8 = Object.values(groups)
+        .sort((a, b) => b.breached - a.breached || b.open - a.open)
+        .slice(0, 8);
+
+      const codes = [...new Set(top8.map((g) => g.gp_code).filter((v): v is string => !!v))];
+      const coverageByCode: Record<string, { covered: number; total: number }> = {};
+
+      if (codes.length > 0) {
+        const { data: gpBoothRows } = await supabase
+          .from('polling_stations')
+          .select('gp_code, karyakarta_user_id')
+          .in('gp_code', codes)
+          .limit(3000);
+        for (const b of (gpBoothRows || []) as C[]) {
+          const code = str(b, 'gp_code');
+          if (!code) continue;
+          const entry = coverageByCode[code] || (coverageByCode[code] = { covered: 0, total: 0 });
+          entry.total++;
+          if (typeof b.karyakarta_user_id === 'string' && b.karyakarta_user_id) entry.covered++;
+        }
+      }
+
+      assignGPs = top8
+        .map((g) => {
+          const cov = g.gp_code ? coverageByCode[g.gp_code] : undefined;
+          return {
+            gp_name: g.gp_name,
+            block: g.block,
+            assembly_constituency: g.assembly_constituency,
+            open: g.open,
+            breached: g.breached,
+            gp_code: g.gp_code,
+            coveredBooths: cov?.covered ?? 0,
+            totalBooths: cov?.total ?? 0,
+          };
+        })
+        .filter((g) => g.coveredBooths === 0)
+        .sort((a, b) => b.breached - a.breached || b.open - a.open);
+    } catch (e) {
+      console.error('War room assignGPs booth-coverage error:', e);
+      assignGPs = []; // honest empty state — rest of the endpoint still returns
+    }
+
+    // (c) Breached & unassigned — open, breached complaints with no officer assigned.
+    let breachedUnassignedCount = 0;
+    const breachedUnassignedByBlock: Record<string, number> = {};
+    for (const c of complaints) {
+      if (CLOSED.has(str(c, 'status'))) continue;
+      const pct = num(c, 'pct');
+      const urgency = str(c, 'urgency');
+      const isBreach = (pct !== null && pct >= 100) || BREACH_URGENCY.has(urgency);
+      if (!isBreach || str(c, 'assignedOfficerName')) continue;
+      breachedUnassignedCount++;
+      const block = str(c, 'block') || 'Unknown';
+      breachedUnassignedByBlock[block] = (breachedUnassignedByBlock[block] || 0) + 1;
+    }
+    const breachedUnassigned = {
+      count: breachedUnassignedCount,
+      topBlocks: Object.entries(breachedUnassignedByBlock)
+        .map(([block, count]) => ({ block, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 3),
+    };
+
+    const actions = { callList, assignGPs, breachedUnassigned };
+
+    // ── 4c. Since yesterday — 24h movement ───────────────────
+    let newComplaints = 0;
+    let resolvedLast24h = 0;
+    let newlyBreachedLast24h = 0;
+    for (const c of complaints) {
+      const created = dateOf(c, 'createdAt');
+      const updated = dateOf(c, 'updatedAt');
+      if (created && created.getTime() >= since24h.getTime()) newComplaints++;
+      if (str(c, 'status') === 'RESOLVED' && updated && updated.getTime() >= since24h.getTime()) resolvedLast24h++;
+      const pct = num(c, 'pct');
+      const urgency = str(c, 'urgency');
+      const isBreach = (pct !== null && pct >= 100) || BREACH_URGENCY.has(urgency);
+      if (isBreach && updated && updated.getTime() >= since24h.getTime()) newlyBreachedLast24h++;
+    }
+    const sinceYesterday = {
+      newComplaints,
+      resolvedLast24h,
+      newlyBreachedLast24h,
+      openDelta: newComplaints - resolvedLast24h,
+    };
 
     // ── 5. Karyakarta activity ───────────────────────────────
     const acScope = await resolveAcScope(payload);
@@ -379,6 +510,8 @@ export async function GET(request: NextRequest) {
       blockHeat,
       karyakartaActivity,
       battleground,
+      actions,
+      sinceYesterday,
       ...(note ? { note } : {}),
       meta: {
         scope: payload.role_level || payload.role,
