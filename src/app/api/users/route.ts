@@ -102,6 +102,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
     }
 
+    // ── Validate role vs role_level BEFORE provisioning ──
+    // `role` is the BASE role; `role_level` is the governance designation. A common
+    // mistake is putting a designation (e.g. "MLA") in `role`, which used to fall
+    // through to role_level='OFFICER' silently — creating an MLA that sees statewide
+    // data. Reject that up front with a clear hint instead of mis-provisioning.
+    const VALID_BASE_ROLES = ['ADMIN', 'STATE', 'DISTRICT', 'BLOCK', 'OFFICER'];
+    const VALID_LEVELS = ['MP', 'MLA', 'DISTRICT_ADMIN', 'BLOCK_COORD', 'GP_COORD', 'KARYAKARTA', 'OFFICER'];
+    if (role && !VALID_BASE_ROLES.includes(role)) {
+      if (VALID_LEVELS.includes(role)) {
+        return NextResponse.json(
+          { error: `"${role}" is a designation — send it as role_level, and set role to a base role (ADMIN/STATE/DISTRICT/BLOCK/OFFICER).` },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json({ error: `Invalid role "${role}".` }, { status: 400 });
+    }
+    if (role_level && !VALID_LEVELS.includes(role_level)) {
+      return NextResponse.json({ error: `Invalid role_level "${role_level}".` }, { status: 400 });
+    }
+
     // ── Hierarchy + jurisdiction validation (server-side, authoritative) ──
     const verdict = await validateNewUserScope(payload, {
       role_level: targetLevel,

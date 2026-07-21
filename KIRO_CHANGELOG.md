@@ -38,9 +38,15 @@
 2. **JS-08 Watchdog 100% broken** (the global error-alert safety net): "Get Admin" returned a null telegramChatId → "chat_id is empty". Fixed in DB — both ADMIN rows now carry the owner's telegram (1214722668) + whatsapp (918918213286), so any future failure actually alerts.
 
 #### ⚠️ Found, NOT yet fixed (flagged)
-- **Gmail dept-email still dead** (credential rvEKYjHTJ61TNSo4) — 0% delivery to gov dept emails, silently masked by onError:continue. Reconnect or replace the leg.
-- **register_complaint intake geo-derivation** can silently leave assembly_constituency null on a GP/block-name mismatch (test used Manbazar-I GP with 'Manbazar II' block). Dispatch's separate get_constituency_for_block corrects `constituency` but not the intake row's `assembly_constituency` — worth reconciling the two lookups.
-- **create-user API hardening**: POST /api/users silently defaults role_level to 'OFFICER' if a client passes only `role` — the UI form sends role_level correctly (safe), but the raw API should reject/validate to prevent a mis-provisioned MLA seeing statewide data. (Task-worthy.)
+- **Gmail dept-email still dead** (credential rvEKYjHTJ61TNSo4) — 0% delivery to gov dept emails, silently masked by onError:continue. Reconnect or replace the leg. (Owner action — OAuth.)
+
+---
+
+### SESSION 79 — Claude Code (July 20, 2026): 🔧 Intake robustness hardening (Task #2)
+
+- **create-user API** (`src/app/api/users/route.ts`): now validates `role` against the base-role set (ADMIN/STATE/DISTRICT/BLOCK/OFFICER) and `role_level` against the governance set. If a caller mistakenly puts a designation like "MLA" in `role`, it returns a clear 400 hint instead of silently minting an OFFICER that sees statewide data. (UI form was already safe; this hardens raw-API misuse.)
+- **register_complaint** (migration `register_complaint_block_ac_fallback`): added a THIRD fallback — if village+GP lookups don't yield an assembly_constituency, derive it from the spelling-robust `get_constituency_for_block(block)` + parliament from cbm. So a fresh complaint never stores a NULL assembly_constituency (which would hide it from an MLA's scope). VERIFIED: the exact input that previously returned null now returns assembly='Bandwan', parliament='Jhargram'. Test row cleaned up.
+- tsc clean on the edited route.
 
 ---
 
