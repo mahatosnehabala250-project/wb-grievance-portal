@@ -27,6 +27,17 @@
 
 ---
 
+### SESSION 81 (cont.) — Claude Code (July 22, 2026): 🧹 Fake AI widgets removed + GTM plan + demo script
+
+- **GTM decisions locked** (FOCUS.md answered in-chat) → new **GTM_PLAN.md**: buyer = MLA office (pilot) + party district unit (9-seat scale); positioning = "Grievance OS" (intelligence stays internal); pricing = 60-day free pilot → ₹20k/mo → party bundle ₹1.2-1.5L/mo; DPDP basics now. Key insight baked in: **PA/secretary is the real gatekeeper**, not the MLA.
+- **Fake AI widgets removed for demo credibility** (commit pushed, tsc clean on all 3 files):
+  - `DashboardView.tsx` — deleted mock "AI Brain Analytics" widget (hardcoded processedToday=47, avgConfidence=94.2%, fake category-accuracy bars, fake "Live AI Processing Log") + its `aiStats` state + unused imports.
+  - `ComplaintsView.tsx` — deleted 3 fakes: AI Smart Search (fake "analyzing…" + `getAIInsight` mock), Quick AI Actions dropdown (literally toasted "coming soon!"), and Bulk AI Categorization dialog (`mockAIResult` random categories). Removed all related state/effects/handlers/JSX + unused imports.
+  - `page.tsx` — removed 2 hardcoded sidebar stat pills (amber=3, sky=5 literals); kept only the real `criticalCount` (already shown on bell + Complaints nav badge).
+- **Demo assets** → `docs/sales/demo-script.html` + `JanSunwai-MLA-Demo-Script.pdf` (PA-focused, Bangla, 10-min flow + one-page leave-behind). Generated via Edge headless (`--print-to-pdf`), delivered to owner Telegram (chat 1214722668, message_id 143) through a one-shot n8n webhook→sendDocument workflow (created, used, deleted — token stayed inside n8n credential). **Gotcha for future PDF-to-Telegram**: no bot token in local files; route file through a temp n8n webhook + Telegram sendDocument (binaryData=true, binaryPropertyName='data') rather than direct Bot API.
+
+---
+
 ### SESSION 81 — Claude Code (July 22, 2026): 🚨 REBRAND — "Government of West Bengal" impersonation removed (legal risk fix)
 
 - **Why:** Portal claimed to BE a govt website ("Government of West Bengal", "পশ্চিমবঙ্গ সরকার — নাগরিক সেবা পোর্টাল", © Government footer) — a private product impersonating government = legal + client-embarrassment risk. Blindspot pass caught it.
