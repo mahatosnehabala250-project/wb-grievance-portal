@@ -1,6 +1,8 @@
 # FOCUS — 5 sawaal jinke jawab sirf TUM de sakte ho
 *Ye 1 page tumhare product ki agli 6 mahine ki disha tay karega. Har sawaal ke neeche options + mera lean. Jawab bhar do (ek line kaafi) — uske baad hi kaatna/banana shuru.*
 
+> **✅ ANSWERED — July 22, 2026 (Session 81, in-chat):** Q1 = MLA office + Party district unit (dono track) · Q2 = A (Grievance OS becho, intelligence andar) · Q3 = D→A pilot-first, phir party 9-seat bulk (B) as scale path · Q4 = A (DPDP basics abhi) · Q5 = bot se blood REMOVED ho chuka (live); portal code cleanup pending, non-urgent. GTM plan: see GTM_PLAN.md
+
 ---
 
 ## Q1. PEHLA ASLI USER kaun hai? (sabse important)
