@@ -37,6 +37,12 @@
 - **Checked but clean (no change needed):** privacy-policy.html, terms-of-service.html (describe govt complaints as subject matter, no identity claim), live n8n bot messages (JS-01/03/04 — no সরকার identity claim).
 - Also this session: **live E2E test pass** — admin_demo + mla_bandwan logins, 6 APIs 200 OK, MLA scoping airtight (104/594 complaints, Bandwan-only booths/war-room/hotspots). 9 real-MLA passwords reset to demo password. NOTE: login rate limiter is per-IP 15-min — will lock out a whole MLA office on shared WiFi, needs per-username keying (flagged, not fixed).
 
+#### 💾 Automated weekly DB backup (blindspot #6) — LIVE & verified
+- **Private repo `wb-db-backups`**: GitHub Action, every Monday 3:00 AM IST + manual dispatch. First run GREEN: `wb-backup-2026-07-22.dump` (524 KB, 594 complaints + 58 users), artifact 30-day retention (~4 snapshots rolling). Failure → GitHub auto-emails owner.
+- **New DB role `backup_reader`**: LOGIN, SELECT-only, BYPASSRLS, conn limit 3 — created via MCP because the rotated service-role key isn't available locally (old key in .env is DEAD/401). Password only in GH secret `PG_URL`.
+- **Gotchas discovered**: pooler host is `aws-1-ap-south-1.pooler.supabase.com` (NOT aws-0 — "tenant/user not found"); runner default pg_dump is PG16 vs server PG17 → use `/usr/lib/postgresql/17/bin/pg_dump`; GH classic PAT needed `workflow` scope added (user issued new token, updated in .env + both repo remotes).
+- **Security scan of public main repo history**: NO live secrets — only anon key (public by design) + placeholder webhook secret ever committed. Repo is still PUBLIC; making it private is pending user decision (Vercel org-repo caveat).
+
 ---
 
 ### SESSION 80 — Claude Code (July 20, 2026): ⚡ War Room ACTION PLAN (Task #1) — view → action surface
