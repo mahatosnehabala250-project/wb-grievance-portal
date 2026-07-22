@@ -43,6 +43,11 @@
 - **Gotchas discovered**: pooler host is `aws-1-ap-south-1.pooler.supabase.com` (NOT aws-0 — "tenant/user not found"); runner default pg_dump is PG16 vs server PG17 → use `/usr/lib/postgresql/17/bin/pg_dump`; GH classic PAT needed `workflow` scope added (user issued new token, updated in .env + both repo remotes).
 - **Security scan of public main repo history**: NO live secrets — only anon key (public by design) + placeholder webhook secret ever committed. Repo is still PUBLIC; making it private is pending user decision (Vercel org-repo caveat).
 
+#### 📡 Uptime monitoring (blindspot #8) — LIVE & verified, two-sided
+- **`JS-23: Uptime Sentinel`** (n8n `jzxppJ7w25eO4sWo`, ACTIVE): every 5 min checks portal root + Supabase `auth/v1/health` (needs `apikey` header — anon key — else always 401!). Down → Telegram to owner (1214722668), 30-min dedup via staticData, one-time "✅ RECOVERED" message on transition back up. Healthy = silent (verified: exec 8688, Evaluate outputs 0 → Telegram skipped). Telegram leg live-tested (test msg delivered, message_id 142).
+- **`monitor.yml`** in wb-db-backups repo: GitHub cron every 30 min hits n8n `/healthz` (3 retries) — n8n/VPS down → run fails → GitHub emails owner. So n8n watches the app, GitHub watches n8n. Test run GREEN.
+- **Gotcha**: n8n Code-node jsCode via REST API — never put `\n` escapes inside string literals (double-unescaping turns them into real newlines → SyntaxError). Use `String.fromCharCode(10)`.
+
 ---
 
 ### SESSION 80 — Claude Code (July 20, 2026): ⚡ War Room ACTION PLAN (Task #1) — view → action surface
