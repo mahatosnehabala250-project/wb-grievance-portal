@@ -27,6 +27,18 @@
 
 ---
 
+### SESSION 81 — Claude Code (July 22, 2026): 🚨 REBRAND — "Government of West Bengal" impersonation removed (legal risk fix)
+
+- **Why:** Portal claimed to BE a govt website ("Government of West Bengal", "পশ্চিমবঙ্গ সরকার — নাগরিক সেবা পোর্টাল", © Government footer) — a private product impersonating government = legal + client-embarrassment risk. Blindspot pass caught it.
+- **7 files, 21 replacements** (Fable-orchestrated, Sonnet-5 executor, commit `756c58a`, deployed + live-verified):
+  - `LoginView.tsx` — hero line, side panel, subtitle → "Citizen Grievance & Service Portal"; footer → "NeuroSetu AI" + **new disclaimer**: "একটি বেসরকারি নাগরিক সেবা উদ্যোগ · A private citizen-service initiative — not a government website"
+  - `page.tsx` (4×) — sidebar/sheet/© footer → "Citizen Service Platform" / "© 2026 NeuroSetu AI"
+  - `SettingsView.tsx`, `layout.tsx` (title → "বাংলার সহায়ক — Citizen Grievance Portal", desc, keywords GovTech→CivicTech), `process-complaint` SYSTEM_PROMPT, `N8NWorkflowsView.tsx`, `WB01WorkflowDetailView.tsx`
+- **Checked but clean (no change needed):** privacy-policy.html, terms-of-service.html (describe govt complaints as subject matter, no identity claim), live n8n bot messages (JS-01/03/04 — no সরকার identity claim).
+- Also this session: **live E2E test pass** — admin_demo + mla_bandwan logins, 6 APIs 200 OK, MLA scoping airtight (104/594 complaints, Bandwan-only booths/war-room/hotspots). 9 real-MLA passwords reset to demo password. NOTE: login rate limiter is per-IP 15-min — will lock out a whole MLA office on shared WiFi, needs per-username keying (flagged, not fixed).
+
+---
+
 ### SESSION 80 — Claude Code (July 20, 2026): ⚡ War Room ACTION PLAN (Task #1) — view → action surface
 
 - **`/api/war-room`** extended (additive): new `actions` { callList (5 oldest open complaints w/ phone), assignGPs (top hotspot GPs with 0 karyakarta-covered booths), breachedUnassigned {count, topBlocks} } + `sinceYesterday` { newComplaints, resolvedLast24h, newlyBreachedLast24h }. Same single complaints fetch + one bounded polling_stations query.
