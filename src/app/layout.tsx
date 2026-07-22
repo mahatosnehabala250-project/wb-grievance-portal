@@ -15,11 +15,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WB AI Public Support System — Grievance Portal",
+  title: "বাংলার সহায়ক — Citizen Grievance Portal",
   description:
-    "West Bengal AI Public Support System — Government grievance management dashboard. Monitor and manage citizen complaints across all blocks and districts.",
+    "Banglar Sahayak — AI-powered citizen grievance management and constituency service platform for West Bengal. Built by NeuroSetu AI.",
   keywords: [
-    "West Bengal", "GovTech", "Grievance Portal", "Complaints", "Dashboard", "Government", "AI Support",
+    "West Bengal", "CivicTech", "Grievance Portal", "Complaints", "Dashboard", "AI Support",
   ],
   authors: [{ name: "District Administration, West Bengal" }],
   icons: { icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg" },

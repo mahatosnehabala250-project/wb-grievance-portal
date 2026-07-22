@@ -631,8 +631,8 @@ export function SettingsView() {
                 <Shield className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-sm font-bold text-foreground">Government of West Bengal</p>
-                <p className="text-[11px] text-muted-foreground">AI Public Support System &middot; পশ্চিমবঙ্গ সরকার</p>
+                <p className="text-sm font-bold text-foreground">NeuroSetu AI</p>
+                <p className="text-[11px] text-muted-foreground">বাংলার সহায়ক &middot; Citizen Grievance Platform</p>
               </div>
             </div>
           </CardContent>

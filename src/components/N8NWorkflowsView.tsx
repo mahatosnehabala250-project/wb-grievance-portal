@@ -28,7 +28,7 @@ import { NAVY } from '@/lib/constants';
 const CLAUDE_PROMPT = `# West Bengal AI Public Support System — n8n Workflow Builder Prompt
 
 ## Project Overview
-Ye ek West Bengal Government ka **Grievance / Complaint Management Portal** hai. Citizens WhatsApp pe message karke apni shikayat kar sakte hain. Portal automatically complaint receive karta hai, AI se category detect karta hai, officers ko assign karta hai, aur citizen ko WhatsApp pe status update bhejta hai.
+Ye ek **Citizen Grievance / Complaint Management Portal** hai (West Bengal). Citizens WhatsApp pe message karke apni shikayat kar sakte hain. Portal automatically complaint receive karta hai, AI se category detect karta hai, officers ko assign karta hai, aur citizen ko WhatsApp pe status update bhejta hai.
 
 **Frontend**: Next.js web dashboard (admin officers use karte hain)
 **Database**: Supabase PostgreSQL

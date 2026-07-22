@@ -85,7 +85,7 @@ export function LoginView() {
             </h2>
 
             <p className="text-white/50 text-sm leading-relaxed max-w-xs">
-              পশ্চিমবঙ্গের নাগরিকদের সরকারি অভিযোগ দ্রুত সমাধানের জন্য AI-চালিত পোর্টাল।
+              পশ্চিমবঙ্গের নাগরিকদের অভিযোগ দ্রুত সমাধানের জন্য AI-চালিত সহায়তা পোর্টাল।
             </p>
           </div>
         </motion.div>
@@ -113,9 +113,9 @@ export function LoginView() {
         <div className="text-white/25 text-[11px] space-y-1">
           <p className="flex items-center gap-2">
             <span className="h-px w-6 bg-white/20" />
-            Government of West Bengal
+            NeuroSetu AI — Citizen Service Platform
           </p>
-          <p className="pl-8">পশ্চিমবঙ্গ সরকার — নাগরিক সেবা পোর্টাল</p>
+          <p className="pl-8">নাগরিক অভিযোগ ও সেবা সহায়ক পোর্টাল</p>
           <p className="pl-8 mt-2 text-white/15">© 2026 — All Rights Reserved</p>
           <p className="pl-8 mt-1 text-white/20 text-[10px]">
             Technology by <span className="text-white/35 font-semibold">NeuroSetu AI</span>
@@ -135,7 +135,7 @@ export function LoginView() {
             <Shield className="h-7 w-7 text-white" />
           </div>
           <h1 className="text-2xl font-black" style={{ color: NAVY }}>বাংলার সহায়ক</h1>
-          <p className="text-slate-500 text-sm mt-1">West Bengal Public Grievance Portal</p>
+          <p className="text-slate-500 text-sm mt-1">Citizen Grievance & Service Portal</p>
         </div>
 
         <motion.div
@@ -258,7 +258,10 @@ export function LoginView() {
               <Shield className="h-3 w-3" />
               Secured by বাংলার সহায়ক
               <span className="text-slate-300">·</span>
-              Government of West Bengal
+              NeuroSetu AI
+            </p>
+            <p className="text-[10px] text-slate-300">
+              একটি বেসরকারি নাগরিক সেবা উদ্যোগ · A private citizen-service initiative — not a government website
             </p>
             <p className="text-[10px] text-slate-300">
               Powered by{' '}
