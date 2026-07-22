@@ -674,23 +674,8 @@ export default function HomePage() {
               </div>
             ))}
           </nav>
-          {/* Quick Stats Mini Section + Sign Out */}
+          {/* Session + Sign Out */}
           <div className="p-3 border-t border-border/50">
-            {/* Quick Stats Pills */}
-            <div className="flex items-center gap-1.5 mb-3">
-              <div className="stat-pill flex-1 justify-center">
-                <span className="stat-pill-dot bg-red-500" />
-                <span className="text-red-600 dark:text-red-400">{criticalCount}</span>
-              </div>
-              <div className="stat-pill flex-1 justify-center">
-                <span className="stat-pill-dot bg-amber-500" />
-                <span className="text-amber-600 dark:text-amber-400">3</span>
-              </div>
-              <div className="stat-pill flex-1 justify-center">
-                <span className="stat-pill-dot bg-sky-500" />
-                <span className="text-sky-600 dark:text-sky-400">5</span>
-              </div>
-            </div>
             <div className="p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-border/50">
               <div className="flex items-center gap-2 mb-2">
                 <ShieldCheck className="h-4 w-4" style={{ color: NAVY }} />
