@@ -27,9 +27,9 @@ Track 1 (abhi):  1 MLA office → 60-din FREE pilot → roz use → paid ₹20k/
 Track 2 (baad):  pilot ki success → party district president ko dikhaao → 9-seat bulk @ ₹1.2-1.5L/mo
 ```
 
-**Pilot offer (exact words):** "60 din free. Setup main karunga, aapke office ke 2 logon ko train karunga. 60 din baad agar aapko lagta hai ye kaam ka hai — ₹20,000/mahina. Nahi lagta — data aapka, main chala jaunga."
+> **⚠️ PRICING SUPERSEDED (Jul 22, 2026):** Neeche ke numbers purane hain. Final card **PRICING.md** mein hai — 7-agent research + red-team ke baad. Summary: Founding MLA setup ₹1L (list ₹3L, 3 seats, 31 Dec 2026 tak) · pilot ₹32k/mo 6-mo lock → auto ₹45k · tiers ₹30k/₹45k/₹65k · district bundle DELETED · election ₹3-5L/AC · district exclusivity free-in-writing, statewide ₹50L+. Free pilot ab NAHI hai — ₹20k cost (₹22-23k fully-loaded) se neeche tha.
 
-**Pricing anchors (pehle discuss hue):** 1 MLA = ₹15-30k/mo · MP = ₹40-50k/mo · 9-seat district bundle = ₹1.2-1.5L/mo · Setup fee ₹25-50k one-time (white-label branding justify karta hai).
+**Pilot offer (exact words):** PRICING.md ka script bank use karo (verbatim Hinglish scripts wahan hain).
 
 ## 4. 30-din ka plan
 
