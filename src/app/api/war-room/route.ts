@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
 import type { JWTPayload } from '@/lib/jwt';
-import { assembliesForLokSabha } from '@/lib/rbac';
+import { assembliesForLokSabha, assembliesForDistrict } from '@/lib/rbac';
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -85,6 +85,15 @@ async function resolveAcScope(payload: JWTPayload): Promise<AcScope> {
     return { acs: [payload.constituency] };
   }
   if (lvl === 'DISTRICT_ADMIN' || payload.role === 'DISTRICT') {
+    // Complaints are already district-filtered by getComplaintScopeFilter, but the
+    // booth query below is bounded by `acs` alone — falling back to ALL_ACS here
+    // leaked every other district's booth/karyakarta activity into this screen.
+    // (Legacy DISTRICT rows kept the district name in `block`.)
+    const district = payload.district || payload.block;
+    if (district) {
+      const acs = await assembliesForDistrict(district);
+      if (acs.length > 0) return { acs };
+    }
     return { acs: ALL_ACS };
   }
   if (lvl === 'BLOCK_COORD' || payload.role === 'BLOCK') {

@@ -19,22 +19,40 @@ const supabase = createClient(
 
 const norm = (s?: string | null) => (s || '').trim().toLowerCase();
 
+/**
+ * Scope keys are TYPE-NAMESPACED (`ac:`, `ls:`, `district:`, `block:`).
+ * Without the prefix a district and an assembly constituency that share a name
+ * — Purulia district vs Purulia AC — collapse onto the same row, so the
+ * district president and the Purulia MLA would overwrite each other's brand.
+ */
+const acKey = (s?: string | null) => (norm(s) ? `ac:${norm(s)}` : '');
+const lsKey = (s?: string | null) => (norm(s) ? `ls:${norm(s)}` : '');
+const districtKey = (s?: string | null) => (norm(s) ? `district:${norm(s)}` : '');
+const blockKey = (s?: string | null) => (norm(s) ? `block:${norm(s)}` : '');
+
+/** Valid namespaced key, for the ADMIN-supplied scopeKey path. */
+const SCOPE_KEY_RE = /^(ac|ls|district|block):[^\s].{0,79}$/;
+
 // Ordered scope keys (most specific → least) used to RESOLVE branding on read.
 function scopeKeysForRead(u: JWTPayload): string[] {
-  return [norm(u.constituency), norm(u.lok_sabha_constituency), norm(u.district), norm(u.block)].filter(Boolean);
+  return [acKey(u.constituency), lsKey(u.lok_sabha_constituency), districtKey(u.district), blockKey(u.block)].filter(Boolean);
 }
 
 // The single scope key a user is allowed to WRITE, + whether they may write at all.
 function scopeKeyForWrite(u: JWTPayload, bodyScopeKey?: string): { key: string | null; reason?: string } {
   if (u.role === 'ADMIN' || u.role === 'STATE') {
     const k = norm(bodyScopeKey);
-    return k ? { key: k } : { key: null, reason: 'ADMIN must pass scopeKey' };
+    if (!k) return { key: null, reason: 'ADMIN must pass scopeKey' };
+    if (!SCOPE_KEY_RE.test(k)) {
+      return { key: null, reason: 'scopeKey must be namespaced: ac:<name> | ls:<name> | district:<name> | block:<name>' };
+    }
+    return { key: k };
   }
   const lvl = u.role_level;
-  if (lvl === 'MP' && u.lok_sabha_constituency) return { key: norm(u.lok_sabha_constituency) };
-  if (lvl === 'MLA' && u.constituency) return { key: norm(u.constituency) };
-  if ((lvl === 'DISTRICT_ADMIN' || u.role === 'DISTRICT') && (u.district || u.block)) return { key: norm(u.district || u.block) };
-  if ((lvl === 'BLOCK_COORD' || u.role === 'BLOCK') && u.block) return { key: norm(u.block) };
+  if (lvl === 'MP' && u.lok_sabha_constituency) return { key: lsKey(u.lok_sabha_constituency) };
+  if (lvl === 'MLA' && u.constituency) return { key: acKey(u.constituency) };
+  if ((lvl === 'DISTRICT_ADMIN' || u.role === 'DISTRICT') && (u.district || u.block)) return { key: districtKey(u.district || u.block) };
+  if ((lvl === 'BLOCK_COORD' || u.role === 'BLOCK') && u.block) return { key: blockKey(u.block) };
   return { key: null, reason: 'Your role cannot set branding' };
 }
 

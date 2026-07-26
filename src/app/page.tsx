@@ -14,7 +14,7 @@ import {
   Settings, CircleHelp, Monitor, Mail, Volume2, LayoutGrid, Keyboard,
   UserCheck, GitCompareArrows, CalendarClock, History, Tag, ClipboardList,
   AlertCircle, Info, CheckCircle2 as CheckCircleFill, Sparkles, Megaphone,
-  ArrowUp, Flame, CalendarRange, TimerReset, Server, Radio, Workflow, BookOpen, BrainCircuit, Heart, ShieldAlert, HeartHandshake, Vote, Swords,
+  ArrowUp, Flame, CalendarRange, TimerReset, Server, Radio, Workflow, BookOpen, BrainCircuit, Heart, ShieldAlert, HeartHandshake, Vote, Swords, Landmark,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -79,6 +79,7 @@ import { ChatDashboard } from '@/components/ChatDashboard';
 import { MLADashboardView } from '@/components/MLADashboardView';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MPCommandView } from '@/components/MPCommandView';
+import { DistrictCommandView } from '@/components/DistrictCommandView';
 import { CommandCenter } from '@/components/CommandCenter';
 import { GovernanceDashboardView } from '@/components/GovernanceDashboardView';
 import { MapView } from '@/components/MapView';
@@ -123,6 +124,7 @@ export default function HomePage() {
       isAdmin ? item('dashboard', t('dashboard'), LayoutDashboard)
       : lvl === 'MP' ? item('mp_command', 'Home', Crown)
       : lvl === 'MLA' ? item('mla_dashboard', 'Home', Building2)
+      : lvl === 'DISTRICT_ADMIN' ? item('district_command', 'Home', Landmark)
       : item('dashboard', 'Home', LayoutDashboard);
 
     // Team (user management): admins + governance hierarchy roles. NOTE: many DB
@@ -176,6 +178,7 @@ export default function HomePage() {
     user?.role === 'ADMIN' ? 'dashboard'
     : user?.role_level === 'MP' ? 'mp_command'
     : user?.role_level === 'MLA' ? 'mla_dashboard'
+    : user?.role_level === 'DISTRICT_ADMIN' ? 'district_command'
     : 'dashboard';
 
   // Land on the role's home view at login
@@ -753,6 +756,9 @@ export default function HomePage() {
                 )}
                 {view === 'mla_dashboard' && (user?.role_level === 'MLA' || user?.role_level === 'MP' || user?.role === 'ADMIN') && (
                   <MLADashboardView />
+                )}
+                {view === 'district_command' && (user?.role_level === 'DISTRICT_ADMIN' || user?.role === 'DISTRICT' || user?.role === 'ADMIN') && (
+                  <DistrictCommandView />
                 )}
                 {view === 'governance' && (user?.role_level === 'KARYAKARTA' || user?.role_level === 'GP_COORD' || user?.role_level === 'BLOCK_COORD' || user?.role === 'ADMIN') && (
                   <GovernanceDashboardView />
