@@ -1142,9 +1142,9 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                 ) : (() => {
                   const PC = [
                     { key: 'risk', label: 'anger', color: '#EF4444' },
-                    { key: 'schemeLoad', label: 'yojana-fail', color: '#8B5CF6' },
-                    { key: 'concentration', label: 'ghanapan', color: '#3B82F6' },
-                    { key: 'recurrence', label: 'baar-baar', color: '#F59E0B' },
+                    { key: 'schemeLoad', label: 'scheme failure', color: '#8B5CF6' },
+                    { key: 'concentration', label: 'density', color: '#3B82F6' },
+                    { key: 'recurrence', label: 'recurring', color: '#F59E0B' },
                     { key: 'reservation', label: 'reserved', color: '#94A3B8' },
                   ] as const;
                   const top = fusion.nodes[0];

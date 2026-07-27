@@ -638,7 +638,6 @@ const NOT_CONNECTED: Array<{ source: string; note: string }> = [
   { source: 'Local news / press sentiment', note: 'press_reports table is empty' },
   { source: 'Weather / rainfall / mandi prices', note: 'not connected' },
   { source: 'Scheme enrollment / coverage %', note: 'only a complaint-driven failure proxy exists; true saturation is not in the DB' },
-  { source: 'Map coordinates', note: 'village lat/lng are null — pin layer unavailable' },
   { source: 'Per-area officer scorecards', note: 'officer_scores has no area dimension and most complaints are unassigned' },
 ];
 
@@ -869,7 +868,6 @@ export async function computeNetwork(payload: JWTPayload): Promise<NetworkResult
     gaps: [
       { feature: 'Issue-cascade / contagion graph', status: 'NOT_ENOUGH_DATA', note: 'No root-cause currently spans ≥2 villages; cascade chains need longitudinal volume to be real, not fabricated.' },
       { feature: 'Competitor / opposition watch', status: 'NOT_CONNECTED', note: 'Single-party dataset; no opposition, election-margin, or press data connected.' },
-      { feature: 'Officer response-chain timing', status: 'NOT_ENOUGH_DATA', note: 'Most complaints unassigned and resolution timestamps are ~96% missing.' },
     ],
     caveats: [
       'The organisational tree (load + unresolved%) is REAL. The issue-cascade graph is NOT — no root-cause spans multiple villages yet, so it is shown as a labeled gap, not fabricated.',
