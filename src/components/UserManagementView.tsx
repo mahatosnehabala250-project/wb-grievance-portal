@@ -76,6 +76,27 @@ const EMPTY_CREATE_FORM = {
   gp_code: '', gp_name: '', assigned_villages: '',
 };
 
+/**
+ * Geography options, served from the mapping tables by /api/geo/tree.
+ *
+ * These fields used to be free text checked only for non-emptiness. A typo
+ * ("Bandwaan", or a stray space) creates an account whose scope filter matches
+ * nothing, so that MLA opens a permanently empty dashboard and nobody is told.
+ * Picking from the real tables makes that error unrepresentable, and the cascade
+ * below fills the parent levels so AC, block and GP can never disagree.
+ */
+interface GeoAc { constituency: string; district: string; lok_sabha: string }
+interface GeoBlock { block_name: string; constituency: string; district: string }
+interface GeoGp { gp_code: string; gp_name: string; block_name: string; constituency: string }
+interface GeoTree {
+  districts: string[];
+  lokSabhas: string[];
+  acs: GeoAc[];
+  blocks: GeoBlock[];
+  gps: GeoGp[];
+}
+const EMPTY_GEO: GeoTree = { districts: [], lokSabhas: [], acs: [], blocks: [], gps: [] };
+
 export function UserManagementView() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,6 +108,77 @@ export function UserManagementView() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState({ ...EMPTY_CREATE_FORM });
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
+  const [geo, setGeo] = useState<GeoTree>(EMPTY_GEO);
+  const [villages, setVillages] = useState<Array<{ code: string; name: string }>>([]);
+
+  // Geography options are already scoped server-side to the caller's jurisdiction.
+  useEffect(() => {
+    fetch('/api/geo/tree', { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (j) setGeo({ ...EMPTY_GEO, ...j }); })
+      .catch(() => {});
+  }, []);
+
+  // Villages belong to a GP, so they load only once one is chosen.
+  useEffect(() => {
+    if (!createForm.gp_code) { setVillages([]); return; }
+    fetch(`/api/geo/tree?gp_code=${encodeURIComponent(createForm.gp_code)}`, { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setVillages(j?.villages || []))
+      .catch(() => setVillages([]));
+  }, [createForm.gp_code]);
+
+  // ── Cascade setters: choosing a child fills every parent level, so the saved
+  // record can never describe a place that does not exist in the mapping.
+  const pickAc = useCallback((constituency: string) => {
+    const ac = geo.acs.find((a) => a.constituency === constituency);
+    setCreateForm((p) => ({
+      ...p,
+      constituency,
+      district: ac?.district || p.district,
+      lok_sabha_constituency: ac?.lok_sabha || p.lok_sabha_constituency,
+      block: '', gp_code: '', gp_name: '', assigned_villages: '',
+    }));
+  }, [geo.acs]);
+
+  const pickBlock = useCallback((blockName: string) => {
+    const b = geo.blocks.find((x) => x.block_name === blockName);
+    setCreateForm((p) => ({
+      ...p,
+      block: blockName,
+      constituency: p.constituency || b?.constituency || '',
+      district: p.district || b?.district || '',
+      gp_code: '', gp_name: '', assigned_villages: '',
+    }));
+  }, [geo.blocks]);
+
+  const pickGp = useCallback((gpCode: string) => {
+    const g = geo.gps.find((x) => x.gp_code === gpCode);
+    setCreateForm((p) => ({
+      ...p,
+      gp_code: gpCode,
+      gp_name: g?.gp_name || '',
+      block: g?.block_name || p.block,
+      constituency: p.constituency || g?.constituency || '',
+      assigned_villages: '',
+    }));
+  }, [geo.gps]);
+
+  // Options narrow to the parent already chosen; with none chosen, everything in
+  // the caller's own jurisdiction is offered.
+  const acOptions = useMemo(
+    () => (createForm.district ? geo.acs.filter((a) => a.district === createForm.district) : geo.acs),
+    [geo.acs, createForm.district]
+  );
+  const blockOptions = useMemo(
+    () => (createForm.constituency ? geo.blocks.filter((b) => b.constituency === createForm.constituency) : geo.blocks),
+    [geo.blocks, createForm.constituency]
+  );
+  const gpOptions = useMemo(() => {
+    if (createForm.block) return geo.gps.filter((g) => g.block_name === createForm.block);
+    if (createForm.constituency) return geo.gps.filter((g) => g.constituency === createForm.constituency);
+    return geo.gps;
+  }, [geo.gps, createForm.block, createForm.constituency]);
   const [creating, setCreating] = useState(false);
 
   const [resetPwdUser, setResetPwdUser] = useState<AppUser | null>(null);
@@ -450,46 +542,111 @@ export function UserManagementView() {
             {createForm.role_level === 'MP' && (
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-bold uppercase tracking-widest">Lok Sabha Constituency</Label>
-                <Input value={createForm.lok_sabha_constituency} onChange={(e) => setCreateForm((p) => ({ ...p, lok_sabha_constituency: e.target.value }))} placeholder="e.g. Purulia" className="h-9 text-sm" />
+                <Select value={createForm.lok_sabha_constituency} onValueChange={(v) => setCreateForm((p) => ({ ...p, lok_sabha_constituency: v }))}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Lok Sabha seat chuniye" /></SelectTrigger>
+                  <SelectContent>
+                    {geo.lokSabhas.map((ls) => <SelectItem key={ls} value={ls}>{ls}</SelectItem>)}
+                  </SelectContent>
+                </Select>
                 {createErrors.lok_sabha_constituency && <p className="text-red-500 text-[11px]">{createErrors.lok_sabha_constituency}</p>}
               </div>
             )}
             {createForm.role_level === 'MLA' && (
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-bold uppercase tracking-widest">Assembly Constituency</Label>
-                <Input value={createForm.constituency} onChange={(e) => setCreateForm((p) => ({ ...p, constituency: e.target.value }))} placeholder="e.g. Bandwan" className="h-9 text-sm" />
+                <Select value={createForm.constituency} onValueChange={pickAc}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Vidhan sabha chuniye" /></SelectTrigger>
+                  <SelectContent>
+                    {acOptions.map((a) => (
+                      <SelectItem key={a.constituency} value={a.constituency}>
+                        {a.constituency}<span className="text-muted-foreground"> · {a.district}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {createErrors.constituency && <p className="text-red-500 text-[11px]">{createErrors.constituency}</p>}
               </div>
             )}
             {(createForm.role_level === 'GP_COORD' || createForm.role_level === 'KARYAKARTA') && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest">GP Code (LGD)</Label>
-                  <Input value={createForm.gp_code} onChange={(e) => setCreateForm((p) => ({ ...p, gp_code: e.target.value }))} placeholder="e.g. 111050" className="h-9 text-sm" />
-                  {createErrors.gp_code && <p className="text-red-500 text-[11px]">{createErrors.gp_code}</p>}
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest">GP Name</Label>
-                  <Input value={createForm.gp_name} onChange={(e) => setCreateForm((p) => ({ ...p, gp_name: e.target.value }))} placeholder="Gram Panchayat name" className="h-9 text-sm" />
-                </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-widest">Gram Panchayat</Label>
+                <Select value={createForm.gp_code} onValueChange={pickGp}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Gram panchayat chuniye" /></SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    {gpOptions.map((g) => (
+                      <SelectItem key={g.gp_code} value={g.gp_code}>
+                        {g.gp_name}<span className="text-muted-foreground"> · {g.block_name}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {createForm.gp_code && (
+                  <p className="text-[11px] text-muted-foreground">LGD code {createForm.gp_code}</p>
+                )}
+                {createErrors.gp_code && <p className="text-red-500 text-[11px]">{createErrors.gp_code}</p>}
               </div>
             )}
             {createForm.role_level === 'KARYAKARTA' && (
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-bold uppercase tracking-widest">Assigned Villages (comma-separated)</Label>
-                <Input value={createForm.assigned_villages} onChange={(e) => setCreateForm((p) => ({ ...p, assigned_villages: e.target.value }))} placeholder="Jangidiri, Baliguma" className="h-9 text-sm" />
+                <Label className="text-[10px] font-bold uppercase tracking-widest">
+                  Assigned Villages {createForm.gp_code ? `(${villages.length} in this GP)` : ''}
+                </Label>
+                {!createForm.gp_code ? (
+                  <p className="text-[11px] text-muted-foreground">Pehle gram panchayat chuniye.</p>
+                ) : (
+                  <div className="max-h-32 overflow-y-auto rounded-md border p-2 space-y-1">
+                    {villages.map((v) => {
+                      const picked = createForm.assigned_villages
+                        .split(',').map((s) => s.trim()).filter(Boolean);
+                      const on = picked.includes(v.name);
+                      return (
+                        <label key={v.code} className="flex items-center gap-2 text-xs cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={on}
+                            onChange={() => {
+                              const next = on ? picked.filter((n) => n !== v.name) : [...picked, v.name];
+                              setCreateForm((p) => ({ ...p, assigned_villages: next.join(', ') }));
+                            }}
+                          />
+                          {v.name}
+                        </label>
+                      );
+                    })}
+                    {villages.length === 0 && <p className="text-[11px] text-muted-foreground">Is GP mein koi village nahi mila.</p>}
+                  </div>
+                )}
               </div>
             )}
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-bold uppercase tracking-widest">Block</Label>
-                <Input value={createForm.block} onChange={(e) => setCreateForm((p) => ({ ...p, block: e.target.value }))} placeholder="Block/Mandal" className="h-9 text-sm" />
+                <Select value={createForm.block} onValueChange={pickBlock}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Block chuniye" /></SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    {blockOptions.map((b) => (
+                      <SelectItem key={`${b.block_name}|${b.constituency}`} value={b.block_name}>
+                        {b.block_name}<span className="text-muted-foreground"> · {b.constituency}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {createErrors.block && <p className="text-red-500 text-[11px]">{createErrors.block}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-bold uppercase tracking-widest">District</Label>
-                <Input value={createForm.district} onChange={(e) => setCreateForm((p) => ({ ...p, district: e.target.value }))} placeholder="District name" className="h-9 text-sm" />
+                <Select
+                  value={createForm.district}
+                  onValueChange={(v) => setCreateForm((p) => ({
+                    ...p, district: v, constituency: '', block: '', gp_code: '', gp_name: '', assigned_villages: '',
+                  }))}
+                >
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Zila chuniye" /></SelectTrigger>
+                  <SelectContent>
+                    {geo.districts.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
                 {createErrors.district && <p className="text-red-500 text-[11px]">{createErrors.district}</p>}
               </div>
             </div>
