@@ -494,7 +494,7 @@ export function MLADashboardView() {
                     </div>
                   ) : (
                     <div className="text-center py-6 text-sm text-muted-foreground">
-                      Is hafte koi resolve nahi hua abhi
+                      Nothing resolved yet this week
                     </div>
                   )}
                 </CardContent>

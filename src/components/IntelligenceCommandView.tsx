@@ -1382,7 +1382,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground gap-2">
                   <span>Proposed <b className="text-foreground">{operations.stats.proposed}</b></span>
                   <span className="flex-1 text-right">
-                    Pichhle {operations.stats.windowDays}d: aapne <b className="text-foreground">{operations.stats.actionedWindow}</b> action liye
+                    Last {operations.stats.windowDays}d: you took <b className="text-foreground">{operations.stats.actionedWindow}</b> actions
                     {operations.stats.actionedWindow > 0 && <> · <b className="text-emerald-500">{operations.stats.resolvedOfActioned}</b> ab resolved</>}
                   </span>
                   <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={loadOperations} disabled={operationsLoading}>

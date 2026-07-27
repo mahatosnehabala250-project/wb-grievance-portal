@@ -104,7 +104,7 @@ export function AajHome({ user, branding, onOpenActions, onOpenIntelligence }: {
       `📋 ${branding.orgName} — Today ka Brief`,
       `📍 ${brief.scope.label}`,
       `🎯 Risk ${brief.riskIndex.score}/100 (${grade.label})`,
-      `• Active ${brief.kpis.active} · SLA-breach ${brief.kpis.slaBreached} · Is hafte ${brief.kpis.filed7}`,
+      `• Active ${brief.kpis.active} · SLA-breach ${brief.kpis.slaBreached} · This week ${brief.kpis.filed7}`,
       ...(top3.length ? ['', "Today's actions:", ...top3.map((it, i) => `${i + 1}. ${it.title}`)] : []),
       ...(chiefLine ? ['', `🧭 ${chiefLine}`] : []),
       '',
@@ -142,7 +142,7 @@ export function AajHome({ user, branding, onOpenActions, onOpenIntelligence }: {
             {initialsOf(user?.name)}
           </div>
           <div>
-            <div className="text-xl font-semibold leading-tight">Namaskar, {firstName}</div>
+            <div className="text-xl font-semibold leading-tight">Hello, {firstName}</div>
             <div className="text-xs text-muted-foreground flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: branding.accent }} aria-hidden />
               {brief?.scope.label || branding.orgName}{branding.leaderName ? ` · ${branding.leaderName}` : ''}
@@ -183,7 +183,7 @@ export function AajHome({ user, branding, onOpenActions, onOpenIntelligence }: {
                 {[
                   { label: 'Active', value: brief.kpis.active, c: undefined },
                   { label: 'SLA breach', value: brief.kpis.slaBreached, c: '#E24B4A' },
-                  { label: 'Is hafte', value: brief.kpis.filed7, c: undefined },
+                  { label: 'This week', value: brief.kpis.filed7, c: undefined },
                 ].map((k) => (
                   <div key={k.label} className="rounded-xl bg-muted/50 p-3">
                     <div className="text-[11px] text-muted-foreground">{k.label}</div>
@@ -200,7 +200,7 @@ export function AajHome({ user, branding, onOpenActions, onOpenIntelligence }: {
               <Flag className="w-3.5 h-3.5" style={{ color: branding.accent }} /> Today's three actions
               {onOpenActions && top3.length > 0 && (
                 <Button variant="ghost" size="sm" className="ml-auto h-6 text-[11px] px-2" onClick={onOpenActions}>
-                  Saari actions <ArrowRight className="w-3 h-3 ml-1" />
+                  All actions <ArrowRight className="w-3 h-3 ml-1" />
                 </Button>
               )}
             </div>
@@ -238,11 +238,11 @@ export function AajHome({ user, branding, onOpenActions, onOpenIntelligence }: {
           {ops && (
             <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
               <Zap className="w-3 h-3" style={{ color: branding.accent }} aria-hidden />
-              Pichhle {ops.stats.windowDays}d: aapne <b className="text-foreground mx-0.5">{ops.stats.actionedWindow}</b> action liye
+              Last {ops.stats.windowDays}d: you took <b className="text-foreground mx-0.5">{ops.stats.actionedWindow}</b> actions
               {ops.stats.actionedWindow > 0 && <> · <b className="mx-0.5" style={{ color: '#1D9E75' }}>{ops.stats.resolvedOfActioned}</b> ab resolved</>}
               {onOpenIntelligence && (
                 <Button variant="ghost" size="sm" className="ml-auto h-6 text-[11px] px-2" onClick={onOpenIntelligence}>
-                  Poora intelligence <ArrowRight className="w-3 h-3 ml-1" />
+                  Full intelligence <ArrowRight className="w-3 h-3 ml-1" />
                 </Button>
               )}
             </div>
