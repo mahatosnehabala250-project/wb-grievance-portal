@@ -58,18 +58,18 @@ interface Complaint {
 
 /* ─── Config ─────────────────────────────────────────────── */
 const CAT_CFG: Record<string,{ icon: React.ElementType; color: string; bg: string; label: string }> = {
-  WATER:       { icon: Droplets,    color: '#3B82F6', bg: 'bg-blue-500/10',   label: 'Jal Sankat'  },
-  ROAD:        { icon: Navigation2, color: '#F59E0B', bg: 'bg-amber-500/10',  label: 'Sadak'       },
-  HEALTH:      { icon: Heart,       color: '#EF4444', bg: 'bg-red-500/10',    label: 'Swasthya'    },
-  ELECTRICITY: { icon: Zap,         color: '#EAB308', bg: 'bg-yellow-500/10', label: 'Bijli'       },
-  EDUCATION:   { icon: BookOpen,    color: '#06B6D4', bg: 'bg-cyan-500/10',   label: 'Shiksha'     },
-  RATION:      { icon: Package,     color: '#10B981', bg: 'bg-emerald-500/10',label: 'Rasan'       },
-  HOUSING:     { icon: Home,        color: '#8B5CF6', bg: 'bg-violet-500/10', label: 'Awas'        },
+  WATER:       { icon: Droplets,    color: '#3B82F6', bg: 'bg-blue-500/10',   label: 'Water'  },
+  ROAD:        { icon: Navigation2, color: '#F59E0B', bg: 'bg-amber-500/10',  label: 'Roads'       },
+  HEALTH:      { icon: Heart,       color: '#EF4444', bg: 'bg-red-500/10',    label: 'Health'    },
+  ELECTRICITY: { icon: Zap,         color: '#EAB308', bg: 'bg-yellow-500/10', label: 'Electricity'       },
+  EDUCATION:   { icon: BookOpen,    color: '#06B6D4', bg: 'bg-cyan-500/10',   label: 'Education'     },
+  RATION:      { icon: Package,     color: '#10B981', bg: 'bg-emerald-500/10',label: 'Ration'       },
+  HOUSING:     { icon: Home,        color: '#8B5CF6', bg: 'bg-violet-500/10', label: 'Housing'        },
   PENSION:     { icon: Landmark,    color: '#EC4899', bg: 'bg-pink-500/10',   label: 'Pension'     },
   LAND:        { icon: MapPin,      color: '#F97316', bg: 'bg-orange-500/10', label: 'Bhoomi'      },
   LAW_ORDER:   { icon: Scale,       color: '#6366F1', bg: 'bg-indigo-500/10', label: 'Kanoon'      },
-  SANITATION:  { icon: Droplets,    color: '#14B8A6', bg: 'bg-teal-500/10',   label: 'Safai'       },
-  OTHER:       { icon: MoreHorizontal,color:'#6B7280',bg: 'bg-gray-500/10',   label: 'Anya'        },
+  SANITATION:  { icon: Droplets,    color: '#14B8A6', bg: 'bg-teal-500/10',   label: 'Sanitation'       },
+  OTHER:       { icon: MoreHorizontal,color:'#6B7280',bg: 'bg-gray-500/10',   label: 'Other'        },
 };
 
 const STATUS_CFG: Record<string,{ label:string; dot:string; text:string; bg:string }> = {

@@ -488,8 +488,8 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
      AGGREGATE only (counts + categories), NO citizen names (public broadcast). */
   const makeVillagePr = useCallback((v: WapasVillage) => {
     const CAT_LABEL: Record<string, string> = {
-      WATER: 'Paani', ROAD: 'Sadak', HEALTH: 'Swasthya', ELECTRICITY: 'Bijli', RATION: 'Ration',
-      EDUCATION: 'Shiksha', PENSION: 'Pension', SANITATION: 'Safai', HOUSING: 'Awas', LAND: 'Zameen', OTHER: 'Anya',
+      WATER: 'Water', ROAD: 'Roads', HEALTH: 'Health', ELECTRICITY: 'Electricity', RATION: 'Ration',
+      EDUCATION: 'Education', PENSION: 'Pension', SANITATION: 'Sanitation', HOUSING: 'Housing', LAND: 'Land', OTHER: 'Other',
     };
     const counts: Record<string, number> = {};
     for (const it of v.items) { const c = (it.category || 'OTHER').toUpperCase(); counts[c] = (counts[c] || 0) + 1; }
