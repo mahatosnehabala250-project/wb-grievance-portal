@@ -83,9 +83,9 @@ export function ChatDashboard() {
     const d = new Date(iso);
     const now = new Date();
     const diff = (now.getTime() - d.getTime()) / 1000;
-    if (diff < 60) return 'এখনই';
-    if (diff < 3600) return Math.floor(diff/60) + 'm আগে';
-    if (diff < 86400) return Math.floor(diff/3600) + 'h আগে';
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
     return d.toLocaleDateString('bn-IN', { day:'numeric', month:'short' });
   };
   const formatMsgTime = (iso: string) => new Date(iso).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });

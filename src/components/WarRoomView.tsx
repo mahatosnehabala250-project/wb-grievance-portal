@@ -162,7 +162,7 @@ function heatStyle(open: number, max: number): CSSProperties {
 
 function karyakartaCaption(k: KaryakartaActivity): string {
   if (k.karyakartaCount <= 1) {
-    const label = k.karyakartaCount === 1 ? '১ কার্যকর্তা' : '০ কার্যকর্তা';
+    const label = k.karyakartaCount === 1 ? '1 worker' : `${k.karyakartaCount} workers`;
     return `${label} · ${k.assignedBooths}/${k.totalBooths} booth assigned — assign more in Booths`;
   }
   return `${k.karyakartaCount} workers · ${k.assignedBooths}/${k.totalBooths} booths assigned`;
@@ -331,7 +331,7 @@ export function WarRoomView() {
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.04] p-3.5 sm:p-4 space-y-2.5">
             <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
               <Zap className="h-4 w-4 text-amber-400" />
-              ⚡ আজকের কাজ / Today&apos;s Actions
+              ⚡ Today&apos;s Actions
             </h3>
             {initialLoading ? (
               <div className="space-y-1.5">
@@ -431,7 +431,7 @@ export function WarRoomView() {
             <div className="space-y-3">
               <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
                 <Flame className="h-4 w-4 text-orange-400" />
-                Priority GPs — কোথায় কার্যকর্তা পাঠান
+                Priority GPs — where to send a worker
               </h3>
               <Card className="border border-slate-800 bg-slate-900/70 shadow-none rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">

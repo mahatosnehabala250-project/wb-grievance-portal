@@ -90,13 +90,13 @@ export function HotspotsView() {
           Hotspots
         </h2>
         <p className="text-xs text-muted-foreground mt-0.5">
-          কোথায় নজর দিতে হবে · {meta.totalOpen} open complaints across {meta.gpCount} GPs
+          Where to focus · {meta.totalOpen} open complaints across {meta.gpCount} GPs
         </p>
       </div>
 
       {/* Priority GPs */}
       <div className="space-y-2">
-        <h3 className="text-sm font-bold text-foreground">🔥 Priority GPs — এখানে কার্যকর্তা পাঠান</h3>
+        <h3 className="text-sm font-bold text-foreground">🔥 Priority GPs — send a worker here</h3>
         <Card className="border-0 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <Table>
