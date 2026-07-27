@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Shield, AlertTriangle, X, User, Lock, ChevronRight, Loader2, Globe, Building2, MapPin, FileText } from 'lucide-react';
+import { Shield, AlertTriangle, X, User, Lock, ChevronRight, ChevronDown, Loader2, Globe, Building2, MapPin, FileText, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,14 +12,47 @@ import { useI18nStore } from '@/lib/i18n-store';
 import { NAVY } from '@/lib/constants';
 import { RoleBadge } from '@/components/common';
 
+/**
+ * Role selector — presentation only, deliberately powerless.
+ *
+ * It does NOT prefill, authenticate, or narrow anything. Which MLA (or district)
+ * a session sees is decided entirely by the account that signs in: the token is
+ * built from the user's own database row in /api/auth/login, and every query is
+ * bounded by that row's geography (getComplaintScopeFilter / complaintInScope).
+ * So with many MLAs on one deployment, mla_bandwan sees Bandwan and nobody else's
+ * seat, whatever is picked here.
+ *
+ * It is also never validated against the account server-side, and must not be:
+ * telling a visitor "that username is not an MLA" would turn the login form into
+ * an account-enumeration oracle for a political client list.
+ */
+const ROLE_OPTIONS: Array<{ level: string; label: string; sees: string }> = [
+  { level: 'MLA',            label: 'MLA — Vidhayak',            sees: 'Aapke vidhan sabha ka poora data' },
+  { level: 'MP',             label: 'MP — Sansad',               sees: 'Aapke lok sabha seat ke saare vidhan sabha' },
+  { level: 'DISTRICT_ADMIN', label: 'Zila Sabhapati',            sees: 'Zile ke saare vidhan sabha ek saath' },
+  { level: 'BLOCK_COORD',    label: 'Block Coordinator',         sees: 'Aapke block ki shikayat aur karyakarta' },
+  { level: 'GP_COORD',       label: 'GP Coordinator',            sees: 'Aapki gram panchayat ka kaam' },
+  { level: 'KARYAKARTA',     label: 'Karyakarta',                sees: 'Aapko diye gaye booth' },
+  { level: 'ADMIN',          label: 'Administrator',             sees: 'Poora system' },
+];
+
 export function LoginView() {
   const { login, isLoading, error, clearError } = useAuthStore();
   const { t } = useI18nStore();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [roleChoice, setRoleChoice] = useState('');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
+
+  const handleRolePick = useCallback((level: string) => {
+    setRoleChoice(level);
+    // Move to the username field — the credentials, not this pick, decide the session.
+    requestAnimationFrame(() => document.getElementById('username')?.focus());
+  }, []);
+
+  const pickedRole = ROLE_OPTIONS.find((r) => r.level === roleChoice) || null;
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,6 +203,33 @@ export function LoginView() {
                   <button type="button" onClick={clearError}><X className="h-4 w-4" /></button>
                 </div>
               )}
+
+              {/* Role selector — presentation only; see ROLE_OPTIONS. */}
+              <div className="space-y-1.5">
+                <Label htmlFor="role-select" className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                  Log in as
+                </Label>
+                <div className="relative">
+                  <Users className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  <select
+                    id="role-select"
+                    value={roleChoice}
+                    onChange={(e) => handleRolePick(e.target.value)}
+                    className="w-full h-12 pl-10 pr-9 appearance-none bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:border-blue-600 focus:ring-1 focus:ring-blue-600/20 focus:outline-none transition-all"
+                  >
+                    <option value="">Apna role chuniye…</option>
+                    {ROLE_OPTIONS.map((r) => (
+                      <option key={r.level} value={r.level}>{r.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                </div>
+                {pickedRole && (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {pickedRole.sees} — apna username aur password daaliye.
+                  </p>
+                )}
+              </div>
 
               {/* Username */}
               <div className="space-y-1.5">
