@@ -3,7 +3,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
 import type { JWTPayload } from '@/lib/jwt';
-import { assembliesForLokSabha, userInManageScope } from '@/lib/rbac';
+import { assembliesForLokSabha, assembliesForDistrict, userInManageScope } from '@/lib/rbac';
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -80,7 +80,19 @@ async function resolveScope(payload: JWTPayload): Promise<ScopeResult> {
   }
 
   if (lvl === 'DISTRICT_ADMIN' || payload.role === 'DISTRICT') {
-    return { scope: { acs: ALL_ACS } };
+    // ALL_ACS here was a write-path hole: PATCH assigns karyakartas to booths,
+    // so an unbounded scope let a district president reassign booths in every
+    // other district. Bound to the ACs of their own district.
+    // (Legacy DISTRICT rows kept the district name in `block`.)
+    const district = payload.district || payload.block;
+    if (!district) {
+      return { error: 'Your account has no district set', status: 403 };
+    }
+    const acs = await assembliesForDistrict(district);
+    if (acs.length === 0) {
+      return { error: `No assemblies mapped for district ${district}`, status: 403 };
+    }
+    return { scope: { acs } };
   }
 
   if (lvl === 'BLOCK_COORD' || payload.role === 'BLOCK') {
@@ -368,5 +380,121 @@ export async function PATCH(request: NextRequest) {
   } catch (error) {
     console.error('Update booth error:', error);
     return NextResponse.json({ error: 'Failed to update booth' }, { status: 500 });
+  }
+}
+
+// POST /api/booths — assign one karyakarta to EVERY booth in a gram panchayat.
+//
+// Purulia alone has ~2,800 booths across ~170 GPs, so PATCH-per-booth makes
+// sangathan coverage practically unreachable (it has stayed at 0). The GP is
+// the unit karyakartas are actually organised by, so one call per GP turns
+// ~2,800 operations into ~170.
+//
+// Authorisation is deliberately identical to PATCH: same read-only gate, same
+// booth-scope check (applied to every booth touched), same target-user rules.
+export async function POST(request: NextRequest) {
+  const token = getTokenFromRequest(request);
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const payload = await verifyToken(token);
+  if (!payload) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+
+  const lvl = payload.role_level;
+  const privilegedBase = ['ADMIN', 'STATE', 'DISTRICT', 'BLOCK'].includes(payload.role);
+  if (lvl === 'KARYAKARTA' || (!privilegedBase && (lvl === 'OFFICER' || !lvl))) {
+    return NextResponse.json({ error: 'Your role has read-only access to booths' }, { status: 403 });
+  }
+
+  try {
+    const body = await request.json();
+    const { gp_code, karyakarta_user_id, overwrite = false } = body as {
+      gp_code?: string; karyakarta_user_id?: string | null; overwrite?: boolean;
+    };
+
+    if (!gp_code) return NextResponse.json({ error: 'gp_code required' }, { status: 400 });
+    if (karyakarta_user_id === undefined) {
+      return NextResponse.json({ error: 'karyakarta_user_id required (null to clear)' }, { status: 400 });
+    }
+
+    const resolved = await resolveScope(payload);
+    if ('error' in resolved) {
+      return NextResponse.json({ error: resolved.error }, { status: resolved.status });
+    }
+    const { scope } = resolved;
+
+    // Validate the target user exactly as PATCH does.
+    let targetId: string | null = null;
+    if (karyakarta_user_id !== null) {
+      const { data: targetUserRow, error: userErr } = await supabase
+        .from('users').select('*').eq('id', karyakarta_user_id).single();
+      if (userErr || !targetUserRow) {
+        return NextResponse.json({ error: 'karyakarta_user_id not found' }, { status: 400 });
+      }
+      const targetUser = targetUserRow as AnyRecord;
+      if (!targetUser.isActive) {
+        return NextResponse.json({ error: 'That user is not active' }, { status: 400 });
+      }
+      if (!['KARYAKARTA', 'GP_COORD'].includes(targetUser.role_level as string)) {
+        return NextResponse.json(
+          { error: 'karyakarta_user_id must reference a KARYAKARTA or GP_COORD user' },
+          { status: 400 }
+        );
+      }
+      if (payload.role !== 'ADMIN' && !(await userInManageScope(payload, targetUser))) {
+        return NextResponse.json({ error: 'Target user is outside your manage scope' }, { status: 403 });
+      }
+      targetId = targetUser.id as string;
+    }
+
+    const { data: boothRows, error: fetchErr } = await supabase
+      .from('polling_stations').select('*').eq('gp_code', gp_code);
+    if (fetchErr) throw fetchErr;
+
+    const booths = (boothRows || []) as AnyRecord[];
+    if (booths.length === 0) {
+      return NextResponse.json({ error: 'No booths found for that gp_code' }, { status: 404 });
+    }
+
+    // Every booth must be inside the caller's jurisdiction — a GP that straddles
+    // the scope boundary is rejected outright rather than partially applied.
+    const outside = booths.filter((b) => !boothInScope(scope, b));
+    if (outside.length > 0) {
+      return NextResponse.json(
+        { error: 'That gram panchayat is outside your jurisdiction' },
+        { status: 403 }
+      );
+    }
+
+    // Without overwrite, an already-assigned booth is left alone so a bulk call
+    // can't silently displace assignments someone made deliberately.
+    const targets = overwrite
+      ? booths
+      : booths.filter((b) => !b.karyakarta_user_id || b.karyakarta_user_id === targetId);
+    const skipped = booths.length - targets.length;
+
+    if (targets.length === 0) {
+      return NextResponse.json({
+        success: true, assigned: 0, skipped,
+        message: 'Sab booth pehle se kisi aur ko assigned hain — overwrite:true bhejo badalne ke liye',
+      });
+    }
+
+    const { error: updErr } = await supabase
+      .from('polling_stations')
+      .update({ karyakarta_user_id: targetId })
+      .in('id', targets.map((b) => b.id));
+    if (updErr) throw updErr;
+
+    return NextResponse.json({
+      success: true,
+      gp_code,
+      gp_name: (booths[0].gp_name as string) || null,
+      assigned: targets.length,
+      skipped,
+      cleared: targetId === null,
+    });
+  } catch (error) {
+    console.error('Bulk assign booths error:', error);
+    return NextResponse.json({ error: 'Failed to assign booths' }, { status: 500 });
   }
 }
