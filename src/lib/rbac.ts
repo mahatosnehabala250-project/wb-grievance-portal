@@ -444,6 +444,19 @@ export async function getUserListScope(actor: JWTPayload): Promise<{
 
   const lvl = actor.role_level;
 
+  // Geography alone let a district president list the ADMIN and STATE accounts
+  // that happen to sit in their district — rows they can never manage
+  // (userInManageScope rejects same-or-higher rank) but could still read. The
+  // list now matches what is actually manageable: strictly lower rank.
+  const aRank = actorRank(actor);
+  const outranked = (u: AnyRecord) =>
+    (ROLE_LEVEL_RANK[(u.role_level as string) || 'OFFICER'] ?? 6) > aRank
+    && u.role !== 'ADMIN' && u.role !== 'STATE';
+  const scoped = (
+    where: Record<string, unknown>,
+    extra?: (u: AnyRecord) => boolean
+  ) => ({ where, postFilter: (u: AnyRecord) => outranked(u) && (!extra || extra(u)) });
+
   if (lvl === 'MP' && actor.lok_sabha_constituency) {
     const acs = await assembliesForLokSabha(actor.lok_sabha_constituency);
     const acSet = new Set(acs.map(norm));
@@ -452,33 +465,27 @@ export async function getUserListScope(actor: JWTPayload): Promise<{
       for (const b of await blocksForAssembly(ac)) blockSet.add(norm(b));
     }
     const ls = norm(actor.lok_sabha_constituency);
-    return {
-      where: {},
-      postFilter: (u) =>
-        norm(u.lok_sabha_constituency as string) === ls ||
-        acSet.has(norm(u.constituency as string)) ||
-        blockSet.has(norm(u.block as string)),
-    };
+    return scoped({}, (u) =>
+      norm(u.lok_sabha_constituency as string) === ls ||
+      acSet.has(norm(u.constituency as string)) ||
+      blockSet.has(norm(u.block as string)));
   }
   if (lvl === 'MLA' && actor.constituency) {
     const blocks = await blocksForAssembly(actor.constituency);
     const blockSet = new Set(blocks.map(norm));
     const ac = norm(actor.constituency);
-    return {
-      where: {},
-      postFilter: (u) =>
-        norm(u.constituency as string) === ac ||
-        blockSet.has(norm(u.block as string)),
-    };
+    return scoped({}, (u) =>
+      norm(u.constituency as string) === ac ||
+      blockSet.has(norm(u.block as string)));
   }
   if (lvl === 'DISTRICT_ADMIN' || actor.role === 'DISTRICT') {
-    return { where: { district: actor.district || actor.block } };
+    return scoped({ district: actor.district || actor.block });
   }
   if (lvl === 'BLOCK_COORD' || actor.role === 'BLOCK') {
-    return { where: { block: actor.block } };
+    return scoped({ block: actor.block });
   }
   if (lvl === 'GP_COORD' && actor.gp_code) {
-    return { where: { gp_code: actor.gp_code } };
+    return scoped({ gp_code: actor.gp_code });
   }
   // KARYAKARTA / OFFICER: no user management
   return { where: { id: '__none__' } };
