@@ -81,6 +81,30 @@ import LiveDataMonitor from '@/components/LiveDataMonitor';
 import { BoothsView } from '@/components/BoothsView';
 import { HotspotsView } from '@/components/HotspotsView';
 import { WarRoomView } from '@/components/WarRoomView';
+/**
+ * What to call this user on screen.
+ *
+ * `role` is the legacy base role and is a poor label on its own: every MLA row
+ * carries role='DISTRICT', so the sidebar announced "District Level" to an MLA.
+ * The governance designation in `role_level` is the real answer whenever it is
+ * more specific than OFFICER.
+ */
+const DESIGNATION_LABELS: Record<string, string> = {
+  MP: 'MP', MLA: 'MLA', DISTRICT_ADMIN: 'District President',
+  BLOCK_COORD: 'Block Coordinator', GP_COORD: 'GP Coordinator', KARYAKARTA: 'Karyakarta',
+};
+function designationOf(u?: { role?: string; role_level?: string } | null): string {
+  const lvl = u?.role_level;
+  if (lvl && DESIGNATION_LABELS[lvl]) return DESIGNATION_LABELS[lvl];
+  return fmtRole(u?.role || '');
+}
+/** The place this user is responsible for — 'ALL' is a stored sentinel, not a location. */
+function scopeOf(u?: { constituency?: string | null; lok_sabha_constituency?: string | null; district?: string | null; block?: string | null } | null): string {
+  const first = [u?.constituency, u?.lok_sabha_constituency, u?.district, u?.block]
+    .find((v) => v && v.trim() && v.trim().toUpperCase() !== 'ALL');
+  return first || '';
+}
+
 export default function HomePage() {
   const { user, isAuthenticated, logout, checkAuth } = useAuthStore();
 
@@ -103,7 +127,7 @@ export default function HomePage() {
   // ─────────────────────────────────────────────────────────────────
   // ROLE-BASED NAVIGATION (proper IA — Session 10)
   // Each role gets its own curated, ordered, sectioned menu — never a mixed bag:
-  //   ADMIN   → system operator console (role previews alag section mein)
+  //   ADMIN   → system operator console (role previews in a separate section)
   //   MP      → MP Command home + operations + team
   //   MLA     → MLA Dashboard home + operations + team
   //   Coords  → focused jurisdiction nav
@@ -598,14 +622,16 @@ export default function HomePage() {
                       <div className="mt-1">
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[user?.role || 'BLOCK'] || 'bg-gray-100 text-gray-600'}`}>
                           {user?.role === 'ADMIN' ? <Shield className="h-3 w-3 inline mr-0.5" /> : user?.role === 'STATE' ? <Globe className="h-3 w-3 inline mr-0.5" /> : user?.role === 'DISTRICT' ? <Building2 className="h-3 w-3 inline mr-0.5" /> : <MapPin className="h-3 w-3 inline mr-0.5" />}
-                          {fmtRole(user?.role || '')}
+                          {designationOf(user)}
                         </span>
                       </div>
                     </div>
                   </div>
                   {/* Location Info */}
                   <div className="mt-3 pt-2.5 border-t border-border/50 flex items-center gap-3 text-[11px] text-muted-foreground">
-                    <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{user?.block}</span>
+                    {scopeOf(user) && (
+                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{scopeOf(user)}</span>
+                    )}
                     {user?.district && (
                       <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{user.district}</span>
                     )}
@@ -1044,9 +1070,9 @@ export default function HomePage() {
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[user?.role || 'BLOCK'] || 'bg-gray-100 text-gray-600'}`}>
-                  {fmtRole(user?.role || '')}
+                  {designationOf(user)}
                 </span>
-                <span className="text-[10px] text-muted-foreground">{user?.block}</span>
+                <span className="text-[10px] text-muted-foreground">{scopeOf(user)}</span>
               </div>
             </div>
           </div>
