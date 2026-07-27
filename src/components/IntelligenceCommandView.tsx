@@ -167,9 +167,9 @@ const gradeToRisk = (g: string) => (g === 'TOP' ? 'SEVERE' : g === 'HIGH' ? 'HIG
 const gradeBar = (g: string) => RISK_COLORS[gradeToRisk(g)]?.bar || '#10B981';
 const EMO_COLOR: Record<string, string> = { angry: '#EF4444', frustrated: '#F97316', concerned: '#F59E0B', anxious: '#EAB308', neutral: '#94A3B8' };
 const ENTITY_BUCKET: Record<string, { label: string; color: string }> = {
-  infrastructure: { label: 'ढाँचा', color: '#3B82F6' },
-  schemes: { label: 'योजना', color: '#8B5CF6' },
-  officers: { label: 'अफ़सर', color: '#F59E0B' },
+  infrastructure: { label: 'Infrastructure', color: '#3B82F6' },
+  schemes: { label: 'Schemes', color: '#8B5CF6' },
+  officers: { label: 'Officers', color: '#F59E0B' },
 };
 
 const CAT_COLORS: Record<string, string> = {
@@ -1160,7 +1160,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                     const pairs: [string, number][] = [['risk', c.risk], ['schemeLoad', c.schemeLoad], ['concentration', c.concentration], ['recurrence', c.recurrence], ['reservation', c.reservation]];
                     const dom = pairs.sort((a, b) => b[1] - a[1])[0][0];
                     const anger = nd.sentiment.avgAnger ?? 0;
-                    if (dom === 'schemeLoad') return `${nd.schemeGrievance.pct}% shikayatein scheme failures ki`;
+                    if (dom === 'schemeLoad') return `${nd.schemeGrievance.pct}% of complaints are scheme failures`;
                     if (dom === 'concentration') return 'complaints cluster here — pressure in one place';
                     if (dom === 'recurrence') return 'the same complaint keeps returning';
                     if (dom === 'reservation') return 'reserved seat — extra dhyan';
@@ -1470,7 +1470,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
             )}
           </Card>
 
-          {/* ── Logon ki Asli Shikayat (AI text intelligence) ── */}
+          {/* ── What people are actually complaining about (AI text intelligence) ── */}
           <Card className={`border shadow-sm border-fuchsia-500/20 ${show('brain') ? '' : 'hidden'}`}>
             <CardHeader className="pb-1 pt-3 px-4">
               <CardTitle className="text-xs font-semibold flex items-center justify-between text-foreground tracking-tight">
@@ -1489,7 +1489,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                       <circle cx="18" cy="18" r="15" fill="none" stroke="#d946ef" strokeWidth="4" strokeLinecap="round"
                         strokeDasharray={2 * Math.PI * 15} strokeDashoffset={2 * Math.PI * 15 * (1 - (nlp.coverage.total ? nlp.coverage.enriched / nlp.coverage.total : 0))} transform="rotate(-90 18 18)" />
                     </svg>
-                    <span className="text-[9px] text-muted-foreground leading-tight">{Math.round((nlp.coverage.total ? nlp.coverage.enriched / nlp.coverage.total : 0) * 100)}%<br />AI-padhi</span>
+                    <span className="text-[9px] text-muted-foreground leading-tight">{Math.round((nlp.coverage.total ? nlp.coverage.enriched / nlp.coverage.total : 0) * 100)}%<br />AI-read</span>
                   </span>
                 )}
               </CardTitle>
@@ -1512,12 +1512,12 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                         className="rounded-xl p-3 flex items-center gap-3"
                         style={{ borderLeft: `4px solid ${angerColor(cl0.avgAnger)}`, background: `linear-gradient(135deg, ${angerColor(cl0.avgAnger)}1a, transparent)` }}>
                         <div className="flex-1 min-w-0">
-                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Sabse badi musibat</div>
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Biggest problem</div>
                           <div className="text-[19px] leading-tight font-black text-foreground">{cl0.rootCause}</div>
                           <div className="text-[12px] text-muted-foreground mt-0.5">{cl0.count} complaints · {cl0.villages.length}+ villages · anger <span style={{ color: angerColor(cl0.avgAnger), fontWeight: 700 }}>{cl0.avgAnger}/100</span></div>
                           <Button size="sm" className="h-7 mt-2 text-[11px] px-2.5"
-                            onClick={() => { const t = `🛠 WORK-ORDER — ${cl0.rootCause}\n${cl0.count} shikayatein · ${cl0.villages.join(', ')}${cl0.count > cl0.villages.length ? ' +aur' : ''}\nTickets: ${cl0.tickets.join(', ')}\n\nA single fix would address ${cl0.count} complaints.\n— JanSunwai`; navigator.clipboard.writeText(t).then(() => toast.success('Work order copied — send it to staff on WhatsApp')).catch(() => toast.error('Copy fail')); }}>
-                            <Wrench className="w-3.5 h-3.5 mr-1" /> Yeh theek karwao
+                            onClick={() => { const t = `🛠 WORK-ORDER — ${cl0.rootCause}\n${cl0.count} complaints · ${cl0.villages.join(', ')}${cl0.count > cl0.villages.length ? ' +aur' : ''}\nTickets: ${cl0.tickets.join(', ')}\n\nA single fix would address ${cl0.count} complaints.\n— JanSunwai`; navigator.clipboard.writeText(t).then(() => toast.success('Work order copied — send it to staff on WhatsApp')).catch(() => toast.error('Copy fail')); }}>
+                            <Wrench className="w-3.5 h-3.5 mr-1" /> Get this fixed
                           </Button>
                         </div>
                         <div className="shrink-0 hidden sm:block" style={{ transform: 'scale(0.78)', transformOrigin: 'right center' }}>
@@ -1543,7 +1543,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                                 onClick={() => setOpenCluster(isOpen ? null : c.key)}>
                                 <div className="flex items-center gap-2">
                                   <span className="text-[13px] font-bold flex-1 leading-tight">{c.rootCause}</span>
-                                  {i === 0 && <Badge className="text-[8px] h-4 px-1.5 border-0" style={{ background: col + '22', color: col }}>BADA MAUKA</Badge>}
+                                  {i === 0 && <Badge className="text-[8px] h-4 px-1.5 border-0" style={{ background: col + '22', color: col }}>BIGGEST WIN</Badge>}
                                   <span className="text-[22px] font-black font-mono leading-none" style={{ color: col }}>{c.count}</span>
                                 </div>
                                 <div className="mt-1 h-2 rounded-full bg-muted overflow-hidden">
@@ -1551,7 +1551,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                                 </div>
                                 <div className="flex items-center gap-1 mt-1 flex-wrap">
                                   {c.villages.slice(0, 4).map(v => <span key={v} className="text-[9px] px-1.5 py-0.5 rounded-full bg-background/60 border text-muted-foreground">{v}</span>)}
-                                  {c.count > 4 && <span className="text-[9px] text-muted-foreground">+{c.count - 4} aur</span>}
+                                  {c.count > 4 && <span className="text-[9px] text-muted-foreground">+{c.count - 4} more</span>}
                                   <span className="ml-auto text-[10px] flex items-center gap-0.5 font-semibold" style={{ color: col }}><Frown className="w-3 h-3" />{c.avgAnger}</span>
                                 </div>
                                 {isOpen && c.tickets.length > 0 && (
@@ -1563,7 +1563,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                         </div>
                         {nlp.clusters.length > 6 && (
                           <button onClick={() => setBrainExpand(v => !v)} className="text-[10px] text-fuchsia-600 dark:text-fuchsia-400 font-semibold mt-1.5">
-                            {brainExpand ? '− kam dikhao' : `+ aur ${nlp.clusters.length - 6} dikhao`}
+                            {brainExpand ? '− show fewer' : `+ show ${nlp.clusters.length - 6} more`}
                           </button>
                         )}
                       </div>
@@ -1596,7 +1596,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                       {/* Entity chip cloud — 3 buckets */}
                       {nlp.entityWatch.length > 0 && (
                         <div>
-                          <div className="text-[11px] font-bold flex items-center gap-1 mb-1.5 text-muted-foreground"><Building className="w-3.5 h-3.5" /> Baar-baar aane wale naam</div>
+                          <div className="text-[11px] font-bold flex items-center gap-1 mb-1.5 text-muted-foreground"><Building className="w-3.5 h-3.5" /> Recurring names</div>
                           <div className="space-y-2">
                             {(['infrastructure', 'schemes', 'officers'] as const).map(grp => {
                               const items = nlp.entityWatch.filter(e => e.type === grp);
@@ -1620,7 +1620,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
 
                     {/* Mood meter ribbon */}
                     <div className="pt-2 border-t">
-                      <div className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">Ilake ka mahaul</div>
+                      <div className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">Area mood</div>
                       {(() => { const tot = nlp.emotionMix.reduce((s, e) => s + e.count, 0) || 1; return (
                         <div className="flex h-3 rounded-full overflow-hidden mb-1.5">
                           {nlp.emotionMix.map(e => { const pct = (e.count / tot) * 100; return <div key={e.emotion} title={`${e.emotion} ${e.count}`} style={{ width: `${pct}%`, background: EMO_COLOR[e.emotion] || '#94A3B8' }} className="flex items-center justify-center">{pct > 12 && <span className="text-[8px] text-white/90 font-semibold">{Math.round(pct)}%</span>}</div>; })}
@@ -1633,7 +1633,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
 
                     {/* Trust footer */}
                     <details className="text-[10px] text-muted-foreground">
-                      <summary className="cursor-pointer font-medium flex items-center gap-1"><Lock className="w-3 h-3" /> ⓘ Yeh kaise bana</summary>
+                      <summary className="cursor-pointer font-medium flex items-center gap-1"><Lock className="w-3 h-3" /> ⓘ How this was built</summary>
                       <div className="mt-1 pl-4 space-y-0.5">
                         <div>AI ne <span className="font-mono text-foreground">{nlp.coverage.enriched}/{nlp.coverage.total}</span> read the complaint text.</div>
                         <div>Aggregate only · no individual profiling · DPDP/ECI-safe.</div>
