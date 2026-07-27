@@ -1160,7 +1160,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                     const pairs: [string, number][] = [['risk', c.risk], ['schemeLoad', c.schemeLoad], ['concentration', c.concentration], ['recurrence', c.recurrence], ['reservation', c.reservation]];
                     const dom = pairs.sort((a, b) => b[1] - a[1])[0][0];
                     const anger = nd.sentiment.avgAnger ?? 0;
-                    if (dom === 'schemeLoad') return `${nd.schemeGrievance.pct}% shikayatein yojana-fail ki`;
+                    if (dom === 'schemeLoad') return `${nd.schemeGrievance.pct}% shikayatein scheme failures ki`;
                     if (dom === 'concentration') return 'complaints cluster here — pressure in one place';
                     if (dom === 'recurrence') return 'the same complaint keeps returning';
                     if (dom === 'reservation') return 'reserved seat — extra dhyan';
@@ -1192,7 +1192,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                           <div className="flex flex-wrap gap-1 mt-1.5">
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-600">{top.grievance.active} active</span>
                             {top.sentiment.avgAnger !== null && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: angerColor(top.sentiment.avgAnger) + '1a', color: angerColor(top.sentiment.avgAnger) }}>anger {top.sentiment.avgAnger}</span>}
-                            {top.schemeGrievance.pct > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600">{top.schemeGrievance.pct}% yojana-fail</span>}
+                            {top.schemeGrievance.pct > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600">{top.schemeGrievance.pct}% scheme failures</span>}
                             {top.political && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{top.political.mla} · {top.political.party}</span>}
                           </div>
                           <Button size="sm" className="h-7 mt-2 text-[11px] px-2.5"
@@ -1210,7 +1210,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                     {/* LEADERBOARD — rest of the areas, stats always visible */}
                     {fusion.nodes.length > 1 && (
                       <div className="space-y-1.5">
-                        <div className="text-[11px] font-bold text-indigo-500 flex items-center gap-1"><Layers className="w-3.5 h-3.5" /> Ilakon ki priority</div>
+                        <div className="text-[11px] font-bold text-indigo-500 flex items-center gap-1"><Layers className="w-3.5 h-3.5" /> Area priority</div>
                         {fusion.nodes.slice(1).map((nd, idx) => {
                           const isOpen = openNode === nd.name;
                           const col = gradeBar(nd.priority.grade);
@@ -1256,7 +1256,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                                           <div><div className="text-[9px] font-semibold text-muted-foreground mb-1">Top wajah</div><div className="space-y-1">{nd.topCauses.slice(0, 4).map(tc => { const mx = nd.topCauses[0].count || 1; return (<div key={tc.rootCause}><div className="flex justify-between text-[9px] gap-1"><span className="truncate">{tc.rootCause}</span><span className="font-mono text-muted-foreground flex-shrink-0">{tc.count}</span></div><div className="h-1 rounded-full bg-muted overflow-hidden"><div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(tc.count / mx) * 100}%` }} /></div></div>); })}</div></div>
                                         )}
                                         {nd.schemeGrievance.count > 0 && (
-                                          <div><div className="text-[9px] font-semibold text-violet-600 mb-1">{nd.schemeGrievance.pct}% yojana-fail</div><div className="flex flex-wrap gap-1">{nd.schemeGrievance.byScheme.map(s => <span key={s.scheme} className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600">{s.scheme} ×{s.count}</span>)}</div></div>
+                                          <div><div className="text-[9px] font-semibold text-violet-600 mb-1">{nd.schemeGrievance.pct}% scheme failures</div><div className="flex flex-wrap gap-1">{nd.schemeGrievance.byScheme.map(s => <span key={s.scheme} className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600">{s.scheme} ×{s.count}</span>)}</div></div>
                                         )}
                                       </div>
                                     </div>
@@ -1271,7 +1271,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
 
                     {/* External — forward roadmap, not a confession */}
                     <div className="rounded-lg border border-dashed border-muted-foreground/20 p-2">
-                      <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1"><Network className="w-3 h-3" /> Aage aur gehraai (roadmap)</div>
+                      <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1"><Network className="w-3 h-3" /> Deeper layers (roadmap)</div>
                       <div className="flex flex-wrap gap-1">{fusion.external.map(e => <span key={e.source} className="text-[9px] px-1.5 py-0.5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground/70" title={e.note}>○ {e.source}</span>)}</div>
                       <div className="text-[8px] text-muted-foreground/60 mt-1">Never guesswork — only when real data is connected (census, election, news).</div>
                     </div>
