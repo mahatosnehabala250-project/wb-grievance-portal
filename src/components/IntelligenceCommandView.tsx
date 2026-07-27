@@ -997,7 +997,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
               <CardTitle className="text-xs font-semibold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
                   <TrendingUp className="w-3.5 h-3.5 text-cyan-500" /> Forecast / Early-Warning
-                  <span className="text-[9px] normal-case font-normal">(agle 4 hafte ka rujhan + SLA-breach risk queue)</span>
+                  <span className="text-[9px] normal-case font-normal">(next 4 weeks of trend + SLA-breach risk queue)</span>
                 </span>
                 {!forecast && (
                   <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={loadForecast} disabled={forecastLoading}>
@@ -1078,7 +1078,14 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${r.band === 'BREACHED' ? 'bg-red-500' : r.band === 'HIGH' ? 'bg-orange-500' : r.band === 'MEDIUM' ? 'bg-amber-500' : 'bg-muted-foreground'}`} />
                             <span className="font-mono text-[9px] text-muted-foreground flex-shrink-0">{r.ticketNo}</span>
                             <span className="truncate flex-1">{r.category}</span>
-                            <span className="text-[9px] text-muted-foreground flex-shrink-0">{r.ageDays}d · {Math.round(r.ratio * 100)}% of SLA</span>
+                            {/* Past the target a percentage stops meaning anything — a CRITICAL item has
+                                a 6-hour target, so a 95-day-old one reads "38205% of SLA".
+                                Show how far over instead. */}
+                            <span className="text-[9px] text-muted-foreground flex-shrink-0">
+                              {r.ageDays}d · {r.ratio > 1
+                                ? `${r.ratio >= 10 ? Math.round(r.ratio) : Math.round(r.ratio * 10) / 10}× over target`
+                                : `${Math.round(r.ratio * 100)}% of target`}
+                            </span>
                           </div>
                         ))}
                         {forecast.slaRisk.top.length === 0 && <div className="text-[10px] text-muted-foreground italic">No open complaints in scope</div>}
