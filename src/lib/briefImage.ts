@@ -104,7 +104,7 @@ export async function downloadBriefImage(d: BriefImageData): Promise<void> {
       y = wrap(ctx, t, 110, y, W - 174, 44, 2) + 14;
     });
   } else {
-    ctx.fillStyle = muted; ctx.fillText('Sab clear — koi pending action nahi.', 64, y); y += 50;
+    ctx.fillStyle = muted; ctx.fillText('All clear — no pending actions.', 64, y); y += 50;
   }
 
   // chief line

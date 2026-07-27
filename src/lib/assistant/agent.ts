@@ -130,7 +130,7 @@ export async function runAssistant(history: ChatMsg[], ctx: ToolCtx): Promise<As
     } catch { /* ignore */ }
   }
   if (!answer) {
-    answer = navigate ? `${navigate.label} khol raha hoon.` : proposedActions.length ? 'Maine action taiyaar kar diya — confirm karein.' : 'Maaf kijiye, abhi jawab nahi de paaya.';
+    answer = navigate ? `${navigate.label} khol raha hoon.` : proposedActions.length ? 'I have prepared the action — please confirm.' : 'Sorry, I could not answer that just now.';
   }
 
   return { answer, navigate, proposedActions, usedTools };

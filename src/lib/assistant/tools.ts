@@ -199,9 +199,9 @@ const READ_EXEC: Record<string, (args: any, ctx: ToolCtx) => Promise<any>> = {
     if (!area) return { error: 'area required' };
     const rows: any[] = await db.complaint.findMany({ where: getComplaintScopeFilter(ctx.payload), take: 3000, select: { block: true, village: true, category: true, status: true, urgency: true } });
     const target = normArea(area);
-    if (!target) return { area, total: 0, note: 'Area naam samajh nahi aaya — Latin spelling (e.g. "Baliguma") try karein.' };
+    if (!target) return { area, total: 0, note: 'Could not recognise that area name — try the Latin spelling (e.g. "Baliguma") instead.' };
     const matched = rows.filter((r) => areaMatch(r.block, target) || areaMatch(r.village, target));
-    if (matched.length === 0) return { area, total: 0, note: 'Is area mein koi complaint nahi (ya aapke scope ke bahar hai).' };
+    if (matched.length === 0) return { area, total: 0, note: 'No complaints in this area (or it is outside your scope).' };
     const byCat: Record<string, number> = {}; const byStatus: Record<string, number> = {};
     let active = 0, critical = 0;
     const ACTIVE_S = ['OPEN', 'IN_PROGRESS', 'REGISTERED', 'ASSIGNED'];

@@ -189,8 +189,9 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // Guard: agar current view is role ke nav mein hai hi nahi (stale state /
-  // role switch), to role-home pe wapas bhejo. 'governance' indirect view hai.
+  // Guard: if the current view is not in this role's nav (stale state, or a role
+  // switch), send them back to their home view. 'governance' is reached
+  // indirectly, so it stays allowed.
   useEffect(() => {
     if (!user) return;
     const allowed = new Set<string>([...navItems.map((i) => i.id), 'governance']);

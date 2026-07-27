@@ -7,7 +7,7 @@ import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib
  *
  * The closed-loop politics feature: village-wise list of RESOLVED
  * complaints with citizen names, so the politician walks in saying
- * "Sumit ji, aapka paani ka kaam hua tha — kaisa chal raha hai?"
+ * "Hello, the water work at your place was completed — how is it holding up?"
  *
  * Scope-locked via getComplaintScopeFilter (citizen names are already
  * visible to these users in ComplaintsView — this only re-groups data

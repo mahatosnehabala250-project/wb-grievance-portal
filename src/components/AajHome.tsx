@@ -167,7 +167,7 @@ export function AajHome({ user, branding, onOpenActions, onOpenIntelligence }: {
       </div>
 
       {loading && !brief ? (
-        <div className="text-sm text-muted-foreground py-10 text-center">Today ka briefing taiyaar ho raha hai…</div>
+        <div className="text-sm text-muted-foreground py-10 text-center">Preparing today's briefing…</div>
       ) : !brief ? (
         <div className="text-sm text-muted-foreground py-10 text-center">Could not load the briefing. <Button variant="outline" size="sm" className="ml-2 h-6 text-[11px]" onClick={load}>Retry</Button></div>
       ) : (
