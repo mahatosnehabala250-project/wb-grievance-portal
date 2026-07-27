@@ -93,6 +93,7 @@ export function BoothsView() {
   const [addKaryakartaOpen, setAddKaryakartaOpen] = useState(false);
   const [newKaryakarta, setNewKaryakarta] = useState<NewKaryakartaForm>({ ...EMPTY_NEW_KARYAKARTA });
   const [creatingKaryakarta, setCreatingKaryakarta] = useState(false);
+  const [bulkAssigning, setBulkAssigning] = useState(false);
 
   const fetchBooths = useCallback(async (ac: string) => {
     setLoading(true);
@@ -175,6 +176,47 @@ export function BoothsView() {
     });
     return { total: booths.length, strong, medium, weak };
   }, [booths]);
+
+  /**
+   * Assign every booth in the selected gram panchayat at once.
+   *
+   * An AC carries roughly 300 booths across ~19 GPs, so booth-by-booth
+   * assignment is why sangathan coverage has stayed at zero. The GP is the unit
+   * karyakartas are actually organised by — about 15 booths each — so one action
+   * per GP is what makes full coverage reachable at all.
+   *
+   * The server re-checks scope for every booth and skips ones already assigned
+   * to someone else, so this cannot quietly displace deliberate assignments.
+   */
+  const handleBulkAssignGp = useCallback(async (karyakartaId: string) => {
+    const gpBooth = booths.find((b) => b.gp_name === gpFilter && b.gp_code);
+    if (!gpBooth?.gp_code) {
+      toast.error('Is GP ka code nahi mila');
+      return;
+    }
+    setBulkAssigning(true);
+    try {
+      const res = await fetch('/api/booths', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          gp_code: gpBooth.gp_code,
+          karyakarta_user_id: karyakartaId === UNASSIGN ? null : karyakartaId,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok) {
+        const skipped = json?.skipped ? ` · ${json.skipped} pehle se kisi aur ke paas` : '';
+        toast.success(`${json?.assigned ?? 0} booth assign hue${skipped}`);
+        await fetchBooths(selectedAc);
+      } else {
+        toast.error(json?.error || 'Bulk assign fail hua');
+      }
+    } catch {
+      toast.error('Network error');
+    }
+    setBulkAssigning(false);
+  }, [booths, gpFilter, fetchBooths, selectedAc]);
 
   const handleAssign = useCallback(async (booth: Booth, karyakartaId: string) => {
     const newId = karyakartaId === UNASSIGN ? null : karyakartaId;
@@ -330,6 +372,36 @@ export function BoothsView() {
           </Button>
         )}
       </div>
+
+      {/* Whole-GP assignment. Only offered once a GP is selected, because the GP
+          is the unit this is meant to operate on — covering an AC one booth at a
+          time is what has kept coverage at zero. */}
+      {showAssignSelect && gpFilter !== ALL_GPS && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2">
+          <div className="text-xs flex-1 min-w-0">
+            <span className="font-semibold">{gpFilter}</span>
+            <span className="text-muted-foreground">
+              {' '}— {filteredBooths.length} booth
+              {filteredBooths.filter((b) => !b.karyakarta_user_id).length > 0
+                ? `, ${filteredBooths.filter((b) => !b.karyakarta_user_id).length} abhi tak kisi ko nahi diye`
+                : ', sab assigned'}
+            </span>
+          </div>
+          <Select disabled={bulkAssigning} onValueChange={handleBulkAssignGp}>
+            <SelectTrigger className="h-8 w-full sm:w-[240px] text-xs">
+              <SelectValue placeholder={bulkAssigning ? 'Assign ho raha hai…' : 'Poore GP ko assign karo'} />
+            </SelectTrigger>
+            <SelectContent>
+              {karyakartas.map((k) => (
+                <SelectItem key={k.id} value={k.id}>
+                  {k.name}<span className="text-muted-foreground"> · {k.role_level === 'GP_COORD' ? 'GP Coord' : 'Karyakarta'}</span>
+                </SelectItem>
+              ))}
+              <SelectItem value={UNASSIGN}>Sabko hatao</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Stats chips */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
