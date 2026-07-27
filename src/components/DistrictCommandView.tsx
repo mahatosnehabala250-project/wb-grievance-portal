@@ -180,9 +180,14 @@ export function DistrictCommandView() {
           <CardContent className="p-3 flex items-start gap-2.5">
             <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
             <div className="text-sm">
-              <span className="font-semibold">{stats.unmapped_in_district} complaint(s) not linked to any assembly</span>
+              <span className="font-semibold">
+                {stats.unmapped_in_district === 1
+                  ? '1 complaint is not linked to any assembly'
+                  : `${stats.unmapped_in_district} complaints are not linked to any assembly`}
+              </span>
               <span className="text-muted-foreground">
-                {' '}— these appear on no MLA's dashboard. Their block or village was not found in the mapping.
+                {' '}— {stats.unmapped_in_district === 1 ? 'it appears' : 'they appear'} on no MLA&apos;s
+                dashboard, because the block or village was not found in the mapping.
               </span>
             </div>
           </CardContent>
