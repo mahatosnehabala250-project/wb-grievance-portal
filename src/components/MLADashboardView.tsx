@@ -750,7 +750,7 @@ export function MLADashboardView() {
             ) : (
               <div className="text-center py-16 text-muted-foreground">
                 <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                <div className="text-sm">Jab complaints assign hongi, officer data dikhega</div>
+                <div className="text-sm">Officer data appears once complaints are assigned</div>
               </div>
             )}
           </motion.div>
@@ -769,7 +769,7 @@ export function MLADashboardView() {
               <Card className="border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/20 shadow-sm">
                 <CardHeader className="pb-1 pt-3 px-4">
                   <CardTitle className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-2">
-                    <Timer className="w-3.5 h-3.5" /> SLA Breached — Deadline Miss Ho Gayi
+                    <Timer className="w-3.5 h-3.5" /> SLA Breached — Past Deadline
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 pb-3 space-y-2">
@@ -795,7 +795,7 @@ export function MLADashboardView() {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Critical complaints ka SLA 6 hours hai. Officer ko call karein ya DM ko escalate karein.
+                    Critical complaints carry a 6-hour SLA. Call the officer, or escalate to the DM.
                   </p>
                 </CardContent>
               </Card>
@@ -808,7 +808,7 @@ export function MLADashboardView() {
                   style={{background:`${theme.color}15`}}>
                   <CheckCircle2 className="w-7 h-7" style={{color:theme.color}} />
                 </div>
-                <div className="font-semibold text-sm mb-1">Sab Theek Hai — {constituency}</div>
+                <div className="font-semibold text-sm mb-1">All Clear — {constituency}</div>
                 <div className="text-xs text-muted-foreground max-w-xs">
                   Koi critical complaint nahi, koi SLA breach nahi. AI engine har 6 ghante monitoring karta hai.
                 </div>
