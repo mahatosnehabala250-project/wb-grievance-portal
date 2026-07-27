@@ -185,9 +185,10 @@ export function DistrictCommandView() {
                   ? '1 complaint is not linked to any assembly'
                   : `${stats.unmapped_in_district} complaints are not linked to any assembly`}
               </span>
+              {/* Built as one string: splitting it across JSX children dropped the
+                  space after the conditional and rendered "appearson". */}
               <span className="text-muted-foreground">
-                {' '}— {stats.unmapped_in_district === 1 ? 'it appears' : 'they appear'} on no MLA&apos;s
-                dashboard, because the block or village was not found in the mapping.
+                {` — ${stats.unmapped_in_district === 1 ? 'it appears' : 'they appear'} on no MLA's dashboard, because the block or village was not found in the mapping.`}
               </span>
             </div>
           </CardContent>
