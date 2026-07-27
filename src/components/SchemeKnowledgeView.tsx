@@ -204,7 +204,7 @@ Supports Hindi, Bengali, and English text.`}
               <p>1. GPT-4o extracts structured scheme data from your text</p>
               <p>2. OpenAI generates a 1536-dim embedding for semantic search</p>
               <p>3. Saved to Supabase — available on WhatsApp in ~30 seconds</p>
-              <p>4. Citizens can ask Sahayak: "PM Awas ke liye kaise apply karein?"</p>
+              <p>4. Citizens can ask Sahayak: "How do I apply for PM Awas?"</p>
             </div>
           </CardContent>
         </Card>

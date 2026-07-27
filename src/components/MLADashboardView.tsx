@@ -153,7 +153,7 @@ export function MLADashboardView() {
         { headers: authHeaders() }
       );
       if (res.status === 403) {
-        toast.error('Access denied — sirf apni constituency dekh sakte hain');
+        toast.error('Access denied — you can only view your own constituency');
         return;
       }
       if (res.ok) {
@@ -461,7 +461,7 @@ export function MLADashboardView() {
                       </motion.div>
                     );
                   }) : (
-                    <div className="text-center py-6 text-sm text-muted-foreground">Abhi koi complaint nahi</div>
+                    <div className="text-center py-6 text-sm text-muted-foreground">No complaints yet</div>
                   )}
                 </CardContent>
               </Card>
@@ -606,10 +606,10 @@ export function MLADashboardView() {
               <div className="flex flex-col items-center justify-center py-20">
                 <FileText className="w-10 h-10 text-muted-foreground mb-3" />
                 <div className="font-medium text-sm mb-1">
-                  {d.total === 0 ? `${constituency} mein abhi koi complaint nahi` : 'No results found'}
+                  {d.total === 0 ? `No complaints in ${constituency} yet` : 'No results found'}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {d.total > 0 ? 'Try changing filters' : 'WhatsApp se pehli complaint aane ka intezaar hai'}
+                  {d.total > 0 ? 'Try changing filters' : 'Waiting for the first complaint to arrive over WhatsApp'}
                 </div>
               </div>
             )}
@@ -685,7 +685,7 @@ export function MLADashboardView() {
             ) : (
               <div className="text-center py-16 text-muted-foreground">
                 <MapPin className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                <div className="text-sm">Block data available hogi jab complaints aayein</div>
+                <div className="text-sm">Block data appears once complaints arrive</div>
               </div>
             )}
           </motion.div>

@@ -131,7 +131,7 @@ Citizens portal pe feedback de sakte hain — general feedback system.
 3. Agar AI kaam nahi karta toh keyword matching se category guess karta hai (water keyword = Water Supply, road = Road Damage etc.)
 4. Supabase database mein naya complaint create karta hai — sab fields fill karta hai: citizenName, phone, issue, category, block, district, urgency, source="WHATSAPP"
 5. Database se ticket number receive karta hai (WB-01001 jaisa)
-6. Citizen ko WhatsApp pe confirmation message bhejta hai: "Aapka shikayat register ho gaya! Ticket: WB-01001"
+6. Citizen ko WhatsApp pe confirmation message bhejta hai: "Your complaint has been registered. Ticket: WB-01001"
 
 **Data flow**: WhatsApp → AI Brain → Database → WhatsApp Reply
 
@@ -158,9 +158,9 @@ Citizens portal pe feedback de sakte hain — general feedback system.
 1. Portal se trigger aata hai jab complaint ka status change hota hai
 2. Database se complaint ki full details le aata hai (ticketNo, citizenName, phone, issue, new status, resolution)
 3. Status ke hisab se WhatsApp message banata hai:
-   - IN_PROGRESS: "Aapka shikayat ab process ho raha hai..."
-   - RESOLVED: "Aapka shikayat resolve ho gaya!" + resolution text
-   - REJECTED: "Aapka shikayat process nahi ho paya..."
+   - IN_PROGRESS: "Your complaint is now being processed..."
+   - RESOLVED: "Your complaint has been resolved." + resolution text
+   - REJECTED: "Your complaint could not be processed..."
 4. Citizen ke phone pe WhatsApp message bhejta hai
 5. Agar WhatsApp fail ho toh SMS fallback bhejta hai
 
@@ -175,7 +175,7 @@ Citizens portal pe feedback de sakte hain — general feedback system.
 1. Trigger aata hai jab complaint assign hota hai (auto ya manual)
 2. Complaint ki details le aata hai: ticketNo, issue, category, citizenName, urgency, block, district
 3. Assigned officer ki details le aata hai: naam, phone, email
-4. Officer ko WhatsApp pe message bhejta hai: "Naya shikayat aapko assign hua! Ticket: WB-01001, Category: Water Supply..."
+4. Officer ko WhatsApp pe message bhejta hai: "A new complaint has been assigned to you. Ticket: WB-01001, Category: Water Supply..."
 5. Officer ko Email bhi bhejta hai — HTML format mein ek professional email with complaint details
 6. Message Hindi + English dono mein hota hai
 
@@ -291,7 +291,7 @@ Please build all 9 workflows in n8n with proper error handling, retry logic, and
 **Install karne ke tarike**:
 - Cloud (easiest): https://dashboard.n8n-mcp.com — sign up, get API key, connect MCP client
 - Claude Code: Claude Code ke andar n8n-mcp ko MCP server ke taur pe add karo
-- npx: \`npx n8n-mcp\` run karo terminal mein
+- npx: \`npx n8n-mcp\` in your terminal
 - Docker: \`docker run ghcr.io/czlonkowski/n8n-mcp\`
 - Railway pe bhi deploy ho sakta hai
 
@@ -357,7 +357,7 @@ Claude Desktop, Cursor, Windsurf mein bhi install ho sakta hai. GitHub PAT (Pers
 
 ### TOOL 4: Frontend Design Skill
 **Source**: https://github.com/anthropics/claude-code (plugins/frontend-design/skills/frontend-design/SKILL.md)
-**Kya hai**: Ye Claude Code ka built-in skill hai jo distinctive, production-grade frontend interfaces banata hai — generic "AI slop" aesthetics avoid karta hai.
+**Kya hai**: Ye Claude Code ka built-in skill hai jo distinctive, production-grade frontend interfaces banata hai — generic "AI slop" aesthetics.
 
 **Kya karta hai**:
 - Bold aesthetic direction choose karta hai (minimalist, maximalist, retro-futuristic, luxury etc.)
@@ -401,7 +401,7 @@ const TOOLS_SKILLS = [
     icon: Zap,
     color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400',
     github: 'czlonkowski/n8n-mcp',
-    description: 'Claude ko n8n ke 1,396 nodes ka knowledge deta hai — directly n8n instance mein workflow bana sakta hai',
+    description: 'Gives Claude knowledge of all 1,396 n8n nodes so it can build workflows directly in the instance',
     install: 'npx n8n-mcp ya dashboard.n8n-mcp.com',
     keyFeatures: ['1,396 nodes knowledge', '2,709 templates', 'Node search + validation', 'AI tool variants'],
   },
@@ -423,7 +423,7 @@ const TOOLS_SKILLS = [
     icon: Globe,
     color: 'text-gray-600 bg-gray-50 dark:bg-gray-950/30 dark:text-gray-400',
     github: 'github/github-mcp-server',
-    description: 'GitHub ke saath direct connect — repos browse, issues manage, code analyze, CI/CD monitor',
+    description: 'Connects directly to GitHub — browse repos, manage issues, analyse code, monitor CI/CD',
     install: 'VS Code: Settings → MCP → Add Server → https://api.githubcopilot.com/mcp/',
     keyFeatures: ['Repository management', 'Issue & PR automation', 'CI/CD monitoring', 'Code analysis'],
   },
@@ -434,7 +434,7 @@ const TOOLS_SKILLS = [
     icon: Layers,
     color: 'text-purple-600 bg-purple-50 dark:bg-purple-950/30 dark:text-purple-400',
     github: 'anthropics/claude-code',
-    description: 'Distinctive, production-grade frontend interfaces — generic AI aesthetics avoid karta hai',
+    description: 'Distinctive, production-grade frontend interfaces that avoid generic AI aesthetics',
     install: 'Already in Claude Code — automatically activates',
     keyFeatures: ['Bold aesthetics', 'Unique typography', 'Motion animations', 'Production-grade code'],
   },
@@ -451,7 +451,7 @@ const WORKFLOWS = [
     icon: MessageSquare,
     color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400',
     description: 'Citizen WhatsApp message → AI Brain analysis → Database save → WhatsApp confirmation reply',
-    trigger: 'WhatsApp Webhook (jab message aata hai)',
+    trigger: 'WhatsApp webhook (on incoming message)',
     data: 'Complaint text, phone, name → category, urgency, summary → new complaint row',
     n8nName: '[WB Grievance] WB-01 v2: WhatsApp Complaint Intake (AI Agent)',
   },
@@ -461,7 +461,7 @@ const WORKFLOWS = [
     version: 'AI Agent',
     icon: Users,
     color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/30 dark:text-blue-400',
-    description: 'Unassigned complaints ko block/district ke hisab se officers ko automatically assign karta hai',
+    description: 'Automatically assigns unassigned complaints to officers by block and district',
     trigger: 'Har 5 minute (scheduled)',
     data: 'Open unassigned complaints → match by block → update assignedToId',
     n8nName: '[WB Grievance] WB-02 v2: Auto-Assignment Engine (AI Smart Match)',
@@ -472,8 +472,8 @@ const WORKFLOWS = [
     version: 'LLM Chain',
     icon: Bell,
     color: 'text-purple-600 bg-purple-50 dark:bg-purple-950/30 dark:text-purple-400',
-    description: 'Jab officer status change karta hai, citizen ko WhatsApp pe update bhejta hai',
-    trigger: 'Portal webhook (jab status change hota hai)',
+    description: 'Sends the citizen a WhatsApp update when an officer changes the status',
+    trigger: 'Portal webhook (on status change)',
     data: 'Complaint status, resolution → WhatsApp message → citizen phone',
     n8nName: '[WB Grievance] WB-03: Citizen Status Notification',
   },
@@ -483,8 +483,8 @@ const WORKFLOWS = [
     version: 'LLM Chain',
     icon: Mail,
     color: 'text-orange-600 bg-orange-50 dark:bg-orange-950/30 dark:text-orange-400',
-    description: 'Officer ko WhatsApp + Email pe notification — naya complaint assign hua hai',
-    trigger: 'Portal webhook (jab assign hota hai)',
+    description: 'Notifies the officer by WhatsApp and email that a new complaint has been assigned',
+    trigger: 'Portal webhook (on assignment)',
     data: 'Complaint details + Officer details → WhatsApp + Email',
     n8nName: '[WB Grievance] WB-04: Officer Assignment Notification',
   },
@@ -494,7 +494,7 @@ const WORKFLOWS = [
     version: 'AI Agent',
     icon: AlertTriangle,
     color: 'text-red-600 bg-red-50 dark:bg-red-950/30 dark:text-red-400',
-    description: '7 din se open complaints ki urgency CRITICAL kar deta hai + admin ko email alert',
+    description: 'Raises complaints open for 7 days to CRITICAL and emails the admin',
     trigger: 'Every 2 hours (scheduled)',
     data: '7+ day open complaints → escalate urgency → email report to admin',
     n8nName: '[WB Grievance] WB-05 v2: SLA Breach Escalation (AI Agent)',
@@ -505,7 +505,7 @@ const WORKFLOWS = [
     version: 'AI Agent',
     icon: FileText,
     color: 'text-cyan-600 bg-cyan-50 dark:bg-cyan-950/30 dark:text-cyan-400',
-    description: 'Roz subah 9 baje district admins ko daily stats email bhejta hai',
+    description: 'Emails daily stats to district admins at 9am',
     trigger: 'Daily 9:00 AM (scheduled)',
     data: 'Dashboard stats → HTML report → email to district admins',
     n8nName: '[WB Grievance] WB-06 v2: Daily Summary Report (AI Analytics)',
@@ -516,8 +516,8 @@ const WORKFLOWS = [
     version: 'AI Agent',
     icon: Sparkles,
     color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400',
-    description: 'Complaint text analyze karke category, urgency, department, smart reply generate karta hai',
-    trigger: 'Jab naya complaint aata hai',
+    description: 'Analyses complaint text to derive category, urgency, department and a suggested reply',
+    trigger: 'When a new complaint arrives',
     data: 'Complaint text → AI analysis → category, urgency, summary, smart reply',
     n8nName: '[WB Grievance] WB-07 v2: AI Complaint Brain (RAG)',
   },
@@ -527,7 +527,7 @@ const WORKFLOWS = [
     version: 'Utility',
     icon: RefreshCw,
     color: 'text-teal-600 bg-teal-50 dark:bg-teal-950/30 dark:text-teal-400',
-    description: 'Supabase ↔ Airtable sync — har 30 minute mein data dono taraf copy',
+    description: 'Supabase ↔ Airtable sync — copies data both ways every 30 minutes',
     trigger: 'Har 30 minute (scheduled)',
     data: 'Complaints push to Airtable + pull changes from Airtable',
     n8nName: '[WB Grievance] WB-08 Airtable Bidirectional Sync',
@@ -560,14 +560,14 @@ const DB_TABLES = [
     name: 'complaints',
     icon: FileText,
     count: '16 fields',
-    description: 'Main table — har ek citizen complaint yahan stored hai',
+    description: 'Main table — every citizen complaint is stored here',
     keyFields: ['ticketNo (WB-01001)', 'citizenName', 'phone', 'issue', 'category', 'block', 'district', 'urgency', 'status', 'assignedToId', 'source', 'resolution', 'satisfactionRating'],
   },
   {
     name: 'activity_logs',
     icon: Timer,
     count: '7 fields',
-    description: 'Complaint pe kya kya hua — sab activity ka history',
+    description: 'Full activity history for a complaint',
     keyFields: ['complaintId', 'action (CREATED/STATUS_CHANGED/ASSIGNED etc.)', 'description', 'actorName'],
   },
   {
@@ -610,7 +610,7 @@ export default function N8NWorkflowsView() {
       await navigator.clipboard.writeText(CLAUDE_PROMPT);
       setCopied(true);
       toast.success('Prompt Copied!', {
-        description: 'VS Code mein Claude ko paste karo — wo workflows bana dega!',
+        description: 'Paste into Claude in VS Code and it will build the workflows',
       });
       setTimeout(() => setCopied(false), 3000);
     } catch {
@@ -738,7 +738,7 @@ export default function N8NWorkflowsView() {
       <motion.div variants={fadeUp}>
         <div className="flex items-center gap-2 mb-3">
           <Sparkles className="h-5 w-5" style={{ color: NAVY }} />
-          <h3 className="text-base font-bold">Tools & Skills — Install karke use karna hai</h3>
+          <h3 className="text-base font-bold">Tools & Skills — install to use</h3>
           <Badge variant="secondary" className="text-[10px]">4 Tools</Badge>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

@@ -27,13 +27,13 @@ import { RoleBadge } from '@/components/common';
  * an account-enumeration oracle for a political client list.
  */
 const ROLE_OPTIONS: Array<{ level: string; label: string; sees: string }> = [
-  { level: 'MLA',            label: 'MLA — Vidhayak',            sees: 'Aapke vidhan sabha ka poora data' },
-  { level: 'MP',             label: 'MP — Sansad',               sees: 'Aapke lok sabha seat ke saare vidhan sabha' },
-  { level: 'DISTRICT_ADMIN', label: 'Zila Sabhapati',            sees: 'Zile ke saare vidhan sabha ek saath' },
-  { level: 'BLOCK_COORD',    label: 'Block Coordinator',         sees: 'Aapke block ki shikayat aur karyakarta' },
-  { level: 'GP_COORD',       label: 'GP Coordinator',            sees: 'Aapki gram panchayat ka kaam' },
-  { level: 'KARYAKARTA',     label: 'Karyakarta',                sees: 'Aapko diye gaye booth' },
-  { level: 'ADMIN',          label: 'Administrator',             sees: 'Poora system' },
+  { level: 'MLA',            label: 'MLA — Assembly',            sees: 'Everything in your assembly constituency' },
+  { level: 'MP',             label: 'MP — Parliament',               sees: 'Every assembly under your parliamentary seat' },
+  { level: 'DISTRICT_ADMIN', label: 'District President',            sees: 'All assemblies in your district, together' },
+  { level: 'BLOCK_COORD',    label: 'Block Coordinator',         sees: 'Complaints and workers in your block' },
+  { level: 'GP_COORD',       label: 'GP Coordinator',            sees: 'Work across your gram panchayat' },
+  { level: 'KARYAKARTA',     label: 'Karyakarta',                sees: 'The booths assigned to you' },
+  { level: 'ADMIN',          label: 'Administrator',             sees: 'The whole system' },
 ];
 
 export function LoginView() {
@@ -217,7 +217,7 @@ export function LoginView() {
                     onChange={(e) => handleRolePick(e.target.value)}
                     className="w-full h-12 pl-10 pr-9 appearance-none bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:border-blue-600 focus:ring-1 focus:ring-blue-600/20 focus:outline-none transition-all"
                   >
-                    <option value="">Apna role chuniye…</option>
+                    <option value="">Select your role…</option>
                     {ROLE_OPTIONS.map((r) => (
                       <option key={r.level} value={r.level}>{r.label}</option>
                     ))}
@@ -226,7 +226,7 @@ export function LoginView() {
                 </div>
                 {pickedRole && (
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {pickedRole.sees} — apna username aur password daaliye.
+                    {pickedRole.sees}. Sign in with your own username and password.
                   </p>
                 )}
               </div>

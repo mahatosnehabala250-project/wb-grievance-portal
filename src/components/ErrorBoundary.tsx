@@ -48,7 +48,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <AlertTriangle className="w-7 h-7 text-red-500" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold mb-1">Kuch galat hua</h2>
+              <h2 className="text-lg font-semibold mb-1">Something went wrong</h2>
               <p className="text-sm text-muted-foreground">
                 Yeh page load nahi ho saka. Refresh karo ya admin se contact karo.
               </p>

@@ -465,7 +465,7 @@ export async function POST(request: NextRequest) {
     if (targets.length === 0) {
       return NextResponse.json({
         success: true, assigned: 0, skipped,
-        message: 'Sab booth pehle se kisi aur ko assigned hain — overwrite:true bhejo badalne ke liye',
+        message: 'Every booth here is already assigned to someone else — send overwrite:true to reassign',
       });
     }
 

@@ -191,7 +191,7 @@ export function BoothsView() {
   const handleBulkAssignGp = useCallback(async (karyakartaId: string) => {
     const gpBooth = booths.find((b) => b.gp_name === gpFilter && b.gp_code);
     if (!gpBooth?.gp_code) {
-      toast.error('Is GP ka code nahi mila');
+      toast.error('No code found for this gram panchayat');
       return;
     }
     setBulkAssigning(true);
@@ -206,11 +206,11 @@ export function BoothsView() {
       });
       const json = await res.json().catch(() => null);
       if (res.ok) {
-        const skipped = json?.skipped ? ` · ${json.skipped} pehle se kisi aur ke paas` : '';
-        toast.success(`${json?.assigned ?? 0} booth assign hue${skipped}`);
+        const skipped = json?.skipped ? ` · ${json.skipped} already held by someone else` : '';
+        toast.success(`${json?.assigned ?? 0} booths assigned${skipped}`);
         await fetchBooths(selectedAc);
       } else {
-        toast.error(json?.error || 'Bulk assign fail hua');
+        toast.error(json?.error || 'Bulk assign failed');
       }
     } catch {
       toast.error('Network error');
@@ -296,7 +296,7 @@ export function BoothsView() {
         loadKaryakartas();
       } else {
         const json = await res.json().catch(() => null);
-        toast.error(json?.error || 'Failed to create karyakarta');
+        toast.error(json?.error || 'Failed to create worker');
       }
     } catch {
       toast.error('Network error');
@@ -383,21 +383,21 @@ export function BoothsView() {
             <span className="text-muted-foreground">
               {' '}— {filteredBooths.length} booth
               {filteredBooths.filter((b) => !b.karyakarta_user_id).length > 0
-                ? `, ${filteredBooths.filter((b) => !b.karyakarta_user_id).length} abhi tak kisi ko nahi diye`
-                : ', sab assigned'}
+                ? `, ${filteredBooths.filter((b) => !b.karyakarta_user_id).length} still unassigned`
+                : ', all assigned'}
             </span>
           </div>
           <Select disabled={bulkAssigning} onValueChange={handleBulkAssignGp}>
             <SelectTrigger className="h-8 w-full sm:w-[240px] text-xs">
-              <SelectValue placeholder={bulkAssigning ? 'Assign ho raha hai…' : 'Poore GP ko assign karo'} />
+              <SelectValue placeholder={bulkAssigning ? 'Assigning…' : 'Assign the whole GP'} />
             </SelectTrigger>
             <SelectContent>
               {karyakartas.map((k) => (
                 <SelectItem key={k.id} value={k.id}>
-                  {k.name}<span className="text-muted-foreground"> · {k.role_level === 'GP_COORD' ? 'GP Coord' : 'Karyakarta'}</span>
+                  {k.name}<span className="text-muted-foreground"> · {k.role_level === 'GP_COORD' ? 'GP Coordinator' : 'Worker'}</span>
                 </SelectItem>
               ))}
-              <SelectItem value={UNASSIGN}>Sabko hatao</SelectItem>
+              <SelectItem value={UNASSIGN}>Clear all</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -514,7 +514,7 @@ export function BoothsView() {
         <DialogContent className="sm:max-w-md border-0 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold">Add Karyakarta</DialogTitle>
-            <DialogDescription>Register a new karyakarta without leaving the Booths screen.</DialogDescription>
+            <DialogDescription>Register a new worker without leaving the Booths screen.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 mt-1">
             <div className="grid grid-cols-2 gap-3">

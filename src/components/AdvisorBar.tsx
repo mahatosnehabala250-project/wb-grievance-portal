@@ -13,9 +13,9 @@ import { authHeaders } from '@/lib/helpers';
 import type { Branding } from '@/lib/branding';
 
 const SUGGESTED = [
-  'Today sabse zyada dhyan kahan dena chahiye?',
-  'Kaunse block mein gussa badh raha hai?',
-  'Is hafte konse quick-wins close kar sakte hain?',
+  'Where should I focus today?',
+  'Which block has rising anger?',
+  'Which quick wins can we close this week?',
 ];
 
 export function AdvisorBar({ open, onClose, branding }: { open: boolean; onClose: () => void; branding: Branding }) {
@@ -37,7 +37,7 @@ export function AdvisorBar({ open, onClose, branding }: { open: boolean; onClose
       });
       const json = await res.json().catch(() => null);
       if (res.ok && json?.data?.answer) setAnswer(json.data.answer);
-      else setError(json?.error || 'Advisor abhi jawab nahi de paya');
+      else setError(json?.error || 'The advisor could not answer just now');
     } catch {
       setError('Network error');
     } finally {
@@ -102,7 +102,7 @@ export function AdvisorBar({ open, onClose, branding }: { open: boolean; onClose
               ))}
             </div>
           )}
-          {loading && <div className="text-sm text-muted-foreground py-3">Soch raha hoon… aapke scope ka data padh ke.</div>}
+          {loading && <div className="text-sm text-muted-foreground py-3">Thinking… reading the data in your scope.</div>}
           {error && <div className="text-sm text-destructive py-2">{error}</div>}
           {answer && (
             <div className="text-[13px] leading-relaxed whitespace-pre-wrap">{answer}</div>
@@ -110,7 +110,7 @@ export function AdvisorBar({ open, onClose, branding }: { open: boolean; onClose
         </div>
 
         <div className="px-4 py-2 border-t text-[10px] text-muted-foreground flex items-center justify-between">
-          <span>Sirf aapki jurisdiction ka data · aggregate-only</span>
+          <span>Your jurisdiction only · aggregate data</span>
           <span className="font-mono">Esc band karne ke liye</span>
         </div>
       </div>

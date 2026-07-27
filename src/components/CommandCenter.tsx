@@ -143,7 +143,7 @@ export function CommandCenter({ user }: { user?: (BrandingScope & { name?: strin
             const j = await res.json().catch(() => ({}));
             if (res.ok && j?.branding) {
               setServerBranding(j.branding); clearBrandingOverride(); setOverride(null);
-              toast.success('Branding saved — aapke poore scope ke liye');
+              toast.success('Branding saved for your whole scope');
             } else {
               saveBrandingOverride(o); setOverride(o);
               toast.message(j?.error ? `${j.error} — local preview save kiya` : 'Local preview save kiya');

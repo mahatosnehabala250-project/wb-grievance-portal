@@ -348,7 +348,7 @@ function AirtableFlowDiagram() {
 /* ──────────────── AI Brain Flow Diagram ──────────────── */
 function AIBrainFlowDiagram() {
   const mainNodes = [
-    { icon: Smartphone, label: 'WhatsApp', color: '#25D366', sublabel: '"Pani nahi aa raha"' },
+    { icon: Smartphone, label: 'WhatsApp', color: '#25D366', sublabel: '"No water supply"' },
     { icon: BrainCircuit, label: 'AI Brain', color: '#10B981', sublabel: 'Smart Analysis' },
     { icon: FileText, label: 'Portal', color: '#0A2463', sublabel: 'Ticket Created' },
   ];
@@ -789,7 +789,7 @@ export default function IntegrationsView() {
                     </div>
                     <div>
                       <h3 className="text-xl font-black text-white tracking-tight">AI Brain — Smart Complaint Analysis</h3>
-                      <p className="text-sm text-emerald-200/80">Artificial Intelligence se complaint automatically samjho aur categorize karo</p>
+                      <p className="text-sm text-emerald-200/80">Use AI to read and categorise complaints automatically</p>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-4">
@@ -831,12 +831,12 @@ export default function IntegrationsView() {
                 <CardContent>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {[
-                      { icon: Tag, title: 'Category (श्रेणी)', desc: 'Water Supply, Road Damage, Electricity, Sanitation, Healthcare, Education, Public Transport, Agriculture, Housing, Other — 10 categories mein se ek select karta hai', color: '#8B5CF6' },
+                      { icon: Tag, title: 'Category (श्रेणी)', desc: 'Water Supply, Road Damage, Electricity, Sanitation, Healthcare, Education, Public Transport, Agriculture, Housing or Other — picks one of ten categories', color: '#8B5CF6' },
                       { icon: Gauge, title: 'Urgency (तत्कालता)', desc: 'LOW = chhoti pareshani, MEDIUM = daily life affect, HIGH = bahut urgent, CRITICAL = life-threatening emergency', color: '#EF4444' },
-                      { icon: TrendingUp, title: 'Sentiment (भावना)', desc: 'POSITIVE, NEGATIVE, NEUTRAL, FRUSTRATED (gussa hai citizen), URGENT (jaldi chahiye) — citizen ka mood detect karta hai', color: '#F59E0B' },
-                      { icon: Languages, title: 'Language (भाषा)', desc: 'English, Bengali (বাংলা), Hindi — kisi bhi language mein complaint aaye, AI samajh jayega aur English summary dega', color: '#0EA5E9' },
-                      { icon: Target, title: 'Department (विभाग)', desc: 'PHE (water), PWD (road), WBSEDCL (electricity), Health Dept, Education Dept — sahi department ko automatically assign karta hai', color: '#059669' },
-                      { icon: Lightbulb, title: 'Suggested Action (सुझाव)', desc: 'Officer ke liye recommendation — "Water team bhejo", "Road repair priority do", etc. — AI suggest karta hai kya karna chahiye', color: '#EC4899' },
+                      { icon: TrendingUp, title: 'Sentiment (भावना)', desc: 'POSITIVE, NEGATIVE, NEUTRAL, FRUSTRATED (an angry citizen) and URGENT — detects the citizen mood', color: '#F59E0B' },
+                      { icon: Languages, title: 'Language (भाषा)', desc: 'English, Bengali (বাংলা) or Hindi — a complaint in any of these is understood, and an English summary is produced', color: '#0EA5E9' },
+                      { icon: Target, title: 'Department (विभाग)', desc: 'PHE (water), PWD (roads), WBSEDCL (electricity), Health and Education — routes each complaint to the right department automatically', color: '#059669' },
+                      { icon: Lightbulb, title: 'Suggested Action (सुझाव)', desc: 'Officer ke liye recommendation — "Water team bhejo", "Road repair priority do", etc. — the AI suggests what to do next', color: '#EC4899' },
                     ].map((item) => (
                       <div key={item.title} className="p-3 rounded-xl border border-border/50 hover:shadow-sm transition-shadow" style={{ background: `linear-gradient(135deg, ${item.color}05, ${item.color}12)` }}>
                         <div className="flex items-center gap-2 mb-1.5">
@@ -1154,7 +1154,7 @@ export default function IntegrationsView() {
                     </div>
                     <div>
                       <h3 className="text-xl font-black text-white tracking-tight">Airtable — Kaam Kya Karta Hai?</h3>
-                      <p className="text-sm text-sky-200/80">Airtable ek advanced spreadsheet hai jo Portal ke saath two-way sync mein rehta hai</p>
+                      <p className="text-sm text-sky-200/80">Airtable is an advanced spreadsheet that stays in two-way sync with the portal</p>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-4">
@@ -1198,12 +1198,12 @@ export default function IntegrationsView() {
                 <CardContent>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {[
-                      { icon: BarChart2, title: '1. Advanced Reports', desc: 'Airtable mein Grid, Kanban, Calendar, Gallery views hain — department-wise, category-wise, urgency-wise complaints ko ek glance mein dekho. Charts banao — pie chart, bar chart, timeline sab available hai.', color: '#7C3AED' },
-                      { icon: Globe, title: '2. Cross-Dept Sharing', desc: 'Portal ka access sirf authorized users ke paas hai. Lekin Airtable link share kar sakte ho PWD, PHE, Health Dept ko — woh bina portal login kiye complaint data dekh sakte hain. Permission control bhi hai.', color: '#059669' },
-                      { icon: RefreshCw, title: '3. Two-Way Sync', desc: 'Portal mein koi bhi change karo (status change, officer assign) — woh automatically Airtable mein update hota hai. Aur Airtable mein koi change karo — woh Portal mein aa jayega. Koi data loss nahi hoga.', color: '#0EA5E9' },
-                      { icon: FileSpreadsheet, title: '4. Smart Spreadsheet', desc: 'Airtable ek smart spreadsheet hai — Excel jaisa dikhta hai lekin database ki tarah kaam karta hai. Filtering, sorting, grouping, formulas — sab available hai. Non-technical officers ko easy lagta hai.', color: '#D97706' },
-                      { icon: Users, title: '5. Officer Collaboration', desc: 'Multiple officers ek hi Airtable base mein simultaneously kaam kar sakte hain. Comments add karo, status update karo, changes track karo — sab real-time hai. Team collaboration bohot easy ho jata hai.', color: '#DC2626' },
-                      { icon: Layers, title: '6. Backup & Archive', desc: 'Agar portal down ho jaye toh complaints ka data Airtable mein safe hai. Historical data maintain kar sakte ho. Old complaints archive kar sakte ho. Data backup ka ek reliable source hai Airtable.', color: '#0A2463' },
+                      { icon: BarChart2, title: '1. Advanced Reports', desc: 'Airtable offers Grid, Kanban, Calendar and Gallery views — see complaints by department, category or urgency at a glance, and build pie, bar or timeline charts.', color: '#7C3AED' },
+                      { icon: Globe, title: '2. Cross-Dept Sharing', desc: 'Portal access stays with authorised users, but an Airtable link can be shared with PWD, PHE or Health so they can view complaint data without a portal login. Permissions remain under your control.', color: '#059669' },
+                      { icon: RefreshCw, title: '3. Two-Way Sync', desc: 'Any change in the portal (status, officer assignment) updates Airtable automatically, and any change in Airtable flows back to the portal. Nothing is lost either way.', color: '#0EA5E9' },
+                      { icon: FileSpreadsheet, title: '4. Smart Spreadsheet', desc: 'Airtable is a smart spreadsheet — it looks like Excel but behaves like a database. Filtering, sorting, grouping and formulas are all available, and non-technical officers find it easy.', color: '#D97706' },
+                      { icon: Users, title: '5. Officer Collaboration', desc: 'Several officers can work in the same Airtable base at once — add comments, update status and track changes in real time.', color: '#DC2626' },
+                      { icon: Layers, title: '6. Backup & Archive', desc: 'If the portal goes down, complaint data remains safe in Airtable. It keeps historical records, archives old complaints, and acts as a reliable backup.', color: '#0A2463' },
                     ].map((item) => (
                       <div key={item.title} className="p-4 rounded-xl border border-border/50 hover:shadow-sm transition-shadow" style={{ background: `linear-gradient(135deg, ${item.color}05, ${item.color}12)` }}>
                         <div className="flex items-center gap-2 mb-1.5">

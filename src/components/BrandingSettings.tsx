@@ -65,7 +65,7 @@ export function BrandingSettings({ open, onClose, value, onSave, onReset }: {
               <span className="w-9 h-9 rounded-lg border shrink-0" style={{ background: safeAccent }} aria-hidden />
             </div>
           </div>
-          <p className="text-[10px] text-muted-foreground">Local preview (is browser ke liye). Production branding config se aata hai.</p>
+          <p className="text-[10px] text-muted-foreground">Local preview (this browser only). Production branding comes from config.</p>
         </div>
 
         <div className="px-4 py-3 border-t flex items-center gap-2">

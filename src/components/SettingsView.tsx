@@ -80,12 +80,12 @@ export function SettingsView() {
         setTgDeepLink(json.deepLink);
         if (json.deepLink) {
           window.open(json.deepLink, '_blank');
-          toast.success('Telegram khul raha hai — bot mein START dabayein');
+          toast.success('Opening Telegram — press START in the bot');
         } else {
-          toast.info('Code generated — neeche diye steps follow karein');
+          toast.info('Code generated — follow the steps below');
         }
       } else {
-        toast.error('Link code generate nahi hua');
+        toast.error('Could not generate a link code');
       }
     } catch {
       toast.error('Network error');
@@ -246,8 +246,8 @@ export function SettingsView() {
             {tgCode && (
               <div className="rounded-lg bg-muted/50 p-3 space-y-1.5 text-xs">
                 {tgDeepLink ? (
-                  <p>Telegram khula hai — bas <strong>START</strong> dabayein. Nahi khula to{' '}
-                    <a href={tgDeepLink} target="_blank" rel="noreferrer" className="text-blue-500 underline">yahan click karein</a>.
+                  <p>Telegram is open — just press <strong>START</strong>. If it did not open,{' '}
+                    <a href={tgDeepLink} target="_blank" rel="noreferrer" className="text-blue-500 underline">click here</a>.
                   </p>
                 ) : (
                   <>
@@ -258,7 +258,7 @@ export function SettingsView() {
                     <p>3. Bot "✅ Linked" reply karega — bas, kal subah se brief aayega</p>
                   </>
                 )}
-                <p className="text-muted-foreground">Code single-use hai · dobara connect karne pe naya code banega</p>
+                <p className="text-muted-foreground">Single-use code · reconnecting generates a new one</p>
               </div>
             )}
           </CardContent>

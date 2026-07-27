@@ -553,7 +553,7 @@ export function UserManagementView() {
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-bold uppercase tracking-widest">Lok Sabha Constituency</Label>
                 <Select value={createForm.lok_sabha_constituency} onValueChange={(v) => setCreateForm((p) => ({ ...p, lok_sabha_constituency: v }))}>
-                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Lok Sabha seat chuniye" /></SelectTrigger>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select parliamentary seat" /></SelectTrigger>
                   <SelectContent>
                     {geo.lokSabhas.map((ls) => <SelectItem key={ls} value={ls}>{ls}</SelectItem>)}
                   </SelectContent>
@@ -565,7 +565,7 @@ export function UserManagementView() {
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-bold uppercase tracking-widest">Assembly Constituency</Label>
                 <Select value={createForm.constituency} onValueChange={pickAc}>
-                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Vidhan sabha chuniye" /></SelectTrigger>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select assembly constituency" /></SelectTrigger>
                   <SelectContent>
                     {acOptions.map((a) => (
                       <SelectItem key={a.constituency} value={a.constituency}>
@@ -581,7 +581,7 @@ export function UserManagementView() {
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-bold uppercase tracking-widest">Gram Panchayat</Label>
                 <Select value={createForm.gp_code} onValueChange={pickGp}>
-                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Gram panchayat chuniye" /></SelectTrigger>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select gram panchayat" /></SelectTrigger>
                   <SelectContent className="max-h-64">
                     {gpOptions.map((g) => (
                       <SelectItem key={g.gp_code} value={g.gp_code}>
@@ -599,10 +599,10 @@ export function UserManagementView() {
             {createForm.role_level === 'KARYAKARTA' && (
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-bold uppercase tracking-widest">
-                  Assigned Villages {createForm.gp_code ? `(${villages.length} in this GP)` : ''}
+                  Assigned Villages {createForm.gp_code ? `(${villages.length} in this gram panchayat)` : ''}
                 </Label>
                 {!createForm.gp_code ? (
-                  <p className="text-[11px] text-muted-foreground">Pehle gram panchayat chuniye.</p>
+                  <p className="text-[11px] text-muted-foreground">Select a gram panchayat first.</p>
                 ) : (
                   <div className="max-h-32 overflow-y-auto rounded-md border p-2 space-y-1">
                     {villages.map((v) => {
@@ -623,7 +623,7 @@ export function UserManagementView() {
                         </label>
                       );
                     })}
-                    {villages.length === 0 && <p className="text-[11px] text-muted-foreground">Is GP mein koi village nahi mila.</p>}
+                    {villages.length === 0 && <p className="text-[11px] text-muted-foreground">No villages found in this gram panchayat.</p>}
                   </div>
                 )}
               </div>
@@ -633,7 +633,7 @@ export function UserManagementView() {
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-bold uppercase tracking-widest">Block</Label>
                 <Select value={createForm.block} onValueChange={pickBlock}>
-                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Block chuniye" /></SelectTrigger>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select block" /></SelectTrigger>
                   <SelectContent className="max-h-64">
                     {blockOptions.map((b) => (
                       <SelectItem key={`${b.block_name}|${b.constituency}`} value={b.block_name}>
@@ -652,7 +652,7 @@ export function UserManagementView() {
                     ...p, district: v, constituency: '', block: '', gp_code: '', gp_name: '', assigned_villages: '',
                   }))}
                 >
-                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Zila chuniye" /></SelectTrigger>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select district" /></SelectTrigger>
                   <SelectContent>
                     {geo.districts.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                   </SelectContent>

@@ -165,7 +165,7 @@ function karyakartaCaption(k: KaryakartaActivity): string {
     const label = k.karyakartaCount === 1 ? '১ কার্যকর্তা' : '০ কার্যকর্তা';
     return `${label} · ${k.assignedBooths}/${k.totalBooths} booth assigned — assign more in Booths`;
   }
-  return `${k.karyakartaCount} karyakarta · ${k.assignedBooths}/${k.totalBooths} booths assigned`;
+  return `${k.karyakartaCount} workers · ${k.assignedBooths}/${k.totalBooths} booths assigned`;
 }
 
 function KpiTile({ label, value, icon: Icon, color, sub, loading }: {
@@ -373,7 +373,7 @@ export function WarRoomView() {
                       </Button>
                     }
                   >
-                    📍 <strong>{g.gp_name}</strong> ({g.block || '—'}): {g.open} open, {g.coveredBooths}/{g.totalBooths} booths covered — no karyakarta
+                    📍 <strong>{g.gp_name}</strong> ({g.block || '—'}): {g.open} open, {g.coveredBooths}/{g.totalBooths} booths covered — no worker assigned
                   </ActionRow>
                 ))}
                 {callListActions.map((c, i) => (

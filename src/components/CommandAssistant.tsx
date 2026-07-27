@@ -80,20 +80,20 @@ export function CommandAssistant() {
         body: JSON.stringify({ messages: history.slice(-10) }),
       });
       const json = await res.json();
-      if (json?.enabled === false) { setMsgs((m) => [...m, { role: 'assistant', content: 'Assistant abhi configured nahi hai (DEEPSEEK_API_KEY missing).' }]); return; }
+      if (json?.enabled === false) { setMsgs((m) => [...m, { role: 'assistant', content: 'Assistant is not configured yet (DEEPSEEK_API_KEY missing).' }]); return; }
       const data = json?.data;
-      if (!data) { setMsgs((m) => [...m, { role: 'assistant', content: 'Maaf kijiye, jawab nahi mila.' }]); return; }
+      if (!data) { setMsgs((m) => [...m, { role: 'assistant', content: 'Sorry, no answer came back.' }]); return; }
       let answer = String(data.answer || '');
       // navigation
       if (data.navigate) {
         const ok = nav?.goTo(data.navigate.view, data.navigate.room) ?? false;
-        if (!ok) answer += ' (Yeh page aapke role mein available nahi hai.)';
+        if (!ok) answer += ' (That page is not available for your role.)';
       }
       setMsgs((m) => [...m, { role: 'assistant', content: answer }]);
       if (Array.isArray(data.proposedActions) && data.proposedActions.length) setActions(data.proposedActions);
       speak(answer);
     } catch {
-      setMsgs((m) => [...m, { role: 'assistant', content: 'Network error — dobara try karein.' }]);
+      setMsgs((m) => [...m, { role: 'assistant', content: 'Network error — please try again.' }]);
     } finally {
       setLoading(false);
     }
@@ -103,7 +103,7 @@ export function CommandAssistant() {
   const startListening = useCallback(() => {
     if (typeof window === 'undefined' || liveRef.current) return;
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { toast.error('Is browser mein voice support nahi — Chrome/Edge use karein, ya type karein.'); return; }
+    if (!SR) { toast.error('This browser has no voice support — use Chrome or Edge, or type instead.'); return; }
     try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
     const rec = new SR();
     rec.lang = lang; rec.interimResults = true; rec.maxAlternatives = 1; rec.continuous = false;
@@ -145,7 +145,7 @@ export function CommandAssistant() {
   const runAction = useCallback(async (a: ProposedAction) => {
     setActions((s) => s.filter((x) => x.id !== a.id));
     const id = await resolveComplaintId(a.ticketNo);
-    if (!id) { toast.error(`Ticket ${a.ticketNo} nahi mila / scope ke bahar`); return; }
+    if (!id) { toast.error(`Ticket ${a.ticketNo} not found, or outside your scope`); return; }
     const hdr = { ...authHeaders(), 'Content-Type': 'application/json' };
     try {
       let res: Response;
@@ -159,7 +159,7 @@ export function CommandAssistant() {
         res = await fetch(`/api/complaints/${id}`, { method: 'PATCH', headers: hdr, body: JSON.stringify({ status: a.params.status, resolution: a.params.resolutionNote || undefined }) });
       } else {
         const oid = await resolveOfficerId(String(a.params.officer || ''));
-        if (!oid) { toast.error(`Officer "${a.params.officer}" nahi mila`); return; }
+        if (!oid) { toast.error(`Officer "${a.params.officer}" not found`); return; }
         res = await fetch(`/api/complaints/${id}`, { method: 'PATCH', headers: hdr, body: JSON.stringify({ assignedToId: oid }) });
       }
       if (res.ok) { toast.success('Ho gaya ✓'); setMsgs((m) => [...m, { role: 'assistant', content: `Done — ${a.label}.` }]); }
@@ -201,7 +201,7 @@ export function CommandAssistant() {
       liveRef.current = sess;
       await sess.start();
     } catch (e: any) {
-      const msg = e?.message || 'Live shuru nahi hua — mic permission / browser check karein';
+      const msg = e?.message || 'Live mode did not start — check microphone permission and browser';
       toast.error(msg); setLiveError(msg); setLiveStatus('error'); liveRef.current = null;
     }
   }, [nav, addProposed]);
@@ -228,7 +228,7 @@ export function CommandAssistant() {
             <span className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#7c3aed,#22d3ee)' }}><Sparkles className="w-4 h-4 text-white" /></span>
             <div className="flex-1">
               <div className="text-[13px] font-semibold text-slate-100">Saathi</div>
-              <div className="text-[9px] text-slate-500">Aapke role ke hisaab se — pucho ya kaam bolo</div>
+              <div className="text-[9px] text-slate-500">Scoped to your role — ask a question or give an instruction</div>
             </div>
             <div className="flex gap-0.5">
               {LANGS.map((l) => (
@@ -251,7 +251,7 @@ export function CommandAssistant() {
               <div className="rounded-lg px-2 py-1.5 mb-1" style={{ background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.35)' }}>
                 <div className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: '#c4b5fd' }}>
                   <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: liveStatus === 'live' ? '#ef4444' : liveStatus === 'error' ? '#f59e0b' : '#a78bfa' }} />
-                  {liveStatus === 'live' ? 'Live — boliye (Gemini)' : liveStatus === 'error' ? `Live error: ${liveError || 'phir try karein'}` : 'Connecting…'}
+                  {liveStatus === 'live' ? 'Live — boliye (Gemini)' : liveStatus === 'error' ? `Live error: ${liveError || 'please try again'}` : 'Connecting…'}
                 </div>
                 {liveCaption.u && <div className="text-[11px] text-slate-300 mt-1 italic">“{liveCaption.u}”</div>}
                 {liveCaption.m && <div className="text-[11px] text-slate-100 mt-0.5">{liveCaption.m}</div>}
@@ -259,8 +259,8 @@ export function CommandAssistant() {
             )}
             {msgs.length === 0 && (
               <div className="text-[11px] text-slate-500 space-y-1.5 py-2">
-                <div className="text-slate-400 font-medium">Try karo:</div>
-                {['Aaj ki situation batao', 'Map kholo', 'Sabse zyada gussa kahan hai?', 'Critical complaints dikhao', 'Forecast kya hai?'].map((s) => (
+                <div className="text-slate-400 font-medium">Try:</div>
+                {['Brief me on today', 'Map kholo', 'Where is anger highest?', 'Critical complaints dikhao', 'What is the forecast?'].map((s) => (
                   <button key={s} onClick={() => send(s)} className="block w-full text-left px-2 py-1 rounded text-[11px]" style={{ background: 'rgba(255,255,255,0.04)', color: '#cbd5e1' }}>“{s}”</button>
                 ))}
               </div>
@@ -279,11 +279,11 @@ export function CommandAssistant() {
             {actions.map((a) => (
               <div key={a.id} className="rounded-lg p-2" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)' }}>
                 <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-400 mb-1.5">
-                  {a.kind === 'assign' ? <MapPin className="w-3 h-3" /> : <Wrench className="w-3 h-3" />} Confirm karein
+                  {a.kind === 'assign' ? <MapPin className="w-3 h-3" /> : <Wrench className="w-3 h-3" />} Confirm
                 </div>
                 <div className="text-[12px] text-slate-200 mb-2">{a.label}</div>
                 <div className="flex gap-1.5">
-                  <button onClick={() => runAction(a)} className="px-2.5 py-1 rounded text-[11px] font-semibold flex items-center gap-1" style={{ background: '#f59e0b', color: '#1a1206' }}><Check className="w-3 h-3" /> Haan, karo</button>
+                  <button onClick={() => runAction(a)} className="px-2.5 py-1 rounded text-[11px] font-semibold flex items-center gap-1" style={{ background: '#f59e0b', color: '#1a1206' }}><Check className="w-3 h-3" /> Yes, do it</button>
                   <button onClick={() => setActions((s) => s.filter((x) => x.id !== a.id))} className="px-2.5 py-1 rounded text-[11px]" style={{ background: 'rgba(255,255,255,0.06)', color: '#94a3b8' }}>Rehne do</button>
                 </div>
               </div>
@@ -297,7 +297,7 @@ export function CommandAssistant() {
               {listening ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
             </button>
             <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') send(input); }}
-              placeholder={listening ? 'Sun raha hoon…' : 'Pucho ya kaam bolo…'}
+              placeholder={listening ? 'Sun raha hoon…' : 'Ask a question or give an instruction…'}
               className="flex-1 bg-transparent text-[13px] text-slate-100 outline-none placeholder:text-slate-600" />
             <button onClick={() => send(input)} disabled={!input.trim() || loading} className="p-1.5 rounded-lg disabled:opacity-40" style={{ color: '#22d3ee' }}><Send className="w-4 h-4" /></button>
           </div>

@@ -104,10 +104,10 @@ export function DistrictCommandView() {
         setStats(json.data || null);
       } else {
         const err = await res.json().catch(() => null);
-        toast.error(err?.error || 'District data load nahi hua');
+        toast.error(err?.error || 'Could not load district data');
       }
     } catch {
-      toast.error('District data load nahi hua');
+      toast.error('Could not load district data');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -120,7 +120,7 @@ export function DistrictCommandView() {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground gap-2">
         <RefreshCw className="w-4 h-4 animate-spin" />
-        <span className="text-sm">Zila data load ho raha hai…</span>
+        <span className="text-sm">Loading district data…</span>
       </div>
     );
   }
@@ -129,8 +129,8 @@ export function DistrictCommandView() {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
         <Building2 className="w-8 h-8" />
-        <p className="text-sm">Koi district data nahi mila.</p>
-        <Button size="sm" variant="outline" onClick={() => load()}>Dobara koshish karo</Button>
+        <p className="text-sm">No district data found.</p>
+        <Button size="sm" variant="outline" onClick={() => load()}>Try again</Button>
       </div>
     );
   }
@@ -148,10 +148,10 @@ export function DistrictCommandView() {
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2">
             <Landmark className="w-5 h-5 text-primary" />
-            {stats.district} Zila — Sangathan Command
+            {stats.district} District — Organisation Command
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {acs.length} vidhan sabha · {blocks.length} block · {totalBooths.toLocaleString('en-IN')} booth
+            {acs.length} assemblies · {blocks.length} blocks · {totalBooths.toLocaleString('en-IN')} booths
           </p>
         </div>
         <Button size="sm" variant="outline" onClick={() => load(true)} disabled={refreshing}>
@@ -162,13 +162,13 @@ export function DistrictCommandView() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Kpi icon={Activity} label="Kul shikayat" value={stats.total_complaints.toLocaleString('en-IN')}
-             sub={`${stats.last_7d} pichhle 7 din mein`} />
-        <Kpi icon={AlertTriangle} label="Abhi pending" value={stats.total_active.toLocaleString('en-IN')} />
-        <Kpi icon={CheckCircle2} label="Samadhan dar" value={`${stats.resolution_rate}%`}
-             sub={`${stats.total_resolved} solve hui`}
+        <Kpi icon={Activity} label="Total complaints" value={stats.total_complaints.toLocaleString('en-IN')}
+             sub={`${stats.last_7d} in the last 7 days`} />
+        <Kpi icon={AlertTriangle} label="Open now" value={stats.total_active.toLocaleString('en-IN')} />
+        <Kpi icon={CheckCircle2} label="Resolution rate" value={`${stats.resolution_rate}%`}
+             sub={`${stats.total_resolved} resolved`}
              tone={stats.resolution_rate >= 40 ? 'good' : 'default'} />
-        <Kpi icon={ShieldAlert} label="Critical khuli" value={stats.critical_open}
+        <Kpi icon={ShieldAlert} label="Critical open" value={stats.critical_open}
              tone={stats.critical_open > 0 ? 'warn' : 'default'} />
       </div>
 
@@ -180,9 +180,9 @@ export function DistrictCommandView() {
           <CardContent className="p-3 flex items-start gap-2.5">
             <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
             <div className="text-sm">
-              <span className="font-semibold">{stats.unmapped_in_district} shikayat kisi bhi vidhan sabha se judi nahi hai</span>
+              <span className="font-semibold">{stats.unmapped_in_district} complaint(s) not linked to any assembly</span>
               <span className="text-muted-foreground">
-                {' '}— ye kisi MLA ke dashboard par nahi dikhtin. Inka block/village mapping mein nahi mila.
+                {' '}— these appear on no MLA's dashboard. Their block or village was not found in the mapping.
               </span>
             </div>
           </CardContent>
@@ -193,7 +193,7 @@ export function DistrictCommandView() {
       <div>
         <h2 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
           <MapPin className="w-4 h-4 text-muted-foreground" />
-          Vidhan sabha wise
+          By assembly
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {acs.map((ac, i) => (
@@ -219,11 +219,11 @@ export function DistrictCommandView() {
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div>
                       <div className="text-lg font-bold tabular-nums">{ac.total}</div>
-                      <div className="text-[10px] text-muted-foreground">Kul</div>
+                      <div className="text-[10px] text-muted-foreground">Total</div>
                     </div>
                     <div>
                       <div className="text-lg font-bold tabular-nums text-amber-600">{ac.active}</div>
-                      <div className="text-[10px] text-muted-foreground">Pending</div>
+                      <div className="text-[10px] text-muted-foreground">Open</div>
                     </div>
                     <div>
                       <div className={`text-lg font-bold tabular-nums ${ac.critical_open > 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
@@ -236,11 +236,11 @@ export function DistrictCommandView() {
                   <div className="flex items-center justify-between text-[11px] text-muted-foreground border-t pt-2">
                     <span className="flex items-center gap-1">
                       <Vote className="w-3 h-3" />
-                      {ac.booths} booth
+                      {ac.booths} booths
                     </span>
                     <span className="flex items-center gap-1">
                       <Users className="w-3 h-3" />
-                      {ac.karyakartas} karyakarta
+                      {ac.karyakartas} workers
                     </span>
                     {ac.top_category ? (
                       <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{ac.top_category}</Badge>
@@ -259,13 +259,13 @@ export function DistrictCommandView() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-1.5">
               <TrendingUp className="w-4 h-4 text-muted-foreground" />
-              6 mahine — darj vs samadhan
+              Last 6 months — filed vs resolved
             </CardTitle>
           </CardHeader>
           <CardContent>
             <ChartContainer className="h-[180px] w-full" config={{
-              filed: { label: 'Darj', color: '#FF6B00' },
-              resolved: { label: 'Samadhan', color: '#10B981' },
+              filed: { label: 'Filed', color: '#FF6B00' },
+              resolved: { label: 'Resolved', color: '#10B981' },
             }}>
               <AreaChart data={stats.trend} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
                 <defs>
@@ -297,14 +297,14 @@ export function DistrictCommandView() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-1.5">
             <Users className="w-4 h-4 text-muted-foreground" />
-            Booth par karyakarta
+            Booth coverage
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold tabular-nums">{coveredBooths.toLocaleString('en-IN')}</span>
             <span className="text-sm text-muted-foreground">
-              / {totalBooths.toLocaleString('en-IN')} booth ({coveragePct}%)
+              / {totalBooths.toLocaleString('en-IN')} booths ({coveragePct}%)
             </span>
           </div>
           <div className="h-2 rounded-full bg-muted overflow-hidden">
@@ -312,8 +312,8 @@ export function DistrictCommandView() {
           </div>
           {coveredBooths === 0 && (
             <p className="text-[11px] text-muted-foreground">
-              Abhi kisi booth par karyakarta assign nahi hai. Har booth par karyakarta jodne se
-              GP-level shikayat aur 2028 panchayat ki taiyari dono track hongi.
+              No booths have a worker assigned yet. Assigning one per booth tracks GP-level
+              complaints and builds the record needed for the 2028 panchayat election.
             </p>
           )}
         </CardContent>
@@ -325,7 +325,7 @@ export function DistrictCommandView() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-1.5">
               <Building2 className="w-4 h-4 text-muted-foreground" />
-              Block (panchayat samiti) wise
+              By block (panchayat samiti)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -334,10 +334,10 @@ export function DistrictCommandView() {
                 <thead>
                   <tr className="text-left text-[11px] uppercase text-muted-foreground border-b">
                     <th className="py-1.5 pr-3 font-medium">Block</th>
-                    <th className="py-1.5 pr-3 font-medium">Vidhan sabha</th>
-                    <th className="py-1.5 pr-3 font-medium text-right">Kul</th>
-                    <th className="py-1.5 pr-3 font-medium text-right">Pending</th>
-                    <th className="py-1.5 font-medium text-right">Samadhan</th>
+                    <th className="py-1.5 pr-3 font-medium">Assembly</th>
+                    <th className="py-1.5 pr-3 font-medium text-right">Total</th>
+                    <th className="py-1.5 pr-3 font-medium text-right">Open</th>
+                    <th className="py-1.5 font-medium text-right">Resolved</th>
                   </tr>
                 </thead>
                 <tbody>

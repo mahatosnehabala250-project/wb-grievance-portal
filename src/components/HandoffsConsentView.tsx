@@ -129,7 +129,7 @@ export function HandoffsConsentView() {
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error?.message || 'Action failed');
-      toast.success(endpoint === 'claim' ? 'Handoff claimed — yeh conversation ab aapki hai' : 'Handoff released back to queue');
+      toast.success(endpoint === 'claim' ? 'Handoff claimed — this conversation is yours now' : 'Handoff released back to queue');
       loadHandoffs(statusFilter);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Action failed');
@@ -212,7 +212,7 @@ export function HandoffsConsentView() {
           ) : handoffs.length === 0 ? (
             <EmptyState
               icon={HeartHandshake}
-              message={statusFilter === 'all' ? 'Queue khali hai — bot sab sambhal raha hai. 🎉' : `No ${statusFilter} handoffs.`}
+              message={statusFilter === 'all' ? 'Queue is empty — the bot is handling everything. 🎉' : `No ${statusFilter} handoffs.`}
             />
           ) : (
             <div className="space-y-3">
@@ -323,7 +323,7 @@ export function HandoffsConsentView() {
               {loadingConsents ? (
                 <div className="space-y-2">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
               ) : consents.length === 0 ? (
-                <EmptyState icon={ShieldCheck} message="No consent records yet — WhatsApp bot (JS-01) pehle contact pe consent capture karta hai." />
+                <EmptyState icon={ShieldCheck} message="No consent records yet — the WhatsApp bot (JS-01) captures consent on first contact." />
               ) : (
                 <Table>
                   <TableHeader>
@@ -370,7 +370,7 @@ export function HandoffsConsentView() {
             </DialogDescription>
           </DialogHeader>
           <Textarea
-            placeholder="Resolution note (optional) — kya kiya gaya?"
+            placeholder="Resolution note (optional) — what was done?"
             value={resolutionNote}
             onChange={(e) => setResolutionNote(e.target.value)}
             rows={3}

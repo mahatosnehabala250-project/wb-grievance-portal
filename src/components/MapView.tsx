@@ -641,7 +641,7 @@ export function MapView() {
 
             {polMode ? (
               !politics ? (
-                <div className="text-xs" style={dim("#64748b")}>{polLoading ? "Loading 2021 results…" : "Political layer load nahi hua."}</div>
+                <div className="text-xs" style={dim("#64748b")}>{polLoading ? "Loading 2021 results…" : "Could not load the political layer."}</div>
               ) : (
                 <>
                   <div className="rounded-lg p-3" style={{ background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.18)" }}>
@@ -649,7 +649,7 @@ export function MapView() {
                     <div className="text-lg font-black" style={dim("#f1f5f9")}>{politics.acs[0].ac}</div>
                     <div className="text-xs mt-0.5" style={dim("#cbd5e1")}>
                       {politics.acs[0].winnerParty} sirf <b style={{ color: "#fb923c" }}>{politics.acs[0].margin.toLocaleString()}</b> vote se jeeti ({politics.acs[0].marginPct}%)
-                      {politics.acs[0].grievance.active > 0 && <> · abhi <b style={{ color: "#f87171" }}>{politics.acs[0].grievance.active}</b> active shikayat{politics.acs[0].grievance.topCategory ? ` (top: ${politics.acs[0].grievance.topCategory})` : ""}</>}
+                      {politics.acs[0].grievance.active > 0 && <> · now <b style={{ color: "#f87171" }}>{politics.acs[0].grievance.active}</b> active complaints{politics.acs[0].grievance.topCategory ? ` (top: ${politics.acs[0].grievance.topCategory})` : ""}</>}
                     </div>
                     {politics.acs[0].booths && (
                       <div className="text-[11px] mt-1.5 rounded px-2 py-1" style={{ background: "rgba(255,255,255,0.05)", color: "#e2e8f0" }}>
