@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
 import type { JWTPayload } from '@/lib/jwt';
 import { assembliesForLokSabha, assembliesForDistrict } from '@/lib/rbac';
+import { normBlock } from '@/lib/block-name';
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -104,12 +105,18 @@ export async function GET(request: NextRequest) {
     }
     const acs = [...acSeen.values()].sort((a, b) => a.constituency.localeCompare(b.constituency));
 
-    const blockSeen = new Map<string, { block_name: string; constituency: string; district: string }>();
+    // block_norm is what callers must match on: block names arrive from
+    // constituency_block_mapping here but from polling_stations on the GP list
+    // below, and the two spell several blocks differently (Bandwan/Bundwan,
+    // Purulia I/Purulia-I). Filtering GPs by the raw name would silently return
+    // an empty list for those.
+    const blockSeen = new Map<string, { block_name: string; block_norm: string; constituency: string; district: string }>();
     for (const r of maps) {
       const key = `${r.block_name}|${r.constituency}`;
       if (r.block_name && !blockSeen.has(key)) {
         blockSeen.set(key, {
           block_name: r.block_name,
+          block_norm: normBlock(r.block_name),
           constituency: r.constituency,
           district: r.district,
         });
@@ -119,13 +126,14 @@ export async function GET(request: NextRequest) {
 
     // One row per GP — polling_stations carries ac, block and gp together, so it
     // is the only table that yields the full chain without a join.
-    const gpSeen = new Map<string, { gp_code: string; gp_name: string; block_name: string; constituency: string }>();
+    const gpSeen = new Map<string, { gp_code: string; gp_name: string; block_name: string; block_norm: string; constituency: string }>();
     for (const r of psRows || []) {
       if (!r.gp_code || gpSeen.has(r.gp_code) || !inScope(r.ac)) continue;
       gpSeen.set(r.gp_code, {
         gp_code: r.gp_code,
         gp_name: r.gp_name || r.gp_code,
         block_name: r.block_name || '',
+        block_norm: normBlock(r.block_name),
         constituency: r.ac || '',
       });
     }

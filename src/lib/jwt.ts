@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { NextRequest } from 'next/server';
+import { normBlock } from '@/lib/block-name';
 
 // Security: JWT_SECRET must be set — never falls back to weak default
 if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
@@ -111,7 +112,11 @@ export function getComplaintScopeFilter(user: JWTPayload): Record<string, unknow
     return { district: (user.district || user.block) as string };
   }
   if (lvl === 'BLOCK_COORD' && user.block) {
-    return { block: user.block };
+    // Match the canonical key, not the raw text: complaints carry LGD spellings
+    // (Bundwan, Bagmundi, Jaipur, "Raghunath Pur-I") while every UI hands out the
+    // ECI ones from constituency_block_mapping, so raw equality left coordinators
+    // for those blocks with a silently empty dashboard.
+    return { block_norm: normBlock(user.block) };
   }
   if (lvl === 'GP_COORD' && user.gp_code) {
     return { gp_code: user.gp_code };
@@ -131,8 +136,8 @@ export function getComplaintScopeFilter(user: JWTPayload): Record<string, unknow
     return d ? { district: d } : {};
   }
   if (user.role === 'BLOCK' && user.block) {
-    return { block: user.block };
+    return { block_norm: normBlock(user.block) };
   }
   // Safe default: restrict to own block (never show everything by accident)
-  return user.block ? { block: user.block } : {};
+  return user.block ? { block_norm: normBlock(user.block) } : {};
 }

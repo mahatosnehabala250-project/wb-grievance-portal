@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
 import type { JWTPayload } from '@/lib/jwt';
 import { assembliesForLokSabha, assembliesForDistrict, userInManageScope } from '@/lib/rbac';
+import { normBlock } from '@/lib/block-name';
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -33,17 +34,6 @@ const ALL_ACS = [
 
 const norm = (s: string | null | undefined) => (s || '').trim().toLowerCase();
 
-// polling_stations.block_name uses LGD spellings; users.block uses ECI
-// spellings. Normalize both sides the same way before comparing (CONTEXT).
-const BLOCK_ALIASES: Record<string, string> = {
-  bundwan: 'bandwan',
-  bagmundi: 'baghmundi',
-  jaipur: 'joypur',
-};
-function normBlock(s: string | null | undefined): string {
-  const v = (s || '').toLowerCase().replace(/[\s-]/g, '');
-  return BLOCK_ALIASES[v] || v;
-}
 
 interface Scope {
   acs: string[];        // allowed assembly constituencies

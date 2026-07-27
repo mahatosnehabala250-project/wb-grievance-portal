@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
 import type { JWTPayload } from '@/lib/jwt';
 import { assembliesForLokSabha, assembliesForDistrict } from '@/lib/rbac';
+import { normBlock } from '@/lib/block-name';
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -53,15 +54,6 @@ const ALL_ACS = [
   'Manbazar', 'Kashipur', 'Para', 'Raghunathpur',
 ];
 
-const BLOCK_ALIASES: Record<string, string> = {
-  bundwan: 'bandwan',
-  bagmundi: 'baghmundi',
-  jaipur: 'joypur',
-};
-function normBlock(s: string | null | undefined): string {
-  const v = (s || '').toLowerCase().replace(/[\s-]/g, '');
-  return BLOCK_ALIASES[v] || v;
-}
 
 interface AcScope {
   acs: string[];

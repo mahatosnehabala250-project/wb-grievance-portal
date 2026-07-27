@@ -86,8 +86,11 @@ const EMPTY_CREATE_FORM = {
  * below fills the parent levels so AC, block and GP can never disagree.
  */
 interface GeoAc { constituency: string; district: string; lok_sabha: string }
-interface GeoBlock { block_name: string; constituency: string; district: string }
-interface GeoGp { gp_code: string; gp_name: string; block_name: string; constituency: string }
+// block_norm, not block_name, is the join key: blocks come from
+// constituency_block_mapping and GPs from polling_stations, and the two spell
+// several blocks differently (Bandwan/Bundwan, Purulia I/Purulia-I).
+interface GeoBlock { block_name: string; block_norm: string; constituency: string; district: string }
+interface GeoGp { gp_code: string; gp_name: string; block_name: string; block_norm: string; constituency: string }
 interface GeoTree {
   districts: string[];
   lokSabhas: string[];
@@ -154,15 +157,19 @@ export function UserManagementView() {
 
   const pickGp = useCallback((gpCode: string) => {
     const g = geo.gps.find((x) => x.gp_code === gpCode);
+    // The GP list carries polling_stations spellings ("Bundwan"); store the
+    // constituency_block_mapping spelling ("Bandwan") instead, since that is
+    // what the block dropdown offers and what validateNewUserScope checks.
+    const mapped = g ? geo.blocks.find((b) => b.block_norm === g.block_norm) : undefined;
     setCreateForm((p) => ({
       ...p,
       gp_code: gpCode,
       gp_name: g?.gp_name || '',
-      block: g?.block_name || p.block,
-      constituency: p.constituency || g?.constituency || '',
+      block: mapped?.block_name || g?.block_name || p.block,
+      constituency: p.constituency || mapped?.constituency || g?.constituency || '',
       assigned_villages: '',
     }));
-  }, [geo.gps]);
+  }, [geo.gps, geo.blocks]);
 
   // Options narrow to the parent already chosen; with none chosen, everything in
   // the caller's own jurisdiction is offered.
@@ -175,10 +182,13 @@ export function UserManagementView() {
     [geo.blocks, createForm.constituency]
   );
   const gpOptions = useMemo(() => {
-    if (createForm.block) return geo.gps.filter((g) => g.block_name === createForm.block);
+    if (createForm.block) {
+      const bn = geo.blocks.find((b) => b.block_name === createForm.block)?.block_norm;
+      return bn ? geo.gps.filter((g) => g.block_norm === bn) : geo.gps;
+    }
     if (createForm.constituency) return geo.gps.filter((g) => g.constituency === createForm.constituency);
     return geo.gps;
-  }, [geo.gps, createForm.block, createForm.constituency]);
+  }, [geo.gps, geo.blocks, createForm.block, createForm.constituency]);
   const [creating, setCreating] = useState(false);
 
   const [resetPwdUser, setResetPwdUser] = useState<AppUser | null>(null);
