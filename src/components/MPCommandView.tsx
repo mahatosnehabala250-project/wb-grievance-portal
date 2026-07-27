@@ -2,11 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Crown, Building2, Activity, CheckCircle2, AlertTriangle,
-  Users, RefreshCw, TrendingUp, Star, Newspaper,
-  BrainCircuit, Target, Award, MapPin, FileText,
-  ChevronRight, Zap, Droplets, Heart, Package,
-  Clock, ShieldAlert, BarChart3, CalendarRange,
+  Crown, Building2, Activity, CheckCircle2, AlertTriangle, Users, RefreshCw, TrendingUp, Star, Newspaper, BrainCircuit, Target, Award, MapPin, FileText, ChevronRight, Zap, Droplets, Heart, Package, BarChart3, CalendarRange,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

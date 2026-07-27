@@ -2,19 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  Shield, LayoutDashboard, FileText, Users, Bell, Sun, Moon, Menu,
-  Search, Filter, X, Eye, Download, Plus, ArrowUpDown, ChevronLeft,
-  ChevronRight, Clock, AlertTriangle, CheckCircle2, Activity, MapPin,
-  LogOut, RefreshCw, MoreHorizontal, Phone, CalendarDays, Hash,
-  Building2, UserCog, TrendingUp, ArrowUpRight, ArrowDownRight,
-  CircleDot, Send, Trash2, KeyRound,
-  RotateCcw, Zap, Star, Clock3, CheckCircle, XCircle, ChevronDown,
-  ArrowLeft, MessageSquare, ShieldCheck, Globe, BarChart2,
-  Printer, UserCircle, Hand, Gauge, Timer, Award, BadgeCheck, PlayCircle, Ban, CircleCheckBig,
-  Settings, CircleHelp, Monitor, Mail, Volume2, LayoutGrid, Keyboard,
-  UserCheck, GitCompareArrows, CalendarClock, History, Tag, ClipboardList,
-  AlertCircle, Info, CheckCircle2 as CheckCircleFill, Sparkles, Megaphone,
-  ArrowUp, Flame, CalendarRange, TimerReset,
+  FileText, Users, Filter, X, Plus, AlertTriangle, CheckCircle2, MapPin, RefreshCw, MoreHorizontal, Building2, UserCog, KeyRound,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

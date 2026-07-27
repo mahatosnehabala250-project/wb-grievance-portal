@@ -2,17 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Zap, Database, ArrowRight, Copy, CheckCircle, AlertTriangle,
-  RefreshCw, Settings, Eye, EyeOff, Link, Unlink, ExternalLink,
-  Code, FileJson, Layers, GitBranch, Webhook, Shield,
-  ChevronRight, Clock, Globe, Smartphone, MessageSquare,
-  PhoneCall, Server, Monitor, CheckCircle2, XCircle,
-  Info, BookOpen, Rocket, ArrowUpRight, Table, Key,
-  ClipboardCopy, Loader2, Signal, Sparkles, BrainCircuit,
-  Send, ArrowLeftRight, FileSpreadsheet, Bot, ArrowDown,
-  ChevronDown, Target, Languages, Lightbulb, BarChart2,
-  Tag, Hash, TrendingUp, Gauge, MessageCircle, FileText, Users,
-  Cpu, Cloud, LayoutGrid, Workflow, ArrowUp, Lock,
+  Zap, Database, ArrowRight, Copy, CheckCircle, AlertTriangle, RefreshCw, Settings, Eye, EyeOff, Link, ExternalLink, Code, FileJson, Layers, GitBranch, Webhook, Shield, ChevronRight, Clock, Globe, Smartphone, MessageSquare, PhoneCall, Server, Monitor, CheckCircle2, XCircle, Info, BookOpen, Rocket, ArrowUpRight, Table, Key, Loader2, Signal, Sparkles, BrainCircuit, Send, ArrowLeftRight, FileSpreadsheet, Bot, ArrowDown, Target, Languages, Lightbulb, BarChart2, Tag, Hash, TrendingUp, Gauge, MessageCircle, FileText, Users, Cpu, Cloud, LayoutGrid, Workflow, Lock,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

@@ -145,7 +145,8 @@ export function BoothsView() {
     loadKaryakartas();
   }, [canAssign, loadKaryakartas]);
 
-  const showAssignSelect = canAssign && karyakartasLoaded && karyakartas.length >= 0;
+  // `length >= 0` was always true, so this read as a guard while gating nothing.
+  const showAssignSelect = canAssign && karyakartasLoaded;
 
   const gpOptions = useMemo(() => {
     const set = new Set<string>();
