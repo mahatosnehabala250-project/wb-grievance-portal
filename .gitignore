@@ -82,3 +82,12 @@ worklog.md.bak
 
 # Supabase SQL scripts (contain sensitive info)
 supabase-*.sql
+
+# Commercial material — this repo is PUBLIC.
+# These carry the cost basis, margin, price floor, concession ladder and
+# objection scripts. A buyer who can read our cost before a ₹5L negotiation
+# has the whole advantage, so none of it belongs in a public repo.
+PRICING.md
+GTM_PLAN.md
+ROADMAP_ALLINDIA.md
+docs/sales/
