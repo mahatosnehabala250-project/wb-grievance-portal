@@ -80,7 +80,11 @@ export function HotspotsView() {
 
   useEffect(() => { fetchHotspots(); }, [fetchHotspots]);
 
-  const visibleHotspots = hotspots.slice(0, SHOW_TOP_N);
+  // A "priority" list padded to a fixed length ends with rows reading 0 open,
+  // 0 breached, no issue — which tells the reader to send someone nowhere.
+  const visibleHotspots = hotspots
+    .filter((h) => (h.open ?? 0) > 0 || (h.breached ?? 0) > 0)
+    .slice(0, SHOW_TOP_N);
 
   return (
     <div className="space-y-4">

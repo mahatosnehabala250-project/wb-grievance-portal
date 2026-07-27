@@ -367,7 +367,7 @@ export function WarRoomView() {
                         size="sm"
                         variant="outline"
                         className="border-amber-500/40 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200"
-                        onClick={() => nav?.goTo('booths')}
+                        onClick={() => nav?.goTo('booths', g.gp_name)}
                       >
                         Assign
                       </Button>

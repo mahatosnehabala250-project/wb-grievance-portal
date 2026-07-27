@@ -22,6 +22,7 @@ import { useAuthStore } from '@/lib/auth-store';
 import { NAVY } from '@/lib/constants';
 import { authHeaders } from '@/lib/helpers';
 import { prettyBlock } from '@/lib/block-name';
+import { useNav } from '@/lib/nav-context';
 import { EmptyState } from '@/components/common';
 
 interface Booth {
@@ -72,6 +73,7 @@ function matchTier(score: number | null): { label: string; className: string } {
 }
 
 export function BoothsView() {
+  const nav = useNav();
   const user = useAuthStore((s) => s.user);
   // ADMIN/STATE/DISTRICT/BLOCK base roles carry role_level 'OFFICER' but must still
   // be able to assign — gate on base role, not role_level alone (mirror the API).
@@ -121,6 +123,17 @@ export function BoothsView() {
   }, []);
 
   useEffect(() => { fetchBooths(selectedAc); }, [selectedAc, fetchBooths]);
+
+  // War Room's "Assign" names a specific gram panchayat, so land on that GP
+  // rather than the full ~300-booth list — the whole-GP control is only offered
+  // once one is selected, which made the button stop one step short of the job.
+  useEffect(() => {
+    const target = nav?.pendingRoom;
+    if (!target || booths.length === 0) return;
+    if (booths.some((b) => b.gp_name === target)) setGpFilter(target);
+    nav?.consumePendingRoom();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nav?.pendingRoom, booths]);
 
   // Karyakarta options for assignment — includes both KARYAKARTA and GP_COORD
   // users, since booths can be assigned to either. Exposed as a reusable
