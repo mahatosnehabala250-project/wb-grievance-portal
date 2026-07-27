@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/lib/auth-store';
 import { NAVY } from '@/lib/constants';
 import { authHeaders } from '@/lib/helpers';
+import { prettyBlock } from '@/lib/block-name';
 import { EmptyState } from '@/components/common';
 
 interface Booth {
@@ -382,7 +383,7 @@ export function BoothsView() {
           <div className="text-xs flex-1 min-w-0">
             <span className="font-semibold">{gpFilter}</span>
             <span className="text-muted-foreground">
-              {' '}— {filteredBooths.length} booth
+              {' '}— {filteredBooths.length} {filteredBooths.length === 1 ? 'booth' : 'booths'}
               {filteredBooths.filter((b) => !b.karyakarta_user_id).length > 0
                 ? `, ${filteredBooths.filter((b) => !b.karyakarta_user_id).length} still unassigned`
                 : ', all assigned'}
@@ -393,12 +394,22 @@ export function BoothsView() {
               <SelectValue placeholder={bulkAssigning ? 'Assigning…' : 'Assign the whole GP'} />
             </SelectTrigger>
             <SelectContent>
-              {karyakartas.map((k) => (
-                <SelectItem key={k.id} value={k.id}>
-                  {k.name}<span className="text-muted-foreground"> · {k.role_level === 'GP_COORD' ? 'GP Coordinator' : 'Worker'}</span>
-                </SelectItem>
-              ))}
-              <SelectItem value={UNASSIGN}>Clear all</SelectItem>
+              {karyakartas.length === 0 ? (
+                /* Offering only "Clear all" to someone with nobody to assign reads
+                   as a broken menu — say what is missing instead. */
+                <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                  No workers here yet — use Add Karyakarta first.
+                </div>
+              ) : (
+                <>
+                  {karyakartas.map((k) => (
+                    <SelectItem key={k.id} value={k.id}>
+                      {k.name}<span className="text-muted-foreground"> · {k.role_level === 'GP_COORD' ? 'GP Coordinator' : 'Worker'}</span>
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={UNASSIGN}>Clear all</SelectItem>
+                </>
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -472,7 +483,7 @@ export function BoothsView() {
                         )}
                       </TableCell>
                       <TableCell className="text-xs">{b.gp_name || '—'}</TableCell>
-                      <TableCell className="text-xs">{b.block_name || '—'}</TableCell>
+                      <TableCell className="text-xs">{prettyBlock(b.block_name) || '—'}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={`text-[11px] font-semibold px-2 py-0.5 ${tier.className}`}>
                           {tier.label}

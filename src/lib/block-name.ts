@@ -27,3 +27,19 @@ export function normBlock(s: string | null | undefined): string {
   const v = (s || '').toLowerCase().replace(/[\s-]/g, '');
   return BLOCK_ALIASES[v] || v;
 }
+
+/**
+ * Block name fit to show a user.
+ *
+ * polling_stations stores title-cased text, which mangles the Roman numerals
+ * every block suffix uses: "Purulia-Ii", "Manbazar-Ii", "Jhalda-I". Displayed
+ * raw it reads like a typo on screens an MLA is shown.
+ */
+export function prettyBlock(s: string | null | undefined): string {
+  if (!s) return '';
+  return s
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b(i{1,3}|iv|v)\b/gi, (m) => m.toUpperCase());
+}

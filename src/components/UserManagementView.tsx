@@ -294,9 +294,12 @@ export function UserManagementView() {
     setResetting(false);
   }, [resetPwdUser, newPassword]);
 
+  // Only count tiers that actually appear in this viewer's team. The fixed set of
+  // four meant an MLA — who can never hold an admin, state or district account —
+  // saw three tiles reading 0 above a one-row table.
   const roleCounts = useMemo(() => {
-    const counts: Record<string, number> = { ADMIN: 0, STATE: 0, DISTRICT: 0, BLOCK: 0 };
-    users.forEach((u) => { if (counts[u.role] !== undefined) counts[u.role]++; });
+    const counts: Record<string, number> = {};
+    users.forEach((u) => { counts[u.role] = (counts[u.role] || 0) + 1; });
     return counts;
   }, [users]);
 
