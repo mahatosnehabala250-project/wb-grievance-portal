@@ -123,60 +123,60 @@ Citizens portal pe feedback de sakte hain — general feedback system.
 ## WORKFLOWS — Ye 9 workflows banane hain n8n mein
 
 ### WORKFLOW 1: WhatsApp Complaint Intake
-**Kya karta hai**: Jab citizen WhatsApp pe message bhejta hai, ye workflow complaint receive karta hai.
+**What it does**: Receives a complaint when a citizen sends a WhatsApp message.
 
 **Process**:
-1. WhatsApp se message aata hai — usme hota hai: message text, sender phone number, citizen naam, block/district info
-2. AI Brain ko bhejta hai complaint text — AI batata hai: category (Water/Road/Electricity etc.), urgency (LOW/MEDIUM/HIGH/CRITICAL), summary
-3. Agar AI kaam nahi karta toh keyword matching se category guess karta hai (water keyword = Water Supply, road = Road Damage etc.)
-4. Supabase database mein naya complaint create karta hai — sab fields fill karta hai: citizenName, phone, issue, category, block, district, urgency, source="WHATSAPP"
-5. Database se ticket number receive karta hai (WB-01001 jaisa)
-6. Citizen ko WhatsApp pe confirmation message bhejta hai: "Your complaint has been registered. Ticket: WB-01001"
+1. A WhatsApp message arrives carrying the text, sender phone number, citizen name and block/district
+2. The text goes to the AI brain, which returns category (Water/Road/Electricity etc.), urgency (LOW/MEDIUM/HIGH/CRITICAL) and a summary
+3. If the AI is unavailable, the category is guessed by keyword (water = Water Supply, road = Road Damage etc.)
+4. Creates the complaint in Supabase with citizenName, phone, issue, category, block, district, urgency and source="WHATSAPP"
+5. Receives the generated ticket number (e.g. WB-01001)
+6. Sends the citizen a WhatsApp confirmation: "Your complaint has been registered. Ticket: WB-01001"
 
 **Data flow**: WhatsApp → AI Brain → Database → WhatsApp Reply
 
 ---
 
 ### WORKFLOW 2: Auto-Assignment Engine
-**Kya karta hai**: Jo complaints abhi tak kisi officer ko assign nahi hain, unhe automatically block/district ke hisab se officer ko assign karta hai.
+**What it does**: Assigns unassigned complaints to an officer automatically, by block and district.
 
 **Process**:
-1. Har 5 minute mein check karta hai — database mein wo complaints dhundhta hai jinka status OPEN hai aur assignedToId null hai (kisi ko assign nahi hua)
-2. Har complaint ka block aur district dekhta hai
-3. Officers list mein se us block/district ka matching officer dhundhta hai
-4. Complaint ko us officer ko assign kar deta hai (assignedToId update)
-5. Activity log mein entry add hoti hai: "Assigned to [Officer Name]"
+1. Checks every 5 minutes for complaints with status OPEN and no assignee
+2. Reads each complaint's block and district
+3. Finds an officer matching that block and district
+4. Assigns the complaint to that officer
+5. Adds an activity-log entry: "Assigned to [Officer Name]"
 
 **Data flow**: Timer (5 min) → Fetch unassigned complaints → Match block/district → Assign officer → Update database
 
 ---
 
 ### WORKFLOW 3: Citizen Status Notification
-**Kya karta hai**: Jab officer complaint ka status change karta hai (OPEN → IN_PROGRESS, IN_PROGRESS → RESOLVED etc.), citizen ko WhatsApp pe update bhejta hai.
+**What it does**: Sends the citizen a WhatsApp update whenever an officer changes the status (OPEN → IN_PROGRESS, IN_PROGRESS → RESOLVED etc.).
 
 **Process**:
-1. Portal se trigger aata hai jab complaint ka status change hota hai
-2. Database se complaint ki full details le aata hai (ticketNo, citizenName, phone, issue, new status, resolution)
-3. Status ke hisab se WhatsApp message banata hai:
+1. The portal fires a trigger on status change
+2. Loads the full complaint (ticketNo, citizenName, phone, issue, new status, resolution)
+3. Builds the WhatsApp message for that status:
    - IN_PROGRESS: "Your complaint is now being processed..."
    - RESOLVED: "Your complaint has been resolved." + resolution text
    - REJECTED: "Your complaint could not be processed..."
-4. Citizen ke phone pe WhatsApp message bhejta hai
-5. Agar WhatsApp fail ho toh SMS fallback bhejta hai
+4. Sends it to the citizen's phone
+5. Falls back to SMS if WhatsApp fails
 
 **Data flow**: Status Change Trigger → Get complaint details → Format message → WhatsApp/SMS to citizen
 
 ---
 
 ### WORKFLOW 4: Officer Assignment Notification
-**Kya karta hai**: Jab complaint kisi officer ko assign hota hai, use WhatsApp aur Email pe notification bhejta hai.
+**What it does**: Notifies an officer by WhatsApp and email when a complaint is assigned to them.
 
 **Process**:
-1. Trigger aata hai jab complaint assign hota hai (auto ya manual)
-2. Complaint ki details le aata hai: ticketNo, issue, category, citizenName, urgency, block, district
-3. Assigned officer ki details le aata hai: naam, phone, email
-4. Officer ko WhatsApp pe message bhejta hai: "A new complaint has been assigned to you. Ticket: WB-01001, Category: Water Supply..."
-5. Officer ko Email bhi bhejta hai — HTML format mein ek professional email with complaint details
+1. Fires when a complaint is assigned, automatically or manually
+2. Loads the complaint: ticketNo, issue, category, citizenName, urgency, block, district
+3. Loads the assigned officer: name, phone, email
+4. Sends the officer a WhatsApp message: "A new complaint has been assigned to you. Ticket: WB-01001, Category: Water Supply..."
+5. Also emails the officer a formatted HTML summary of the complaint
 6. Message Hindi + English dono mein hota hai
 
 **Data flow**: Assignment Trigger → Get complaint + officer details → WhatsApp + Email to officer
@@ -184,7 +184,7 @@ Citizens portal pe feedback de sakte hain — general feedback system.
 ---
 
 ### WORKFLOW 5: SLA Breach Escalation
-**Kya karta hai**: Jo complaints 7 din se zyada open hain (SLA breach), unki urgency badhata hai aur district admin ko email alert bhejta hai.
+**What it does**: Jo complaints 7 din se zyada open hain (SLA breach), unki urgency badhata hai aur district admin ko email alert bhejta hai.
 
 **Process**:
 1. Roz subah 9 baje check karta hai
@@ -193,14 +193,14 @@ Citizens portal pe feedback de sakte hain — general feedback system.
 4. District admin ko email bhejta hai — ek HTML report format mein:
    - Kitne complaints breach hue
    - Har complaint ka: Ticket, Issue, District, Kitne din open, Urgency
-5. Activity log mein entry add hoti hai: "SLA Breach — Escalated to CRITICAL"
+5. Adds an activity-log entry: "SLA Breach — Escalated to CRITICAL"
 
 **Data flow**: Timer (daily 9 AM) → Find 7+ day open complaints → Escalate urgency → Email to admin
 
 ---
 
 ### WORKFLOW 6: Daily Summary Report
-**Kya karta hai**: Roz shaam 6 baje district admins ko ek daily summary email bhejta hai — kitne complaints aaye, kitne resolve hue, kitne open hain etc.
+**What it does**: Emails district admins at 6pm daily ek daily summary email bhejta hai — kitne complaints aaye, kitne resolve hue, kitne open hain etc.
 
 **Process**:
 1. Roz shaam 6 baje trigger hota hai
@@ -214,7 +214,7 @@ Citizens portal pe feedback de sakte hain — general feedback system.
 ---
 
 ### WORKFLOW 7: AI Complaint Brain
-**Kya karta hai**: Complaint text analyze karke category, urgency, department, summary, smart reply generate karta hai. Ye AI ka main brain hai.
+**What it does**: Complaint text analyze karke category, urgency, department, summary, smart reply generate karta hai. Ye AI ka main brain hai.
 
 **Process**:
 1. Trigger hota hai jab naya complaint aata hai (WhatsApp ya manual)
@@ -228,7 +228,7 @@ Citizens portal pe feedback de sakte hain — general feedback system.
 ---
 
 ### WORKFLOW 8: Airtable Bidirectional Sync
-**Kya karta hai**: Supabase database aur Airtable ke beech har 30 minute mein sync karta hai — data dono taraf copy hota hai.
+**What it does**: Between Supabase and Airtable every 30 minutes mein sync karta hai — data dono taraf copy hota hai.
 
 **Process**:
 1. Har 30 minute mein run hota hai
@@ -242,7 +242,7 @@ Citizens portal pe feedback de sakte hain — general feedback system.
 ---
 
 ### WORKFLOW 9: Error Handler
-**Kya karta hai**: Agar koi bhi workflow mein error aaye toh admin ko alert bhejta hai. Ye sab workflows ka global error handler hai.
+**What it does**: If any workflow error aaye toh admin ko alert bhejta hai. Ye sab workflows ka global error handler hai.
 
 **Process**:
 1. Koi bhi workflow fail ho toh ye trigger hota hai
@@ -279,7 +279,7 @@ Please build all 9 workflows in n8n with proper error handling, retry logic, and
 
 ### TOOL 1: n8n-mcp (MCP Server for n8n)
 **GitHub**: https://github.com/czlonkowski/n8n-mcp
-**Kya hai**: Ye ek MCP (Model Context Protocol) server hai jo Claude ko n8n ke 1,396 nodes ki documentation, properties, aur operations ka access deta hai. Isse Claude ko n8n ki har node ka kaam pata hota hai aur wo directly tumhare n8n instance mein workflow bana sakta hai.
+**What it is**: This is an MCP (Model Context Protocol) server hai jo Claude ko n8n ke 1,396 nodes ki documentation, properties, aur operations ka access deta hai. Isse Claude ko n8n ki har node ka kaam pata hota hai aur wo directly tumhare n8n instance mein workflow bana sakta hai.
 
 **Features**:
 - 1,396 n8n nodes ka knowledge (812 core + 584 community)
@@ -301,7 +301,7 @@ Please build all 9 workflows in n8n with proper error handling, retry logic, and
 
 ### TOOL 2: n8n-skills (Claude Code Skills for n8n)
 **GitHub**: https://github.com/czlonkowski/n8n-skills
-**Kya hai**: Ye 7 Claude Code skills hain jo specifically n8n workflow building ke liye designed hain. Ye skills n8n-mcp ke saath kaam karti hain aur Claude ko teach karti hain ki:
+**What it is**: These are 7 Claude Code skillsn jo specifically n8n workflow building ke liye designed hain. Ye skills n8n-mcp ke saath kaam karti hain aur Claude ko teach karti hain ki:
 - n8n expressions sahi kaise likhne hain (\`{{}}\` syntax)
 - n8n-mcp ke tools ko kaise efficiently use karna hai
 - Proven workflow patterns kaise apply karni hain
@@ -329,7 +329,7 @@ Method 3 (Manual): \`git clone https://github.com/czlonkowski/n8n-skills.git\` p
 
 ### TOOL 3: GitHub MCP Server
 **GitHub**: https://github.com/github/github-mcp-server
-**Kya hai**: GitHub ka official MCP server hai. Isse AI tools directly GitHub ke saath connect ho sakte hain — repositories browse karna, issues/PRs manage karna, code analyze karna, GitHub Actions monitor karna.
+**What it is**: GitHub's official MCP server. It lets AI tools connect directly to GitHub ho sakte hain — repositories browse karna, issues/PRs manage karna, code analyze karna, GitHub Actions monitor karna.
 
 **Use Cases**:
 - Repository management — code browse, search, commits analyze
@@ -357,9 +357,9 @@ Claude Desktop, Cursor, Windsurf mein bhi install ho sakta hai. GitHub PAT (Pers
 
 ### TOOL 4: Frontend Design Skill
 **Source**: https://github.com/anthropics/claude-code (plugins/frontend-design/skills/frontend-design/SKILL.md)
-**Kya hai**: Ye Claude Code ka built-in skill hai jo distinctive, production-grade frontend interfaces banata hai — generic "AI slop" aesthetics.
+**What it is**: This is Claude Code's built-in skill hai jo distinctive, production-grade frontend interfaces banata hai — generic "AI slop" aesthetics.
 
-**Kya karta hai**:
+**What it does**:
 - Bold aesthetic direction choose karta hai (minimalist, maximalist, retro-futuristic, luxury etc.)
 - Unique typography, color themes, motion animations
 - Production-grade functional code

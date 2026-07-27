@@ -49,6 +49,7 @@ import {
 import { toast } from 'sonner';
 import { useTheme } from 'next-themes';
 import { useAuthStore } from '@/lib/auth-store';
+import { resolveBranding, type Branding } from '@/lib/branding';
 import { useI18nStore } from '@/lib/i18n-store';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Complaint, DashboardData, ViewType } from '@/lib/types';
@@ -94,13 +95,26 @@ import { HotspotsView } from '@/components/HotspotsView';
 import { WarRoomView } from '@/components/WarRoomView';
 export default function HomePage() {
   const { user, isAuthenticated, logout, checkAuth } = useAuthStore();
+
+  // White-label identity for the app chrome. This is what the setup fee buys, so
+  // it belongs on the header the client stares at all day — previously it only
+  // reached the Intelligence rail, and every MLA saw the generic product name.
+  const [serverBranding, setServerBranding] = useState<Partial<Branding> | null>(null);
+  useEffect(() => {
+    if (!isAuthenticated) { setServerBranding(null); return; }
+    fetch('/api/branding', { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (j?.branding) setServerBranding(j.branding); })
+      .catch(() => {});
+  }, [isAuthenticated, user?.id]);
+  const branding: Branding = { ...resolveBranding(user), ...(serverBranding || {}) };
   const { theme, setTheme } = useTheme();
   const { lang, setLang, t } = useI18nStore();
   const [view, setView] = useState<ViewType>('dashboard');
 
   // ─────────────────────────────────────────────────────────────────
   // ROLE-BASED NAVIGATION (proper IA — Session 10)
-  // Har role ka apna curated, ordered, sectioned menu. Koi khichdi nahi:
+  // Each role gets its own curated, ordered, sectioned menu — never a mixed bag:
   //   ADMIN   → system operator console (role previews alag section mein)
   //   MP      → MP Command home + operations + team
   //   MLA     → MLA Dashboard home + operations + team
@@ -430,12 +444,12 @@ export default function HomePage() {
               <Menu className="h-5 w-5" />
             </button>
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg flex items-center justify-center shadow-sm" style={{ backgroundColor: NAVY }}>
+              <div className="h-8 w-8 rounded-lg flex items-center justify-center shadow-sm" style={{ backgroundColor: branding.accent }}>
                 <Shield className="h-4 w-4 text-white" />
               </div>
               <div className="hidden sm:block">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-sm font-black tracking-tight" style={{ color: NAVY }}>WB Grievance Portal</h1>
+                  <h1 className="text-sm font-black tracking-tight truncate max-w-[220px]" style={{ color: branding.accent }}>{branding.orgName}</h1>
                   {user?.role === 'ADMIN' && (
                     <span className="live-badge">
                       <span className="relative flex h-1.5 w-1.5">
@@ -446,7 +460,7 @@ export default function HomePage() {
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] text-muted-foreground -mt-0.5">Citizen Service Platform</p>
+                <p className="text-[10px] text-muted-foreground -mt-0.5 truncate max-w-[220px]">{branding.leaderName || branding.tagline}</p>
               </div>
             </div>
             {/* Animated Page Title Breadcrumb */}
@@ -1023,8 +1037,8 @@ export default function HomePage() {
                 <Shield className="h-4 w-4 text-white" />
               </div>
               <div>
-                <SheetTitle className="text-sm font-bold">WB Grievance Portal</SheetTitle>
-                <SheetDescription className="text-[10px]">Citizen Service Platform</SheetDescription>
+                <SheetTitle className="text-sm font-bold">{branding.orgName}</SheetTitle>
+                <SheetDescription className="text-[10px]">{branding.leaderName || branding.tagline}</SheetDescription>
               </div>
             </div>
           </SheetHeader>
