@@ -9,7 +9,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNav } from '@/lib/nav-context';
-import { Sun, LayoutDashboard, Zap, TrendingUp, Network, Brain, Target, Footprints, MessageSquare, Settings, Map as MapIcon } from 'lucide-react';
+import { Sun, LayoutDashboard, Zap, TrendingUp, Network, Brain, Footprints, MessageSquare, Settings, Map as MapIcon } from 'lucide-react';
 import { AajHome } from '@/components/AajHome';
 import { AdvisorBar } from '@/components/AdvisorBar';
 import { BrandingSettings } from '@/components/BrandingSettings';
@@ -25,6 +25,14 @@ import {
 
 type Room = 'aaj' | 'overview' | 'actions' | 'map' | 'forecast' | 'network' | 'brain' | 'entity360' | 'field';
 
+/**
+ * Rooms in the order a user actually works through them.
+ *
+ * Entity 360 was dropped: for a two-block assembly it rendered two rows and a
+ * list of six data sources that are not connected, and its one conclusion —
+ * which area to focus on — is what Hotspots already answers in a plainer table.
+ * The route still exists for a deep link; it is simply no longer offered.
+ */
 const ROOMS: Array<{ key: Room; label: string; icon: typeof Sun }> = [
   { key: 'aaj', label: 'Today', icon: Sun },
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -33,7 +41,6 @@ const ROOMS: Array<{ key: Room; label: string; icon: typeof Sun }> = [
   { key: 'forecast', label: 'Forecast', icon: TrendingUp },
   { key: 'network', label: 'Network', icon: Network },
   { key: 'brain', label: 'Brain', icon: Brain },
-  { key: 'entity360', label: 'Entity 360', icon: Target },
   { key: 'field', label: 'Field', icon: Footprints },
 ];
 

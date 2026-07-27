@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Flag, MessageSquare, ArrowRight, Zap, Share2, Image as ImageIcon } from 'lucide-react';
+import { RefreshCw, Flag, MessageSquare, ArrowRight, Zap, Share2, Image as ImageIcon, AlertTriangle} from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +26,7 @@ interface SessionUser { name?: string; role?: string; role_level?: string }
 interface Brief {
   scope: { label: string; generatedAt: string };
   riskIndex: { score: number; grade: string; drivers: string[] };
+  intake?: { lastReceivedAt: string | null; hoursSinceLast: number | null; status: 'LIVE' | 'QUIET' | 'STALLED' | 'NO_DATA' };
   kpis: { active: number; slaBreached: number; filed7: number; resolutionRate: number; critical: number };
   warnings: Array<{ severity: string; title: string; detail: string }>;
   hotspots: Array<{ name: string; active: number; risk: number }>;
@@ -173,6 +174,32 @@ export function AajHome({ user, branding, onOpenActions, onOpenIntelligence }: {
       ) : (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: 'easeOut' }} className="space-y-5">
           {/* Hero: gauge + key numbers */}
+          {/* Intake heartbeat.
+              Every other figure here keeps looking healthy when intake dies —
+              a banned WhatsApp number or an expired token just stops the flow,
+              and a quiet board is indistinguishable from a calm week. Say it. */}
+          {brief.intake && brief.intake.status !== 'LIVE' && (
+            <div className={`rounded-xl border px-3 py-2 text-sm flex items-start gap-2 ${
+              brief.intake.status === 'STALLED' || brief.intake.status === 'NO_DATA'
+                ? 'border-red-300 bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-300'
+                : 'border-amber-300 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300'
+            }`}>
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>
+                {brief.intake.status === 'NO_DATA'
+                  ? 'No complaints have ever arrived in this area.'
+                  : `No new complaint for ${
+                      brief.intake.hoursSinceLast != null && brief.intake.hoursSinceLast >= 48
+                        ? `${Math.round(brief.intake.hoursSinceLast / 24)} days`
+                        : `${brief.intake.hoursSinceLast} hours`
+                    }.`}
+                {(brief.intake.status === 'STALLED' || brief.intake.status === 'NO_DATA') && (
+                  <span className="font-medium"> Check that the WhatsApp number is still receiving.</span>
+                )}
+              </span>
+            </div>
+          )}
+
           <Card className="border shadow-sm" style={{ borderColor: branding.accentSoft }}>
             <CardContent className="p-4 flex flex-col sm:flex-row items-center gap-5">
               <div className="text-center shrink-0">

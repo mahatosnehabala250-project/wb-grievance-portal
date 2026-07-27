@@ -97,6 +97,14 @@ export interface IntelligenceBrief {
     resolutionRate: number; avgResolutionDays: number | null; avgRating: number | null;
     ratedCount: number; filed7: number; filedPrev7: number; momentumPct: number; resolved14: number;
   };
+  /**
+   * How long since the last complaint arrived in this scope.
+   *
+   * If WhatsApp intake breaks — number banned, token expired, n8n down — every
+   * other number on every screen keeps looking healthy while nothing new comes
+   * in. Nothing surfaced that, so silence was indistinguishable from calm.
+   */
+  intake: { lastReceivedAt: string | null; hoursSinceLast: number | null; status: 'LIVE' | 'QUIET' | 'STALLED' | 'NO_DATA' };
   trend: Array<{ week: string; filed: number; resolved: number }>;
   categoryShare: Array<{ category: string; count: number; active: number; resolved: number }>;
   categorySurges: Array<{ category: string; current: number; previous: number; pctChange: number }>;
@@ -342,6 +350,17 @@ export async function computeIntelligenceBrief(payload: JWTPayload): Promise<Int
     }
   }
 
+  // complaints is fetched ordered by createdAt desc, so the head is the newest.
+  const lastReceived = dt(complaints[0]?.createdAt);
+  const hoursSinceLast = lastReceived ? Math.round(((Date.now() - lastReceived.getTime()) / 36e5) * 10) / 10 : null;
+  // 48h is deliberately generous: a quiet weekend in one assembly is normal,
+  // a week of silence is not.
+  const intakeStatus: 'LIVE' | 'QUIET' | 'STALLED' | 'NO_DATA' =
+    hoursSinceLast === null ? 'NO_DATA'
+    : hoursSinceLast <= 48 ? 'LIVE'
+    : hoursSinceLast <= 168 ? 'QUIET'
+    : 'STALLED';
+
   return {
     scope: {
       level: payload.role_level || payload.role,
@@ -355,6 +374,11 @@ export async function computeIntelligenceBrief(payload: JWTPayload): Promise<Int
       resolutionRate: total ? Math.round((resolved / total) * 100) : 0,
       avgResolutionDays, avgRating, ratedCount: ratings.length,
       filed7, filedPrev7, momentumPct, resolved14,
+    },
+    intake: {
+      lastReceivedAt: lastReceived ? lastReceived.toISOString() : null,
+      hoursSinceLast,
+      status: intakeStatus,
     },
     trend,
     categoryShare: Object.entries(catAll)
