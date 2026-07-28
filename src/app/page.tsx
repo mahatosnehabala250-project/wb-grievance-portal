@@ -80,6 +80,7 @@ import DeploymentGuideView from '@/components/DeploymentGuideView';
 import LiveDataMonitor from '@/components/LiveDataMonitor';
 import { BoothsView } from '@/components/BoothsView';
 import { VisitsView } from '@/components/VisitsView';
+import { LettersView } from '@/components/LettersView';
 import { HotspotsView } from '@/components/HotspotsView';
 import { WarRoomView } from '@/components/WarRoomView';
 /**
@@ -164,8 +165,10 @@ export default function HomePage() {
       items: [
         homeItem,
         item('complaints', t('complaints'), FileText),
-        // Front-desk work sits next to complaints: most visits become one.
+        // Front-desk work sits next to complaints: most visits become one,
+        // and most of those end in a letter to the officer who can act.
         item('visits', 'Visitors', DoorOpen),
+        item('letters', 'Letters', Mail),
         item('map', 'Map', MapPin),
         item('booths', 'Booths', Vote),
         item('hotspots', 'Hotspots', Flame),
@@ -776,6 +779,13 @@ export default function HomePage() {
                 )}
                 {view === 'visits' && (
                   <VisitsView />
+                )}
+                {view === 'letters' && (
+                  <LettersView
+                    officeName={branding.orgName}
+                    signatoryName={branding.leaderName || user?.name || ''}
+                    constituency={user?.constituency || ''}
+                  />
                 )}
                 {view === 'booths' && (
                   <BoothsView />
