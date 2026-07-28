@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  Shield, Crown, LayoutDashboard, FileText, Users, Bell, Sun, Moon, Menu, Search, Plus, ChevronRight, Clock, AlertTriangle, Activity, MapPin, LogOut, Building2, RotateCcw, Zap, ChevronDown, MessageSquare, ShieldCheck, Globe, BarChart2, Settings, CircleHelp, Mail, Keyboard, History, AlertCircle, Info, CheckCircle2 as CheckCircleFill, Megaphone, Flame, Server, Radio, Workflow, BookOpen, BrainCircuit, ShieldAlert, HeartHandshake, Vote, Swords, Landmark,
+  Shield, Crown, LayoutDashboard, FileText, Users, Bell, Sun, Moon, Menu, Search, Plus, ChevronRight, Clock, AlertTriangle, Activity, MapPin, LogOut, Building2, RotateCcw, Zap, ChevronDown, MessageSquare, ShieldCheck, Globe, BarChart2, Settings, CircleHelp, Mail, Keyboard, History, AlertCircle, Info, CheckCircle2 as CheckCircleFill, Megaphone, Flame, Server, Radio, Workflow, BookOpen, BrainCircuit, ShieldAlert, HeartHandshake, Vote, Swords, Landmark, DoorOpen,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -79,6 +79,7 @@ import { HandoffsConsentView } from '@/components/HandoffsConsentView';
 import DeploymentGuideView from '@/components/DeploymentGuideView';
 import LiveDataMonitor from '@/components/LiveDataMonitor';
 import { BoothsView } from '@/components/BoothsView';
+import { VisitsView } from '@/components/VisitsView';
 import { HotspotsView } from '@/components/HotspotsView';
 import { WarRoomView } from '@/components/WarRoomView';
 /**
@@ -163,6 +164,8 @@ export default function HomePage() {
       items: [
         homeItem,
         item('complaints', t('complaints'), FileText),
+        // Front-desk work sits next to complaints: most visits become one.
+        item('visits', 'Visitors', DoorOpen),
         item('map', 'Map', MapPin),
         item('booths', 'Booths', Vote),
         item('hotspots', 'Hotspots', Flame),
@@ -770,6 +773,9 @@ export default function HomePage() {
                 )}
                 {view === 'map' && (
                   <MapView />
+                )}
+                {view === 'visits' && (
+                  <VisitsView />
                 )}
                 {view === 'booths' && (
                   <BoothsView />
