@@ -243,7 +243,7 @@ function NetTreeNode({ node, depth }: { node: NetNode; depth: number }) {
         <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
           <div className="h-full rounded-full" style={{ width: `${node.unresolvedPct}%`, background: uColor }} />
         </div>
-        <span className="text-[9px] font-mono text-muted-foreground w-16 text-right">{node.total}c · {node.unresolvedPct}% open</span>
+        <span className="text-[9px] text-muted-foreground w-24 text-right">{node.total} complaints · {node.unresolvedPct}% unresolved</span>
         {node.avgAnger !== null && node.avgAnger >= 60 && <span className="text-[9px] text-red-500">😡{node.avgAnger}</span>}
       </div>
       {node.children.map((ch) => <NetTreeNode key={node.name + '>' + ch.name} node={ch} depth={depth + 1} />)}
@@ -1337,20 +1337,30 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                   </div>
                 </div>
 
-                {/* Issue co-occurrence (thin, caveated) */}
-                <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
-                    <Layers className="w-3 h-3" /> Issue Links (co-location)
-                  </div>
-                  {network.coOccurrence.edges.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {network.coOccurrence.edges.map((e) => (
-                        <span key={e.a + e.b} className="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-600">{e.a} ↔ {e.b} <span className="text-muted-foreground">×{e.sharedAreas}</span></span>
-                      ))}
+                {/* Issue co-occurrence.
+                    Two categories sharing two areas is coincidence, not a pattern,
+                    and printing "ELECTRICITY <-> LAND x2" invites a reader to find
+                    meaning that is not there. Only shown once an edge spans at
+                    least three areas. */}
+                {(() => {
+                  const strong = network.coOccurrence.edges.filter((e) => e.sharedAreas >= 3);
+                  if (strong.length === 0) return null;
+                  return (
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
+                        <Layers className="w-3 h-3" /> Issues that show up together
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {strong.map((e) => (
+                          <span key={e.a + e.b} className="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-600">
+                            {e.a} ↔ {e.b} <span className="text-muted-foreground">in {e.sharedAreas} areas</span>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="text-[9px] text-muted-foreground mt-0.5">{network.coOccurrence.note}</div>
                     </div>
-                  ) : null}
-                  <div className="text-[9px] text-muted-foreground mt-0.5">{network.coOccurrence.note}</div>
-                </div>
+                  );
+                })()}
 
                 {/* Honest gaps */}
                 <div className="rounded-lg bg-muted/30 p-2">
