@@ -236,7 +236,7 @@ export function CommandAssistant() {
                   style={lang === l.id ? { background: 'rgba(34,211,238,0.18)', color: '#22d3ee' } : { color: '#64748b' }}>{l.label}</button>
               ))}
             </div>
-            <button onClick={toggleLive} title="Gemini Live — realtime baat-cheet" className="p-1 rounded flex items-center"
+            <button onClick={toggleLive} title="Gemini Live — realtime conversation" className="p-1 rounded flex items-center"
               style={{ color: liveStatus === 'live' ? '#a78bfa' : liveStatus === 'connecting' ? '#a78bfa' : '#64748b' }}>
               {liveStatus === 'connecting' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" fill={liveStatus === 'live' ? '#a78bfa' : 'none'} />}
             </button>

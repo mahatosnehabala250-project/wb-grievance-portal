@@ -996,8 +996,8 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
             <CardHeader className="pb-1 pt-3 px-4">
               <CardTitle className="text-xs font-semibold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
-                  <TrendingUp className="w-3.5 h-3.5 text-cyan-500" /> Forecast / Early-Warning
-                  <span className="text-[9px] normal-case font-normal">(next 4 weeks of trend + SLA-breach risk queue)</span>
+                  <TrendingUp className="w-3.5 h-3.5 text-cyan-500" /> What's coming
+                  <span className="text-[9px] normal-case font-normal">(where volume is heading, and which complaints are most overdue)</span>
                 </span>
                 {!forecast && (
                   <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={loadForecast} disabled={forecastLoading}>
@@ -1058,14 +1058,14 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                       </AreaChart>
                     </ChartContainer>
                     <div className="text-[9px] text-muted-foreground -mt-1">
-                      Next 4 weeks (range, never a point): {forecast.volumeForecast.map(f => `+${f.weekAhead}w ${f.lo}–${f.hi}`).join(' · ')}
+                      Expected new complaints per week — shown as a range, because the history is too short to be precise: {forecast.volumeForecast.map(f => `week +${f.weekAhead}: ${f.lo}–${f.hi}`).join(' · ')}
                     </div>
 
                     {/* SLA-breach risk queue */}
                     <div>
                       <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
-                        <ShieldAlert className="w-3 h-3 text-orange-500" /> SLA-Breach Risk Queue
-                        <span className="text-[8px] normal-case font-normal">(deterministic age-gauge, not a probability)</span>
+                        <ShieldAlert className="w-3 h-3 text-orange-500" /> Most overdue right now
+                        <span className="text-[8px] normal-case font-normal">(ranked by how far past deadline, not a prediction)</span>
                       </div>
                       <div className="flex gap-1.5 mb-1.5">
                         {([['BREACHED', forecast.slaRisk.counts.breached, 'bg-red-500/15 text-red-600'], ['HIGH', forecast.slaRisk.counts.high, 'bg-orange-500/15 text-orange-600'], ['MEDIUM', forecast.slaRisk.counts.medium, 'bg-amber-500/15 text-amber-600'], ['LOW', forecast.slaRisk.counts.low, 'bg-muted text-muted-foreground']] as const).map(([l, v, cls]) => (
@@ -1176,7 +1176,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                   };
                   return (
                   <>
-                    <div className="text-[10px] text-muted-foreground">{fusion.nodeGrain === 'block' ? 'Block-wise' : fusion.nodeGrain === 'village' ? 'Gaon-wise' : fusion.nodeGrain} · priority-ranked</div>
+                    <div className="text-[10px] text-muted-foreground">{fusion.nodeGrain === 'block' ? 'Block-wise' : fusion.nodeGrain === 'village' ? 'Village-wise' : fusion.nodeGrain} · priority-ranked</div>
 
                     {/* HERO — #1 priority area */}
                     <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl p-3"

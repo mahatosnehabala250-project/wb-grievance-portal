@@ -357,7 +357,7 @@ Claude Desktop, Cursor, Windsurf mein bhi install ho sakta hai. GitHub PAT (Pers
 
 ### TOOL 4: Frontend Design Skill
 **Source**: https://github.com/anthropics/claude-code (plugins/frontend-design/skills/frontend-design/SKILL.md)
-**What it is**: This is Claude Code's built-in skill hai jo distinctive, production-grade frontend interfaces banata hai — generic "AI slop" aesthetics.
+**What it is**: This is Claude Code's built-in skill for building distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics.
 
 **What it does**:
 - Bold aesthetic direction choose karta hai (minimalist, maximalist, retro-futuristic, luxury etc.)
