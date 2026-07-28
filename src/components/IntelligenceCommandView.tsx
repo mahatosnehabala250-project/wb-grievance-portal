@@ -301,7 +301,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
 
   useEffect(() => { load(); }, [load]);
 
-  /* "Wapas Jao" — closed-loop visit briefs (loaded on demand) */
+  /* Closed-loop visit briefs — villages with resolved work, loaded on demand */
   const loadWapas = useCallback(async () => {
     setWapasLoading(true);
     try {
@@ -1657,13 +1657,13 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
             )}
           </Card>
 
-          {/* ── Row 6: "Wapas Jao" — closed-loop visit briefs ── */}
+          {/* ── Row 6: closed-loop visit briefs ── */}
           <Card className={`border shadow-sm border-violet-500/20 ${show('field') ? '' : 'hidden'}`}>
             <CardHeader className="pb-1 pt-3 px-4">
               <CardTitle className="text-xs font-semibold flex items-center justify-between text-muted-foreground uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
-                  <Footprints className="w-3.5 h-3.5 text-violet-500" /> Wapas Jao — Village Visit Briefs
-                  <span className="text-[9px] normal-case font-normal">(which village, whose work — with names)</span>
+                  <Footprints className="w-3.5 h-3.5 text-violet-500" /> Go back and claim the credit
+                  <span className="text-[9px] normal-case font-normal">(villages where complaints were resolved — visit, and remind them who fixed it)</span>
                 </span>
                 {!wapas && (
                   <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={loadWapas} disabled={wapasLoading}>
