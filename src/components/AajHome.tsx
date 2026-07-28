@@ -205,6 +205,13 @@ export function AajHome({ user, branding, onOpenActions, onOpenIntelligence }: {
               <div className="text-center shrink-0">
                 <Gauge score={brief.riskIndex.score} color={grade.c} />
                 <div className="text-xs text-muted-foreground -mt-1">Risk index · <span style={{ color: grade.c }}>{grade.label}</span></div>
+                {/* A score with no reason beside it is unreadable — the API already
+                    returns what drove it, so show the top driver. */}
+                {brief.riskIndex.drivers?.[0] && (
+                  <div className="text-[10px] text-muted-foreground/80 mt-0.5 max-w-[180px] mx-auto leading-snug">
+                    {brief.riskIndex.drivers[0]}
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-3 gap-2.5 flex-1 w-full">
                 {[
@@ -238,14 +245,20 @@ export function AajHome({ user, branding, onOpenActions, onOpenIntelligence }: {
                     <Badge variant="outline" className="text-[9px] h-4 px-1.5 shrink-0" style={{ color: ACTION_TINT[it.actionType], borderColor: ACTION_TINT[it.actionType] + '55' }}>
                       {it.actionType.replace('_', ' ')}
                     </Badge>
-                    <span className="text-[13px] flex-1 min-w-0 truncate">{it.title}</span>
-                    <span className="text-[10px] font-mono text-muted-foreground">{it.score}</span>
+                    <span className="text-[13px] flex-1 min-w-0 truncate" title={it.why?.join(' · ')}>
+                      {it.title}
+                      <span className="text-[10px] font-mono text-muted-foreground/70 ml-1.5">{it.ticketNo}</span>
+                    </span>
+                    {/* A bare number reads as noise. Say what it measures. */}
+                    <span className="text-[10px] text-muted-foreground shrink-0" title={`Priority ${it.score}/100 — ${it.why?.join(' · ') || 'urgency, age and anger'}`}>
+                      priority {it.score}
+                    </span>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="text-[12px] text-muted-foreground italic border rounded-xl p-3">
-                Abhi koi pending action nahi — sab clear hai. Yeh honest hai, padding nahi.
+                No pending actions — genuinely clear, not padded.
               </div>
             )}
           </div>

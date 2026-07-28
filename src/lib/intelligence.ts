@@ -994,6 +994,12 @@ export async function computeOperations(payload: JWTPayload): Promise<ActionQueu
     const ageDays = created ? Math.floor((now - created.getTime()) / DAY) : 0;
     const anger = angerById.get(id) ?? 0;
     const area = subAreaOf(payload, c);
+    // Titles used to be the ticket number, which tells a reader nothing: an MLA
+    // cannot act on "WB-DEMO-109B3BE4". Lead with what it is and where it is,
+    // and let the UI carry the ticket number separately for lookup.
+    const catLabel = (str(c, 'category') || 'Complaint').replace(/_/g, ' ').toLowerCase();
+    const village = str(c, 'village') || str(c, 'gp_name');
+    const subject = `${catLabel.charAt(0).toUpperCase()}${catLabel.slice(1)}${village ? ` · ${village}` : area ? ` · ${area}` : ''}`;
     const slaT = OPS_SLA_DAYS[urgency] ?? 3;
     const breached = isActive(c) && ageDays > slaT;
     const rating = typeof c.satisfactionRating === 'number' ? c.satisfactionRating as number : null;
@@ -1017,7 +1023,7 @@ export async function computeOperations(payload: JWTPayload): Promise<ActionQueu
     // 1) ASSIGN_OFFICER — active + unassigned (handle ownerless tickets first)
     if (isActive(c) && !assignedToId) {
       candidates.push(mk('ASSIGN_OFFICER',
-        `Assign an officer to ${ticketNo}`,
+        `Assign an officer — ${subject}`,
         [`${urgency} urgency`, 'unassigned', `${ageDays}d old`, ...(anger >= 60 ? [`anger ${angerW}`] : [])],
         'INTERNAL',
         { method: 'PATCH', route: `/api/complaints/${id}`, needs: 'officer' },
@@ -1027,7 +1033,7 @@ export async function computeOperations(payload: JWTPayload): Promise<ActionQueu
     if (breached && urgency !== 'CRITICAL') {
       const next = URG_ORDER[Math.min(URG_ORDER.indexOf(urgency) + 1, URG_ORDER.length - 1)];
       candidates.push(mk('ESCALATE',
-        `Escalate ${ticketNo} → ${next}`,
+        `Escalate to ${next} — ${subject}`,
         [`SLA breached — ${ageDays}d open at ${urgency}`, ...(anger >= 50 ? [`anger ${angerW}`] : [])],
         'INTERNAL',
         { method: 'PATCH', route: `/api/complaints/${id}`, body: { urgency: next } },
@@ -1036,7 +1042,7 @@ export async function computeOperations(payload: JWTPayload): Promise<ActionQueu
     // 3) CHASE_STATUS — stuck IN_PROGRESS > 7d → internal follow-up note
     if (status === 'IN_PROGRESS' && ageDays > 7) {
       candidates.push(mk('CHASE_STATUS',
-        `Chase stalled ticket ${ticketNo}`,
+        `Chase stalled — ${subject}`,
         [`In progress ${ageDays}d with no resolution`, ...(anger >= 50 ? [`anger ${angerW}`] : [])],
         'INTERNAL',
         { method: 'POST', route: `/api/complaints/${id}/comments`, body: { content: `Follow-up requested — ${ageDays} days in progress with no update. Please advance this ticket.` } },
@@ -1045,7 +1051,7 @@ export async function computeOperations(payload: JWTPayload): Promise<ActionQueu
     // 4) CLOSE_QUICKWIN — old low/medium active ticket (human resolved it offline) → citizen-facing
     if (isActive(c) && (urgency === 'LOW' || urgency === 'MEDIUM') && ageDays > 7) {
       candidates.push(mk('CLOSE_QUICKWIN',
-        `Quick win — close ${ticketNo}`,
+        `Quick win — close ${subject}`,
         [`${urgency}, ${ageDays}d old — cheap to clear`, 'notifies citizen (WB-03) on close'],
         'CITIZEN_FACING',
         { method: 'PATCH', route: `/api/complaints/${id}`, needs: 'resolution' },
@@ -1055,7 +1061,7 @@ export async function computeOperations(payload: JWTPayload): Promise<ActionQueu
     // 5) REOPEN — resolved but poorly rated (real rows; often empty). Never auto.
     if (status === 'RESOLVED' && rating !== null && rating >= 1 && rating <= 2) {
       candidates.push(mk('REOPEN',
-        `Reopen poorly-rated ${ticketNo}`,
+        `Reopen poorly-rated — ${subject}`,
         [`Citizen rated ${rating}★ after resolution`, ...(anger >= 50 ? [`anger ${angerW}`] : [])],
         'INTERNAL',
         { method: 'PATCH', route: `/api/complaints/${id}/reopen`, needs: 'confirm' },

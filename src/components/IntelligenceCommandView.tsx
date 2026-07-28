@@ -1414,9 +1414,10 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                             <Badge variant="outline" className="text-[8px] h-3.5 px-1 shrink-0">{it.actionType.replace('_', ' ')}</Badge>
                             <span className="text-[11px] font-semibold flex-1 truncate">{it.title}</span>
                             {it.riskTier === 'CITIZEN_FACING' && <Badge variant="outline" className="text-[7px] h-3 px-1 text-rose-500 border-rose-500/30">citizen</Badge>}
-                            <span className="text-[9px] font-mono text-muted-foreground">{it.score}</span>
+                            {/* Label the number — on its own it reads as noise. */}
+                            <span className="text-[9px] text-muted-foreground shrink-0" title={`Priority ${it.score}/100 — urgency, age and citizen anger`}>priority {it.score}</span>
                           </div>
-                          <div className="text-[9px] text-muted-foreground mt-0.5 truncate">{it.area} · {it.why.join(' · ')}</div>
+                          <div className="text-[9px] text-muted-foreground mt-0.5 truncate">{it.ticketNo} · {it.area} · {it.why.join(' · ')}</div>
                           {it.executable ? (
                             <div className="flex items-center gap-1.5 mt-1.5">
                               {it.execute.needs === 'officer' && (
@@ -1425,7 +1426,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                                   value={officerSel[it.id] || ''}
                                   onChange={(e) => setOfficerSel((s) => ({ ...s, [it.id]: e.target.value }))}
                                 >
-                                  <option value="">Officer chuno…</option>
+                                  <option value="">Choose an officer…</option>
                                   {operations.officers.map((o) => <option key={o.id} value={o.id}>{o.name}{o.area ? ` (${o.area})` : ''}</option>)}
                                 </select>
                               )}
