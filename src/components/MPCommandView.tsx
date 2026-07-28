@@ -42,6 +42,8 @@ interface DashStats {
   critical_alerts: number;
   last_7d: number;
   last_24h: number;
+  /** Still returned by the API; no longer surfaced — blood-donor matching is a
+   *  separate product and its workflows are switched off (3 donors total). */
   blood_donors: number;
   active_officers: number;
   active_alerts: number;
@@ -309,7 +311,6 @@ export function MPCommandView() {
                 { label: 'Resolved',    val: s.total_resolved,   icon: CheckCircle2, c: 'text-emerald-500', bg: 'bg-emerald-500/8' },
                 { label: 'Rate',        val: s.resolution_rate,  icon: Target,       c: 'text-amber-500',   bg: 'bg-amber-500/8',  suffix: '%' },
                 { label: 'Officers',    val: s.active_officers,  icon: Users,        c: 'text-violet-500',  bg: 'bg-violet-500/8'  },
-                { label: 'Blood Donors',val: s.blood_donors,     icon: Heart,        c: 'text-pink-500',    bg: 'bg-pink-500/8'    },
               ].map((k, i) => (
                 <motion.div key={k.label}
                   initial={{ opacity: 0, scale: 0.9 }}
