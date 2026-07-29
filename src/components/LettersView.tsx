@@ -284,14 +284,18 @@ export function LettersView({ officeName, signatoryName, constituency }: Letters
     }
   }, []);
 
-  /** Print on office letterhead. Opens a clean window so the app chrome stays out of the page. */
+  /**
+   * Print on office letterhead.
+   *
+   * This renders into an off-screen iframe rather than a new window: a
+   * window.open() print view is silently swallowed by the pop-up blocker on a
+   * default browser, which is exactly the machine this gets demonstrated on.
+   */
   const print = useCallback((l: Letter) => {
-    const w = window.open('', '_blank', 'width=820,height=1000');
-    if (!w) { toast.error('Allow pop-ups to print'); return; }
     const esc = (s: string) => (s || '').replace(/[&<>]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] as string));
     const addressee = [l.recipient_name, l.recipient_designation, l.recipient_office]
       .filter((s): s is string => Boolean(s)).map(esc);
-    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(l.letter_no || 'Letter')}</title>
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(l.letter_no || 'Letter')}</title>
 <style>
   @page { size: A4; margin: 22mm 20mm; }
   body { font-family: Georgia, 'Times New Roman', serif; font-size: 12.5pt; line-height: 1.65; color: #111; }
@@ -310,10 +314,22 @@ export function LettersView({ officeName, signatoryName, constituency }: Letters
 <div class="subj">Subject: ${esc(l.subject)}</div>
 <div class="body">${esc(l.body)}</div>
 <div class="foot">Issued from ${esc(office)} · Reference ${esc(l.letter_no || '')}</div>
-</body></html>`);
-    w.document.close();
-    w.focus();
-    setTimeout(() => w.print(), 250);
+</body></html>`;
+
+    const frame = document.createElement('iframe');
+    frame.setAttribute('aria-hidden', 'true');
+    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    frame.onload = () => {
+      const win = frame.contentWindow;
+      if (!win) { toast.error('Could not open the print view'); frame.remove(); return; }
+      win.focus();
+      win.print();
+      // Leave the frame in place until the print dialog has been dismissed;
+      // removing it immediately cancels the job in some browsers.
+      setTimeout(() => frame.remove(), 2000);
+    };
+    frame.srcdoc = html;
+    document.body.appendChild(frame);
   }, [office, seat]);
 
   const activeTemplate = templateById(form.letterType);
