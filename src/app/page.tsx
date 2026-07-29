@@ -81,6 +81,7 @@ import LiveDataMonitor from '@/components/LiveDataMonitor';
 import { BoothsView } from '@/components/BoothsView';
 import { VisitsView } from '@/components/VisitsView';
 import { LettersView } from '@/components/LettersView';
+import { OutreachView } from '@/components/OutreachView';
 import { HotspotsView } from '@/components/HotspotsView';
 import { WarRoomView } from '@/components/WarRoomView';
 /**
@@ -169,6 +170,7 @@ export default function HomePage() {
         // and most of those end in a letter to the officer who can act.
         item('visits', 'Visitors', DoorOpen),
         item('letters', 'Letters', Mail),
+        item('outreach', 'Messaging', Megaphone),
         item('map', 'Map', MapPin),
         item('booths', 'Booths', Vote),
         item('hotspots', 'Hotspots', Flame),
@@ -779,6 +781,9 @@ export default function HomePage() {
                 )}
                 {view === 'visits' && (
                   <VisitsView />
+                )}
+                {view === 'outreach' && (
+                  <OutreachView />
                 )}
                 {view === 'letters' && (
                   <LettersView
