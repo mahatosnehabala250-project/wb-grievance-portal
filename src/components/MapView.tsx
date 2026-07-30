@@ -25,6 +25,7 @@ interface MapData {
   trend: { last7: number; prior7: number; pct: number };
   meta: { villagesWithComplaints: number; plottable: number; activeTotal: number; criticalTotal: number };
   series?: { code: string; ts: number; crit: boolean; active: boolean }[];
+  hotspots?: { name: string; active: number; total: number; pct: number | null }[];
   range?: { min: number; max: number };
 }
 
@@ -446,6 +447,32 @@ export function MapView() {
     () => [...points].sort((a, b) => metricFor(b, mode, catFilter) - metricFor(a, mode, catFilter)).filter((p) => metricFor(p, mode, catFilter) > 0).slice(0, 6),
     [points, mode, catFilter]
   );
+
+  /**
+   * Per-village week-on-week change, from the event stream the API already
+   * sends for the timeline. A count alone says which village is loudest; the
+   * change says which one is getting worse, and that is the one to visit.
+   *
+   * A village with no complaints in the prior week reports null rather than
+   * +100% — a first-ever complaint is not a surge.
+   */
+  const trendByCode = useMemo(() => {
+    const series = data?.series;
+    if (!series?.length) return {} as Record<string, number | null>;
+    const now = Date.now(), DAY = 86400000;
+    const buckets: Record<string, { last7: number; prior7: number }> = {};
+    for (const e of series) {
+      const age = (now - e.ts) / DAY;
+      if (age > 14) continue;
+      const b = buckets[e.code] || (buckets[e.code] = { last7: 0, prior7: 0 });
+      if (age <= 7) b.last7++; else b.prior7++;
+    }
+    const out: Record<string, number | null> = {};
+    for (const [code, b] of Object.entries(buckets)) {
+      out[code] = b.prior7 > 0 ? Math.round(((b.last7 - b.prior7) / b.prior7) * 100) : null;
+    }
+    return out;
+  }, [data?.series]);
   const activeTotal = data?.meta.activeTotal ?? 0;
   const criticalTotal = data?.meta.criticalTotal ?? 0;
   const pct = data?.trend.pct ?? 0;
@@ -454,12 +481,18 @@ export function MapView() {
 
   const summary = useMemo(() => {
     if (points.length === 0) return "No complaints plotted in your jurisdiction yet. As complaints come in, hotspots will light up here.";
-    const top = hotspots[0];
-    const second = hotspots[1];
+    // Blocks, not villages: a letter goes to a BDO, so the block is the unit
+    // this sentence is useful in. Falls back to village names if the rollup is
+    // unavailable.
+    const blocks = data?.hotspots || [];
+    const where = blocks.length >= 2
+      ? `${blocks[0].name} and ${blocks[1].name} blocks`
+      : blocks.length === 1
+        ? `${blocks[0].name} block`
+        : hotspots[1] ? `${hotspots[0]?.name} and ${hotspots[1].name}` : hotspots[0]?.name;
     const cat = topCats[0]?.label?.toLowerCase();
-    const where = second ? `${top?.name} and ${second.name}` : top?.name;
-    return `Complaints are concentrated around ${where}` + (cat ? `, led by ${cat} issues` : "") + `. ${activeTotal.toLocaleString()} active across ${points.length} villages` + (criticalTotal ? `, ${criticalTotal} critical` : "") + ".";
-  }, [points, hotspots, topCats, activeTotal, criticalTotal]);
+    return `Complaints are concentrated in ${where}` + (cat ? `, led by ${cat} issues` : "") + `. ${activeTotal.toLocaleString()} active across ${points.length} villages` + (criticalTotal ? `, ${criticalTotal} critical` : "") + ".";
+  }, [points, hotspots, topCats, activeTotal, criticalTotal, data?.hotspots]);
 
   const dim = (s: string) => ({ color: s });
 
@@ -715,18 +748,28 @@ export function MapView() {
                   <div className="text-xs font-semibold mb-2" style={dim("#94a3b8")}>Top hotspots</div>
                   <div className="space-y-1.5">
                     {hotspots.length === 0 && <div className="text-xs" style={dim("#64748b")}>No active hotspots.</div>}
-                    {hotspots.map((p, i) => (
-                      <div key={p.code} onClick={() => setSelected(p)}
-                        className="flex items-center justify-between rounded px-2 py-1.5 cursor-pointer"
-                        style={{ background: "rgba(255,255,255,0.03)" }}>
-                        <span className="flex items-center gap-2 text-xs" style={dim("#e2e8f0")}>
-                          <span style={{ color: "#64748b", width: 14 }}>{String(i + 1).padStart(2, "0")}</span>
-                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: p.critical > 0 ? RED : CYAN, display: "inline-block" }} />
-                          {p.name}
-                        </span>
-                        <span className="text-xs font-semibold" style={dim("#f1f5f9")}>{metricFor(p, mode)}</span>
-                      </div>
-                    ))}
+                    {hotspots.map((p, i) => {
+                      const chg = trendByCode[p.code];
+                      return (
+                        <div key={p.code} onClick={() => setSelected(p)}
+                          className="flex items-center justify-between rounded px-2 py-1.5 cursor-pointer"
+                          style={{ background: "rgba(255,255,255,0.03)" }}>
+                          <span className="flex items-center gap-2 text-xs" style={dim("#e2e8f0")}>
+                            <span style={{ color: "#64748b", width: 14 }}>{String(i + 1).padStart(2, "0")}</span>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: p.critical > 0 ? RED : CYAN, display: "inline-block" }} />
+                            {p.name}
+                          </span>
+                          <span className="text-right">
+                            <span className="text-xs font-semibold block" style={dim("#f1f5f9")}>{metricFor(p, mode)}</span>
+                            {chg !== null && chg !== undefined && chg !== 0 && (
+                              <span className="text-[10px] font-mono" style={dim(chg > 0 ? "#f87171" : "#34d399")}>
+                                {chg > 0 ? "↑" : "↓"} {Math.abs(chg)}%
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 

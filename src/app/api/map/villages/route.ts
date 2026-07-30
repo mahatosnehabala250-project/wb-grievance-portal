@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
 import { createClient } from '@supabase/supabase-js';
+import { normBlock, prettyBlock } from '@/lib/block-name';
 
 /**
  * GET /api/map/villages — scope-locked VILLAGE-level intelligence for the
@@ -49,6 +50,16 @@ const SLA_DAYS: Record<string, number> = { CRITICAL: 0.25, HIGH: 1, MEDIUM: 3, L
 
 interface Agg { code: string; name: string; lat: number; lng: number; total: number; active: number; critical: number; resolved: number; slaBreached: number; cats: Record<string, number>; }
 
+/**
+ * Block rollup for the hotspot list.
+ *
+ * Villages are what plot; blocks are what an MLA acts on — you send a letter to
+ * a BDO, not to a hamlet. This counts every complaint in scope that carries a
+ * block, not only the ones with coordinates, so the ranking does not quietly
+ * exclude villages the gazetteer has no point for.
+ */
+interface BlockAgg { name: string; active: number; total: number; last7: number; prior7: number; }
+
 export async function GET(request: NextRequest) {
   try {
     const token = getTokenFromRequest(request);
@@ -83,6 +94,7 @@ export async function GET(request: NextRequest) {
     const now = Date.now();
     const DAY = 86400000;
     const agg: Record<string, Agg> = {};
+    const blockAgg: Record<string, BlockAgg> = {};
     const cats: Record<string, number> = {};
     let last7 = 0, prior7 = 0, matched = 0;
     // compact event stream for the time-slider (one row per plottable complaint)
@@ -98,6 +110,21 @@ export async function GET(request: NextRequest) {
       }
       const cat = (str(c, 'category') || 'OTHER').toUpperCase();
       cats[cat] = (cats[cat] || 0) + 1;
+
+      // Block rollup runs before the village-code match, so a complaint whose
+      // village has no coordinates still counts towards its block.
+      const blockRaw = str(c, 'block');
+      if (blockRaw) {
+        const key = normBlock(blockRaw);
+        const b = blockAgg[key] || (blockAgg[key] = { name: prettyBlock(blockRaw), active: 0, total: 0, last7: 0, prior7: 0 });
+        b.total++;
+        if (ACTIVE.has(str(c, 'status'))) b.active++;
+        if (created) {
+          const ageDays = (now - created.getTime()) / DAY;
+          if (ageDays <= 7) b.last7++;
+          else if (ageDays <= 14) b.prior7++;
+        }
+      }
 
       const nk = norm(str(c, 'village'));
       if (!nk) continue;
@@ -131,6 +158,19 @@ export async function GET(request: NextRequest) {
     const categories = Object.entries(cats).map(([label, n]) => ({ label, n })).sort((x, y) => y.n - x.n).slice(0, 6);
     const pct = prior7 > 0 ? Math.round(((last7 - prior7) / prior7) * 100) : (last7 > 0 ? 100 : 0);
 
+    // Where the pressure actually is, ranked by open complaints. A block with no
+    // prior-week baseline reports null rather than a fake 100% — a first-ever
+    // complaint is not a surge.
+    const hotspots = Object.values(blockAgg)
+      .sort((a, b) => b.active - a.active || b.total - a.total)
+      .slice(0, 3)
+      .map((b) => ({
+        name: b.name,
+        active: b.active,
+        total: b.total,
+        pct: b.prior7 > 0 ? Math.round(((b.last7 - b.prior7) / b.prior7) * 100) : null,
+      }));
+
     return NextResponse.json({
       points,
       data,
@@ -138,6 +178,7 @@ export async function GET(request: NextRequest) {
       series,
       range: { min: minTs === Infinity ? 0 : minTs, max: maxTs },
       trend: { last7, prior7, pct },
+      hotspots,
       meta: {
         villagesWithComplaints: all.length,
         plottable: points.length,
