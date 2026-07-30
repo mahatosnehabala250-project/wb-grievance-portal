@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     if (cErr) throw cErr;
     if (!campaigns?.length) return NextResponse.json({ ok: true, batch: [] });
 
-    const batch: Array<Record<string, unknown>> = [];
+    const batch: Array<Record<string, unknown> & { phone: string; telegramChatId?: string | null }> = [];
     for (const c of campaigns) {
       if (batch.length >= limit) break;
       const { data: recips, error: rErr } = await supabase
@@ -89,6 +89,24 @@ export async function GET(request: NextRequest) {
           village: r.village,
           message: c.message,
         });
+      }
+    }
+
+    // Telegram chat ids for the whole batch in one query, so the workflow does
+    // not make a lookup per recipient. Telegram is preferred where it exists:
+    // it has no 24-hour session rule, so an office message always lands.
+    if (batch.length) {
+      const { data: links } = await supabase
+        .from('citizen_telegram_links')
+        .select('phone, telegram_chat_id')
+        .eq('is_active', true);
+      const byPhone = new Map<string, string>();
+      for (const l of links || []) {
+        const p = normalisePhone(l.phone as string);
+        if (p && l.telegram_chat_id) byPhone.set(p, String(l.telegram_chat_id));
+      }
+      for (const b of batch) {
+        b.telegramChatId = byPhone.get(normalisePhone(String(b.phone))) || null;
       }
     }
 
