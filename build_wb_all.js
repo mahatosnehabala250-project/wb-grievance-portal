@@ -1,4 +1,11 @@
-const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1M2Y5MDE1YS01M2E1LTQ3NTItYWVlYy05NDllYjViMTkyZmEiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiNTMxYmMzZTEtZDRkMi00ZDU3LWI5ZWMtZTliOGE3NTY1ODYwIiwiaWF0IjoxNzc2MDk4NTY3LCJleHAiOjE3Nzg2MjMyMDB9.LaSfBUSPVo2BW1YKfNtL03mNSeCSdmgYWEmnWngsnXc';
+// The n8n API key is read from the environment, never committed. This file
+// previously carried it inline; that key is expired but the pattern is the
+// problem, and this repo is public.
+const API_KEY = process.env.N8N_API_KEY;
+if (!API_KEY) {
+  console.error('Set N8N_API_KEY before running this script.');
+  process.exit(1);
+}
 const BASE = 'https://n8n.srv1347095.hstgr.cloud/api/v1';
 const API_HEADERS = { 'X-N8N-API-KEY': API_KEY, 'Content-Type': 'application/json' };
 
