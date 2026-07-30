@@ -20,10 +20,19 @@ export const SEND_ROLES = ['MP', 'MLA', 'DISTRICT_ADMIN'];
 
 export const OPT_OUT_LINE = 'Reply STOP to stop receiving these messages.';
 
-/** Current hour in IST, regardless of where the server runs. */
+/**
+ * Current hour in IST, regardless of where the server runs.
+ *
+ * Asked for by name rather than computed from getTimezoneOffset(): the offset
+ * carries a sign that is easy to apply backwards, and getting it wrong silences
+ * sending during the working day while waving it through at midnight — the
+ * exact opposite of the rule.
+ */
+const IST_HOUR_FMT = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false,
+});
 export function istHour(now: Date = new Date()): number {
-  const ist = new Date(now.getTime() + (5.5 * 60 - now.getTimezoneOffset()) * 60_000);
-  return ist.getHours();
+  return Number(IST_HOUR_FMT.format(now));
 }
 
 export function inQuietHours(now: Date = new Date()): boolean {
