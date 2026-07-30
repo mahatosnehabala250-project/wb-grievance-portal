@@ -87,11 +87,13 @@ interface AudienceFilters {
  * scope — the filters below can only narrow it, never widen it.
  */
 async function fetchCandidates(payload: JWTPayload, f: AudienceFilters) {
-  let q = supabase.from('complaints').select('id, phone, citizenName, village, block, gpName, category, status, createdAt');
+  // Column names on this table are a mix of camelCase and snake_case; they are
+  // spelled here exactly as Postgres holds them.
+  let q = supabase.from('complaints').select('id, phone, citizenName, village, block, gp_name, category, status, createdAt');
   q = applyScope(q, payload) as typeof q;
 
   if (f.village)  q = q.ilike('village', `%${f.village}%`);
-  if (f.gpName)   q = q.ilike('gpName', `%${f.gpName}%`);
+  if (f.gpName)   q = q.ilike('gp_name', `%${f.gpName}%`);
   if (f.block)    q = q.ilike('block', `%${f.block}%`);
   if (f.category) q = q.eq('category', f.category);
   if (f.status)   q = q.eq('status', f.status);
