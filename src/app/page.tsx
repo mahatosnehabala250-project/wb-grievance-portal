@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  Shield, Crown, LayoutDashboard, FileText, Users, Bell, Sun, Moon, Menu, Search, Plus, ChevronRight, Clock, AlertTriangle, Activity, MapPin, LogOut, Building2, RotateCcw, Zap, ChevronDown, MessageSquare, ShieldCheck, Globe, BarChart2, Settings, CircleHelp, Mail, Keyboard, History, AlertCircle, Info, CheckCircle2 as CheckCircleFill, Megaphone, Flame, Server, Radio, Workflow, BookOpen, BrainCircuit, ShieldAlert, HeartHandshake, Vote, Swords, Landmark, DoorOpen,
+  Shield, Crown, LayoutDashboard, FileText, Users, Bell, Sun, Moon, Menu, Search, Plus, ChevronRight, Clock, AlertTriangle, Activity, MapPin, LogOut, Building2, RotateCcw, Zap, ChevronDown, MessageSquare, ShieldCheck, Globe, BarChart2, Settings, CircleHelp, Mail, Keyboard, History, AlertCircle, Info, CheckCircle2 as CheckCircleFill, Megaphone, Flame, Server, Radio, Workflow, BookOpen, BrainCircuit, ShieldAlert, HeartHandshake, Vote, Swords, Landmark, DoorOpen, HardHat,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -82,6 +82,7 @@ import { BoothsView } from '@/components/BoothsView';
 import { VisitsView } from '@/components/VisitsView';
 import { LettersView } from '@/components/LettersView';
 import { OutreachView } from '@/components/OutreachView';
+import { WorksView } from '@/components/WorksView';
 import { HotspotsView } from '@/components/HotspotsView';
 import { WarRoomView } from '@/components/WarRoomView';
 /**
@@ -171,6 +172,7 @@ export default function HomePage() {
         item('visits', 'Visitors', DoorOpen),
         item('letters', 'Letters', Mail),
         item('outreach', 'Messaging', Megaphone),
+        item('works', 'Works & Fund', HardHat),
         item('map', 'Map', MapPin),
         item('booths', 'Booths', Vote),
         item('hotspots', 'Hotspots', Flame),
@@ -784,6 +786,9 @@ export default function HomePage() {
                 )}
                 {view === 'outreach' && (
                   <OutreachView />
+                )}
+                {view === 'works' && (
+                  <WorksView />
                 )}
                 {view === 'letters' && (
                   <LettersView
