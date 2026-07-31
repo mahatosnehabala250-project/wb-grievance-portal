@@ -22,7 +22,13 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 // ═══════════════════════════════════════════════════════════════
 
 type WhereInput = Record<string, unknown>
-type OrderByInput = Record<string, 'asc' | 'desc'>
+// Prisma accepts either a single object or an array of them for multi-key
+// sorting. Only the object form was handled here, and an array fell through
+// Object.entries() as index keys — the query went out asking to sort by a
+// column literally named "0", Postgres rejected it, and the route returned 500.
+type OrderByInput =
+  | Record<string, 'asc' | 'desc'>
+  | Array<Record<string, 'asc' | 'desc'>>
 type SelectInput = Record<string, boolean>
 type IncludeInput = Record<string, { select?: SelectInput }>
 
@@ -361,8 +367,12 @@ class SupabaseModelAdapter {
 
   private applyOrderBy<Q>(query: Q, orderBy: OrderByInput): Q {
     let q = query as any
-    for (const [field, direction] of Object.entries(orderBy)) {
-      q = q.order(field, { ascending: direction === 'asc' })
+    // Array form sorts by each key in turn; object form is the single-key case.
+    const clauses = Array.isArray(orderBy) ? orderBy : [orderBy]
+    for (const clause of clauses) {
+      for (const [field, direction] of Object.entries(clause)) {
+        q = q.order(field, { ascending: direction === 'asc' })
+      }
     }
     return q as Q
   }

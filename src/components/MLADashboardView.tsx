@@ -552,8 +552,8 @@ export function MLADashboardView() {
                   <TableHeader>
                     <TableRow className="hover:bg-transparent border-b">
                       <TableHead className="text-[11px] w-[120px]">Ticket</TableHead>
-                      <TableHead className="text-[11px]">Nagarik</TableHead>
-                      <TableHead className="text-[11px]">Samasya</TableHead>
+                      <TableHead className="text-[11px]">Citizen</TableHead>
+                      <TableHead className="text-[11px]">Issue</TableHead>
                       <TableHead className="text-[11px]">Block</TableHead>
                       <TableHead className="text-[11px]">Status</TableHead>
                       <TableHead className="text-[11px]">Urgency</TableHead>
