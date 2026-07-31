@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getAuthUser } from "@/lib/jwt";
+import { hasDistrictWideScope } from "@/lib/rbac";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,8 +17,10 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const isAdmin = user.role === "ADMIN" || user.role === "STATE";
-  const isDistrict = user.role_level === "DISTRICT_ADMIN" || user.role === "DISTRICT";
-  if (!isAdmin && !isDistrict) {
+  // hasDistrictWideScope, not a bare `role === 'DISTRICT'` test: every MLA
+  // account carries that base role next to role_level='MLA', so the bare test
+  // handed one seat the whole district — all nine Purulia constituencies.
+  if (!hasDistrictWideScope(user)) {
     return NextResponse.json(
       { error: "Forbidden — district access required" },
       { status: 403 }

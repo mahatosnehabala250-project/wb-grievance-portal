@@ -160,6 +160,25 @@ export async function canAccessAssembly(user: JWTPayload, ac: string): Promise<b
   return false;
 }
 
+/**
+ * May this account see a whole district at once?
+ *
+ * Gating on the base role alone is a trap: every MLA account in this database
+ * carries `role = 'DISTRICT'` alongside `role_level = 'MLA'`, so a check for
+ * `role === 'DISTRICT'` hands a single-seat MLA the entire district — all nine
+ * constituencies in Purulia, including eight other clients' numbers.
+ *
+ * A governance designation always wins over the legacy base role. Legacy
+ * district accounts (role='DISTRICT' with no designation, or the default
+ * OFFICER) keep the access they have always had.
+ */
+export function hasDistrictWideScope(user: JWTPayload): boolean {
+  if (user.role === 'ADMIN' || user.role === 'STATE') return true;
+  if (user.role_level === 'DISTRICT_ADMIN') return true;
+  const lvl = user.role_level;
+  return user.role === 'DISTRICT' && (!lvl || lvl === 'OFFICER');
+}
+
 // ─────────────────────────────────────────────────────────────────
 // Per-record complaint scope check (mirror of getComplaintScopeFilter
 // in jwt.ts, but applied to a single fetched record — used by

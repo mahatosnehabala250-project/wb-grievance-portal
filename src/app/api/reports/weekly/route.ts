@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
+import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
 
 function getWeekBounds(weekOffset: number = 0) {
   const now = new Date();
@@ -38,11 +38,11 @@ export async function GET(request: NextRequest) {
     const baseWhere: Record<string, unknown> = {
       createdAt: { gte: start, lte: end },
     };
-    if (payload.role === 'BLOCK') {
-      baseWhere.block = payload.block;
-    } else if (payload.role === 'DISTRICT') {
-      baseWhere.district = payload.block;
-    }
+    // The governance designation decides scope, not the legacy base role: every
+    // MLA carries role='DISTRICT' and every GP coordinator and karyakarta
+    // carries role='BLOCK', so the old base-role branches gave a karyakarta the
+    // whole block and an MLA a district filter of "ALL" (i.e. nothing).
+    Object.assign(baseWhere, getComplaintScopeFilter(payload));
 
     // 1. Total new complaints this week
     const totalNew = await db.complaint.count({ where: baseWhere });
@@ -132,11 +132,7 @@ export async function GET(request: NextRequest) {
       status: { in: ['OPEN', 'IN_PROGRESS'] },
       createdAt: { lte: end },
     };
-    if (payload.role === 'BLOCK') {
-      slaBreachWhere.block = payload.block;
-    } else if (payload.role === 'DISTRICT') {
-      slaBreachWhere.district = payload.block;
-    }
+    Object.assign(slaBreachWhere, getComplaintScopeFilter(payload));
     const allOpenComplaints = await db.complaint.findMany({
       where: slaBreachWhere,
       select: { id: true, createdAt: true },
@@ -159,8 +155,7 @@ export async function GET(request: NextRequest) {
       const dayWhere: Record<string, unknown> = {
         createdAt: { gte: dayStart, lte: dayEnd },
       };
-      if (payload.role === 'BLOCK') dayWhere.block = payload.block;
-      else if (payload.role === 'DISTRICT') dayWhere.district = payload.block;
+      Object.assign(dayWhere, getComplaintScopeFilter(payload));
 
       const [newCount, resolvedCountResult] = await Promise.all([
         db.complaint.count({ where: dayWhere }),
