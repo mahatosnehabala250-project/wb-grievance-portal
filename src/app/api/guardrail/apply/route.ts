@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { checkReply, type GuardrailAction } from '@/lib/guardrail/check';
+import { withTelegramInvite } from '@/lib/telegram-invite';
 
 /**
  * POST /api/guardrail/apply  (n8n internal, Phase 1 P0)
@@ -96,6 +97,28 @@ function stripProgressSignal(text: string): string {
   return t.trim();
 }
 
+/**
+ * Is this citizen already on Telegram? Never throws into the reply path — an
+ * unanswered lookup just means the invite is offered once more.
+ */
+async function isTelegramLinked(phone: string): Promise<boolean> {
+  try {
+    if (!supabaseUrl || !supabaseServiceRoleKey) return false;
+    const last10 = phone.replace(/\D/g, '').slice(-10);
+    if (last10.length < 10) return false;
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+    const { data } = await supabase
+      .from('citizen_telegram_links')
+      .select('phone')
+      .eq('is_active', true)
+      .like('phone', `%${last10}`)
+      .limit(1);
+    return Boolean(data && data.length);
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const secret = request.headers.get('x-n8n-secret');
@@ -140,10 +163,21 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Invite the citizen onto Telegram, after the guardrail rather than before:
+    // t.me is not on the URL allowlist, so a link added earlier would be
+    // stripped by the very check meant to protect the citizen. Optional `phone`
+    // lets the caller skip the invite for someone already linked; without it the
+    // invite is simply offered again, which is harmless.
+    const phoneRaw = (body as Record<string, unknown>).phone;
+    const alreadyLinked = typeof phoneRaw === 'string' && phoneRaw
+      ? await isTelegramLinked(phoneRaw)
+      : false;
+    const reply = withTelegramInvite(result.reply, lang, { alreadyLinked });
+
     return NextResponse.json({
       ok: true,
       data: {
-        reply: result.reply,
+        reply,
         action: result.action,
         violations: result.violations,
       },
