@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   UserPlus, Search, RefreshCw, Clock, CheckCircle2, ArrowRightCircle,
-  UserX, DoorOpen, Phone, MapPin, CalendarDays,
+  UserX, DoorOpen, Phone, MapPin, CalendarDays, Printer,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -64,7 +64,15 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function VisitsView() {
+interface VisitsViewProps {
+  /** Used on the printed slip's letterhead. */
+  officeName?: string;
+  constituency?: string;
+}
+
+export function VisitsView({ officeName, constituency }: VisitsViewProps = {}) {
+  const office = officeName || 'Constituency Office';
+  const seat = constituency || '';
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState(todayISO());
@@ -156,6 +164,75 @@ export function VisitsView() {
     }
     setUpdatingId(null);
   }, []);
+
+  /**
+   * Print the visitor's slip.
+   *
+   * The slip is the office's only way to reach a household that has never
+   * messaged on WhatsApp — outside a 24-hour window there is no channel at all.
+   * A QR on the paper turns a single visit into a permanent one.
+   *
+   * Rendered into an off-screen iframe rather than a new window: a pop-up print
+   * view is silently blocked on a default browser, which is the machine this
+   * runs on. The QR is fetched with the session token and inlined, because an
+   * <img src> inside the frame would carry no Authorization header.
+   */
+  const printSlip = useCallback(async (v: Visit) => {
+    let qrSvg = '';
+    let qrLink = '';
+    try {
+      const res = await fetch('/api/telegram/qr', { headers: authHeaders() });
+      if (res.ok) { const j = await res.json(); qrSvg = j.svg || ''; qrLink = j.link || ''; }
+    } catch { /* the slip is still worth printing without the code */ }
+
+    const esc = (s: string) => (s || '').replace(/[&<>]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] as string));
+    const row = (label: string, value: string) =>
+      value ? `<tr><td class="l">${esc(label)}</td><td class="v">${esc(value)}</td></tr>` : '';
+
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(v.token_no || 'Slip')}</title>
+<style>
+  @page { size: A5; margin: 12mm; }
+  body { font-family: Georgia, 'Times New Roman', serif; color: #111; font-size: 11pt; }
+  .head { text-align: center; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 14px; }
+  .head h1 { font-size: 15pt; margin: 0; }
+  .head p { margin: 2px 0 0; font-size: 9pt; color: #444; }
+  .token { text-align: center; margin: 10px 0 16px; }
+  .token .n { font-size: 26pt; font-weight: bold; font-family: ui-monospace, monospace; letter-spacing: 1px; }
+  .token .c { font-size: 8.5pt; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 3px 0; vertical-align: top; }
+  td.l { color: #666; width: 34%; font-size: 9.5pt; }
+  td.v { font-weight: 600; }
+  .qr { margin-top: 18px; border-top: 1px solid #ddd; padding-top: 12px; text-align: center; }
+  .qr p { margin: 6px 0 0; font-size: 9pt; color: #444; }
+  .qr .u { font-size: 7.5pt; color: #777; word-break: break-all; }
+</style></head><body>
+<div class="head"><h1>${esc(office)}</h1><p>${esc(seat ? `${seat} Assembly Constituency` : '')}</p></div>
+<div class="token"><div class="c">Token</div><div class="n">${esc(v.token_no || '—')}</div></div>
+<table>
+  ${row('Name', v.visitor_name)}
+  ${row('Village', v.village || '')}
+  ${row('Came for', v.purpose)}
+  ${row('Promised', v.promised || '')}
+  ${row('By when', v.promised_by_date || '')}
+  ${row('Date', new Date(v.arrived_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }))}
+</table>
+${qrSvg ? `<div class="qr">${qrSvg}<p><b>Scan to follow this on Telegram</b></p><p>Send your ticket number to the bot and it will keep you updated.</p><p class="u">${esc(qrLink)}</p></div>` : ''}
+</body></html>`;
+
+    const frame = document.createElement('iframe');
+    frame.setAttribute('aria-hidden', 'true');
+    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    frame.onload = () => {
+      const win = frame.contentWindow;
+      if (!win) { toast.error('Could not open the print view'); frame.remove(); return; }
+      win.focus();
+      win.print();
+      setTimeout(() => frame.remove(), 2000);
+    };
+    frame.srcdoc = html;
+    document.body.appendChild(frame);
+  }, [office, seat]);
 
   return (
     <div className="space-y-4">
@@ -257,6 +334,11 @@ export function VisitsView() {
                         <span>{new Date(v.arrived_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                     </div>
+
+                    <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs shrink-0"
+                            onClick={() => printSlip(v)} title="Print a slip with a Telegram QR">
+                      <Printer className="h-3.5 w-3.5" /> Slip
+                    </Button>
 
                     <Select value={v.status} onValueChange={(s) => setStatus(v, s as Visit['status'])} disabled={updatingId === v.id}>
                       <SelectTrigger className="h-8 w-[132px] text-xs shrink-0"><SelectValue /></SelectTrigger>

@@ -782,7 +782,10 @@ export default function HomePage() {
                   <MapView />
                 )}
                 {view === 'visits' && (
-                  <VisitsView />
+                  <VisitsView
+                    officeName={branding.orgName}
+                    constituency={user?.constituency || ''}
+                  />
                 )}
                 {view === 'outreach' && (
                   <OutreachView />
