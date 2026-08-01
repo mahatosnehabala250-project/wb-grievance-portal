@@ -49,9 +49,16 @@ export function buildContext(b: IntelligenceBrief, nlp: NlpContext | null): stri
   if (b.officers.length) {
     L.push(`OFFICERS: ` + b.officers.slice(0, 6).map(o => `${o.name}(score=${o.score}%, ${o.resolved}/${o.total})`).join(', '));
   }
-  if (b.benchmark && b.benchmark.peers.length) {
-    const self = b.benchmark.peers.find(p => p.isSelf);
-    L.push(`PEER BENCHMARK (${b.benchmark.label}): you=${self ? self.resolutionRate + '%' : 'NA'}, percentile=${b.benchmark.percentile ?? 'NA'}. Peers: ` + b.benchmark.peers.slice(0, 6).map(p => `${p.name}${p.isSelf ? '*' : ''}=${p.resolutionRate}%`).join(', '));
+  // Position and spread only. Naming peers here would put a rival's numbers
+  // into the model's context, and from there into an answer given to a client
+  // who sits in the same district as the other eight.
+  if (b.benchmark) {
+    const bm = b.benchmark;
+    L.push(
+      `PEER BENCHMARK (${bm.label}): you=${bm.self ? bm.self.resolutionRate + '%' : 'NA'}, ` +
+      `rank=${bm.rank ?? 'NA'}/${bm.peerCount}, average=${bm.averageRate}%, best=${bm.bestRate}%, ` +
+      `percentile=${bm.percentile ?? 'NA'}. Peers are anonymous — never name or guess one.`
+    );
   }
   if (b.quickWins.length) {
     L.push(`QUICK WINS (old, easy to close): ` + b.quickWins.slice(0, 5).map(q => `${q.ticketNo}(${q.village || q.category}, ${q.daysOld}d)`).join(', '));

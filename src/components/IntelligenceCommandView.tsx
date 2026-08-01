@@ -51,7 +51,15 @@ interface Brief {
   hotspots: Array<{ name: string; total: number; active: number; critical: number; slaBreached: number; resolved: number; risk: number }>;
   sentiment: { distribution: Record<string, number>; avg: number | null; recentAvg: number | null; direction: string };
   officers: Array<{ name: string; total: number; resolved: number; active: number; score: number }>;
-  benchmark: { label: string; peers: Array<{ name: string; total: number; resolved: number; resolutionRate: number; isSelf: boolean }>; percentile: number | null } | null;
+  benchmark: {
+    label: string;
+    self: { total: number; resolved: number; resolutionRate: number } | null;
+    rank: number | null;
+    peerCount: number;
+    averageRate: number;
+    bestRate: number;
+    percentile: number | null;
+  } | null;
   warnings: Array<{ severity: string; title: string; detail: string }>;
   wins: Array<{ ticketNo: string; issue: string; village: string; category: string; rating: number | null; resolvedAt: string }>;
   quickWins: Array<{ ticketNo: string; issue: string; village: string; category: string; daysOld: number }>;
@@ -854,25 +862,48 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-3">
-                {!brief.benchmark || brief.benchmark.peers.length === 0 ? (
+                {!brief.benchmark || brief.benchmark.self === null ? (
                   <div className="py-4 text-center text-xs text-muted-foreground">No peer data</div>
                 ) : (
-                  <ChartContainer className="h-[180px] w-full" config={{ resolutionRate: { label: 'Resolution %', color: '#8B5CF6' } }}>
-                    <BarChart data={brief.benchmark.peers} layout="vertical" margin={{ top: 0, right: 8, bottom: 0, left: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted/40" horizontal={false} />
-                      <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 9 }} />
-                      <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 9 }} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="resolutionRate" name="Resolution %" radius={[0, 4, 4, 0]}>
-                        {brief.benchmark.peers.map(p => (
-                          <Cell key={p.name} fill={p.isSelf ? '#8B5CF6' : '#CBD5E1'} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ChartContainer>
+                  <>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-black tabular-nums text-violet-500">
+                        {brief.benchmark.self.resolutionRate}%
+                      </span>
+                      <span className="text-xs text-muted-foreground">your resolution rate</span>
+                    </div>
+
+                    {/* Where the seat sits between the group average and the best. */}
+                    <div className="relative h-2 rounded-full bg-muted mt-3">
+                      <div className="absolute inset-y-0 left-0 rounded-full bg-violet-500"
+                           style={{ width: `${Math.min(100, brief.benchmark.self.resolutionRate)}%` }} />
+                      <div className="absolute -top-0.5 h-3 w-0.5 bg-foreground/50"
+                           style={{ left: `${Math.min(100, brief.benchmark.averageRate)}%` }}
+                           title={`District average ${brief.benchmark.averageRate}%`} />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 mt-3">
+                      <div>
+                        <div className="text-base font-bold tabular-nums">
+                          {brief.benchmark.rank ?? '—'}<span className="text-xs font-normal text-muted-foreground"> / {brief.benchmark.peerCount}</span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">Rank</div>
+                      </div>
+                      <div>
+                        <div className="text-base font-bold tabular-nums">{brief.benchmark.averageRate}%</div>
+                        <div className="text-[10px] text-muted-foreground">Average</div>
+                      </div>
+                      <div>
+                        <div className="text-base font-bold tabular-nums">{brief.benchmark.bestRate}%</div>
+                        <div className="text-[10px] text-muted-foreground">Best</div>
+                      </div>
+                    </div>
+                  </>
                 )}
                 {brief.benchmark && (
-                  <p className="text-[9px] text-muted-foreground mt-1">{brief.benchmark.label} — aggregate counts only · <span className="text-violet-500 font-semibold">purple = you</span></p>
+                  <p className="text-[9px] text-muted-foreground mt-2">
+                    {brief.benchmark.label} — peers are anonymous; only your own position is shown.
+                  </p>
                 )}
               </CardContent>
             </Card>

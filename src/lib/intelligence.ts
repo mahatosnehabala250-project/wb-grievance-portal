@@ -111,7 +111,24 @@ export interface IntelligenceBrief {
   hotspots: Array<{ name: string; total: number; active: number; critical: number; slaBreached: number; resolved: number; risk: number }>;
   sentiment: { distribution: Record<string, number>; avg: number | null; recentAvg: number | null; direction: string };
   officers: Array<{ name: string; total: number; resolved: number; active: number; score: number }>;
-  benchmark: { label: string; peers: Array<{ name: string; total: number; resolved: number; resolutionRate: number; isSelf: boolean }>; percentile: number | null } | null;
+  /**
+   * Where this seat stands among its peers — position and spread only.
+   *
+   * This used to carry every peer by name with their totals and resolution
+   * rate. The product is sold to nine MLAs inside one district, so that handed
+   * each client their eight rivals' performance. Rank against an average keeps
+   * what is actually useful ("3rd of 9, district average 27%") and gives away
+   * nobody's numbers.
+   */
+  benchmark: {
+    label: string;
+    self: { total: number; resolved: number; resolutionRate: number } | null;
+    rank: number | null;
+    peerCount: number;
+    averageRate: number;
+    bestRate: number;
+    percentile: number | null;
+  } | null;
   warnings: Array<{ severity: 'CRITICAL' | 'HIGH' | 'MEDIUM'; title: string; detail: string }>;
   wins: Array<{ ticketNo: string; issue: string; village: string; category: string; rating: number | null; resolvedAt: string }>;
   quickWins: Array<{ ticketNo: string; issue: string; village: string; category: string; daysOld: number }>;
@@ -331,20 +348,31 @@ export async function computeIntelligenceBrief(payload: JWTPayload): Promise<Int
         agg[name].total++;
         if (str(r, 'status') === 'RESOLVED') agg[name].resolved++;
       }
-      const peers = Object.entries(agg)
+      // Ranked internally, then reduced to position and spread. Names never
+      // leave this function — not to the client, not into the advisor's prompt.
+      const ranked = Object.entries(agg)
         .map(([name, a]) => ({
           name, ...a,
           resolutionRate: a.total ? Math.round((a.resolved / a.total) * 100) : 0,
           isSelf: name.toLowerCase() === pc.selfName.toLowerCase(),
         }))
-        .sort((a, b) => b.resolutionRate - a.resolutionRate)
-        .slice(0, 10);
-      const selfIdx = peers.findIndex(p => p.isSelf);
+        .sort((a, b) => b.resolutionRate - a.resolutionRate);
+
+      const selfIdx = ranked.findIndex(p => p.isSelf);
+      const self = selfIdx >= 0 ? ranked[selfIdx] : null;
+      const averageRate = ranked.length
+        ? Math.round(ranked.reduce((s, p) => s + p.resolutionRate, 0) / ranked.length)
+        : 0;
+
       benchmark = {
         label: pc.label,
-        peers,
-        percentile: selfIdx >= 0 && peers.length > 1
-          ? Math.round(((peers.length - 1 - selfIdx) / (peers.length - 1)) * 100)
+        self: self ? { total: self.total, resolved: self.resolved, resolutionRate: self.resolutionRate } : null,
+        rank: selfIdx >= 0 ? selfIdx + 1 : null,
+        peerCount: ranked.length,
+        averageRate,
+        bestRate: ranked.length ? ranked[0].resolutionRate : 0,
+        percentile: selfIdx >= 0 && ranked.length > 1
+          ? Math.round(((ranked.length - 1 - selfIdx) / (ranked.length - 1)) * 100)
           : null,
       };
     }
