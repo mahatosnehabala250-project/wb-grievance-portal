@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { authHeaders, fmtDate } from '@/lib/helpers';
+import { printFrame } from '@/lib/print';
 import {
   LETTER_TEMPLATES, RECIPIENT_DESIGNATIONS, templateById, type LetterContext,
 } from '@/lib/letter-templates';
@@ -316,20 +317,7 @@ export function LettersView({ officeName, signatoryName, constituency }: Letters
 <div class="foot">Issued from ${esc(office)} · Reference ${esc(l.letter_no || '')}</div>
 </body></html>`;
 
-    const frame = document.createElement('iframe');
-    frame.setAttribute('aria-hidden', 'true');
-    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
-    frame.onload = () => {
-      const win = frame.contentWindow;
-      if (!win) { toast.error('Could not open the print view'); frame.remove(); return; }
-      win.focus();
-      win.print();
-      // Leave the frame in place until the print dialog has been dismissed;
-      // removing it immediately cancels the job in some browsers.
-      setTimeout(() => frame.remove(), 2000);
-    };
-    frame.srcdoc = html;
-    document.body.appendChild(frame);
+    printFrame(html, `Letter ${l.letter_no || ''}`.trim());
   }, [office, seat]);
 
   const activeTemplate = templateById(form.letterType);

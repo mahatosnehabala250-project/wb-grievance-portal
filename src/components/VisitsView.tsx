@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { authHeaders } from '@/lib/helpers';
+import { printFrame } from '@/lib/print';
 import { CATEGORIES } from '@/lib/constants';
 
 /**
@@ -220,18 +221,7 @@ export function VisitsView({ officeName, constituency }: VisitsViewProps = {}) {
 ${qrSvg ? `<div class="qr">${qrSvg}<p><b>Scan to follow this on Telegram</b></p><p>Send your ticket number to the bot and it will keep you updated.</p><p class="u">${esc(qrLink)}</p></div>` : ''}
 </body></html>`;
 
-    const frame = document.createElement('iframe');
-    frame.setAttribute('aria-hidden', 'true');
-    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
-    frame.onload = () => {
-      const win = frame.contentWindow;
-      if (!win) { toast.error('Could not open the print view'); frame.remove(); return; }
-      win.focus();
-      win.print();
-      setTimeout(() => frame.remove(), 2000);
-    };
-    frame.srcdoc = html;
-    document.body.appendChild(frame);
+    printFrame(html, `Slip ${v.token_no || ''}`.trim());
   }, [office, seat]);
 
   return (
