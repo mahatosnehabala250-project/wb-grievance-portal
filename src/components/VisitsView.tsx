@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   UserPlus, Search, RefreshCw, Clock, CheckCircle2, ArrowRightCircle,
-  UserX, DoorOpen, Phone, MapPin, CalendarDays, Printer,
+  UserX, DoorOpen, Phone, MapPin, CalendarDays, Printer, QrCode,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,7 @@ import {
 import { toast } from 'sonner';
 import { authHeaders } from '@/lib/helpers';
 import { printFrame } from '@/lib/print';
+import { TelegramQrDialog } from '@/components/TelegramQrDialog';
 import { CATEGORIES } from '@/lib/constants';
 
 /**
@@ -79,6 +80,7 @@ export function VisitsView({ officeName, constituency }: VisitsViewProps = {}) {
   const [date, setDate] = useState(todayISO());
   const [search, setSearch] = useState('');
   const [addOpen, setAddOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -237,9 +239,15 @@ ${qrSvg ? `<div class="qr">${qrSvg}<p><b>Scan to follow this on Telegram</b></p>
             Who came to the office, what they asked for, and what was promised
           </p>
         </div>
-        <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5">
-          <UserPlus className="h-3.5 w-3.5" /> Log a visitor
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setQrOpen(true)} className="gap-1.5"
+                  title="Show the Telegram code — no printing needed">
+            <QrCode className="h-3.5 w-3.5" /> Telegram code
+          </Button>
+          <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5">
+            <UserPlus className="h-3.5 w-3.5" /> Log a visitor
+          </Button>
+        </div>
       </div>
 
       {/* Controls */}
@@ -345,6 +353,8 @@ ${qrSvg ? `<div class="qr">${qrSvg}<p><b>Scan to follow this on Telegram</b></p>
           })}
         </div>
       )}
+
+      <TelegramQrDialog open={qrOpen} onOpenChange={setQrOpen} officeName={office} />
 
       {/* Log a visitor */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
