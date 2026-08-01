@@ -17,6 +17,8 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Math.max(parseInt(limitParam || '50', 10) || 50, 1), 200);
   const since = sinceParam ? new Date(sinceParam) : undefined;
 
+  try {
+
   // Scope-lock to the user's jurisdiction (governance role_level aware).
   const scopeFilter = getComplaintScopeFilter(payload);
   const complaintWhere: Record<string, unknown> = { ...scopeFilter };
@@ -25,11 +27,34 @@ export async function GET(request: NextRequest) {
   const activityWhere: Record<string, unknown> = {};
   if (since) activityWhere.createdAt = { gte: since };
 
-  // Fetch activity logs joined with complaint
+  // Scope the feed by resolving the complaints first.
+  //
+  // This used to pass `complaint: { … }` as a nested relation filter, which the
+  // Supabase REST adapter does not translate — it went out as an equality test
+  // against a column named "complaint", Postgres rejected it, and the route
+  // threw on every request. Nothing caught it either, so the 500 arrived with an
+  // empty body and the live monitor showed nothing with no clue why.
+  //
+  // An unscoped caller (admin) needs no id list at all; anyone else gets one.
+  let scopedComplaintIds: string[] | null = null;
+  if (Object.keys(complaintWhere).length > 0) {
+    const scoped = await db.complaint.findMany({
+      where: complaintWhere,
+      select: { id: true },
+    });
+    const ids = scoped.map((c) => c.id as string);
+    scopedComplaintIds = ids;
+    // No complaints in scope means no activity in scope — say so without
+    // running a query whose `in ()` would be empty.
+    if (ids.length === 0) {
+      return NextResponse.json({ activities: [], webhookStats: null, scoped: true });
+    }
+  }
+
   const activities = await db.activityLog.findMany({
     where: {
       ...activityWhere,
-      complaint: complaintWhere as Record<string, string>,
+      ...(scopedComplaintIds ? { complaintId: { in: scopedComplaintIds } } : {}),
     },
     include: {
       complaint: {
@@ -122,8 +147,8 @@ export async function GET(request: NextRequest) {
       actorName: a.actorName,
       metadata: a.metadata,
       createdAt: a.createdAt.toISOString(),
-      ticketNo: a.complaint.ticketNo,
-      source: a.complaint.source,
+      ticketNo: a.complaint?.ticketNo ?? null,
+      source: a.complaint?.source ?? null,
     })),
     webhookCount,
     lastWebhookTimestamp,
@@ -132,4 +157,8 @@ export async function GET(request: NextRequest) {
     recentWebhooks,
     webhooksPerMinute,
   });
+  } catch (error) {
+    console.error('[activity-feed] error:', error);
+    return NextResponse.json({ error: 'Failed to load the activity feed' }, { status: 500 });
+  }
 }
