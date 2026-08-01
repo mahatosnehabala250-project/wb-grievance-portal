@@ -20,8 +20,15 @@ import { botUsername, citizenDeepLink } from '@/lib/telegram-invite';
  * Returns SVG so it prints sharply at any size and needs no image hosting.
  */
 
-/** Same shape the ticket regex accepts, so a caller cannot smuggle a payload. */
-const TICKET_RE = /^WB-[A-Z0-9]+-[A-Z0-9-]{1,40}$/;
+/**
+ * Exactly what JS-12 parses — `WB-\d{2}-[A-Z]{3}-\d{6}` — and nothing wider.
+ *
+ * A looser pattern here would mint links for tickets the bot cannot resolve
+ * (the seeded WB-DEMO-… ones), which open the bot and then do nothing. Falling
+ * back to the plain bot link is better: the contact-share button links them
+ * anyway.
+ */
+const TICKET_RE = /^WB-\d{2}-[A-Z]{3}-\d{6}$/;
 
 export async function GET(request: NextRequest) {
   const token = getTokenFromRequest(request);

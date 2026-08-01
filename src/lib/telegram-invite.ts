@@ -21,8 +21,20 @@ import { DEFAULT_MAX_CHARS } from '@/lib/guardrail/rules';
  *     mangled link is worse than none.
  */
 
-/** Ticket numbers look like WB-26-PUR-001044 or WB-DEMO-E454084A. */
-const TICKET_RE = /\bWB-[A-Z0-9]+-[A-Z0-9-]+\b/;
+/**
+ * Two shapes, and the difference matters.
+ *
+ * JS-12 resolves a ticket to a phone with `WB-\d{2}-[A-Z]{3}-\d{6}` and nothing
+ * else. A link carrying anything outside that — a seeded WB-DEMO-E454084A, say,
+ * which is 37 of the 42 complaints in this constituency — opens the bot and then
+ * silently does nothing, which is the worst outcome available.
+ *
+ * So a link is only ticketed when JS-12 will actually accept it. Anything else
+ * falls back to the plain bot link, where the contact-share button still links
+ * the citizen.
+ */
+const STRICT_TICKET_RE = /\bWB-\d{2}-[A-Z]{3}-\d{6}\b/;
+const LOOSE_TICKET_RE = /\bWB-[A-Z0-9]+-[A-Z0-9-]+\b/;
 
 /** Telegram's /start payload accepts [A-Za-z0-9_-] only, up to 64 characters. */
 const START_PAYLOAD_RE = /^[A-Za-z0-9_-]{1,64}$/;
@@ -62,10 +74,14 @@ export function withTelegramInvite(
   if (opts.alreadyLinked) return text;
   if (/t\.me\//i.test(text)) return text;          // already invited in this reply
 
-  const ticket = text.match(TICKET_RE)?.[0];
-  if (!ticket) return text;                         // nothing to link against
+  // Ticketed only when JS-12 will accept the payload; a ticket it cannot parse
+  // still earns the plain bot link, where the contact-share button links them.
+  const strict = text.match(STRICT_TICKET_RE)?.[0];
+  const loose = strict || text.match(LOOSE_TICKET_RE)?.[0];
+  if (!loose) return text;                          // no complaint context at all
 
-  const link = citizenDeepLink(ticket);
+  const bot = botUsername();
+  const link = strict ? citizenDeepLink(strict) : (bot ? `https://t.me/${bot}` : null);
   if (!link) return text;
 
   const suffix = `\n\n${INVITE_LINE[language] || INVITE_LINE.bn}\n${link}`;
