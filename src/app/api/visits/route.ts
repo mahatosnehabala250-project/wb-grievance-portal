@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
 import type { JWTPayload } from '@/lib/jwt';
 import { createClient } from '@supabase/supabase-js';
+import { safeSearchTerm } from '@/lib/search-term';
 
 /**
  * /api/visits — the constituency office's walk-in register.
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');           // YYYY-MM-DD; omitted = all recent
     const status = searchParams.get('status');
-    const q = (searchParams.get('q') || '').trim();
+    const q = safeSearchTerm(searchParams.get('q'));
 
     let query = supabase.from('office_visits').select('*');
     query = applyScope(query, payload);

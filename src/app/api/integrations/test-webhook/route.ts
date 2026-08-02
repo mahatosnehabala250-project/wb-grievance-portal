@@ -1,8 +1,18 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { isAdminOrN8n } from '@/lib/n8nAuth';
 
 // POST /api/integrations/test-webhook — Test webhook by creating a mock complaint
-export async function POST() {
+//
+// The handler took no request argument at all, so it read no headers and had
+// nothing to authenticate with: anyone on the internet could POST here and put
+// a complaint into the register, which also fires the live notification
+// workflows. It now needs an admin, like every other seeding tool.
+export async function POST(request: NextRequest) {
+  if (!(await isAdminOrN8n(request))) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     // Generate ticket number using the same pattern as the webhook
     const count = await db.complaint.count();

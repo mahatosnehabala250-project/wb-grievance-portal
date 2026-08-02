@@ -29,3 +29,19 @@ export async function isAuthedOrN8n(request: NextRequest): Promise<boolean> {
   if (!token) return false;
   return !!(await verifyToken(token));
 }
+
+/**
+ * Admin-or-n8n gate, for operations that act on the WHOLE dataset rather than a
+ * jurisdiction: bulk export, bulk import, seeding test rows.
+ *
+ * A jurisdiction check is the wrong tool for these — they have no jurisdiction
+ * to check against, they touch everything — so the bar is the base ADMIN/STATE
+ * role instead. Fail-closed on a missing or unreadable token.
+ */
+export async function isAdminOrN8n(request: NextRequest): Promise<boolean> {
+  if (n8nSecretOk(request)) return true;
+  const token = getTokenFromRequest(request);
+  if (!token) return false;
+  const payload = await verifyToken(token);
+  return !!payload && (payload.role === 'ADMIN' || payload.role === 'STATE');
+}

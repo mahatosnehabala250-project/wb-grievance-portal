@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
 import type { JWTPayload } from '@/lib/jwt';
 import { createClient } from '@supabase/supabase-js';
+import { safeSearchTerm } from '@/lib/search-term';
 
 /**
  * /api/letters — the issued-letters register.
@@ -73,7 +74,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const type = searchParams.get('type');
     const complaintId = searchParams.get('complaintId');
-    const q = (searchParams.get('q') || '').trim();
+    const q = safeSearchTerm(searchParams.get('q'));
 
     let query = supabase.from('letters').select('*');
     query = applyScope(query, payload);

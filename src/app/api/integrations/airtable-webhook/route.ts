@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { n8nSecretOk } from '@/lib/n8nAuth';
 
 // ---------------------------------------------------------------------------
 // POST /api/integrations/airtable-webhook
@@ -33,6 +34,14 @@ const VALID_STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'REJECTED'];
 const VALID_URGENCIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
 export async function POST(request: NextRequest) {
+  // Machine-to-machine only — this is called by n8n/Airtable, never by a
+  // browser. Ungated it changed any complaint's status from a ticket number
+  // alone, and ticket numbers run in sequence (WB-26-PUR-001044), so guessing
+  // one is trivial.
+  if (!n8nSecretOk(request)) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
 

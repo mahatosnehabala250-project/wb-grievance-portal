@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { isAdminOrN8n } from '@/lib/n8nAuth';
 
 // ============================================================================
 // BIDIRECTIONAL AIRTABLE SYNC
@@ -21,6 +22,14 @@ const AIRTABLE_TIMEOUT_MS = 10_000;
 // new records are created. The airtableRecordId is stored after each sync.
 // ---------------------------------------------------------------------------
 export async function POST(request: NextRequest) {
+  // This reads EVERY complaint in the database — no jurisdiction, no filter —
+  // and writes them to whatever Airtable base the caller names. Ungated, that
+  // was one anonymous request away from exporting 595 citizens' names, phones
+  // and villages to a stranger's base.
+  if (!(await isAdminOrN8n(request))) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { token, baseId, tableName } = body;
@@ -202,6 +211,13 @@ export async function POST(request: NextRequest) {
 //   - If no matching ticketNo → CREATE a new complaint in the portal
 // ---------------------------------------------------------------------------
 export async function GET(request: NextRequest) {
+  // The mirror image of POST: this CREATES and UPDATES complaints from whatever
+  // Airtable base the caller names, so ungated it let anyone inject arbitrary
+  // complaints into the register.
+  if (!(await isAdminOrN8n(request))) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token') || process.env.AIRTABLE_TOKEN;

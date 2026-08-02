@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import {
   financialYear, summarise, WORK_STATUSES, WORK_CATEGORIES, FUND_SOURCES,
 } from '@/lib/works';
+import { safeSearchTerm } from '@/lib/search-term';
 
 /**
  * /api/works — development works and the fund behind them.
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
     const fy = searchParams.get('fy') || financialYear();
     const status = searchParams.get('status');
     const block = searchParams.get('block');
-    const q = (searchParams.get('q') || '').trim();
+    const q = safeSearchTerm(searchParams.get('q'));
 
     let query = supabase.from('dev_works').select('*').eq('financial_year', fy);
     query = applyScope(query, payload);

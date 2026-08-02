@@ -6,6 +6,7 @@ import type { JWTPayload } from '@/lib/jwt';
 import { assembliesForLokSabha, assembliesForDistrict, userInManageScope } from '@/lib/rbac';
 import { normBlock } from '@/lib/block-name';
 import { createClient } from '@supabase/supabase-js';
+import { safeSearchTerm } from '@/lib/search-term';
 
 /**
  * /api/booths — polling_stations (election booth) directory + karyakarta
@@ -169,7 +170,7 @@ export async function GET(request: NextRequest) {
       query = query.lt('match_score', 0.4);
     }
     if (qParam) {
-      const like = `%${qParam}%`;
+      const like = `%${safeSearchTerm(qParam)}%`;
       query = query.or(
         `ps_name.ilike.${like},village_name.ilike.${like},village_raw.ilike.${like},ps_no.ilike.${like}`
       );
