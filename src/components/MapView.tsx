@@ -174,10 +174,12 @@ const InnerMap = dynamic(
               <ZoomWatcher onZoom={setZoom} />
               <FlyTo target={flyTarget} />
 
-              {/* BLOCK boundaries — always (clean overview, just 20 outlines) */}
+              {/* BLOCK boundaries — kept deliberately quiet. Blocks are the level
+                  below the seat, and at full strength their cyan out-shouted the
+                  constituency outline, so the map read bottom-up. */}
               {blockBoundaries && (
                 <GeoJSON data={blockBoundaries}
-                  style={() => ({ color: CYAN, weight: 1.3, opacity: 0.6, fillColor: CYAN, fillOpacity: 0.02 })}
+                  style={() => ({ color: CYAN, weight: 0.8, opacity: 0.3, fillColor: CYAN, fillOpacity: 0.02 })}
                   onEachFeature={(f: any, layer: any) => { const nm = f?.properties?.block || f?.properties?.BLOCK || ""; if (nm) layer.bindTooltip(nm, { sticky: true }); }} />
               )}
               {/* Block-name labels when zoomed OUT */}
@@ -238,7 +240,7 @@ const InnerMap = dynamic(
                     const mine = myAcs.has(String(f?.properties?.ac || ""));
                     return mine
                       ? { color: "#FBBF24", weight: 3, opacity: 0.95, fill: false }
-                      : { color: "#94A3B8", weight: 1.2, opacity: 0.4, dashArray: "5 5", fill: false };
+                      : { color: "#94A3B8", weight: 1.8, opacity: 0.6, dashArray: "6 6", fill: false };
                   }} />
               )}
               {acBoundaries?.features?.map((f: any, i: number) => {
