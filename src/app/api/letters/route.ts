@@ -5,6 +5,7 @@ import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib
 import type { JWTPayload } from '@/lib/jwt';
 import { createClient } from '@supabase/supabase-js';
 import { safeSearchTerm } from '@/lib/search-term';
+import { LETTER_WATCH_DAYS, LETTER_OVERDUE_DAYS } from '@/lib/letter-templates';
 
 /**
  * /api/letters — the issued-letters register.
@@ -30,7 +31,7 @@ const supabase = createClient(
 
 type AnyRecord = Record<string, unknown>;
 
-const ALLOWED_STATUS = ['DRAFT', 'ISSUED', 'CANCELLED'];
+const ALLOWED_STATUS = ['DRAFT', 'ISSUED', 'REPLIED', 'CANCELLED'];
 
 /** Geography the caller's own account is pinned to — a letter is filed there. */
 function ownGeography(u: JWTPayload) {
@@ -99,7 +100,31 @@ export async function GET(request: NextRequest) {
       return acc;
     }, {});
 
-    return NextResponse.json({ letters: rows, counts, total: rows.length });
+    // The question the office actually asks on a Monday: what got no reply?
+    // Answered here rather than left to the client, so the same number appears
+    // wherever it is shown.
+    const awaiting = rows.filter((r) => r.status === 'ISSUED');
+    const ageInDays = (r: AnyRecord) => {
+      const issued = r.issued_at || r.created_at;
+      if (!issued) return 0;
+      return Math.floor((Date.now() - new Date(String(issued)).getTime()) / 86400_000);
+    };
+    const ages = awaiting.map(ageInDays);
+
+    return NextResponse.json({
+      letters: rows,
+      counts,
+      total: rows.length,
+      awaitingReply: {
+        count: awaiting.length,
+        // Thresholds are stated once, here, so the list and the badge cannot
+        // disagree about what "overdue" means.
+        watchAfterDays: LETTER_WATCH_DAYS,
+        overdueAfterDays: LETTER_OVERDUE_DAYS,
+        overdue: ages.filter((d) => d >= LETTER_OVERDUE_DAYS).length,
+        oldestDays: ages.length ? Math.max(...ages) : 0,
+      },
+    });
   } catch (error) {
     console.error('[letters] GET error:', error);
     return NextResponse.json({ error: 'Failed to load the letter register' }, { status: 500 });
@@ -182,7 +207,15 @@ export async function PATCH(request: NextRequest) {
         patch.issued_at = new Date().toISOString();
         patch.issued_by = payload.username || payload.userId || null;
       }
+      // Marking a reply stamps today unless the office knows the actual date —
+      // a reply that arrived last week should age from last week, not from the
+      // moment somebody got round to recording it.
+      if (body.status === 'REPLIED' && body.repliedAt === undefined) {
+        patch.replied_at = new Date().toISOString().slice(0, 10);
+      }
     }
+    if (body.repliedAt !== undefined) patch.replied_at = body.repliedAt || null;
+    if (body.replyNote !== undefined) patch.reply_note = body.replyNote ? String(body.replyNote).slice(0, 2000) : null;
     if (body.subject !== undefined) patch.subject = String(body.subject).slice(0, 400);
     if (body.body !== undefined) patch.body = String(body.body).slice(0, 20000);
     if (body.recipientName !== undefined) patch.recipient_name = body.recipientName ? String(body.recipientName).slice(0, 160) : null;

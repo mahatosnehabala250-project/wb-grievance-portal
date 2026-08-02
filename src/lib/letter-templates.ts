@@ -11,6 +11,17 @@
  * point, never a cage.
  */
 
+/**
+ * How long a department gets before the office starts chasing.
+ *
+ * Two weeks is the point at which a letter is worth a reminder; a month with no
+ * reply has stopped being the department's delay and become the office's own
+ * failure to follow up. Stated once so the list, the badge and the API cannot
+ * disagree about what "overdue" means.
+ */
+export const LETTER_WATCH_DAYS = 15;
+export const LETTER_OVERDUE_DAYS = 30;
+
 export interface LetterContext {
   citizenName: string;
   citizenVillage: string;

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   FileText, Search, RefreshCw, Printer, Send, Pencil, FilePlus2,
-  MapPin, Phone, Link2, CheckCircle2, FileClock,
+  MapPin, Phone, Link2, CheckCircle2, FileClock, Clock, MailCheck,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +21,8 @@ import { toast } from 'sonner';
 import { authHeaders, fmtDate } from '@/lib/helpers';
 import { printFrame } from '@/lib/print';
 import {
-  LETTER_TEMPLATES, RECIPIENT_DESIGNATIONS, templateById, type LetterContext,
+  LETTER_TEMPLATES, RECIPIENT_DESIGNATIONS, templateById,
+  LETTER_WATCH_DAYS, LETTER_OVERDUE_DAYS, type LetterContext,
 } from '@/lib/letter-templates';
 
 /**
@@ -46,8 +47,10 @@ interface Letter {
   citizen_phone: string | null;
   citizen_village: string | null;
   complaint_id: string | null;
-  status: 'DRAFT' | 'ISSUED' | 'CANCELLED';
+  status: 'DRAFT' | 'ISSUED' | 'REPLIED' | 'CANCELLED';
   issued_at: string | null;
+  replied_at: string | null;
+  reply_note: string | null;
   issued_by: string | null;
   created_at: string;
 }
@@ -71,7 +74,8 @@ interface LettersViewProps {
 
 const STATUS_META: Record<Letter['status'], { label: string; cls: string }> = {
   DRAFT:     { label: 'Draft',     cls: 'bg-amber-500/12 text-amber-700 dark:text-amber-400' },
-  ISSUED:    { label: 'Issued',    cls: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-400' },
+  ISSUED:    { label: 'Issued',    cls: 'bg-blue-500/12 text-blue-700 dark:text-blue-400' },
+  REPLIED:   { label: 'Replied',   cls: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-400' },
   CANCELLED: { label: 'Cancelled', cls: 'bg-muted text-muted-foreground' },
 };
 
@@ -129,10 +133,22 @@ export function LettersView({ officeName, signatoryName, constituency }: Letters
 
   useEffect(() => { load(); }, [load]);
 
+  /** Days since a letter went out — the number the office chases on. */
+  const daysWaiting = useCallback((l: Letter) => {
+    if (l.status !== 'ISSUED') return null;
+    const issued = l.issued_at || l.created_at;
+    if (!issued) return null;
+    return Math.floor((Date.now() - new Date(issued).getTime()) / 86400000);
+  }, []);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return letters.filter((l) => {
-      if (statusFilter !== 'ALL' && l.status !== statusFilter) return false;
+      // AWAITING is a lens on ISSUED, not a status of its own — a letter is
+      // either waiting for a reply or it is not.
+      if (statusFilter === 'AWAITING') {
+        if (l.status !== 'ISSUED') return false;
+      } else if (statusFilter !== 'ALL' && l.status !== statusFilter) return false;
       if (!q) return true;
       return `${l.letter_no || ''} ${l.subject} ${l.citizen_name || ''} ${l.recipient_designation || ''} ${l.citizen_village || ''}`
         .toLowerCase().includes(q);
@@ -140,10 +156,19 @@ export function LettersView({ officeName, signatoryName, constituency }: Letters
   }, [letters, search, statusFilter]);
 
   const counts = useMemo(() => {
-    const c = { DRAFT: 0, ISSUED: 0, CANCELLED: 0 } as Record<Letter['status'], number>;
+    const c = { DRAFT: 0, ISSUED: 0, REPLIED: 0, CANCELLED: 0 } as Record<Letter['status'], number>;
     letters.forEach((l) => { c[l.status] = (c[l.status] || 0) + 1; });
     return c;
   }, [letters]);
+
+  const awaiting = useMemo(() => {
+    const days = letters.filter((l) => l.status === 'ISSUED').map((l) => daysWaiting(l) ?? 0);
+    return {
+      count: days.length,
+      overdue: days.filter((d) => d >= LETTER_OVERDUE_DAYS).length,
+      oldest: days.length ? Math.max(...days) : 0,
+    };
+  }, [letters, daysWaiting]);
 
   /** Build the letter context the templates render from. */
   const contextOf = useCallback((f: typeof EMPTY_FORM): LetterContext => ({
@@ -266,6 +291,18 @@ export function LettersView({ officeName, signatoryName, constituency }: Letters
     setSaving(false);
   }, [form, editingId, load]);
 
+  const markReplied = useCallback(async (l: Letter) => {
+    try {
+      const res = await fetch('/api/letters', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ id: l.id, status: 'REPLIED' }),
+      });
+      if (res.ok) { toast.success(`${l.letter_no} — reply recorded`); await load(); }
+      else { const j = await res.json().catch(() => null); toast.error(j?.error || 'Could not update'); }
+    } catch { toast.error('Network error'); }
+  }, [load]);
+
   const markIssued = useCallback(async (l: Letter) => {
     try {
       const res = await fetch('/api/letters', {
@@ -353,6 +390,8 @@ export function LettersView({ officeName, signatoryName, constituency }: Letters
             <SelectItem value="ALL">All letters</SelectItem>
             <SelectItem value="DRAFT">Drafts</SelectItem>
             <SelectItem value="ISSUED">Issued</SelectItem>
+            <SelectItem value="AWAITING">Awaiting reply</SelectItem>
+            <SelectItem value="REPLIED">Replied</SelectItem>
             <SelectItem value="CANCELLED">Cancelled</SelectItem>
           </SelectContent>
         </Select>
@@ -361,22 +400,43 @@ export function LettersView({ officeName, signatoryName, constituency }: Letters
         </Button>
       </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* Summary — "what got no reply" leads, because that is the question the
+          office actually asks; the rest is context for it. */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <Card className={awaiting.overdue > 0 ? 'border-red-500/40' : undefined}>
+          <button type="button" className="w-full text-left"
+                  onClick={() => setStatusFilter(statusFilter === 'AWAITING' ? 'ALL' : 'AWAITING')}>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-1.5 text-muted-foreground mb-0.5">
+                <Clock className="h-3.5 w-3.5" /><span className="text-[11px] font-medium">Awaiting reply</span>
+              </div>
+              <div className="text-xl font-bold tabular-nums">{awaiting.count}</div>
+              <div className="text-[10px] mt-0.5 h-3.5">
+                {awaiting.overdue > 0 ? (
+                  <span className="text-red-600 font-medium">
+                    {awaiting.overdue} past {LETTER_OVERDUE_DAYS} days
+                  </span>
+                ) : awaiting.oldest > 0 ? (
+                  <span className="text-muted-foreground">oldest {awaiting.oldest}d</span>
+                ) : null}
+              </div>
+            </CardContent>
+          </button>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex items-center gap-1.5 text-muted-foreground mb-0.5">
+              <CheckCircle2 className="h-3.5 w-3.5" /><span className="text-[11px] font-medium">Replied</span>
+            </div>
+            <div className="text-xl font-bold tabular-nums">{counts.REPLIED}</div>
+          </CardContent>
+        </Card>
         <Card>
           <CardContent className="p-3">
             <div className="flex items-center gap-1.5 text-muted-foreground mb-0.5">
               <FileClock className="h-3.5 w-3.5" /><span className="text-[11px] font-medium">Drafts</span>
             </div>
             <div className="text-xl font-bold tabular-nums">{counts.DRAFT}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-1.5 text-muted-foreground mb-0.5">
-              <CheckCircle2 className="h-3.5 w-3.5" /><span className="text-[11px] font-medium">Issued</span>
-            </div>
-            <div className="text-xl font-bold tabular-nums">{counts.ISSUED}</div>
           </CardContent>
         </Card>
         <Card>
@@ -409,6 +469,7 @@ export function LettersView({ officeName, signatoryName, constituency }: Letters
           {filtered.map((l) => {
             const M = STATUS_META[l.status];
             const tmpl = LETTER_TEMPLATES.find((t) => t.id === l.letter_type);
+            const waiting = daysWaiting(l);
             return (
               <Card key={l.id}>
                 <CardContent className="p-3">
@@ -422,6 +483,14 @@ export function LettersView({ officeName, signatoryName, constituency }: Letters
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-sm">{l.subject}</span>
                         <Badge className={`text-[10px] border-0 ${M.cls}`}>{M.label}</Badge>
+                        {waiting !== null && waiting >= LETTER_WATCH_DAYS && (
+                          <Badge className={`text-[10px] border-0 ${
+                            waiting >= LETTER_OVERDUE_DAYS
+                              ? 'bg-red-500/12 text-red-700 dark:text-red-400'
+                              : 'bg-amber-500/12 text-amber-700 dark:text-amber-400'}`}>
+                            {waiting}d no reply
+                          </Badge>
+                        )}
                         {tmpl && <Badge variant="secondary" className="text-[9px]">{tmpl.label}</Badge>}
                       </div>
                       <p className="text-[12px] text-muted-foreground mt-0.5">
@@ -433,6 +502,7 @@ export function LettersView({ officeName, signatoryName, constituency }: Letters
                         {l.citizen_village && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{l.citizen_village}</span>}
                         {l.complaint_id && <span className="flex items-center gap-1"><Link2 className="h-3 w-3" />linked complaint</span>}
                         <span>{fmtDate(l.issued_at || l.created_at)}</span>
+                        {l.replied_at && <span className="text-emerald-600">replied {fmtDate(l.replied_at)}</span>}
                       </div>
                     </div>
 
@@ -446,6 +516,12 @@ export function LettersView({ officeName, signatoryName, constituency }: Letters
                             <Send className="h-3.5 w-3.5" />
                           </Button>
                         </>
+                      )}
+                      {l.status === 'ISSUED' && (
+                        <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2 text-xs"
+                                onClick={() => markReplied(l)} title="Record that a reply came back">
+                          <MailCheck className="h-3.5 w-3.5" /> Replied
+                        </Button>
                       )}
                       <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => print(l)}>
                         <Printer className="h-3.5 w-3.5" /> Print
