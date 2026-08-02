@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   UserPlus, Search, RefreshCw, Clock, CheckCircle2, ArrowRightCircle,
-  UserX, DoorOpen, Phone, MapPin, CalendarDays, Printer, QrCode,
+  UserX, DoorOpen, Phone, MapPin, CalendarDays, Printer, QrCode, History,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { authHeaders } from '@/lib/helpers';
+import { authHeaders, fmtDate } from '@/lib/helpers';
 import { printFrame } from '@/lib/print';
 import { TelegramQrDialog } from '@/components/TelegramQrDialog';
 import { CATEGORIES } from '@/lib/constants';
@@ -56,6 +56,14 @@ const STATUS_META: Record<Visit['status'], { label: string; cls: string; icon: R
   NO_SHOW:    { label: 'Did not come',cls: 'bg-muted text-muted-foreground',                        icon: UserX },
 };
 
+interface CitizenHistory {
+  name: string | null;
+  known: boolean;
+  lastSeen: string | null;
+  counts: { complaints: number; open: number; visits: number; letters: number };
+  reachable: { telegram: boolean; broadcastConsent: boolean; optedOut: boolean };
+}
+
 const EMPTY_FORM = {
   visitorName: '', phone: '', village: '', purpose: '',
   category: '', promised: '', promisedByDate: '', notes: '', metBy: '',
@@ -81,6 +89,15 @@ export function VisitsView({ officeName, constituency }: VisitsViewProps = {}) {
   const [search, setSearch] = useState('');
   const [addOpen, setAddOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+
+  /**
+   * "I came last month." Until now the office had no way to check that — the
+   * complaint, the visit and the letter all carried this phone number and were
+   * never joined on it. Looked up as the number is typed, at the one moment the
+   * question is actually asked.
+   */
+  const [history, setHistory] = useState<CitizenHistory | null>(null);
+  const [historyFor, setHistoryFor] = useState('');
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -116,6 +133,17 @@ export function VisitsView({ officeName, constituency }: VisitsViewProps = {}) {
     visits.forEach((v) => { c[v.status] = (c[v.status] || 0) + 1; });
     return c;
   }, [visits]);
+
+  const lookupCitizen = useCallback(async (raw: string) => {
+    const digits = (raw || '').replace(/\D/g, '').slice(-10);
+    if (digits.length < 10) { setHistory(null); setHistoryFor(''); return; }
+    if (digits === historyFor) return;              // already looked this one up
+    setHistoryFor(digits);
+    try {
+      const res = await fetch(`/api/citizen?phone=${digits}`, { headers: authHeaders() });
+      setHistory(res.ok ? await res.json() : null);
+    } catch { setHistory(null); }   // a lookup is a courtesy; never block logging
+  }, [historyFor]);
 
   const addVisit = useCallback(async () => {
     if (!form.visitorName.trim() || !form.purpose.trim()) {
@@ -244,7 +272,7 @@ ${qrSvg ? `<div class="qr">${qrSvg}<p><b>Scan to follow this on Telegram</b></p>
                   title="Show the Telegram code — no printing needed">
             <QrCode className="h-3.5 w-3.5" /> Telegram code
           </Button>
-          <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5">
+          <Button size="sm" onClick={() => { setHistory(null); setHistoryFor(''); setAddOpen(true); }} className="gap-1.5">
             <UserPlus className="h-3.5 w-3.5" /> Log a visitor
           </Button>
         </div>
@@ -373,8 +401,8 @@ ${qrSvg ? `<div class="qr">${qrSvg}<p><b>Scan to follow this on Telegram</b></p>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[11px] font-semibold uppercase tracking-wide">Phone</Label>
-                <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                       placeholder="9876543210" className="h-9 text-sm" />
+                <Input value={form.phone} placeholder="9876543210" className="h-9 text-sm"
+                       onChange={(e) => { setForm((f) => ({ ...f, phone: e.target.value })); lookupCitizen(e.target.value); }} />
               </div>
             </div>
 
@@ -394,6 +422,31 @@ ${qrSvg ? `<div class="qr">${qrSvg}<p><b>Scan to follow this on Telegram</b></p>
                 </Select>
               </div>
             </div>
+
+            {history?.known && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-semibold">
+                  <History className="h-3.5 w-3.5 text-primary" />
+                  {history.name ? `${history.name} has been here before` : 'This number is already on file'}
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                  {history.counts.complaints > 0 && (
+                    <span>
+                      {history.counts.complaints} complaint{history.counts.complaints === 1 ? '' : 's'}
+                      {history.counts.open > 0 && (
+                        <span className="text-amber-600 font-medium"> · {history.counts.open} still open</span>
+                      )}
+                    </span>
+                  )}
+                  {history.counts.visits > 0 && <span>{history.counts.visits} earlier visit{history.counts.visits === 1 ? '' : 's'}</span>}
+                  {history.counts.letters > 0 && <span>{history.counts.letters} letter{history.counts.letters === 1 ? '' : 's'} issued</span>}
+                  {history.lastSeen && <span>last seen {fmtDate(history.lastSeen)}</span>}
+                </div>
+                {history.reachable.optedOut && (
+                  <p className="text-[11px] text-red-600">They have opted out of messages — do not add them to a campaign.</p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label className="text-[11px] font-semibold uppercase tracking-wide">What do they want?</Label>
