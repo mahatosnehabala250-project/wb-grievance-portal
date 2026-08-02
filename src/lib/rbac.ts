@@ -247,10 +247,28 @@ export function complaintInScope(user: JWTPayload, complaint: AnyRecord): boolea
  * Everyone else may mutate ONLY records already in their scope
  * (check complaintInScope first; this is the role gate).
  */
-export function canMutateComplaints(user: JWTPayload): boolean {
-  if (user.role === 'ADMIN' || user.role === 'STATE') return true;
-  if (user.role_level === 'KARYAKARTA') return false;
-  return true; // MP, MLA, DISTRICT_ADMIN, BLOCK_COORD, GP_COORD, OFFICER, DISTRICT, BLOCK
+export function canMutateComplaints(_user: JWTPayload): boolean {
+  // Every governance role may now touch a complaint. What each one may change
+  // is narrowed by allowedComplaintFields, and which records they can reach at
+  // all is still decided by complaintInScope.
+  return true;
+}
+
+/**
+ * Which fields of a complaint may this role change?
+ *
+ * A karyakarta walks to the village and sees whether the road is actually
+ * broken, so they are the one person who can say a complaint is resolved — but
+ * deciding which officer owns it, or how urgent it is, is the office's call and
+ * not theirs. Narrowing the fields keeps that line without locking them out of
+ * the update entirely.
+ *
+ * `null` means no restriction.
+ */
+export function allowedComplaintFields(user: JWTPayload): Set<string> | null {
+  if (user.role === 'ADMIN' || user.role === 'STATE') return null;
+  if (user.role_level === 'KARYAKARTA') return new Set(['status', 'resolution']);
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────

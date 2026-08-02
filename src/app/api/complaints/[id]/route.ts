@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
-import { complaintInScope, canMutateComplaints, userInManageScope } from '@/lib/rbac';
+import { complaintInScope, canMutateComplaints, allowedComplaintFields, userInManageScope } from '@/lib/rbac';
 import { notifyN8NStatusChange, notifyN8NAssignment, notifyN8NUrgencyEscalation } from '@/lib/n8n-webhook';
 
 // GET /api/complaints/[id]
@@ -52,7 +52,7 @@ export async function PATCH(
   if (!complaintInScope(payload, complaint)) {
     return NextResponse.json({ error: 'Access denied — outside your jurisdiction' }, { status: 403 });
   }
-  // 2) Role gate: KARYAKARTA is read-only
+  // 2) Role gate
   if (!canMutateComplaints(payload)) {
     return NextResponse.json({ error: 'Your role cannot modify complaints' }, { status: 403 });
   }
@@ -61,7 +61,23 @@ export async function PATCH(
     const body = await request.json();
     const { status, resolution, assignedToId, urgency } = body;
 
-    // 3) Assignment scope: assignee must be an active user inside the actor's
+    // 3) Field gate. A karyakarta verifies on the ground, so they may close a
+    //    complaint — but choosing the owning officer or the urgency is the
+    //    office's judgement, not theirs. Refused explicitly rather than ignored,
+    //    so a caller is never told a change succeeded when it did not.
+    const allowed = allowedComplaintFields(payload);
+    if (allowed) {
+      const attempted = ['status', 'resolution', 'assignedToId', 'urgency']
+        .filter((f) => body[f] !== undefined && !allowed.has(f));
+      if (attempted.length) {
+        return NextResponse.json(
+          { error: `Your role cannot change: ${attempted.join(', ')}` },
+          { status: 403 }
+        );
+      }
+    }
+
+    // 4) Assignment scope: assignee must be an active user inside the actor's
     //    own jurisdiction (an MLA cannot assign an officer from another AC)
     if (assignedToId) {
       const assignee = await db.user.findUnique({ where: { id: assignedToId } });
