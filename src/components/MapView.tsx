@@ -143,11 +143,12 @@ const InnerMap = dynamic(
           ))}</>);
         }
 
-        const Component = ({ points, mode, basemap, boundaries, showBoundaries, onSelect, gpMap, labelPts, blockBoundaries, blockLabelPts, catFilter, flyTarget, freezeFit, polByAc }: {
+        const Component = ({ points, mode, basemap, boundaries, showBoundaries, onSelect, gpMap, labelPts, blockBoundaries, blockLabelPts, acBoundaries, myAcs, catFilter, flyTarget, freezeFit, polByAc }: {
           points: VPoint[]; mode: Mode; basemap: "dark" | "satellite";
           boundaries: any; showBoundaries: boolean; onSelect: (p: VPoint) => void;
           gpMap: Record<string, string[]>; labelPts: { lat: number; lng: number; name: string; gp: string | null }[];
           blockBoundaries: any; blockLabelPts: { lat: number; lng: number; name: string }[];
+          acBoundaries: any; myAcs: Set<string>;
           catFilter: string | null;
           flyTarget: { lat: number; lng: number; name: string } | null;
           freezeFit?: boolean;
@@ -227,6 +228,32 @@ const InnerMap = dynamic(
                   }} />
               )}
 
+              {/* CONSTITUENCY outlines — drawn over every other polygon so the
+                  seat boundary is never buried. Your own AC keeps a bright, solid
+                  edge; neighbours are dashed and dim, which answers the only
+                  question the map was failing to answer: where does my seat end. */}
+              {acBoundaries && (
+                <GeoJSON data={acBoundaries} interactive={false}
+                  style={(f: any) => {
+                    const mine = myAcs.has(String(f?.properties?.ac || ""));
+                    return mine
+                      ? { color: "#FBBF24", weight: 3, opacity: 0.95, fill: false }
+                      : { color: "#94A3B8", weight: 1.2, opacity: 0.4, dashArray: "5 5", fill: false };
+                  }} />
+              )}
+              {acBoundaries?.features?.map((f: any, i: number) => {
+                const at = f?.properties?.labelAt;
+                if (!at) return null;
+                const name = String(f.properties.ac || "");
+                const mine = myAcs.has(name);
+                // Neighbour names only help while zoomed out; up close they clutter.
+                if (!mine && zoom >= 11) return null;
+                return (
+                  <Marker key={"ac" + i} position={[at[1], at[0]]} interactive={false}
+                    icon={L.divIcon({ className: "", iconSize: [0, 0], html: `<div style="transform:translate(-50%,-50%);white-space:nowrap;font-family:ui-sans-serif,system-ui;font-size:${mine ? 13 : 11}px;font-weight:800;letter-spacing:0.10em;text-transform:uppercase;color:${mine ? "#FCD34D" : "#94A3B8"};opacity:${mine ? 1 : 0.6};text-shadow:0 0 6px #000,0 0 3px #000">${esc(name)}</div>` })} />
+                );
+              })}
+
               {visiblePoints.map((p) => {
                 const v = metricFor(p, mode, catFilter);
                 const ratio = v / max;
@@ -289,6 +316,7 @@ export function MapView() {
   const [loading, setLoading] = useState(true);
   const [gpMap, setGpMap] = useState<Record<string, string[]>>({});
   const [blocks, setBlocks] = useState<any>(null);
+  const [acShapes, setAcShapes] = useState<any>(null);
   const [catFilter, setCatFilter] = useState<string | null>(null);
   const [view3d, setView3d] = useState(false);
   const [query, setQuery] = useState("");
@@ -330,8 +358,26 @@ export function MapView() {
       fetch("/purulia-villages.geojson").then((r) => (r.ok ? r.json() : null)).then(setBoundaries).catch(() => {});
       fetch("/purulia-gp.json").then((r) => (r.ok ? r.json() : null)).then((j) => j && setGpMap(j)).catch(() => {});
       fetch("/purulia-blocks.geojson").then((r) => (r.ok ? r.json() : null)).then(setBlocks).catch(() => {});
+      fetch("/purulia-ac.geojson").then((r) => (r.ok ? r.json() : null)).then(setAcShapes).catch(() => {});
     })();
   }, []);
+
+  /**
+   * Which constituencies are actually mine.
+   *
+   * Read off the data rather than off the profile: the API already returns only
+   * villages inside the caller's scope, so the ACs those villages sit in *are*
+   * the caller's seats — one for an MLA, all nine for a district account. That
+   * keeps the highlight honest even when a user record has no AC filled in.
+   */
+  const myAcs = useMemo(() => {
+    const out = new Set<string>();
+    for (const p of data?.points || []) {
+      const m = gpMap[p.code];
+      if (m && m[1]) out.add(m[1]);
+    }
+    return out;
+  }, [data, gpMap]);
 
   const blockLabelPts = useMemo(() => {
     const b: any = blocks;
@@ -613,7 +659,7 @@ export function MapView() {
           ) : view3d ? (
             <Map3D points={points} boundaries={boundaries} />
           ) : (
-            <InnerMap points={displayPoints} mode={mode} basemap={basemap} boundaries={boundaries} showBoundaries={showBoundaries} onSelect={setSelected} gpMap={gpMap} labelPts={labelPts} blockBoundaries={blocks} blockLabelPts={blockLabelPts} catFilter={catFilter} flyTarget={flyTarget} freezeFit={timeMode} polByAc={polMode && politics ? Object.fromEntries(politics.acs.map((a) => [a.ac, a])) : null} />
+            <InnerMap points={displayPoints} mode={mode} basemap={basemap} boundaries={boundaries} showBoundaries={showBoundaries} onSelect={setSelected} gpMap={gpMap} labelPts={labelPts} blockBoundaries={blocks} blockLabelPts={blockLabelPts} acBoundaries={acShapes} myAcs={myAcs} catFilter={catFilter} flyTarget={flyTarget} freezeFit={timeMode} polByAc={polMode && politics ? Object.fromEntries(politics.acs.map((a) => [a.ac, a])) : null} />
           )}
 
           {/* Density legend (hidden while the timeline bar is up) */}

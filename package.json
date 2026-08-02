@@ -60,6 +60,8 @@
     "@supabase/supabase-js": "^2.103.3",
     "@tanstack/react-query": "^5.82.0",
     "@tanstack/react-table": "^8.21.3",
+    "@turf/helpers": "^7.3.5",
+    "@turf/union": "^7.3.5",
     "@types/pg": "^8.20.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
