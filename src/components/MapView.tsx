@@ -67,13 +67,30 @@ function metricFor(p: VPoint, m: Mode, cat?: string | null): number {
   if (cat) return p.cats?.[cat] || 0;
   return m === "density" ? p.total : m === "active" ? p.active : m === "sla" ? p.slaBreached : p.resolved;
 }
-function colorFor(p: VPoint, m: Mode, ratio: number): string {
-  if (m === "resolution") return GREEN;
-  if (m === "sla") return ratio > 0.5 ? RED : ratio > 0 ? AMBER : CYAN;
-  if (p.critical > 0) return RED;
-  if (ratio >= 0.66) return RED;
-  if (ratio >= 0.33) return AMBER;
+/**
+ * Colour bands, in absolute complaint counts rather than rank.
+ *
+ * These used to be shares of whatever the busiest village happened to be, so
+ * with a live range of 1–4 a village with four complaints turned the same red
+ * as one with forty, and six of eleven villages lit red on a seat carrying 24
+ * open cases. Red has to mean the same thing on every screen and every day, so
+ * it now means a count, not a position in today's range.
+ */
+const BANDS: { min: number; color: string; label: string }[] = [
+  { min: 10, color: RED, label: "10+" },
+  { min: 5, color: AMBER, label: "5–9" },
+  { min: 1, color: CYAN, label: "1–4" },
+];
+function bandColor(v: number): string {
+  for (const b of BANDS) if (v >= b.min) return b.color;
   return CYAN;
+}
+function colorFor(p: VPoint, m: Mode, _ratio: number): string {
+  if (m === "resolution") return GREEN;
+  if (m === "sla") return bandColor(p.slaBreached);
+  // A critical case is red on its own merit — that is a severity fact, not a volume one.
+  if (p.critical > 0) return RED;
+  return bandColor(metricFor(p, m));
 }
 
 const PURULIA_CENTER: [number, number] = [23.33, 86.36];
@@ -159,7 +176,7 @@ const InnerMap = dynamic(
           const max = Math.max(1, ...visiblePoints.map((p) => metricFor(p, mode, catFilter)));
           return (
             <MapContainer preferCanvas center={PURULIA_CENTER} zoom={9} zoomControl
-              style={{ height: "100%", width: "100%", minHeight: "500px", background: MAPBG }}>
+              style={{ height: "100%", width: "100%", background: MAPBG }}>
               {basemap === "satellite" ? (
                 <>
                   <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -545,7 +562,12 @@ export function MapView() {
   const dim = (s: string) => ({ color: s });
 
   return (
-    <div className="flex flex-col h-full" style={{ background: MAPBG }}>
+    // Sized to the viewport rather than to its content. As `h-full` inside an
+    // auto-height parent the panel grew past the fold, so the page scrolled and
+    // the map's own toolbar slid up under the translucent app header — two
+    // toolbars smeared over each other. Fitting the screen leaves nothing to
+    // scroll under it.
+    <div className="flex flex-col h-[calc(100svh-13rem)] lg:h-[calc(100svh-8.5rem)] min-h-[520px]" style={{ background: MAPBG }}>
       <style>{`.crit-pulse{width:8px;height:8px;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 0 rgba(239,68,68,0.5);animation:critpulse 1.8s ease-out infinite}@keyframes critpulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,0.5)}70%{box-shadow:0 0 0 15px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}.v-search-item:hover{background:rgba(34,211,238,0.12)}@keyframes reticle{0%{box-shadow:0 0 12px #22d3ee,inset 0 0 6px #22d3ee}50%{box-shadow:0 0 22px #22d3ee,inset 0 0 11px #22d3ee}100%{box-shadow:0 0 12px #22d3ee,inset 0 0 6px #22d3ee}}`}</style>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-2.5 flex-wrap flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: PANEL }}>
@@ -671,11 +693,27 @@ export function MapView() {
               <div className="font-semibold uppercase tracking-wider mb-2" style={{ fontSize: 10, color: "#64748b" }}>
                 {mode === "resolution" ? "Resolved" : mode === "sla" ? "SLA breaches" : "Complaint density"}
               </div>
-              <div className="flex items-center gap-2">
-                <span style={{ fontSize: 10, color: "#64748b" }}>Low</span>
-                <div style={{ width: 90, height: 8, borderRadius: 4, background: mode === "resolution" ? GREEN : `linear-gradient(90deg, ${CYAN}, ${AMBER}, ${RED})` }} />
-                <span style={{ fontSize: 10, color: "#64748b" }}>High</span>
-              </div>
+              {/* Named counts, not "Low → High": a gradient can't tell you whether
+                  red means four complaints or forty, and that was the old flaw. */}
+              {mode === "resolution" ? (
+                <div className="flex items-center gap-2">
+                  <span style={{ width: 9, height: 9, borderRadius: 9, background: GREEN, display: "inline-block" }} />
+                  <span style={{ fontSize: 11 }}>Resolved cases</span>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {BANDS.map((b) => (
+                    <div key={b.label} className="flex items-center gap-2">
+                      <span style={{ width: 9, height: 9, borderRadius: 9, background: b.color, display: "inline-block" }} />
+                      <span style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}>{b.label}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2 mt-1 pt-1" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                    <span style={{ width: 9, height: 9, borderRadius: 9, background: RED, display: "inline-block" }} />
+                    <span style={{ fontSize: 11 }}>any critical case</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
