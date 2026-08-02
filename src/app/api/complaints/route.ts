@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
+import { generateTicketNo } from '@/lib/ticket-no';
 
 // GET /api/complaints — list complaints (filtered by role)
 export async function GET(request: NextRequest) {
@@ -137,8 +138,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const count = await db.complaint.count();
-    const ticketNo = `WB-${String(1000 + count + 1).padStart(5, '0')}`;
+    const ticketNo = await generateTicketNo(district);
 
     const complaint = await db.complaint.create({
       data: {

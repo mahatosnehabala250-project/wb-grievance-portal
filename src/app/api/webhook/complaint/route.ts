@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { notifyN8NNewComplaint } from '@/lib/n8n-webhook';
 import { n8nSecretOk } from '@/lib/n8nAuth';
+import { generateTicketNo } from '@/lib/ticket-no';
 
 // POST /api/webhook/complaint — Webhook for n8n to push complaints.
 // SECURITY (2026-07-10 audit): fail-closed M2M gate. This legacy route inserts
@@ -24,9 +25,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate ticket number
-    const count = await db.complaint.count();
-    const ticketNo = `WB-${String(1000 + count + 1).padStart(5, '0')}`;
+    const ticketNo = await generateTicketNo(district);
 
     // Auto-derive subdivision from district+block if not provided
     let finalSubdivision = subdivision || null;
