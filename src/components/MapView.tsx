@@ -49,10 +49,15 @@ const partyColor = (p: string) => PARTY_COLOR[p] || "#94A3B8";
 
 // Deterministic colour per Gram Panchayat — so adjacent villages of the same GP
 // share a hue and GP clusters are visible when boundaries are on.
+//
+// Kept low-saturation on purpose. At full chroma several hundred village
+// polygons turned the zoomed-in map into confetti that out-shouted the
+// constituency outline and the complaint dots both. The hue still groups a GP;
+// it just no longer competes with the things you came to the map to read.
 function gpColor(gp: string | null): string {
   if (!gp) return "#475569";
   let h = 0; for (let i = 0; i < gp.length; i++) h = (h * 31 + gp.charCodeAt(i)) % 360;
-  return `hsl(${h}, 72%, 62%)`;
+  return `hsl(${h}, 28%, 52%)`;
 }
 const esc = (s: string) => String(s || "").replace(/[&<>]/g, (c) => (({ "&": "&amp;", "<": "&lt;", ">": "&gt;" } as Record<string, string>)[c]));
 
@@ -235,7 +240,7 @@ const InnerMap = dynamic(
                     const code = f?.properties?.v;
                     const gp = code && gpMap[code] ? gpMap[code][0] : null;
                     const col = gpColor(gp);
-                    return { color: col, weight: 0.7, opacity: 0.55, fillColor: col, fillOpacity: 0.05 };
+                    return { color: col, weight: 0.6, opacity: 0.38, fillColor: col, fillOpacity: 0.04 };
                   }}
                   onEachFeature={(f: any, layer: any) => {
                     const p = f?.properties || {};
@@ -319,11 +324,6 @@ const InnerMap = dynamic(
   { ssr: false, loading: () => <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b", background: MAPBG }}>Loading command map…</div> }
 );
 
-const Map3D = dynamic(() => import("@/components/Map3D").then((m) => m.Map3D), {
-  ssr: false,
-  loading: () => <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b", background: MAPBG }}>Loading 3D engine…</div>,
-});
-
 // ---- Main export ----
 export function MapView() {
   const [data, setData] = useState<MapData | null>(null);
@@ -337,7 +337,6 @@ export function MapView() {
   const [blocks, setBlocks] = useState<any>(null);
   const [acShapes, setAcShapes] = useState<any>(null);
   const [catFilter, setCatFilter] = useState<string | null>(null);
-  const [view3d, setView3d] = useState(false);
   const [query, setQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; name: string; code: string } | null>(null);
@@ -351,7 +350,7 @@ export function MapView() {
   const togglePolitics = () => {
     setPolMode((v) => {
       const nv = !v;
-      if (nv) { setView3d(false); setTimeMode(false); setPlaying(false); }
+      if (nv) { setTimeMode(false); setPlaying(false); }
       return nv;
     });
     if (!politics && !polLoading) {
@@ -482,7 +481,6 @@ export function MapView() {
   }, [nq, villageIndex]);
 
   const gotoVillage = (v: { code: string; name: string; gp: string | null; lat: number; lng: number }) => {
-    setView3d(false);
     setQuery(v.name);
     setShowResults(false);
     setFlyTarget({ lat: v.lat, lng: v.lng, name: v.name, code: v.code });
@@ -621,12 +619,7 @@ export function MapView() {
           ))}
         </div>
         <div className="flex gap-1">
-          <button onClick={() => setView3d((v) => { const nv = !v; if (nv) { setTimeMode(false); setPlaying(false); } return nv; })}
-            className="px-2.5 py-1 rounded text-xs font-semibold transition-all"
-            style={view3d ? { background: "rgba(34,211,238,0.2)", color: CYAN, border: `1px solid ${LINE}` } : { background: "transparent", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}>
-            {view3d ? "🧊 3D" : "🗺 2D"}
-          </button>
-          <button onClick={() => setTimeMode((v) => { const nv = !v; if (nv) { setView3d(false); setPolMode(false); } else setPlaying(false); return nv; })}
+          <button onClick={() => setTimeMode((v) => { const nv = !v; if (nv) { setPolMode(false); } else setPlaying(false); return nv; })}
             className="px-2.5 py-1 rounded text-xs font-semibold transition-all"
             style={timeMode ? { background: "rgba(34,211,238,0.2)", color: CYAN, border: `1px solid ${LINE}` } : { background: "transparent", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}>
             ⏱ Timeline
@@ -681,8 +674,6 @@ export function MapView() {
         <div className="flex-1 relative">
           {loading ? (
             <div className="absolute inset-0 flex items-center justify-center text-sm" style={{ color: "#64748b", background: MAPBG }}>Loading command map…</div>
-          ) : view3d ? (
-            <Map3D points={points} boundaries={boundaries} />
           ) : (
             <InnerMap points={displayPoints} mode={mode} basemap={basemap} boundaries={boundaries} showBoundaries={showBoundaries} onSelect={setSelected} gpMap={gpMap} labelPts={labelPts} blockBoundaries={blocks} blockLabelPts={blockLabelPts} acBoundaries={acShapes} myAcs={myAcs} catFilter={catFilter} flyTarget={flyTarget} freezeFit={timeMode} polByAc={polMode && politics ? Object.fromEntries(politics.acs.map((a) => [a.ac, a])) : null} />
           )}
