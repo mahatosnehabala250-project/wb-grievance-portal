@@ -333,8 +333,10 @@ export function MLADashboardView() {
                 This used to be seven equal tiles above two equally loud alert
                 bars, so nothing was ranked and the eye had no entry point. The
                 three figures below are the ones an MLA can act on; the rest of
-                the counts moved to the line under them, where they belong. */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                the counts moved to the line under them, where they belong.
+                Three across from `sm` up: below that breakpoint they stacked
+                into a column tall enough to push the backlog off the screen. */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Card className={`border shadow-none ${d.sla_breached > 0 ? 'border-amber-300 dark:border-amber-900' : ''}`}>
                 <CardContent className="p-4">
                   <div className="flex items-baseline gap-2">
