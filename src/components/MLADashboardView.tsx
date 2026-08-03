@@ -47,6 +47,10 @@ interface MLAStats {
   recent_complaints: Complaint[];
   recently_resolved: Complaint[];
   sla_breached_list: Complaint[];
+  ageing: { key:string; label:string; count:number }[];
+  speed:  { resolvedCount:number; medianDays:number|null; slowestTenthDays:number|null; oldestOpenDays:number };
+  flow:   { windowDays:number; arrived:number; closed:number; net:number };
+  stuck:  { block:string; open:number; oldestDays:number; overMonth:number }[];
 }
 
 interface Complaint {
@@ -113,6 +117,43 @@ const CONST_THEME: Record<string,{ gradient: string; color: string; emoji: strin
  */
 function AnimNum({ n, suffix='' }: { n:number; suffix?:string }) {
   return <>{n.toLocaleString('en-IN')}{suffix}</>;
+}
+
+/**
+ * The backlog in one bar, oldest segment on the right.
+ *
+ * A count of open cases says nothing about whether an office is busy or
+ * negligent — twenty-eight filed this week and twenty-eight sitting past a
+ * month are different situations with the same number. The shape is the answer.
+ */
+const AGE_TONE: Record<string, string> = {
+  '0-3':   '#10B981',
+  '4-7':   '#84CC16',
+  '8-15':  '#F59E0B',
+  '16-30': '#F97316',
+  '30+':   '#EF4444',
+};
+function BacklogBar({ bands }: { bands: { key:string; label:string; count:number }[] }) {
+  const total = bands.reduce((s, b) => s + b.count, 0);
+  if (!total) return <div className="text-xs text-muted-foreground">Nothing open right now.</div>;
+  return (
+    <div className="space-y-2">
+      <div className="flex h-3 rounded-full overflow-hidden bg-muted">
+        {bands.map(b => b.count > 0 && (
+          <div key={b.key} title={`${b.label}: ${b.count}`}
+               style={{ width: `${(b.count / total) * 100}%`, background: AGE_TONE[b.key] }} />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {bands.filter(b => b.count > 0).map(b => (
+          <span key={b.key} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: AGE_TONE[b.key] }} />
+            <span className="tabular-nums font-semibold text-foreground">{b.count}</span> {b.label.toLowerCase()}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function ScoreDial({ score }: { score: number }) {
@@ -288,51 +329,100 @@ export function MLADashboardView() {
         {tab==='home' && d && (
           <motion.div key="home" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0}} className="space-y-4">
 
-            {/* Quick Alert Bar */}
-            {(d.critical > 0 || d.sla_breached > 0) && (
-              <div className="flex gap-2 flex-wrap">
-                {d.critical > 0 && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 flex-1 min-w-0">
-                    <Flame className="w-4 h-4 text-red-500 flex-shrink-0" />
-                    <span className="text-sm font-semibold text-red-600 dark:text-red-400">
-                      {d.critical} Critical complaint{d.critical>1?'s':''} need immediate attention
-                    </span>
+            {/* ── What needs a decision today ───────────
+                This used to be seven equal tiles above two equally loud alert
+                bars, so nothing was ranked and the eye had no entry point. The
+                three figures below are the ones an MLA can act on; the rest of
+                the counts moved to the line under them, where they belong. */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+              <Card className={`border shadow-none ${d.sla_breached > 0 ? 'border-amber-300 dark:border-amber-900' : ''}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold tabular-nums text-amber-600 dark:text-amber-400">{d.sla_breached}</span>
+                    <span className="text-sm text-muted-foreground">of {d.active} open</span>
                   </div>
-                )}
-                {d.sla_breached > 0 && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex-1 min-w-0">
-                    <Timer className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                    <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">
-                      {d.sla_breached} complaint{d.sla_breached>1?'s':''} past deadline — escalate needed
-                    </span>
+                  <div className="text-sm font-semibold mt-1">Past their deadline</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    {d.active > 0 ? `${Math.round((d.sla_breached / d.active) * 100)}% of everything still open` : 'Nothing open'}
                   </div>
-                )}
-              </div>
-            )}
+                </CardContent>
+              </Card>
 
-            {/* 7 KPI Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-              {[
-                { l:'Total',       v:d.total,       icon:FileText,    c:'text-foreground',    bg:'bg-muted/50'       },
-                { l:'Active',      v:d.active,      icon:Activity,    c:'text-red-500',       bg:'bg-red-500/8'      },
-                { l:'Resolved',    v:d.resolved,    icon:CheckCircle2,c:'text-emerald-500',   bg:'bg-emerald-500/8'  },
-                { l:'Registered',  v:d.registered,  icon:CircleDot,   c:'text-blue-500',      bg:'bg-blue-500/8'     },
-                { l:'In Progress', v:d.in_progress, icon:Timer,       c:'text-amber-500',     bg:'bg-amber-500/8'    },
-                { l:'Critical',    v:d.critical,    icon:AlertTriangle,c:'text-red-600',      bg:'bg-red-600/8'      },
-                { l:'Last 7 Days', v:d.last_7d,     icon:CalendarRange,c:'text-violet-500',  bg:'bg-violet-500/8'   },
-              ].map((k,i) => (
-                <motion.div key={k.l} initial={{opacity:0,scale:0.9}} animate={{opacity:1,scale:1}} transition={{delay:i*0.04}}>
-                  <Card className="border shadow-none">
-                    <CardContent className="p-2.5">
-                      <k.icon className={`w-3 h-3 ${k.c} mb-1.5`} />
-                      <div className={`text-2xl font-bold font-mono ${k.c}`}>
-                        <AnimNum n={k.v} />
+              <Card className={`border shadow-none ${d.critical > 0 ? 'border-red-300 dark:border-red-900' : ''}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-baseline gap-2">
+                    <span className={`text-4xl font-bold tabular-nums ${d.critical > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      {d.critical}
+                    </span>
+                    {d.critical === 0 && <span className="text-sm text-muted-foreground">all clear</span>}
+                  </div>
+                  <div className="text-sm font-semibold mt-1">Critical, still open</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    {d.critical > 0 ? 'Highest urgency — these escalate first' : 'No critical case is waiting'}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border shadow-none">
+                <CardContent className="p-4">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold tabular-nums">{d.speed?.oldestOpenDays ?? 0}</span>
+                    <span className="text-sm text-muted-foreground">days</span>
+                  </div>
+                  <div className="text-sm font-semibold mt-1">Longest anyone has waited</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    {d.speed?.medianDays != null
+                      ? `Typical case closes in ${d.speed.medianDays} days`
+                      : 'No case has closed yet'}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* The remaining counts, stated once rather than tiled */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+              <span><span className="font-semibold text-foreground tabular-nums">{d.total}</span> total</span>
+              <span><span className="font-semibold text-foreground tabular-nums">{d.resolved}</span> resolved</span>
+              <span><span className="font-semibold text-foreground tabular-nums">{d.registered}</span> registered</span>
+              <span><span className="font-semibold text-foreground tabular-nums">{d.in_progress}</span> in progress</span>
+              <span><span className="font-semibold text-foreground tabular-nums">{d.last_7d}</span> filed this week</span>
+            </div>
+
+            {/* ── Backlog shape + whether the pile is growing ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <Card className="lg:col-span-2 border shadow-sm">
+                <CardHeader className="pb-1 pt-3 px-4">
+                  <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" /> How long the open cases have been waiting
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-4">
+                  <BacklogBar bands={d.ageing || []} />
+                </CardContent>
+              </Card>
+
+              <Card className="border shadow-sm">
+                <CardHeader className="pb-1 pt-3 px-4">
+                  <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <TrendingUp className="w-3.5 h-3.5" /> Keeping up?
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-4">
+                  {d.flow ? (
+                    <>
+                      <div className={`text-3xl font-bold tabular-nums ${d.flow.net > 0 ? 'text-red-600 dark:text-red-400' : d.flow.net < 0 ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>
+                        {d.flow.net > 0 ? '+' : ''}{d.flow.net}
                       </div>
-                      <div className="text-[10px] text-muted-foreground leading-tight">{k.l}</div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
+                      <div className="text-sm font-semibold mt-0.5">
+                        {d.flow.net > 0 ? 'The pile grew' : d.flow.net < 0 ? 'The pile shrank' : 'Holding level'}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-1">
+                        {d.flow.arrived} came in, {d.flow.closed} closed — last {d.flow.windowDays} days
+                      </div>
+                    </>
+                  ) : <div className="text-xs text-muted-foreground">No flow data</div>}
+                </CardContent>
+              </Card>
             </div>
 
             {/* Main 2-col layout */}
@@ -427,6 +517,43 @@ export function MLADashboardView() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* ── Where it is stuck ──────────────────────
+                Ranked by how long the oldest case has waited, not by volume.
+                Three complaints untouched for six weeks need the MLA more than
+                twenty filed yesterday, and a count sorted by size hides that. */}
+            {d.stuck && d.stuck.length > 0 && (
+              <Card className="border shadow-sm">
+                <CardHeader className="pb-1 pt-3 px-4">
+                  <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5" /> Where it is stuck — longest wait first
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-3">
+                  <div className="space-y-1.5">
+                    {d.stuck.slice(0, 6).map(s => (
+                      <div key={s.block} className="flex items-center gap-3 py-1">
+                        <span className="text-[13px] flex-1 truncate">{s.block}</span>
+                        {s.overMonth > 0 && (
+                          <Badge className="text-[10px] border-0 bg-red-500/12 text-red-700 dark:text-red-400">
+                            {s.overMonth} over a month
+                          </Badge>
+                        )}
+                        <span className="text-[11px] text-muted-foreground tabular-nums w-16 text-right">
+                          {s.open} open
+                        </span>
+                        <span className="text-[13px] font-semibold tabular-nums w-20 text-right">
+                          {s.oldestDays}d
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-2">
+                    The right-hand figure is the age of that block&rsquo;s oldest complaint still open.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Category + Recent Resolved */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

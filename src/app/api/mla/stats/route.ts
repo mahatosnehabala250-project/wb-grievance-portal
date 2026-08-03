@@ -170,6 +170,82 @@ export async function GET(request: NextRequest) {
       .filter(c => new Date(c.updatedAt) > new Date(now.getTime() - 7*86400000))
       .slice(0, 5);
 
+    // ── Analytics ────────────────────────────────────────────
+    const DAY = 86400000;
+    const ageDays = (from: string) => (now.getTime() - new Date(from).getTime()) / DAY;
+
+    /**
+     * Backlog shape.
+     *
+     * A single "28 open" tells an MLA nothing about whether the office is busy
+     * or negligent. Twenty-eight cases all filed this week is a busy week;
+     * twenty-eight sitting past a month is a different conversation. The bands
+     * are what the backlog is actually made of.
+     */
+    const AGE_BANDS = [
+      { key: "0-3",   label: "Under 3 days", max: 3 },
+      { key: "4-7",   label: "3 to 7 days",  max: 7 },
+      { key: "8-15",  label: "1 to 2 weeks", max: 15 },
+      { key: "16-30", label: "2 to 4 weeks", max: 30 },
+      { key: "30+",   label: "Over a month", max: Infinity },
+    ];
+    const ageing = AGE_BANDS.map(({ key, label }) => ({ key, label, count: 0 }));
+    for (const c of active) {
+      const d = ageDays(c.createdAt);
+      const i = AGE_BANDS.findIndex(b => d <= b.max);
+      ageing[i === -1 ? AGE_BANDS.length - 1 : i].count++;
+    }
+
+    /**
+     * How long closing actually takes, from the cases that did close.
+     *
+     * Reported as a median rather than a mean: one case that sat for a year
+     * drags an average far away from the experience of a typical complainant,
+     * and it is the typical experience an MLA is answerable for.
+     */
+    const closedDurations = resolved
+      .map(c => c.resolvedAt ? (new Date(c.resolvedAt).getTime() - new Date(c.createdAt).getTime()) / DAY : null)
+      .filter((d): d is number => d !== null && d >= 0)
+      .sort((a, b) => a - b);
+    const at = (q: number) => closedDurations.length
+      ? Math.round(closedDurations[Math.min(closedDurations.length - 1, Math.floor(closedDurations.length * q))] * 10) / 10
+      : null;
+    const speed = {
+      resolvedCount: closedDurations.length,
+      medianDays: at(0.5),
+      slowestTenthDays: at(0.9),
+      oldestOpenDays: active.length ? Math.round(Math.max(...active.map(c => ageDays(c.createdAt)))) : 0,
+    };
+
+    /**
+     * Is the backlog growing or shrinking?
+     *
+     * Arrivals and closures over the same recent window, so the two are
+     * comparable. Net is what the pile did — the number that says whether the
+     * office is keeping up, which no single count on this page could answer.
+     */
+    const WINDOW_DAYS = 30;
+    const since = now.getTime() - WINDOW_DAYS * DAY;
+    const arrived = all.filter(c => new Date(c.createdAt).getTime() >= since).length;
+    const closed = all.filter(c => c.resolvedAt && new Date(c.resolvedAt).getTime() >= since).length;
+    const flow = { windowDays: WINDOW_DAYS, arrived, closed, net: arrived - closed };
+
+    /**
+     * Blocks ranked by how long their oldest case has waited, not by volume.
+     * A block with three complaints untouched for six weeks needs the MLA more
+     * than one with twenty filed yesterday, and sorting by count hides that.
+     */
+    const blockAge: Record<string, number[]> = {};
+    for (const c of active) (blockAge[c.block || "Unknown"] ||= []).push(ageDays(c.createdAt));
+    const stuck = Object.entries(blockAge)
+      .map(([block, ages]) => ({
+        block,
+        open: ages.length,
+        oldestDays: Math.round(Math.max(...ages)),
+        overMonth: ages.filter(a => a > 30).length,
+      }))
+      .sort((a, b) => b.oldestDays - a.oldestDays || b.open - a.open);
+
     return NextResponse.json({
       data: {
         constituency: requestedConstituency,
@@ -202,6 +278,11 @@ export async function GET(request: NextRequest) {
         recent_complaints: all.slice(0, 20),
         recently_resolved: recentlyResolved,
         sla_breached_list: slaBreached.slice(0, 5),
+        // Analytics
+        ageing,
+        speed,
+        flow,
+        stuck,
       }
     });
 
