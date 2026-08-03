@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       .from("complaints")
       .select(`
         id, status, category, urgency, block, district,
-        createdAt, updatedAt, satisfactionRating,
+        createdAt, updatedAt, "resolvedAt", satisfactionRating,
         assignedOfficerName, assignedToId, ticketNo,
         citizenName, issue, village, constituency, assembly_constituency
       `)
@@ -103,15 +103,42 @@ export async function GET(request: NextRequest) {
       else if (!["REJECTED","CLOSED"].includes(c.status)) blockMap[blk].active++;
     });
 
-    // Monthly trend last 6 months
+    // Monthly trend.
+    //
+    // Three things this has to get right, each of which it used to get wrong:
+    //
+    // 1. Order. The rows were emitted in insertion order, and `all` is sorted
+    //    newest-first, so the chart plotted Jul, Jun, May, Apr left to right —
+    //    time ran backwards and a falling complaint count drew as a rising line.
+    // 2. Year. Buckets were keyed on the month name alone, so next April would
+    //    have been added straight onto this April's bar.
+    // 3. What "resolved" counts. It was counting complaints *filed* in a month
+    //    that are resolved today, so a case filed in April and closed in July
+    //    scored against April. The two series were therefore never comparable:
+    //    you could not see closures lagging behind arrivals, which is the whole
+    //    reason to plot them together. It now counts closures in the month they
+    //    actually happened.
     const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const bucketOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const trendMap: Record<string,{filed:number;resolved:number}> = {};
+    const touch = (key: string) => (trendMap[key] ||= { filed:0, resolved:0 });
+
     all.forEach(c => {
-      const d = new Date(c.createdAt);
-      const key = monthNames[d.getMonth()];
-      if (!trendMap[key]) trendMap[key] = { filed:0, resolved:0 };
-      trendMap[key].filed++;
-      if (c.status === "RESOLVED") trendMap[key].resolved++;
+      touch(bucketOf(new Date(c.createdAt))).filed++;
+      // Fall back to updatedAt only if a resolved row somehow has no resolvedAt,
+      // so a closure is never dropped from the chart entirely.
+      const closedOn = c.status === "RESOLVED" ? (c.resolvedAt || c.updatedAt) : null;
+      if (closedOn) touch(bucketOf(new Date(closedOn))).resolved++;
+    });
+
+    // Chronological, and labelled with the year only once the range crosses one,
+    // so a single-year seat keeps the short "Apr" label it reads better with.
+    const trendKeys = Object.keys(trendMap).sort();
+    const spansYears = new Set(trendKeys.map(k => k.slice(0, 4))).size > 1;
+    const trend = trendKeys.map(key => {
+      const [y, m] = key.split("-");
+      const label = monthNames[Number(m) - 1];
+      return { date: spansYears ? `${label} ${y.slice(2)}` : label, ...trendMap[key] };
     });
 
     // Officer performance
@@ -170,8 +197,7 @@ export async function GET(request: NextRequest) {
         by_block: Object.entries(blockMap)
           .map(([block, v]) => ({ block, ...v }))
           .sort((a,b) => b.total - a.total),
-        trend: Object.entries(trendMap)
-          .map(([date, v]) => ({ date, ...v })),
+        trend,
         officers,
         recent_complaints: all.slice(0, 20),
         recently_resolved: recentlyResolved,

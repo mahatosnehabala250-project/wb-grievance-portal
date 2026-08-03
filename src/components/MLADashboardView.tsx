@@ -102,13 +102,17 @@ const CONST_THEME: Record<string,{ gradient: string; color: string; emoji: strin
 };
 
 /* ─── Mini Components ────────────────────────────────────── */
+/**
+ * Counts are printed, not animated.
+ *
+ * This used to tick up from zero over ~half a second. On a dashboard people
+ * glance at rather than watch, that means the first thing an MLA sees is a
+ * number that is simply wrong — the banner and the cards below it disagreed on
+ * screen for as long as the animation ran, which reads as broken data. Nothing
+ * is gained that is worth a wrong figure, however briefly.
+ */
 function AnimNum({ n, suffix='' }: { n:number; suffix?:string }) {
-  const [v, setV] = useState(0);
-  useEffect(() => {
-    let s=0; const t=setInterval(()=>{s++;setV(Math.min(Math.round((n/20)*s),n));if(s>=20)clearInterval(t);},28);
-    return ()=>clearInterval(t);
-  },[n]);
-  return <>{v}{suffix}</>;
+  return <>{n.toLocaleString('en-IN')}{suffix}</>;
 }
 
 function ScoreDial({ score }: { score: number }) {
