@@ -137,13 +137,16 @@
 }
 
 /* ═══ Glassmorphism Header ═══ */
+/* Nearly opaque on purpose. At 75% the dark command map read straight through
+   the header and the two toolbars smeared into each other; the blur kept the
+   depth cue, so only the transparency had to go. */
 .glass-header {
-  background: oklch(1 0 0 / 75%);
+  background: oklch(1 0 0 / 96%);
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
 }
 .dark .glass-header {
-  background: oklch(0.145 0 0 / 75%);
+  background: oklch(0.145 0 0 / 96%);
 }
 
 /* ═══ Glassmorphism Sidebar ═══ */

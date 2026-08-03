@@ -562,12 +562,13 @@ export function MapView() {
   const dim = (s: string) => ({ color: s });
 
   return (
-    // Sized to the viewport rather than to its content, and pinned below the app
-    // header. As `h-full` inside an auto-height parent the panel grew past the
-    // fold, so the page scrolled and the map's own toolbar slid up under the
-    // translucent header — two toolbars smeared over each other. Sticky keeps it
-    // parked there however far the footer below is scrolled.
-    <div className="flex flex-col sticky top-[57px] h-[calc(100svh-13rem)] lg:h-[calc(100svh-8.5rem)] min-h-[520px]" style={{ background: MAPBG }}>
+    // Sized to the viewport rather than to its content: as `h-full` inside an
+    // auto-height parent the panel grew past the fold and dragged the whole page
+    // into scrolling. (Sticky was tried here and does nothing — the panel fills
+    // its containing block exactly, so it has no room to slide within it. The
+    // smearing it was meant to fix came from the header's transparency, which is
+    // fixed in globals.css instead.)
+    <div className="flex flex-col h-[calc(100svh-13rem)] lg:h-[calc(100svh-8.5rem)] min-h-[520px]" style={{ background: MAPBG }}>
       <style>{`.crit-pulse{width:8px;height:8px;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 0 rgba(239,68,68,0.5);animation:critpulse 1.8s ease-out infinite}@keyframes critpulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,0.5)}70%{box-shadow:0 0 0 15px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}.v-search-item:hover{background:rgba(34,211,238,0.12)}@keyframes reticle{0%{box-shadow:0 0 12px #22d3ee,inset 0 0 6px #22d3ee}50%{box-shadow:0 0 22px #22d3ee,inset 0 0 11px #22d3ee}100%{box-shadow:0 0 12px #22d3ee,inset 0 0 6px #22d3ee}}`}</style>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-2.5 flex-wrap flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: PANEL }}>
