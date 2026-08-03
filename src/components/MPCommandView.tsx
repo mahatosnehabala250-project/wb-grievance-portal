@@ -568,7 +568,7 @@ export function MPCommandView() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 pb-3">
-                  <ChartContainer className="h-[150px]" config={{
+                  <ChartContainer className="h-[150px] w-full" config={{
                     f: { label: 'Filed', color: '#FF6B00' },
                     r: { label: 'Resolved', color: '#10B981' },
                   }}>
@@ -603,7 +603,7 @@ export function MPCommandView() {
                 <CardContent className="px-4 pb-3">
                   {pieData.length > 0 ? (
                     <div className="space-y-3">
-                      <ChartContainer className="h-[90px]" config={{}}>
+                      <ChartContainer className="h-[90px] w-full" config={{}}>
                         <PieChart>
                           <Pie data={pieData} cx="50%" cy="50%" innerRadius={28} outerRadius={42} paddingAngle={3} dataKey="value">
                             {pieData.map(entry => (

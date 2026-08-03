@@ -51,7 +51,10 @@ interface MLAStats {
   speed:  { resolvedCount:number; medianDays:number|null; slowestTenthDays:number|null; oldestOpenDays:number };
   flow:   { windowDays:number; arrived:number; closed:number; net:number };
   stuck:  { block:string; open:number; oldestDays:number; overMonth:number }[];
+  stale_list: (Complaint & { daysWaiting:number; assignedToId:string|null })[];
 }
+
+interface Assignee { id:string; name:string; role:string; block:string|null }
 
 interface Complaint {
   id: string; ticketNo: string; citizenName: string;
@@ -188,6 +191,8 @@ export function MLADashboardView() {
   const [catF, setCatF]   = useState('ALL');
   const [urgF, setUrgF]   = useState('ALL');
   const [lastSync, setLastSync] = useState(new Date());
+  const [assignees, setAssignees] = useState<Assignee[]>([]);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async (silent=false) => {
     if (!constituency) return;
@@ -215,6 +220,42 @@ export function MLADashboardView() {
     const iv = setInterval(() => load(true), 60000);
     return () => clearInterval(iv);
   }, [load]);
+
+  // Who a case can be handed to. Loaded once; the endpoint already returns only
+  // people inside the caller's jurisdiction.
+  useEffect(() => {
+    fetch('/api/users/list', { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => setAssignees(j?.users || []))
+      .catch(() => {});
+  }, []);
+
+  /**
+   * Hand a complaint to someone, from the dashboard.
+   *
+   * The page could say a case had waited 119 days but offered no way to do
+   * anything about it, so reading it changed nothing. Assigning also moves the
+   * case to ASSIGNED — leaving it REGISTERED after naming an owner would let it
+   * keep counting as untouched.
+   */
+  const assignTo = async (complaintId: string, userId: string) => {
+    setBusyId(complaintId);
+    try {
+      const res = await fetch(`/api/complaints/${complaintId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ assignedToId: userId, status: 'ASSIGNED' }),
+      });
+      if (res.ok) {
+        toast.success('Assigned');
+        await load(true);
+      } else {
+        const j = await res.json().catch(() => null);
+        toast.error(j?.error || 'Could not assign');
+      }
+    } catch { toast.error('Network error'); }
+    finally { setBusyId(null); }
+  };
 
   if (!constituency) return (
     <div className="flex-1 flex items-center justify-center">
@@ -445,7 +486,7 @@ export function MLADashboardView() {
                 </CardHeader>
                 <CardContent className="px-4 pb-3">
                   {d.trend.length > 0 ? (
-                    <ChartContainer className="h-[140px]" config={{
+                    <ChartContainer className="h-[140px] w-full" config={{
                       filed:    { label:'Filed',    color: theme.color  },
                       resolved: { label:'Resolved', color: '#10B981' },
                     }}>
@@ -553,6 +594,70 @@ export function MLADashboardView() {
                   <p className="text-[10px] text-muted-foreground mt-2">
                     The right-hand figure is the age of that block&rsquo;s oldest complaint still open.
                   </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* ── The waiting list, with a way to act on it ──
+                Everything above this point describes the backlog; none of it
+                changed anything. These are the actual cases behind those
+                numbers, oldest and unowned first, each with the one action an
+                MLA can take from here: give it to somebody. */}
+            {d.stale_list && d.stale_list.length > 0 && (
+              <Card className="border shadow-sm">
+                <CardHeader className="pb-1 pt-3 px-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <ShieldAlert className="w-3.5 h-3.5" /> Waiting longest — hand these out first
+                    </CardTitle>
+                    <span className="text-[11px] text-muted-foreground">
+                      {d.stale_list.filter(c => !c.assignedToId).length} with nobody assigned
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent className="px-4 pb-3">
+                  <div className="divide-y">
+                    {d.stale_list.slice(0, 10).map(c => {
+                      const cfg = CAT_CFG[c.category] || CAT_CFG.OTHER;
+                      const urg = URG_CFG[c.urgency];
+                      return (
+                        <div key={c.id} className="flex items-center gap-3 py-2">
+                          <cfg.icon className="w-3.5 h-3.5 shrink-0" style={{ color: cfg.color }} />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[13px] truncate">{c.issue || c.ticketNo}</div>
+                            <div className="text-[10px] text-muted-foreground truncate">
+                              {c.ticketNo} · {c.block}
+                              {c.assignedOfficerName ? ` · with ${c.assignedOfficerName}` : ' · nobody assigned'}
+                            </div>
+                          </div>
+                          {urg && c.urgency === 'CRITICAL' && (
+                            <Badge className={`text-[10px] border-0 ${urg.bg} ${urg.text} shrink-0`}>Critical</Badge>
+                          )}
+                          <span className="text-[13px] font-semibold tabular-nums w-14 text-right shrink-0">
+                            {c.daysWaiting}d
+                          </span>
+                          <Select disabled={busyId === c.id} onValueChange={(v) => assignTo(c.id, v)}>
+                            <SelectTrigger className="h-7 w-[140px] text-xs shrink-0">
+                              <SelectValue placeholder={busyId === c.id ? 'Assigning…' : 'Assign to…'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {assignees.map(u => (
+                                <SelectItem key={u.id} value={u.id} className="text-xs">
+                                  {u.name}{u.block && u.block !== 'ALL' ? ` · ${u.block}` : ''}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {d.stale_list.length > 10 && (
+                    <button type="button" onClick={() => setTab('complaints')}
+                            className="text-[11px] text-muted-foreground hover:text-foreground mt-2">
+                      {d.stale_list.length - 10} more waiting →
+                    </button>
+                  )}
                 </CardContent>
               </Card>
             )}

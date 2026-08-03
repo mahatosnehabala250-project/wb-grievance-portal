@@ -283,6 +283,21 @@ export async function GET(request: NextRequest) {
         speed,
         flow,
         stuck,
+        /**
+         * The oldest open cases, ready to act on.
+         *
+         * `recent_complaints` is the newest twenty, which is exactly the wrong
+         * end for this: the cases that need an MLA are the ones nobody has
+         * touched, and those are the oldest. Unassigned first within the same
+         * age, because an unowned complaint has nobody to chase.
+         */
+        stale_list: active
+          .map(c => ({ ...c, daysWaiting: Math.round(ageDays(c.createdAt)) }))
+          .sort((a, b) =>
+            (a.assignedToId ? 1 : 0) - (b.assignedToId ? 1 : 0) ||
+            b.daysWaiting - a.daysWaiting
+          )
+          .slice(0, 25),
       }
     });
 
