@@ -168,6 +168,18 @@ const TABLE_NAMES: Record<string, string> = {
   feedback: 'feedback',
 }
 
+/**
+ * Which tables actually carry an `updatedAt` column.
+ *
+ * Only complaints and users do. The others are append-only records — a log
+ * entry, a comment, a feedback row — and were never given one. create() used to
+ * stamp `updatedAt` on every insert regardless, so every write to those three
+ * tables was rejected by PostgREST for referencing a column that does not
+ * exist. Silently, because the thrown error surfaced only as a 500 from
+ * whatever route happened to be logging.
+ */
+const MODELS_WITH_UPDATED_AT = new Set(['user', 'complaint'])
+
 /** Maps Prisma relation names to Supabase table names per model. */
 const RELATION_MAP: Record<string, Record<string, string>> = {
   complaint: { activities: 'activity_logs', comments: 'comments' },
@@ -464,7 +476,9 @@ class SupabaseModelAdapter {
       ...(args.data.id ? {} : { id: randomUUID() }),
       // Auto-set timestamps
       ...(args.data.createdAt ? {} : { createdAt: now }),
-      ...(args.data.updatedAt ? {} : { updatedAt: now }),
+      ...(args.data.updatedAt || !MODELS_WITH_UPDATED_AT.has(this.modelName)
+        ? {}
+        : { updatedAt: now }),
     }
 
     const selectStr = this.buildSelectString({ select: args.select })
@@ -529,7 +543,9 @@ class SupabaseModelAdapter {
       ...serializeDates(row),
       ...(row.id ? {} : { id: randomUUID() }),
       ...(row.createdAt ? {} : { createdAt: now }),
-      ...(row.updatedAt ? {} : { updatedAt: now }),
+      ...(row.updatedAt || !MODELS_WITH_UPDATED_AT.has(this.modelName)
+        ? {}
+        : { updatedAt: now }),
     }))
 
     const { data, error } = await this.supabase.from(this.tableName).insert(rows)
