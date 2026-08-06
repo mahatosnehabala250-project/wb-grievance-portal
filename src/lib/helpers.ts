@@ -1,4 +1,5 @@
 import { STATUS_MAP, URGENCY_MAP, ROLE_MAP, CATEGORY_LABELS } from './constants';
+import { slaLevel, type SlaLevel } from './sla';
 
 export function fmtDate(s: string) {
   if (!s) return 'N/A';
@@ -48,18 +49,27 @@ export function getDaysOld(createdAt: string): number {
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 }
 
-export function getSLAInfo(createdAt: string, status: string): { days: number; level: 'ok' | 'warning' | 'breached'; color: string; bg: string; text: string } {
+/**
+ * SLA state for one complaint, coloured for the list and the detail dialog.
+ *
+ * Urgency used to be ignored here: anything past seven days was breached and
+ * anything past three was a warning, whatever its priority. So a critical case
+ * two days old looked fine in the list while the map counted it as breached.
+ * The judgement now comes from lib/sla, which every other surface uses too.
+ *
+ * `urgency` is optional so older call sites keep compiling; when it is absent
+ * the case is treated as MEDIUM, which is what the previous rule roughly meant.
+ */
+export function getSLAInfo(createdAt: string, status: string, urgency?: string | null): { days: number; level: SlaLevel; color: string; bg: string; text: string } {
   const days = getDaysOld(createdAt);
-  if (status === 'RESOLVED' || status === 'REJECTED') {
-    return { days, level: 'ok', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-700 dark:text-emerald-400' };
+  const level = slaLevel(createdAt, urgency, status);
+  if (level === 'breached') {
+    return { days, level, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950/40', text: 'text-red-700 dark:text-red-400' };
   }
-  if (days > 7) {
-    return { days, level: 'breached', color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950/40', text: 'text-red-700 dark:text-red-400' };
+  if (level === 'warning') {
+    return { days, level, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/40', text: 'text-amber-700 dark:text-amber-400' };
   }
-  if (days >= 3) {
-    return { days, level: 'warning', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/40', text: 'text-amber-700 dark:text-amber-400' };
-  }
-  return { days, level: 'ok', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-700 dark:text-emerald-400' };
+  return { days, level, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-700 dark:text-emerald-400' };
 }
 
 export function playNotificationSound() {

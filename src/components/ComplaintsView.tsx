@@ -677,7 +677,7 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
                         <TableCell className="text-xs text-muted-foreground">{fmtDate(c.createdAt)}</TableCell>
                         <TableCell>
                           {(() => {
-                            const sla = getSLAInfo(c.createdAt, c.status);
+                            const sla = getSLAInfo(c.createdAt, c.status, c.urgency);
                             return (
                               <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${sla.bg} ${sla.text}`}>
                                 {sla.level === 'breached' && <Flame className="h-3 w-3" />}

@@ -14,6 +14,7 @@ import { db } from '@/lib/db';
 import { getComplaintScopeFilter, JWTPayload } from '@/lib/jwt';
 import { canMutateComplaints, getUserListScope } from '@/lib/rbac';
 import { createClient } from '@supabase/supabase-js';
+import { SLA_DAYS } from '@/lib/sla';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -156,7 +157,6 @@ export async function computeIntelligenceBrief(payload: JWTPayload): Promise<Int
   const officers: Record<string, { total: number; resolved: number; active: number }> = {};
   const weeks: Record<string, { filed: number; resolved: number }> = {};
 
-  const SLA_DAYS: Record<string, number> = { CRITICAL: 0.25, HIGH: 1, MEDIUM: 3, LOW: 7 };
 
   for (const c of complaints) {
     total++;
@@ -458,7 +458,7 @@ const FORECAST_CAVEATS = [
   'Revisit after 12+ months of history (ideally 2 full years) and after resolution timestamps are backfilled before treating any output as a calibrated forecast.',
 ];
 
-const FC_SLA_DAYS: Record<string, number> = { CRITICAL: 0.25, HIGH: 1, MEDIUM: 3, LOW: 7 };
+const FC_SLA_DAYS = SLA_DAYS;
 
 export interface ForecastResult {
   scope: { level: string; label: string; subAreaLabel: string; generatedAt: string };
@@ -982,7 +982,7 @@ export interface ActionQueue {
   caveats: string[];
 }
 
-const OPS_SLA_DAYS: Record<string, number> = { CRITICAL: 0.25, HIGH: 1, MEDIUM: 3, LOW: 7 };
+const OPS_SLA_DAYS = SLA_DAYS;
 const URG_ORDER = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 const URG_WEIGHT: Record<string, number> = { CRITICAL: 100, HIGH: 70, MEDIUM: 40, LOW: 15 };
 // Higher = handle first when one ticket qualifies for several actions.

@@ -95,7 +95,7 @@ export function GovernanceDashboardView() {
       if (new Date(c.createdAt).getTime() >= sevenDayAgo) last7++;
       const active = !['RESOLVED', 'REJECTED', 'CLOSED'].includes(s);
       if (active) {
-        const sla = getSLAInfo(c.createdAt, s);
+        const sla = getSLAInfo(c.createdAt, s, c.urgency);
         if (sla.level === 'breached') slaBreached++;
       }
     }
@@ -470,7 +470,7 @@ export function GovernanceDashboardView() {
                 </div>
                 <div className="space-y-2">
                   {filtered.map(c => {
-                    const sla = getSLAInfo(c.createdAt, c.status);
+                    const sla = getSLAInfo(c.createdAt, c.status, c.urgency);
                     return (
                       <Card key={c.id} className="border shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => openDetail(c)}>
                         <CardContent className="p-3 flex items-center justify-between gap-3">

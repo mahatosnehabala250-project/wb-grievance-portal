@@ -390,7 +390,7 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
     RATED: { color: '#F59E0B', icon: Star },
   };
 
-  const slaInfo = getSLAInfo(complaint.createdAt, complaint.status);
+  const slaInfo = getSLAInfo(complaint.createdAt, complaint.status, complaint.urgency);
   const canEscalate = (complaint.status === 'OPEN' || complaint.status === 'IN_PROGRESS') && complaint.urgency !== 'CRITICAL';
 
   return (

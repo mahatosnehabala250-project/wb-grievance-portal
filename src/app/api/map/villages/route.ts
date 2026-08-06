@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
 import { createClient } from '@supabase/supabase-js';
 import { normBlock, prettyBlock } from '@/lib/block-name';
+import { SLA_DAYS } from '@/lib/sla';
 
 /**
  * GET /api/map/villages — scope-locked VILLAGE-level intelligence for the
@@ -46,7 +47,7 @@ const num = (v: unknown): number | null => {
 const norm = (s: string) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 const ACTIVE = new Set(['OPEN', 'IN_PROGRESS', 'REGISTERED', 'ASSIGNED']);
-const SLA_DAYS: Record<string, number> = { CRITICAL: 0.25, HIGH: 1, MEDIUM: 3, LOW: 7 };
+
 
 interface Agg { code: string; name: string; lat: number; lng: number; total: number; active: number; critical: number; resolved: number; slaBreached: number; cats: Record<string, number>; }
 

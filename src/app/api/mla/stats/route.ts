@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getAuthUser } from "@/lib/jwt";
 import { canAccessAssembly } from "@/lib/rbac";
+import { isBreached } from "@/lib/sla";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -158,12 +159,9 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a,b) => b.score - a.score);
 
-    // SLA analysis
-    const slaBreached = active.filter(c => {
-      const slaDays: Record<string,number> = { CRITICAL:0.25, HIGH:1, MEDIUM:3, LOW:7 };
-      const days = slaDays[c.urgency] || 3;
-      return (now.getTime() - new Date(c.createdAt).getTime()) > days * 86400000;
-    });
+    // SLA analysis — thresholds come from lib/sla so this can never drift away
+    // from the map, the intelligence routes or the complaint list again.
+    const slaBreached = active.filter(c => isBreached(c.createdAt, c.urgency, c.status, now));
 
     // Recent resolved (for achievement display)
     const recentlyResolved = resolved

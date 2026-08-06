@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
 import { createClient } from '@supabase/supabase-js';
+import { SLA_DAYS } from '@/lib/sla';
 
 /**
  * GET /api/map/risk — scope-locked geospatial risk data per block (Level 5).
@@ -31,7 +32,7 @@ const dt = (v: unknown): Date | null => {
 };
 
 const ACTIVE = new Set(['OPEN', 'IN_PROGRESS', 'REGISTERED', 'ASSIGNED']);
-const SLA_DAYS: Record<string, number> = { CRITICAL: 0.25, HIGH: 1, MEDIUM: 3, LOW: 7 };
+
 
 export async function GET(request: NextRequest) {
   try {
