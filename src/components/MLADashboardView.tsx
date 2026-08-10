@@ -280,7 +280,29 @@ export function MLADashboardView() {
     </div>
   );
 
-  const d = data!;
+  // A first load that failed used to read straight through `data!` and throw,
+  // replacing the MLA's home screen with the error boundary — on the one page a
+  // client sees first, and for a fault that is usually a passing upstream blip.
+  // Later polls already keep the last good numbers on screen; this is the same
+  // courtesy for the very first one.
+  if (!data) return (
+    <div className="flex-1 flex items-center justify-center p-6">
+      <Card className="max-w-md w-full border-0 shadow-sm">
+        <CardContent className="p-6 text-center">
+          <AlertTriangle className="h-8 w-8 mx-auto mb-3 text-red-500" />
+          <p className="text-sm font-semibold text-foreground">Could not load {constituency} data</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            The server did not answer. Nothing has changed in your records.
+          </p>
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs mt-4" onClick={() => load()}>
+            <RefreshCw className="h-3.5 w-3.5" /> Try again
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  const d = data;
   const complaints = d?.recent_complaints || [];
 
   // Filtered complaints
