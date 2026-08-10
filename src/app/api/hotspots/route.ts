@@ -117,7 +117,10 @@ export async function GET(request: NextRequest) {
       // every urgent complaint permanently breached however new it was — and it
       // never checked whether the case was still open, so gram panchayats were
       // listed with zero open complaints and two breaches at the same time.
-      if (isOpen && isBreached(str(c, 'createdAt'), urgency, status)) g.breached++;
+      // Not str(): the adapter turns createdAt into a Date, and str() only
+      // returns strings, so routing it through there handed isBreached an empty
+      // string and nothing was ever counted as late.
+      if (isOpen && isBreached(c.createdAt as string | Date, urgency, status)) g.breached++;
     }
 
     const allHotspots = Object.values(groups).map((g) => {
