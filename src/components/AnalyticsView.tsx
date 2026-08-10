@@ -58,6 +58,7 @@ import type { Complaint, ActivityLogEntry, AssignableUser, AppUser, DashboardDat
 import { NAVY, NAVY_DARK, STATUS_MAP, URGENCY_MAP, URGENCY_BORDER_MAP, ROLE_MAP, ROLE_COLORS, CATEGORIES, CATEGORY_COLORS } from '@/lib/constants';
 import { fmtDate, fmtDateTime, fmtStatus, fmtUrgency, fmtRole, safeGetLocalStorage, safeSetLocalStorage, authHeaders, getDaysOld, getSLAInfo, playNotificationSound } from '@/lib/helpers';
 import { StatusBadge, UrgencyBadge, RoleBadge, StatCard, MiniStat, PieLabel, LoadingSkeleton, EmptyState } from '@/components/common';
+import { dbDate, dbTime } from '@/lib/db-time';
 export function AnalyticsView() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
@@ -104,14 +105,14 @@ export function AnalyticsView() {
   // Average resolution time
   const resolvedComplaints = complaints.filter((c) => c.status === 'RESOLVED' && c.createdAt && c.updatedAt);
   const avgResolutionMs = resolvedComplaints.length > 0
-    ? resolvedComplaints.reduce((sum, c) => sum + (new Date(c.updatedAt).getTime() - new Date(c.createdAt).getTime()), 0) / resolvedComplaints.length
+    ? resolvedComplaints.reduce((sum, c) => sum + (dbTime(c.updatedAt) - dbTime(c.createdAt)), 0) / resolvedComplaints.length
     : 0;
   const avgResolutionHours = Math.round(avgResolutionMs / (1000 * 60 * 60) * 10) / 10;
   const avgResolutionDays = Math.round(avgResolutionHours / 24 * 10) / 10;
 
   // SLA Compliance (48 hours)
   const withinSLA = resolvedComplaints.filter((c) => {
-    const diff = new Date(c.updatedAt).getTime() - new Date(c.createdAt).getTime();
+    const diff = dbTime(c.updatedAt) - dbTime(c.createdAt);
     return diff <= 48 * 60 * 60 * 1000;
   }).length;
   const slaCompliance = resolvedComplaints.length > 0 ? Math.round((withinSLA / resolvedComplaints.length) * 100) : 0;
@@ -172,7 +173,7 @@ export function AnalyticsView() {
   ];
   const responseTimeData = responseTimeBuckets.map(bucket => {
     const count = resolvedComplaints.filter(c => {
-      const days = (new Date(c.updatedAt).getTime() - new Date(c.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+      const days = (dbTime(c.updatedAt) - dbTime(c.createdAt)) / (1000 * 60 * 60 * 24);
       return days >= bucket.min && days < bucket.max;
     }).length;
     const pct = resolvedComplaints.length > 0 ? Math.round((count / resolvedComplaints.length) * 100) : 0;
@@ -186,8 +187,8 @@ export function AnalyticsView() {
   const thisYear = now.getFullYear();
   const lastMonthIdx = thisMonthIdx === 0 ? 11 : thisMonthIdx - 1;
   const lastMonthYear = thisMonthIdx === 0 ? thisYear - 1 : thisYear;
-  const thisMonthComplaints = complaints.filter(c => { const d = new Date(c.createdAt); return d.getMonth() === thisMonthIdx && d.getFullYear() === thisYear; });
-  const lastMonthComplaints = complaints.filter(c => { const d = new Date(c.createdAt); return d.getMonth() === lastMonthIdx && d.getFullYear() === lastMonthYear; });
+  const thisMonthComplaints = complaints.filter(c => { const d = (dbDate(c.createdAt) as Date); return d.getMonth() === thisMonthIdx && d.getFullYear() === thisYear; });
+  const lastMonthComplaints = complaints.filter(c => { const d = (dbDate(c.createdAt) as Date); return d.getMonth() === lastMonthIdx && d.getFullYear() === lastMonthYear; });
   const thisMonthTotal = thisMonthComplaints.length;
   const lastMonthTotal = lastMonthComplaints.length;
   const thisMonthResolved = thisMonthComplaints.filter(c => c.status === 'RESOLVED').length;
@@ -196,8 +197,8 @@ export function AnalyticsView() {
   const lastMonthResRate = lastMonthTotal > 0 ? Math.round((lastMonthResolved / lastMonthTotal) * 100) : 0;
   const thisMonthResolvedList = thisMonthComplaints.filter(c => c.status === 'RESOLVED' && c.updatedAt);
   const lastMonthResolvedList = lastMonthComplaints.filter(c => c.status === 'RESOLVED' && c.updatedAt);
-  const avgTimeThisMonth = thisMonthResolvedList.length > 0 ? Math.round(thisMonthResolvedList.reduce((s, c) => s + (new Date(c.updatedAt).getTime() - new Date(c.createdAt).getTime()), 0) / thisMonthResolvedList.length / (1000 * 60 * 60 * 24) * 10) / 10 : 0;
-  const avgTimeLastMonth = lastMonthResolvedList.length > 0 ? Math.round(lastMonthResolvedList.reduce((s, c) => s + (new Date(c.updatedAt).getTime() - new Date(c.createdAt).getTime()), 0) / lastMonthResolvedList.length / (1000 * 60 * 60 * 24) * 10) / 10 : 0;
+  const avgTimeThisMonth = thisMonthResolvedList.length > 0 ? Math.round(thisMonthResolvedList.reduce((s, c) => s + (dbTime(c.updatedAt) - dbTime(c.createdAt)), 0) / thisMonthResolvedList.length / (1000 * 60 * 60 * 24) * 10) / 10 : 0;
+  const avgTimeLastMonth = lastMonthResolvedList.length > 0 ? Math.round(lastMonthResolvedList.reduce((s, c) => s + (dbTime(c.updatedAt) - dbTime(c.createdAt)), 0) / lastMonthResolvedList.length / (1000 * 60 * 60 * 24) * 10) / 10 : 0;
 
   // ── Performance Scorecard ──
   const resolutionRate = stats.total > 0 ? Math.round((stats.resolved / stats.total) * 100) : 0;

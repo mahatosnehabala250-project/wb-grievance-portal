@@ -12,6 +12,7 @@ import { NAVY } from '@/lib/constants';
 import { authHeaders, getDaysOld, getSLAInfo } from '@/lib/helpers';
 import { StatusBadge, UrgencyBadge } from '@/components/common';
 import type { Complaint } from '@/lib/types';
+import { dbDate, dbTime } from '@/lib/db-time';
 
 interface TicketResult {
   ticketNo: string;
@@ -263,14 +264,14 @@ export function TicketTrackerDialog({ open, onOpenChange, initialTicket }: Ticke
                     <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Filed On</p>
                     <p className="text-sm font-medium mt-1 flex items-center gap-1">
                       <CalendarDays className="h-3 w-3" />
-                      {new Date(result.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {(dbDate(result.createdAt) as Date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
                   </div>
                   <div className="p-3 rounded-lg bg-muted/20 border border-border/30">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Last Update</p>
                     <p className="text-sm font-medium mt-1 flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {new Date(result.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {(dbDate(result.updatedAt) as Date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
                   </div>
                 </div>

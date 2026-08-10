@@ -23,6 +23,7 @@ import type { AuditEntry } from '@/lib/types';
 import { NAVY, NAVY_DARK } from '@/lib/constants';
 import { fmtDateTime, authHeaders, safeGetLocalStorage, safeSetLocalStorage } from '@/lib/helpers';
 import { EmptyState } from '@/components/common';
+import { dbDate, dbTime } from '@/lib/db-time';
 
 const PAGE_SIZE = 20;
 
@@ -152,7 +153,7 @@ export function AuditLogView() {
           const startDate = getStartDate(dateRange);
           if (startDate) {
             filteredEntries = filteredEntries.filter((e: AuditEntry) =>
-              new Date(e.createdAt) >= new Date(startDate)
+              (dbDate(e.createdAt) as Date) >= new Date(startDate)
             );
           }
         }

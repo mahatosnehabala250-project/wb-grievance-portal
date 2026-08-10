@@ -1,14 +1,17 @@
 import { STATUS_MAP, URGENCY_MAP, ROLE_MAP, CATEGORY_LABELS } from './constants';
 import { slaLevel, type SlaLevel } from './sla';
+import { dbDate, dbTime, IST } from './db-time';
 
 export function fmtDate(s: string) {
-  if (!s) return 'N/A';
-  return new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const d = dbDate(s);
+  if (!d) return 'N/A';
+  return d.toLocaleDateString('en-IN', { timeZone: IST, day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 export function fmtDateTime(s: string) {
-  if (!s) return 'N/A';
-  return new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const d = dbDate(s);
+  if (!d) return 'N/A';
+  return d.toLocaleDateString('en-IN', { timeZone: IST, day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 export function fmtStatus(status: string) {
@@ -43,10 +46,9 @@ export function authHeaders(): Record<string, string> {
 }
 
 export function getDaysOld(createdAt: string): number {
-  const now = new Date();
-  const created = new Date(createdAt);
-  const diffMs = now.getTime() - created.getTime();
-  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const created = dbTime(createdAt);
+  if (Number.isNaN(created)) return 0;
+  return Math.floor((Date.now() - created) / (1000 * 60 * 60 * 24));
 }
 
 /**

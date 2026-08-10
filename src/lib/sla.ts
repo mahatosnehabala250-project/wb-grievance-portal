@@ -17,6 +17,8 @@
  * late.
  */
 
+import { dbDate } from './db-time';
+
 export const SLA_DAYS: Record<string, number> = {
   CRITICAL: 1,
   HIGH: 3,
@@ -35,7 +37,9 @@ const DAY_MS = 86_400_000;
 
 /** When this complaint becomes late. */
 export function slaDeadline(createdAt: string | Date, urgency: string | null | undefined): Date {
-  const start = createdAt instanceof Date ? createdAt : new Date(createdAt);
+  // dbDate, not new Date: a database timestamp arrives with no zone marker and
+  // would otherwise be read as local time in the browser.
+  const start = dbDate(createdAt) ?? new Date(NaN);
   return new Date(start.getTime() + slaDaysFor(urgency) * DAY_MS);
 }
 
@@ -72,7 +76,8 @@ export function slaLevel(
   now: Date = new Date(),
 ): SlaLevel {
   if (status && CLOSED.has(String(status).toUpperCase())) return 'ok';
-  const start = createdAt instanceof Date ? createdAt : new Date(createdAt);
+  const start = dbDate(createdAt);
+  if (!start) return 'ok';
   const elapsed = (now.getTime() - start.getTime()) / DAY_MS;
   const allowed = slaDaysFor(urgency);
   if (elapsed > allowed) return 'breached';

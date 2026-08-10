@@ -22,6 +22,7 @@ import { authHeaders, fmtDate, getSLAInfo } from '@/lib/helpers';
 import { StatusBadge, UrgencyBadge } from '@/components/common';
 import { ComplaintDetailDialog } from '@/components/ComplaintDetailDialog';
 import type { Complaint } from '@/lib/types';
+import { dbDate, dbTime } from '@/lib/db-time';
 
 const CAT_COLORS: Record<string, string> = {
   WATER: '#3B82F6', ROAD: '#F59E0B', HEALTH: '#EF4444', ELECTRICITY: '#EAB308',
@@ -92,7 +93,7 @@ export function GovernanceDashboardView() {
       else if (s === 'REJECTED') rejected++;
       if (c.urgency === 'CRITICAL') critical++;
       if (c.satisfactionRating) ratings.push(c.satisfactionRating);
-      if (new Date(c.createdAt).getTime() >= sevenDayAgo) last7++;
+      if (dbTime(c.createdAt) >= sevenDayAgo) last7++;
       const active = !['RESOLVED', 'REJECTED', 'CLOSED'].includes(s);
       if (active) {
         const sla = getSLAInfo(c.createdAt, s, c.urgency);
@@ -155,7 +156,7 @@ export function GovernanceDashboardView() {
     const now = Date.now(), WK = 7 * 86400000;
     const weeks: Record<number, { filed: number; resolved: number }> = {};
     for (const c of complaints) {
-      const created = new Date(c.createdAt).getTime();
+      const created = dbTime(c.createdAt);
       const wi = Math.floor((now - created) / WK);
       if (wi >= 0 && wi < 8) { (weeks[wi] ??= { filed: 0, resolved: 0 }).filed++; }
       if (c.status === 'RESOLVED') {

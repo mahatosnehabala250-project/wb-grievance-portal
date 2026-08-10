@@ -60,6 +60,7 @@ import { Trophy } from 'lucide-react';
 import { fmtDate, fmtDateTime, fmtStatus, fmtUrgency, fmtRole, safeGetLocalStorage, safeSetLocalStorage, authHeaders, getDaysOld, getSLAInfo, playNotificationSound } from '@/lib/helpers';
 import { useI18nStore } from '@/lib/i18n-store';
 import { StatusBadge, UrgencyBadge, RoleBadge, StatCard, MiniStat, PieLabel, LoadingSkeleton, EmptyState } from '@/components/common';
+import { dbDate, dbTime } from '@/lib/db-time';
 
 interface LeaderboardEntry {
   id: string; name: string; role: string; block: string; district: string | null;
@@ -257,11 +258,11 @@ export function DashboardView({ onNavigate, onDashboardData }: { onNavigate: (id
       nextD.setDate(nextD.getDate() + 1);
       const dayLabel = d.toLocaleDateString('en-IN', { weekday: 'short' });
       const dayTotal = complaints.filter((c) => {
-        const created = new Date(c.createdAt);
+        const created = (dbDate(c.createdAt) as Date);
         return created >= d && created < nextD;
       }).length;
       const dayResolved = complaints.filter((c) => {
-        const updated = new Date(c.updatedAt);
+        const updated = (dbDate(c.updatedAt) as Date);
         return c.status === 'RESOLVED' && updated >= d && updated < nextD;
       }).length;
       days.push({ label: dayLabel, total: dayTotal, resolved: dayResolved });
