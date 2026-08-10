@@ -33,8 +33,20 @@ type AnyRecord = Record<string, unknown>;
 
 const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
 
-/** Does this worker's jurisdiction contain this complaint? */
+/**
+ * May this worker act on this complaint?
+ *
+ * Being handed the complaint is authority in itself. The geographic test below
+ * exists so a worker cannot close a case in someone else's GP by guessing its
+ * ticket number — a threat that simply does not apply once the office has
+ * deliberately given the case to them. Without this first clause an MLA could
+ * assign across areas, the worker would receive the alert with its three
+ * buttons, and every one of them would answer "that complaint is not in your
+ * area": an assignment nobody could ever action.
+ */
 function inWorkerScope(user: AnyRecord, c: AnyRecord): boolean {
+  if (user.id && c.assignedToId && String(user.id) === String(c.assignedToId)) return true;
+
   const villages = Array.isArray(user.assigned_villages) ? (user.assigned_villages as string[]) : null;
   if (villages && villages.length) {
     return villages.some((v) => norm(v) === norm(c.village));
@@ -94,7 +106,7 @@ export async function POST(request: NextRequest) {
 
     const { data: complaint } = await supabase
       .from('complaints')
-      .select('id, "ticketNo", status, village, gp_code, block, district')
+      .select('id, "ticketNo", status, village, gp_code, block, district, "assignedToId"')
       .eq('ticketNo', ticketNo)
       .maybeSingle();
 
