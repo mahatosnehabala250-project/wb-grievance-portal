@@ -1,106 +1,91 @@
-/**
- * n8n Webhook Helper — Cross-Workflow Cascade System
- *
- * Server-side utility for sending notifications to n8n webhooks.
- * All calls are fire-and-forget — failures are logged but never thrown,
- * so they never block the main API response.
- *
- * ┌─────────────────────────────────────────────────────────────────────┐
- * │                    WORKFLOW CASCADE MAP                            │
- * ├─────────────────────────────────────────────────────────────────────┤
- * │  Next.js Event          →  n8n Webhook       →  Workflow           │
- * │  ─────────────────────────────────────────────────────────────────  │
- * │  New Complaint Created  →  /auto-assign       →  WB-02 (Assign)    │
- * │  Status Changed         →  /notify-citizen    →  WB-03 (Notify)    │
- * │  Officer Assigned       →  /notify-officer    →  WB-04 (Notify)    │
- * │  Urgency Escalated      →  /notify-officer    →  WB-04 (Alert)     │
- * │  SLA Batch Escalation   →  /notify-citizen    →  WB-03 (Alert)     │
- * └─────────────────────────────────────────────────────────────────────┘
- *
- * n8n Internal Chains (toolSubWorkflow):
- *   WB-01 (WhatsApp Intake) ──tool──→ WB-02 (Auto-Assign)
- */
-
-const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || '';
-
-/* ══════════════════════════════════════════════════════════════
-   CORE WEBHOOK SENDER
-   ══════════════════════════════════════════════════════════════ */
+import { createClient } from '@supabase/supabase-js';
 
 /**
- * Send a POST request to an n8n webhook path.
- * Errors are caught and logged — this function never throws.
+ * The portal's one outbound automation call: telling a worker a complaint is
+ * theirs.
+ *
+ * Everything else the portal used to "send" went to /auto-assign,
+ * /notify-citizen and /notify-officer — paths that answer 404 on the live n8n.
+ * That work belongs to database triggers instead (trg_js02_triage on insert,
+ * trg_js04_status_update on any status change), so those calls are gone.
+ *
+ * Manual assignment was the gap no trigger covered: trg_js03_dispatch fires
+ * only when n8nProcessed flips true on a REGISTERED complaint, which a
+ * hand-assignment never does. An MLA could give a case to a named worker and
+ * that worker would never hear about it.
+ *
+ * The URL comes from `n8n_webhook_config`, the same table the database triggers
+ * read through get_webhook_url(). It used to come from an N8N_WEBHOOK_URL
+ * environment variable that is not in .env.example and was never set in
+ * production — so sendN8NWebhook logged a warning and returned, and every
+ * cascade this file exposed had been silently doing nothing. One place to
+ * configure a webhook is the point; two, one of them undocumented, is how this
+ * went unnoticed.
  */
-async function sendN8NWebhook(
-  webhookPath: string,
-  payload: Record<string, unknown>,
-  timeoutMs = 5000
-): Promise<void> {
-  if (!N8N_WEBHOOK_URL) {
-    console.warn('[n8n-webhook] N8N_WEBHOOK_URL is not configured — skipping webhook call');
-    return;
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+const TIMEOUT_MS = 8000;
+
+/** The configured, enabled URL for a webhook key, or null if there is none. */
+async function webhookUrl(key: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('n8n_webhook_config')
+    .select('url')
+    .eq('key', key)
+    .eq('enabled', true)
+    .maybeSingle();
+
+  if (error || !data?.url) {
+    console.error(`[n8n-webhook] no enabled URL configured for "${key}"`);
+    return null;
   }
+  return String(data.url);
+}
 
-  const url = `${N8N_WEBHOOK_URL.replace(/\/+$/, '')}/${webhookPath.replace(/^\/+/, '')}`;
+/**
+ * Fire-and-forget, but never silent: a failure here means a field worker was
+ * not told about their complaint, which is worth a log line even though the
+ * caller cannot wait for it.
+ */
+async function post(key: string, body: Record<string, unknown>): Promise<void> {
+  const url = await webhookUrl(key);
+  if (!url) return;
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-    const response = await fetch(url, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      console.warn(
-        `[n8n-webhook] Non-OK response from ${url}: ${response.status} ${response.statusText}`
-      );
-    } else {
-      console.log(`[n8n-webhook] ✅ Successfully notified ${webhookPath}`);
+    if (!res.ok) {
+      console.error(`[n8n-webhook] ${key} responded ${res.status}`);
     }
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      console.warn(`[n8n-webhook] Timeout (${timeoutMs}ms) calling ${url}`);
-    } else {
-      console.warn(`[n8n-webhook] Error calling ${url}:`, error);
-    }
+  } catch (err) {
+    console.error(`[n8n-webhook] ${key} failed:`, err instanceof Error ? err.message : err);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-/* ══════════════════════════════════════════════════════════════
-   NOTIFICATION FUNCTIONS — Call these from Next.js API routes
-   ══════════════════════════════════════════════════════════════ */
-
 /**
  * Tell the person a complaint was just handed to.
- *
- * This is the only cascade the portal still owns. The others posted to
- * /auto-assign, /notify-citizen and /notify-officer — paths that answer 404 on
- * the live n8n, and have for as long as anyone can tell, silently, because
- * every call was fire-and-forget with an empty catch. Their work is done by
- * database triggers instead (trg_js02_triage on insert, trg_js04_status_update
- * on any status change), so removing them loses nothing and stops the portal
- * pretending to send messages that never left.
- *
- * Manual assignment was the one thing no trigger covered: trg_js03_dispatch
- * fires only when n8nProcessed flips true on a REGISTERED complaint, which a
- * hand-assignment never does. So an MLA could give a complaint to a named
- * worker and that worker would never hear about it.
  *
  * JS-26 is deliberately narrow: it notifies the assignee the portal chose. It
  * does NOT reuse JS-03, which runs its own auto-assignment and would overwrite
  * that choice.
  */
 export function notifyN8NAssignment(complaintId: string, assignedToId: string): void {
-  sendN8NWebhook('js-notify-assignee', {
+  void post('notify_assignee', {
     complaintId,
     assignedToId,
     timestamp: new Date().toISOString(),
     source: 'manual_assignment',
-  }).catch(() => {});
+  });
 }
