@@ -65,13 +65,29 @@ export async function POST(request: NextRequest) {
         { ok: false, error: `status must be one of ${ALLOWED_STATUS.join(', ')}` }, { status: 400 });
     }
 
-    const { data: user } = await supabase
+    /**
+     * One Telegram account, possibly several portal accounts.
+     *
+     * A chat id was resolved with .maybeSingle(), which errors the moment more
+     * than one row matches — and one person legitimately holds several accounts
+     * here. Six of them shared a single chat id in Purulia, so the lookup
+     * returned nothing and every button tap answered "this Telegram account is
+     * not linked to a worker". The field-update path was unusable for the only
+     * karyakarta who had ever linked.
+     *
+     * So: fetch every account on this chat id and let the *complaint* pick.
+     * The right account is the one whose jurisdiction contains this ticket,
+     * which is precisely the question already being asked below. Ties go to the
+     * narrowest role, so a village-level worker is credited over a district
+     * account that happens to share the phone.
+     */
+    const { data: candidates } = await supabase
       .from('users')
       .select('id, name, username, role_level, gp_code, block, district, assigned_villages, isActive')
-      .eq('telegramChatId', chatId)
-      .maybeSingle();
+      .eq('telegramChatId', chatId);
 
-    if (!user || user.isActive === false) {
+    const linked = (candidates || []).filter((u) => u.isActive !== false);
+    if (!linked.length) {
       return NextResponse.json(
         { ok: false, error: 'This Telegram account is not linked to a worker' }, { status: 403 });
     }
@@ -85,7 +101,19 @@ export async function POST(request: NextRequest) {
     if (!complaint) {
       return NextResponse.json({ ok: false, error: 'No such ticket' }, { status: 404 });
     }
-    if (!inWorkerScope(user as AnyRecord, complaint as AnyRecord)) {
+
+    // Narrowest first, so the credit lands on the person who actually covers
+    // the village rather than on whichever account was created earliest.
+    const SPECIFICITY = ['KARYAKARTA', 'GP_COORD', 'BLOCK_COORD'];
+    const rank = (u: AnyRecord) => {
+      const i = SPECIFICITY.indexOf(String(u.role_level || ''));
+      return i === -1 ? SPECIFICITY.length : i;
+    };
+    const user = linked
+      .filter((u) => inWorkerScope(u as AnyRecord, complaint as AnyRecord))
+      .sort((a, b) => rank(a as AnyRecord) - rank(b as AnyRecord))[0];
+
+    if (!user) {
       return NextResponse.json(
         { ok: false, error: 'That complaint is not in your area' }, { status: 403 });
     }
