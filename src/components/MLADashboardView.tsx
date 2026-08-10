@@ -1105,7 +1105,10 @@ export function MLADashboardView() {
               {[
                 { l:'Critical Active',  v:d.critical,     c:'text-red-500'    },
                 { l:'SLA Breached',     v:d.sla_breached, c:'text-amber-500'  },
-                { l:'Resolved (30d)',   v:d.last_30d,     c:'text-emerald-500'},
+                // last_30d counts complaints FILED in the window, so this tile
+                // showed arrivals under the word "Resolved" — nine, while the
+                // office had actually closed five. flow.closed is the real one.
+                { l:'Resolved (30d)',   v:d.flow?.closed ?? 0, c:'text-emerald-500'},
                 { l:'New (7 days)',     v:d.last_7d,      c:'text-blue-500'   },
               ].map(k => (
                 <Card key={k.l} className="border shadow-none">
