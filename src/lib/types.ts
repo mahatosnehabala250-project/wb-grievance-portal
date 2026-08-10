@@ -102,7 +102,8 @@ export interface AppUser {
 export interface DashboardData {
   stats: {
     total: number; open: number; inProgress: number; resolved: number;
-    rejected: number; critical: number; todayComplaints: number;
+    rejected: number; assigned: number; registered: number;
+    critical: number; todayComplaints: number;
     todayResolved: number; resolutionRate: number; slaBreaches: number;
     avgSatisfaction: number | null; ratedCount: number;
   };

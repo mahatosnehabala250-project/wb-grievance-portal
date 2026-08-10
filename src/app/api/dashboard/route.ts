@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
+import { isBreached } from '@/lib/sla';
+
+/** A complaint is still waiting unless it has reached one of these. */
+const CLOSED_STATUSES = new Set(['RESOLVED', 'REJECTED', 'CLOSED']);
 
 // GET /api/dashboard — role-based dashboard statistics (optimized for Supabase pooler)
 export async function GET(request: NextRequest) {
@@ -50,6 +54,10 @@ export async function GET(request: NextRequest) {
 
     // ─── Compute all KPIs from the single dataset (no extra DB queries) ───
     let total = 0, open = 0, inProgress = 0, resolved = 0, rejected = 0, critical = 0;
+    // ASSIGNED and REGISTERED were counted nowhere, so the status tiles did not
+    // add up to the total — two of Purulia's forty-two complaints simply were
+    // not on the screen.
+    let assigned = 0, registered = 0;
     let todayComplaints = 0, todayResolved = 0, slaBreaches = 0;
     const satisfactionRatings: number[] = [];
     const satisfactionDistribution: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
@@ -68,7 +76,11 @@ export async function GET(request: NextRequest) {
       if (c.status === 'IN_PROGRESS') inProgress++;
       if (c.status === 'RESOLVED') resolved++;
       if (c.status === 'REJECTED') rejected++;
-      if (c.urgency === 'CRITICAL') critical++;
+      if (c.status === 'ASSIGNED') assigned++;
+      if (c.status === 'REGISTERED') registered++;
+      // Critical means critical *and still waiting*. Counting resolved ones too
+      // put "4 critical" above a list of one, in the same response.
+      if (c.urgency === 'CRITICAL' && !CLOSED_STATUSES.has(String(c.status))) critical++;
 
       // Today counts
       if (c.createdAt >= today) {
@@ -77,9 +89,14 @@ export async function GET(request: NextRequest) {
       }
 
       // SLA breaches
+      // Deadlines come from lib/sla, like every other surface. This used to be
+      // "older than seven days and OPEN or IN_PROGRESS": it ignored urgency
+      // entirely and treated ASSIGNED and REGISTERED cases as not open, so this
+      // page reported zero breaches at the same moment the MLA dashboard
+      // reported one, for the same seat.
       const matchSla = (!slaWhere.block && !slaWhere.district) ||
         (slaWhere.block === c.block) || (slaWhere.district === c.district);
-      if (matchSla && (c.status === 'OPEN' || c.status === 'IN_PROGRESS') && c.createdAt < sevenDaysAgo) {
+      if (matchSla && isBreached(c.createdAt, c.urgency, c.status)) {
         slaBreaches++;
       }
 
@@ -132,11 +149,11 @@ export async function GET(request: NextRequest) {
       });
     const byUrgency = Object.entries(urgencyMap).map(([urgency, count]) => ({ urgency, count }));
 
-    const stats = { total, open, inProgress, resolved, rejected, critical, todayComplaints, todayResolved, resolutionRate, slaBreaches, avgSatisfaction, ratedCount: satisfactionRatings.length };
+    const stats = { total, open, inProgress, resolved, rejected, assigned, registered, critical, todayComplaints, todayResolved, resolutionRate, slaBreaches, avgSatisfaction, ratedCount: satisfactionRatings.length };
 
     // Recent and critical (already sorted by createdAt desc from query)
     const recent = allComplaints.slice(0, 10);
-    const criticalComplaints = allComplaints.filter(c => c.urgency === 'CRITICAL' && (c.status === 'OPEN' || c.status === 'IN_PROGRESS')).slice(0, 5);
+    const criticalComplaints = allComplaints.filter(c => c.urgency === 'CRITICAL' && !CLOSED_STATUSES.has(String(c.status))).slice(0, 5);
     const openComplaints = allComplaints.filter(c => c.status === 'OPEN').reverse().slice(0, 5);
 
     return NextResponse.json({
