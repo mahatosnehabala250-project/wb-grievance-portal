@@ -3,21 +3,6 @@ export type Lang = 'en' | 'bn';
 
 const translations: Record<Lang, Record<string, string>> = {
   en: {
-    // Navigation — the views added after the first release. These were
-    // hardcoded English in page.tsx, so the Bengali toggle changed three
-    // labels out of fifteen on a product named বাংলার সহায়ক.
-    home: 'Home',
-    visitors: 'Visitors',
-    letters: 'Letters',
-    messaging: 'Messaging',
-    worksAndFund: 'Works & Fund',
-    byArea: 'By Area',
-    map: 'Map',
-    booths: 'Booths',
-    hotspots: 'Hotspots',
-    warRoom: 'War Room',
-    intelligence: 'Intelligence',
-    team: 'Team',
     // Navigation
     dashboard: 'Dashboard',
     complaints: 'Complaints',
@@ -134,18 +119,6 @@ const translations: Record<Lang, Record<string, string>> = {
     bengali: 'বাং',
   },
   bn: {
-    home: 'হোম',
-    visitors: 'দর্শনার্থী',
-    letters: 'চিঠি',
-    messaging: 'বার্তা',
-    worksAndFund: 'কাজ ও তহবিল',
-    byArea: 'এলাকা অনুযায়ী',
-    map: 'মানচিত্র',
-    booths: 'বুথ',
-    hotspots: 'সমস্যাপ্রবণ এলাকা',
-    warRoom: 'কন্ট্রোল রুম',
-    intelligence: 'বিশ্লেষণ',
-    team: 'কর্মী',
     // Navigation
     dashboard: 'ড্যাশবোর্ড',
     complaints: 'অভিযোগ',

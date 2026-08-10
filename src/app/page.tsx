@@ -153,10 +153,10 @@ export default function HomePage() {
 
     const homeItem =
       isAdmin ? item('dashboard', t('dashboard'), LayoutDashboard)
-      : lvl === 'MP' ? item('mp_command', t('home'), Crown)
-      : lvl === 'MLA' ? item('mla_dashboard', t('home'), Building2)
-      : lvl === 'DISTRICT_ADMIN' ? item('district_command', t('home'), Landmark)
-      : item('dashboard', t('home'), LayoutDashboard);
+      : lvl === 'MP' ? item('mp_command', 'Home', Crown)
+      : lvl === 'MLA' ? item('mla_dashboard', 'Home', Building2)
+      : lvl === 'DISTRICT_ADMIN' ? item('district_command', 'Home', Landmark)
+      : item('dashboard', 'Home', LayoutDashboard);
 
     // Team (user management): admins + governance hierarchy roles. NOTE: many DB
     // users carry role_level='OFFICER' alongside base roles (ADMIN/BLOCK/DISTRICT/
@@ -170,17 +170,17 @@ export default function HomePage() {
         item('complaints', t('complaints'), FileText),
         // Front-desk work sits next to complaints: most visits become one,
         // and most of those end in a letter to the officer who can act.
-        item('visits', t('visitors'), DoorOpen),
-        item('letters', t('letters'), Mail),
-        item('outreach', t('messaging'), Megaphone),
-        item('works', t('worksAndFund'), HardHat),
-        item('area', t('byArea'), Layers),
-        item('map', t('map'), MapPin),
-        item('booths', t('booths'), Vote),
-        item('hotspots', t('hotspots'), Flame),
-        ...(showWarRoom ? [item('war_room', t('warRoom'), Swords)] : []),
-        item('intel_command', t('intelligence'), BrainCircuit),
-        ...(showTeam ? [item('users', t('team'), Users)] : []),
+        item('visits', 'Visitors', DoorOpen),
+        item('letters', 'Letters', Mail),
+        item('outreach', 'Messaging', Megaphone),
+        item('works', 'Works & Fund', HardHat),
+        item('area', 'By Area', Layers),
+        item('map', 'Map', MapPin),
+        item('booths', 'Booths', Vote),
+        item('hotspots', 'Hotspots', Flame),
+        ...(showWarRoom ? [item('war_room', 'War Room', Swords)] : []),
+        item('intel_command', 'Intelligence', BrainCircuit),
+        ...(showTeam ? [item('users', 'Team', Users)] : []),
         item('settings', t('settings'), Settings),
       ],
     };
