@@ -9,7 +9,7 @@ import {
   Landmark, Scale, MoreHorizontal, Timer, BrainCircuit,
   ShieldAlert, CircleDot, ChevronDown, ChevronUp,
   CalendarRange, BarChart3, Sparkles, BadgeCheck,
-  ArrowUpRight, Flame, CheckCircle, AlertCircle,
+  ArrowUpRight, Flame, CheckCircle, AlertCircle, Repeat,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { authHeaders, fmtDate } from '@/lib/helpers';
+import { SLA_DAYS } from '@/lib/sla';
 import { useAuthStore } from '@/lib/auth-store';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -52,6 +53,7 @@ interface MLAStats {
   flow:   { windowDays:number; arrived:number; closed:number; net:number };
   stuck:  { block:string; open:number; oldestDays:number; overMonth:number }[];
   stale_list: (Complaint & { daysWaiting:number; assignedToId:string|null })[];
+  repeatVillages: { village:string; block:string; total:number; open:number; topCategory:string; sameIssue:number }[];
 }
 
 interface Assignee { id:string; name:string; role:string; block:string|null }
@@ -598,6 +600,48 @@ export function MLADashboardView() {
               </Card>
             )}
 
+            {/* ── Villages the same problem keeps returning to ──
+                One complaint from a village is a job. Four about the same thing
+                is something broken that keeps being patched — a different
+                decision, and nothing else on this page separates the two. */}
+            {d.repeatVillages && d.repeatVillages.length > 0 && (
+              <Card className="border shadow-sm">
+                <CardHeader className="pb-1 pt-3 px-4">
+                  <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <Repeat className="w-3.5 h-3.5" /> Same village, again — where a permanent fix is due
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-3">
+                  <div className="space-y-1.5">
+                    {d.repeatVillages.slice(0, 6).map(v => {
+                      const cfg = CAT_CFG[v.topCategory] || CAT_CFG.OTHER;
+                      return (
+                        <div key={v.village + v.block} className="flex items-center gap-3 py-1">
+                          <cfg.icon className="w-3.5 h-3.5 shrink-0" style={{ color: cfg.color }} />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[13px] truncate">{v.village}</div>
+                            <div className="text-[10px] text-muted-foreground truncate">{v.block}</div>
+                          </div>
+                          <span className="text-[11px] text-muted-foreground shrink-0">
+                            {v.sameIssue}× {cfg.label.toLowerCase()}
+                          </span>
+                          {v.open > 0 && (
+                            <Badge className="text-[10px] border-0 bg-amber-500/12 text-amber-700 dark:text-amber-400 shrink-0">
+                              {v.open} open
+                            </Badge>
+                          )}
+                          <span className="text-[13px] font-semibold tabular-nums w-12 text-right shrink-0">{v.total}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-2">
+                    The right-hand figure is every complaint ever filed from that village.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
             {/* ── The waiting list, with a way to act on it ──
                 Everything above this point describes the backlog; none of it
                 changed anything. These are the actual cases behind those
@@ -1032,8 +1076,11 @@ export function MLADashboardView() {
                       {d.critical} Critical Complaint{d.critical>1?'s':''} — Urgent Action Needed
                     </span>
                   </div>
+                  {/* Read from SLA_DAYS rather than written out. This said
+                      "6-hour SLA" long after the allowance became a day, so the
+                      screen was contradicting the deadline it was measuring. */}
                   <p className="text-xs text-muted-foreground">
-                    Critical complaints carry a 6-hour SLA. Call the officer, or escalate to the DM.
+                    A critical complaint is due within {SLA_DAYS.CRITICAL === 1 ? 'a day' : `${SLA_DAYS.CRITICAL} days`}. Call the officer, or escalate to the DM.
                   </p>
                 </CardContent>
               </Card>

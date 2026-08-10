@@ -1067,6 +1067,18 @@ export default function HomePage() {
             <FileText className={`h-5 w-5 transition-transform duration-200 ${view === 'complaints' ? 'scale-110' : ''}`} />
             <span className="text-[10px] font-medium">Cases</span>
           </button>
+          {/* Map takes the slot for roles without Analytics. On a phone it is the
+              most useful of the remaining views, and unlike "By Area" it is not
+              already a tab inside the MLA home. */}
+          {!allowedViews.has('analytics') && allowedViews.has('map') && (
+            <button
+              onClick={() => handleNavigate('map')}
+              className={`mobile-nav-item flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === 'map' ? 'mobile-nav-active text-foreground' : 'text-muted-foreground'}`}
+            >
+              <MapPin className={`h-5 w-5 transition-transform duration-200 ${view === 'map' ? 'scale-110' : ''}`} />
+              <span className="text-[10px] font-medium">Map</span>
+            </button>
+          )}
           {/* Only for roles that actually have Analytics. An MLA does not, so
               this used to be a button that silently returned them Home. */}
           {allowedViews.has('analytics') && (

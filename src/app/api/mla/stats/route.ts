@@ -229,6 +229,41 @@ export async function GET(request: NextRequest) {
     const flow = { windowDays: WINDOW_DAYS, arrived, closed, net: arrived - closed };
 
     /**
+     * Villages the same problem keeps coming back to.
+     *
+     * One complaint from a village is a job. Four complaints from the same
+     * village about the same thing is a thing that is broken and keeps being
+     * patched — a different decision, and the one an MLA is actually there to
+     * make. Nothing else on this page separates the two.
+     *
+     * Counted from the complaints already fetched, so it costs no extra query.
+     */
+    const villageMap: Record<string, { total: number; open: number; cats: Record<string, number>; block: string }> = {};
+    for (const c of all) {
+      const v = (c.village || '').trim();
+      if (!v) continue;
+      const g = (villageMap[v] ||= { total: 0, open: 0, cats: {}, block: c.block || '' });
+      g.total++;
+      if (!["RESOLVED", "REJECTED", "CLOSED"].includes(c.status)) g.open++;
+      const cat = c.category || 'OTHER';
+      g.cats[cat] = (g.cats[cat] || 0) + 1;
+    }
+    const repeatVillages = Object.entries(villageMap)
+      .filter(([, g]) => g.total >= 2)
+      .map(([village, g]) => {
+        const [topCategory, topCount] = Object.entries(g.cats).sort((a, b) => b[1] - a[1])[0];
+        return {
+          village, block: g.block, total: g.total, open: g.open,
+          topCategory,
+          // How concentrated the repeats are: four complaints all about water
+          // is a broken pipe; four about four things is just a big village.
+          sameIssue: topCount,
+        };
+      })
+      .sort((a, b) => b.sameIssue - a.sameIssue || b.total - a.total)
+      .slice(0, 8);
+
+    /**
      * Blocks ranked by how long their oldest case has waited, not by volume.
      * A block with three complaints untouched for six weeks needs the MLA more
      * than one with twenty filed yesterday, and sorting by count hides that.
@@ -281,6 +316,7 @@ export async function GET(request: NextRequest) {
         speed,
         flow,
         stuck,
+        repeatVillages,
         /**
          * The oldest open cases, ready to act on.
          *

@@ -1109,9 +1109,9 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${r.band === 'BREACHED' ? 'bg-red-500' : r.band === 'HIGH' ? 'bg-orange-500' : r.band === 'MEDIUM' ? 'bg-amber-500' : 'bg-muted-foreground'}`} />
                             <span className="font-mono text-[9px] text-muted-foreground flex-shrink-0">{r.ticketNo}</span>
                             <span className="truncate flex-1">{r.category}</span>
-                            {/* Past the target a percentage stops meaning anything — a CRITICAL item has
-                                a 6-hour target, so a 95-day-old one reads "38205% of SLA".
-                                Show how far over instead. */}
+                            {/* Past the target a percentage stops meaning anything — a CRITICAL
+                                item is due within a day, so a 95-day-old one reads "9500% of
+                                SLA". Show how far over instead. */}
                             <span className="text-[9px] text-muted-foreground flex-shrink-0">
                               {r.ageDays}d · {r.ratio > 1
                                 ? `${r.ratio >= 10 ? Math.round(r.ratio) : Math.round(r.ratio * 10) / 10}× over target`
