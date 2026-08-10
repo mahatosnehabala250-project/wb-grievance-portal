@@ -51,6 +51,12 @@ BEGIN
            status      = t.st,
            "resolvedAt" = NULL,
            resolution   = NULL,
+           -- Ownership resets with status. It did not, so a complaint put back
+           -- to OPEN kept its old assignee: the dashboard showed an open case
+           -- with an owner, and re-assigning to that same person was a no-op
+           -- that sent no alert — which made a working path look broken.
+           "assignedOfficerName" = t.owner,
+           "assignedToId" = (SELECT u.id FROM users u WHERE u.name = t.owner LIMIT 1),
            "slaDeadline" = (now() - t.age) + CASE c.urgency
               WHEN 'CRITICAL' THEN interval '1 day'  WHEN 'HIGH' THEN interval '3 days'
               WHEN 'MEDIUM'   THEN interval '7 days' ELSE interval '15 days' END

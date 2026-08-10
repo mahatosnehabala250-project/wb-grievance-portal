@@ -180,8 +180,9 @@ export async function PATCH(
           },
         });
 
-        // Fire-and-forget: notify officer about assignment → WB-04
-        notifyN8NAssignment(id, assignedToId);
+        // Awaited: a fire-and-forget call here dies when the serverless
+        // function freezes on response, so the worker was never told.
+        await notifyN8NAssignment(id, assignedToId);
       } else if (complaint.assignedToId) {
         await db.activityLog.create({
           data: {

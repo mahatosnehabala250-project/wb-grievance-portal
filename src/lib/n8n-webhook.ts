@@ -77,12 +77,19 @@ async function post(key: string, body: Record<string, unknown>): Promise<void> {
 /**
  * Tell the person a complaint was just handed to.
  *
+ * Awaited, not fired and forgotten. On Vercel the function can be frozen the
+ * moment the response is sent, so background work started but not awaited may
+ * simply never run — and this one starts with a config lookup, so it was being
+ * killed mid-query and the POST never happened at all. The caller is a person
+ * clicking "assign"; waiting one round-trip to be sure the worker was actually
+ * told is the right trade.
+ *
  * JS-26 is deliberately narrow: it notifies the assignee the portal chose. It
  * does NOT reuse JS-03, which runs its own auto-assignment and would overwrite
  * that choice.
  */
-export function notifyN8NAssignment(complaintId: string, assignedToId: string): void {
-  void post('notify_assignee', {
+export async function notifyN8NAssignment(complaintId: string, assignedToId: string): Promise<void> {
+  await post('notify_assignee', {
     complaintId,
     assignedToId,
     timestamp: new Date().toISOString(),
