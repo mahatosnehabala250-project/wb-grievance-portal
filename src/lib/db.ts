@@ -558,9 +558,17 @@ class SupabaseModelAdapter {
    * Fetches matching rows and groups them in JavaScript.
    */
   async groupBy<T = Record<string, unknown>>(args: GroupByArgs): Promise<T[]> {
+    // `orderBy: { _count: ... }` is an instruction about the *aggregate*, and it
+    // is honoured in memory further down. Forwarding it to findMany sent
+    // PostgREST an order on a column literally named "_count", which does not
+    // exist — the request failed and the caller returned 500. That is what made
+    // /api/reports/weekly a dead endpoint. Only real columns go to the database.
+    const rowOrderBy = args.orderBy && !('_count' in args.orderBy)
+      ? (args.orderBy as OrderByInput)
+      : undefined
     const records = await this.findMany<Record<string, unknown>>({
       where: args.where,
-      orderBy: args.orderBy as OrderByInput,
+      orderBy: rowOrderBy,
     })
 
     // Group by the specified fields
