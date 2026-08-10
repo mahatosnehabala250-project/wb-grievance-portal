@@ -243,6 +243,8 @@ export default function HomePage() {
   // Notification data
   const [notificationData, setNotificationData] = useState<Complaint[]>([]);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  // Bumped by the refresh button to remount the current view so it reloads.
+  const [refreshKey, setRefreshKey] = useState(0);
   const criticalCount = notificationData.length;
   const [lastNotifCheck, setLastNotifCheck] = useState<string>('');
 
@@ -400,14 +402,25 @@ export default function HomePage() {
     setMobileSidebarOpen(false);
   }, []);
 
+  /**
+   * Refresh what the user is actually looking at.
+   *
+   * This used to fetch /api/dashboard, throw the response away, and announce
+   * "Dashboard refreshed". On an MLA's home the figures come from
+   * /api/mla/stats, which was never refetched — so the button reported success
+   * for work it had not done, and the numbers on screen did not move. It also
+   * duplicated the call fetchNotifications already makes.
+   *
+   * Bumping the key remounts the current view, so whichever screen is open
+   * reloads through its own loader. That is the only way one button can
+   * refresh fifteen different views without knowing anything about them.
+   */
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const res = await fetch('/api/dashboard', { headers: authHeaders() });
-      if (res.ok) {
-        toast.success('Dashboard refreshed');
-        fetchNotifications();
-      }
+      setRefreshKey((k) => k + 1);
+      await fetchNotifications();
+      toast.success('Refreshed');
     } catch {
       toast.error('Failed to refresh');
     }
@@ -744,7 +757,7 @@ export default function HomePage() {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
               >
-                <ErrorBoundary>
+                <ErrorBoundary key={refreshKey}>
               {view === 'dashboard' && (
                   (user?.role_level === 'KARYAKARTA' || user?.role_level === 'GP_COORD' || user?.role_level === 'BLOCK_COORD')
                     ? <GovernanceDashboardView />
