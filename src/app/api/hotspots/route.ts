@@ -3,6 +3,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
+import { isBreached } from '@/lib/sla';
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -32,8 +33,8 @@ const num = (c: C, ...keys: string[]): number | null => {
   return null;
 };
 
-const CLOSED = new Set(['RESOLVED', 'REJECTED']);
-const BREACH_URGENCY = new Set(['HIGH', 'CRITICAL']);
+// 'CLOSED' belongs here too; leaving it out counted closed cases as still open.
+const CLOSED = new Set(['RESOLVED', 'REJECTED', 'CLOSED']);
 
 export async function GET(request: NextRequest) {
   try {
@@ -55,8 +56,8 @@ export async function GET(request: NextRequest) {
         village: true,
         status: true,
         urgency: true,
+        createdAt: true,
         category: true,
-        pct: true,
       },
     });
 
@@ -84,7 +85,6 @@ export async function GET(request: NextRequest) {
       const status = str(c, 'status');
       const urgency = str(c, 'urgency');
       const category = str(c, 'category') || 'OTHER';
-      const pct = num(c, 'pct');
 
       const isOpen = !CLOSED.has(status);
       if (isOpen) totalOpen++;
@@ -112,8 +112,12 @@ export async function GET(request: NextRequest) {
         g.open++;
         g.openCats[category] = (g.openCats[category] || 0) + 1;
       }
-      const isBreach = (pct !== null && pct >= 100) || BREACH_URGENCY.has(urgency);
-      if (isBreach) g.breached++;
+      // Breach means past a deadline, from lib/sla like everywhere else. This
+      // used to be "urgency is HIGH or CRITICAL, or pct >= 100", which made
+      // every urgent complaint permanently breached however new it was — and it
+      // never checked whether the case was still open, so gram panchayats were
+      // listed with zero open complaints and two breaches at the same time.
+      if (isOpen && isBreached(str(c, 'createdAt'), urgency, status)) g.breached++;
     }
 
     const allHotspots = Object.values(groups).map((g) => {
