@@ -1030,11 +1030,14 @@ export default function HomePage() {
       {/* ═══ MOBILE BOTTOM NAVIGATION ═══ */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 mobile-bottom-nav-glass border-t border-border/50 print:hidden">
         <div className="flex items-center justify-around px-2 py-1.5" style={{ paddingBottom: 'max(0.375rem, env(safe-area-inset-bottom))' }}>
+          {/* Home goes to THIS role's home. It was hardcoded to 'dashboard',
+              which an MLA's nav does not contain — so the guard bounced them
+              back and the button never lit up as active. */}
           <button
-            onClick={() => handleNavigate('dashboard')}
-            className={`mobile-nav-item flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === 'dashboard' ? 'mobile-nav-active text-foreground' : 'text-muted-foreground'}`}
+            onClick={() => handleNavigate(homeView)}
+            className={`mobile-nav-item flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === homeView ? 'mobile-nav-active text-foreground' : 'text-muted-foreground'}`}
           >
-            <LayoutDashboard className={`h-5 w-5 transition-transform duration-200 ${view === 'dashboard' ? 'scale-110' : ''}`} />
+            <LayoutDashboard className={`h-5 w-5 transition-transform duration-200 ${view === homeView ? 'scale-110' : ''}`} />
             <span className="text-[10px] font-medium">Home</span>
           </button>
           <button
@@ -1051,13 +1054,17 @@ export default function HomePage() {
             <FileText className={`h-5 w-5 transition-transform duration-200 ${view === 'complaints' ? 'scale-110' : ''}`} />
             <span className="text-[10px] font-medium">Cases</span>
           </button>
-          <button
-            onClick={() => handleNavigate('analytics')}
-            className={`mobile-nav-item flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === 'analytics' ? 'mobile-nav-active text-foreground' : 'text-muted-foreground'}`}
-          >
-            <BarChart2 className={`h-5 w-5 transition-transform duration-200 ${view === 'analytics' ? 'scale-110' : ''}`} />
-            <span className="text-[10px] font-medium">Stats</span>
-          </button>
+          {/* Only for roles that actually have Analytics. An MLA does not, so
+              this used to be a button that silently returned them Home. */}
+          {allowedViews.has('analytics') && (
+            <button
+              onClick={() => handleNavigate('analytics')}
+              className={`mobile-nav-item flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === 'analytics' ? 'mobile-nav-active text-foreground' : 'text-muted-foreground'}`}
+            >
+              <BarChart2 className={`h-5 w-5 transition-transform duration-200 ${view === 'analytics' ? 'scale-110' : ''}`} />
+              <span className="text-[10px] font-medium">Stats</span>
+            </button>
+          )}
           <button
             onClick={() => setNewComplaintOpen(true)}
             className="flex flex-col items-center gap-0.5 px-3 py-1.5"
@@ -1067,11 +1074,13 @@ export default function HomePage() {
             </div>
             <span className="text-[10px] font-medium text-muted-foreground">New</span>
           </button>
+          {/* "More" opens the full menu. It used to jump straight to Settings,
+              which left the other nine views with no route on a phone. */}
           <button
-            onClick={() => handleNavigate('settings')}
-            className={`mobile-nav-item flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 ${view === 'settings' ? 'mobile-nav-active text-foreground' : 'text-muted-foreground'}`}
+            onClick={() => setMobileSidebarOpen(true)}
+            className="mobile-nav-item flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all duration-200 text-muted-foreground"
           >
-            <Settings className={`h-5 w-5 transition-transform duration-200 ${view === 'settings' ? 'scale-110' : ''}`} />
+            <Menu className="h-5 w-5" />
             <span className="text-[10px] font-medium">More</span>
           </button>
         </div>
