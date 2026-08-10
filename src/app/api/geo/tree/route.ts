@@ -83,10 +83,24 @@ export async function GET(request: NextRequest) {
       .select('district, lok_sabha, constituency, block_name');
     if (mapErr) throw mapErr;
 
-    const { data: psRows, error: psErr } = await supabase
+    // Filter by AC in the query, not afterwards in JS.
+    //
+    // polling_stations holds 2,802 rows and PostgREST returns the first 1,000
+    // unless told otherwise, so fetching the table and filtering here silently
+    // lost every AC that did not happen to fall inside that first page. Purulia,
+    // Baghmundi and Balarampur were absent entirely — their MLAs opened the
+    // create-user form, found an empty Gram Panchayat dropdown and could not
+    // create a karyakarta at all — while Joypur, Para and Raghunathpur got a
+    // fraction of theirs. Nothing errored; the list was just empty.
+    //
+    // The explicit range is a second guard for the unrestricted (ADMIN/STATE)
+    // case, where there is no AC filter to shrink the result.
+    let psQuery = supabase
       .from('polling_stations')
       .select('ac, block_name, gp_code, gp_name')
       .not('gp_code', 'is', null);
+    if (allowed) psQuery = psQuery.in('ac', allowed);
+    const { data: psRows, error: psErr } = await psQuery.range(0, 49_999);
     if (psErr) throw psErr;
 
     const maps = (mapRows || []).filter((r) => inScope(r.constituency));
