@@ -66,6 +66,16 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ page: 1, limit: 15, total: 0, totalPages: 0 });
+  /**
+   * A load that failed is not a seat with no complaints.
+   *
+   * The list used to keep its initial empty state when the request errored, so
+   * an upstream blip drew "0 total complaints — No complaints found matching
+   * your filters" over a constituency holding forty-two of them. In front of an
+   * MLA that reads as "my office has nothing", which is the worst thing this
+   * screen can say untruthfully. Failure is now its own state, with a retry.
+   */
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -161,18 +171,32 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
       params.set('page', String(page));
       params.set('limit', String(pagination.limit));
 
-      const res = await fetch(`/api/complaints?${params.toString()}`, { headers: authHeaders() });
+      // One quiet retry. The upstream database API answers 5xx in short bursts
+      // — a run of identical requests came back 500, 500, then 200 — and a
+      // second attempt a moment later costs the user nothing but usually turns
+      // a blank screen back into their complaints.
+      let res = await fetch(`/api/complaints?${params.toString()}`, { headers: authHeaders() });
+      if (!res.ok && res.status >= 500) {
+        await new Promise((r) => setTimeout(r, 800));
+        res = await fetch(`/api/complaints?${params.toString()}`, { headers: authHeaders() });
+      }
+
       if (res.ok) {
         const json = await res.json();
         setComplaints(json.complaints);
         setPagination(json.pagination);
+        setLoadError(null);
         // Derive block options from fetched complaints
         const blocks = [...new Set(json.complaints.map((c: Complaint) => c.block))].sort() as string[];
         setBlockOptions(blocks);
       } else {
+        // Whatever was on screen stays there — stale rows are honest, an empty
+        // table is not.
+        setLoadError(res.status === 401 ? 'Your session has expired. Sign in again.' : 'Could not reach the server.');
         toast.error('Failed to load complaints');
       }
     } catch {
+      setLoadError('No connection.');
       toast.error('Network error');
     }
     setLoading(false);
@@ -346,7 +370,7 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
           <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">Complaints</h2>
           <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
             <FileText className="h-3.5 w-3.5" />
-            {pagination.total} total complaints
+            {loadError && !complaints.length ? 'count unavailable' : `${pagination.total} total complaints`}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -588,9 +612,29 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
         )}
       </AnimatePresence>
 
+      {/* A load that failed says so, and offers the way out. It never claims
+          the seat has no complaints. */}
+      {loadError && (
+        <Card className="border-0 shadow-sm" style={{ background: 'rgba(239,68,68,0.06)' }}>
+          <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-red-500" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Complaints could not be loaded</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {loadError}
+                {complaints.length > 0 && ' Showing the last list that loaded — it may be out of date.'}
+              </p>
+            </div>
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs shrink-0" onClick={() => fetchComplaints()} disabled={loading}>
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Try again
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Table (Desktop) */}
       {!loading && complaints.length === 0 ? (
-        <EmptyState message="No complaints found matching your filters" />
+        loadError ? null : <EmptyState message="No complaints found matching your filters" />
       ) : (
         <>
           <div className="hidden md:block">
