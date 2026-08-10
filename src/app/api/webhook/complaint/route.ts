@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { notifyN8NNewComplaint } from '@/lib/n8n-webhook';
 import { n8nSecretOk } from '@/lib/n8nAuth';
 import { generateTicketNo } from '@/lib/ticket-no';
 
@@ -65,14 +64,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // ═══ CASCADE 1: Trigger WB-02 Auto-Assignment Engine ═══
-    notifyN8NNewComplaint(complaint.id, {
-      issue: complaint.issue,
-      category: complaint.category,
-      block: complaint.block,
-      district: complaint.district,
-      urgency: complaint.urgency,
-    });
 
     return NextResponse.json({
       success: true,

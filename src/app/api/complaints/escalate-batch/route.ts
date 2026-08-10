@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import {
-  notifyN8NStatusChange,
-  notifyN8NUrgencyEscalation,
-} from '@/lib/n8n-webhook';
 
 /**
  * POST /api/complaints/escalate-batch
@@ -138,18 +134,7 @@ export async function POST(request: NextRequest) {
           newUrgency,
         });
 
-        // ═══ CASCADE: Notify citizen about escalation (WB-03) ═══
-        notifyN8NStatusChange(complaintId, complaint.status);
 
-        // ═══ CASCADE: Notify officer about escalation (WB-04) ═══
-        if (complaint.assignedToId) {
-          notifyN8NUrgencyEscalation(
-            complaintId,
-            previousUrgency,
-            newUrgency,
-            'SLA Breach — Auto-escalated by WB-05'
-          );
-        }
       } catch (err) {
         console.error(`[escalate-batch] Error escalating ${complaintId}:`, err);
         results.push({

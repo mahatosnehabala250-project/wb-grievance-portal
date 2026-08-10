@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
 import { complaintInScope, canMutateComplaints, allowedComplaintFields, userInManageScope } from '@/lib/rbac';
-import { notifyN8NStatusChange, notifyN8NAssignment, notifyN8NUrgencyEscalation } from '@/lib/n8n-webhook';
+import { notifyN8NAssignment } from '@/lib/n8n-webhook';
 
 // GET /api/complaints/[id]
 export async function GET(
@@ -137,8 +137,6 @@ export async function PATCH(
         });
       }
 
-      // Fire-and-forget: notify n8n of status change → WB-03 (Citizen Notification)
-      notifyN8NStatusChange(id, status);
     }
 
     // ═══ CASCADE: Urgency Change → WB-04 (Officer Escalation Alert) ═══
@@ -163,7 +161,6 @@ export async function PATCH(
         });
 
         // Fire-and-forget: notify officer about urgency escalation → WB-04
-        notifyN8NUrgencyEscalation(id, previousUrgency, newUrgency, `Manual escalation by ${actorName}`);
       }
     }
 

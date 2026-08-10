@@ -77,110 +77,30 @@ async function sendN8NWebhook(
    ══════════════════════════════════════════════════════════════ */
 
 /**
- * 🔗 CASCADE: New Complaint → WB-02 Auto-Assignment Engine
+ * Tell the person a complaint was just handed to.
  *
- * Call this when a NEW complaint is created (from WhatsApp or manual).
- * Triggers the AI Smart Match workflow to find the best officer.
+ * This is the only cascade the portal still owns. The others posted to
+ * /auto-assign, /notify-citizen and /notify-officer — paths that answer 404 on
+ * the live n8n, and have for as long as anyone can tell, silently, because
+ * every call was fire-and-forget with an empty catch. Their work is done by
+ * database triggers instead (trg_js02_triage on insert, trg_js04_status_update
+ * on any status change), so removing them loses nothing and stops the portal
+ * pretending to send messages that never left.
  *
- * Webhook path: /auto-assign → WB-02
+ * Manual assignment was the one thing no trigger covered: trg_js03_dispatch
+ * fires only when n8nProcessed flips true on a REGISTERED complaint, which a
+ * hand-assignment never does. So an MLA could give a complaint to a named
+ * worker and that worker would never hear about it.
+ *
+ * JS-26 is deliberately narrow: it notifies the assignee the portal chose. It
+ * does NOT reuse JS-03, which runs its own auto-assignment and would overwrite
+ * that choice.
  */
-export function notifyN8NNewComplaint(
-  complaintId: string,
-  complaintData: {
-    issue: string;
-    category?: string;
-    block: string;
-    district: string;
-    urgency?: string;
-  }
-): void {
-  sendN8NWebhook('auto-assign', {
+export function notifyN8NAssignment(complaintId: string, assignedToId: string): void {
+  sendN8NWebhook('js-notify-assignee', {
     complaintId,
-    ...complaintData,
+    assignedToId,
     timestamp: new Date().toISOString(),
-    source: 'new_complaint',
+    source: 'manual_assignment',
   }).catch(() => {});
-}
-
-/**
- * 🔗 CASCADE: Status Change → WB-03 Citizen Status Notification
- *
- * Call this when a complaint's STATUS changes (OPEN → IN_PROGRESS → RESOLVED etc.)
- * Triggers citizen WhatsApp/SMS notification about the status update.
- *
- * Webhook path: /notify-citizen → WB-03
- */
-export function notifyN8NStatusChange(complaintId: string, status: string): void {
-  sendN8NWebhook('notify-citizen', {
-    complaintId,
-    status,
-    timestamp: new Date().toISOString(),
-    source: 'status_change',
-  }).catch(() => {});
-}
-
-/**
- * 🔗 CASCADE: Officer Assignment → WB-04 Officer Assignment Notification
- *
- * Call this when a complaint is ASSIGNED to an officer (auto or manual).
- * Triggers WhatsApp + Email notification to the assigned officer.
- *
- * Webhook path: /notify-officer → WB-04
- */
-export function notifyN8NAssignment(complaintId: string, officerId: string): void {
-  sendN8NWebhook('notify-officer', {
-    complaintId,
-    assignedToId: officerId,
-    timestamp: new Date().toISOString(),
-    source: 'assignment',
-  }).catch(() => {});
-}
-
-/**
- * 🔗 CASCADE: Urgency Escalation → WB-04 Officer Escalation Alert
- *
- * Call this when a complaint's URGENCY is escalated (e.g. SLA breach → CRITICAL).
- * Triggers WhatsApp + Email alert to the assigned officer about escalation.
- *
- * Webhook path: /notify-officer → WB-04
- */
-export function notifyN8NUrgencyEscalation(
-  complaintId: string,
-  previousUrgency: string,
-  newUrgency: string,
-  reason: string = 'SLA Breach'
-): void {
-  sendN8NWebhook('notify-officer', {
-    complaintId,
-    escalation: true,
-    previousUrgency,
-    newUrgency,
-    reason,
-    timestamp: new Date().toISOString(),
-    source: 'urgency_escalation',
-  }).catch(() => {});
-}
-
-/**
- * 🔗 CASCADE: Batch SLA Breach → WB-03 Citizen Notification (batch)
- *
- * Call this when multiple complaints are escalated in batch (WB-05 SLA Breach).
- * Sends a combined alert to citizens about their complaint escalation.
- *
- * Webhook path: /notify-citizen → WB-03
- */
-export function notifyN8NSLABatch(
-  complaints: Array<{
-    id: string;
-    ticketNo: string;
-    riskLevel: string;
-    citizenPhone?: string;
-  }>
-): void {
-  sendN8NWebhook('notify-citizen', {
-    type: 'sla_batch',
-    complaints,
-    timestamp: new Date().toISOString(),
-    source: 'sla_breach_batch',
-  }, 10000).catch(() => {});
 }
