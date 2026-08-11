@@ -193,7 +193,7 @@ const InnerMap = dynamic(
                    <div style="position:absolute;inset:-3px;border:3px solid rgba(2,6,23,0.75);border-radius:50%"></div>
                    <div style="position:absolute;inset:0;border:2px solid #fff;border-radius:50%;box-shadow:0 0 12px #22d3ee,inset 0 0 6px #22d3ee;animation:reticle 1.6s ease-out infinite"></div>
                    <div style="position:absolute;top:50%;left:50%;width:6px;height:6px;background:#fff;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 2px rgba(2,6,23,0.75),0 0 6px #fff"></div>
-                   <div style="position:absolute;top:50%;left:26px;transform:translateY(-50%);white-space:nowrap;padding:2px 7px;border-radius:5px;background:rgba(2,6,23,0.86);border:1px solid rgba(34,211,238,0.55);color:#e2e8f0;font:600 11px/1.3 system-ui,sans-serif;text-shadow:0 1px 2px rgba(0,0,0,0.9)">${esc(target.name)}</div>
+                   <div style="position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);white-space:nowrap;padding:2px 7px;border-radius:5px;background:rgba(2,6,23,0.86);border:1px solid rgba(34,211,238,0.55);color:#e2e8f0;font:600 11px/1.3 system-ui,sans-serif;text-shadow:0 1px 2px rgba(0,0,0,0.9)">${esc(target.name)}</div>
                  </div>` })} />
           );
         }
