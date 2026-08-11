@@ -98,6 +98,8 @@ export async function GET(request: NextRequest) {
     const blockAgg: Record<string, BlockAgg> = {};
     const cats: Record<string, number> = {};
     let last7 = 0, prior7 = 0, matched = 0;
+    /** Complaints that will not appear as a marker, and why. */
+    const drop = { noVillage: 0, notInRegister: 0, noCoordinates: 0, names: new Map<string, number>() };
     // compact event stream for the time-slider (one row per plottable complaint)
     const series: { code: string; ts: number; crit: boolean; active: boolean }[] = [];
     let minTs = Infinity, maxTs = 0;
@@ -127,13 +129,29 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      const nk = norm(str(c, 'village'));
-      if (!nk) continue;
+      /**
+       * Three ways a complaint never reaches the map, all of them previously
+       * silent. A complaint that exists but is invisible on the screen an MLA
+       * uses to decide where to send someone is the worst kind of wrong: the map
+       * looks complete either way. So each drop is counted and named, and the
+       * view says so.
+       */
+      const rawVillage = str(c, 'village');
+      const nk = norm(rawVillage);
+      if (!nk) { drop.noVillage++; continue; }
       const codes = nameToCodes.get(nk);
-      if (!codes || codes.length === 0) continue;
+      if (!codes || codes.length === 0) {
+        drop.notInRegister++;
+        drop.names.set(rawVillage, (drop.names.get(rawVillage) || 0) + 1);
+        continue;
+      }
       const code = codes[0];
       const meta = codeMeta.get(code);
-      if (!meta) continue;
+      if (!meta) { drop.notInRegister++; continue; }
+      if (meta.lat == null || meta.lng == null) {
+        drop.noCoordinates++;
+        drop.names.set(meta.name || rawVillage, (drop.names.get(meta.name || rawVillage) || 0) + 1);
+      }
       matched++;
       const a = agg[code] || (agg[code] = {
         code, name: meta.name, lat: meta.lat ?? 0, lng: meta.lng ?? 0,
@@ -187,6 +205,23 @@ export async function GET(request: NextRequest) {
         complaintsTotal: complaints.length,
         activeTotal: all.reduce((s, a) => s + a.active, 0),
         criticalTotal: all.reduce((s, a) => s + a.critical, 0),
+        /**
+         * What the map is not showing. Reported rather than inferred from the
+         * difference between two other numbers, because the reasons need
+         * different answers: a village missing from the register is a spelling
+         * to correct at intake, a village with no coordinates is a gap in the
+         * survey data that no amount of retyping will fix.
+         */
+        unplotted: {
+          complaints: drop.noVillage + drop.notInRegister + drop.noCoordinates,
+          noVillageRecorded: drop.noVillage,
+          notInRegister: drop.notInRegister,
+          noCoordinates: drop.noCoordinates,
+          villages: [...drop.names.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 8)
+            .map(([name, n]) => ({ name, n })),
+        },
       },
       scope: { level: payload.role_level || payload.role },
     });

@@ -23,7 +23,13 @@ interface MapData {
   points: VPoint[];
   categories: { label: string; n: number }[];
   trend: { last7: number; prior7: number; pct: number };
-  meta: { villagesWithComplaints: number; plottable: number; activeTotal: number; criticalTotal: number };
+  meta: {
+    villagesWithComplaints: number; plottable: number; activeTotal: number; criticalTotal: number;
+    unplotted?: {
+      complaints: number; noVillageRecorded: number; notInRegister: number; noCoordinates: number;
+      villages: { name: string; n: number }[];
+    };
+  };
   series?: { code: string; ts: number; crit: boolean; active: boolean }[];
   hotspots?: { name: string; active: number; total: number; pct: number | null }[];
   range?: { min: number; max: number };
@@ -574,6 +580,7 @@ export function MapView() {
   }, [data?.series]);
   const activeTotal = data?.meta.activeTotal ?? 0;
   const criticalTotal = data?.meta.criticalTotal ?? 0;
+  const unplotted = data?.meta.unplotted;
   const pct = data?.trend.pct ?? 0;
   const topCats = data?.categories || [];
   const maxCat = Math.max(1, ...topCats.map((c) => c.n));
@@ -856,6 +863,33 @@ export function MapView() {
                 <div className="rounded-lg p-3" style={{ background: "rgba(34,211,238,0.05)", border: "1px solid rgba(34,211,238,0.12)" }}>
                   <div className="text-xs font-medium mb-1 flex items-center gap-1" style={dim(CYAN)}>✦ AI summary</div>
                   <div className="text-xs leading-relaxed" style={dim("#cbd5e1")}>{summary}</div>
+
+                  {/* A complaint the map cannot place used to vanish without a
+                      word, which is the worst kind of wrong on a screen used to
+                      decide where to send someone: it looks complete either way. */}
+                  {unplotted && unplotted.complaints > 0 && (
+                    <div className="mt-2 rounded-md px-2 py-1.5 text-[11px] leading-relaxed"
+                         style={{ background: "rgba(251,191,36,0.10)", color: "#fcd34d" }}>
+                      <span className="font-semibold">
+                        {unplotted.complaints} complaint{unplotted.complaints === 1 ? "" : "s"} not on this map.
+                      </span>{" "}
+                      {unplotted.notInRegister > 0 && (
+                        <>{unplotted.notInRegister} name{unplotted.notInRegister === 1 ? "" : "s"} not in the village register{unplotted.noCoordinates > 0 ? "; " : ". "}</>
+                      )}
+                      {unplotted.noCoordinates > 0 && (
+                        <>{unplotted.noCoordinates} in villages with no recorded coordinates. </>
+                      )}
+                      {unplotted.noVillageRecorded > 0 && (
+                        <>{unplotted.noVillageRecorded} with no village recorded. </>
+                      )}
+                      {unplotted.villages.length > 0 && (
+                        <span style={dim("#fbbf24")}>
+                          {unplotted.villages.map((v) => v.name).join(", ")}
+                        </span>
+                      )}
+                      <span style={dim("#a1a1aa")}> They are still counted in the block totals.</span>
+                    </div>
+                  )}
                 </div>
 
                 <div>
