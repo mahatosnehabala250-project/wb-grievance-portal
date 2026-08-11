@@ -174,9 +174,27 @@ const InnerMap = dynamic(
             if (target) map.flyTo([target.lat, target.lng], Math.max(map.getZoom(), 14), { duration: 1.1 });
           }, [target, map]);
           if (!target) return null;
+          /**
+           * A white ring with a cyan glow reads beautifully on the dark basemap
+           * and vanishes over satellite imagery, which is bright, busy and full
+           * of light ground. So the reticle carries its own contrast: a dark
+           * outer ring beneath the bright one, which separates it from whatever
+           * is underneath on either basemap.
+           *
+           * It also names what it found. On satellite there are no boundary
+           * lines to orient by, so a glowing circle on open ground told you a
+           * village had been located without telling you which one you were
+           * looking at.
+           */
           return (
             <Marker position={[target.lat, target.lng]} interactive={false} zIndexOffset={1000}
-              icon={L.divIcon({ className: "", iconSize: [0, 0], html: `<div style="position:relative;transform:translate(-50%,-50%);width:30px;height:30px"><div style="position:absolute;inset:0;border:2px solid #fff;border-radius:50%;box-shadow:0 0 12px #22d3ee,inset 0 0 6px #22d3ee;animation:reticle 1.6s ease-out infinite"></div><div style="position:absolute;top:50%;left:50%;width:6px;height:6px;background:#fff;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 6px #fff"></div></div>` })} />
+              icon={L.divIcon({ className: "", iconSize: [0, 0], html:
+                `<div style="position:relative;transform:translate(-50%,-50%);width:34px;height:34px">
+                   <div style="position:absolute;inset:-3px;border:3px solid rgba(2,6,23,0.75);border-radius:50%"></div>
+                   <div style="position:absolute;inset:0;border:2px solid #fff;border-radius:50%;box-shadow:0 0 12px #22d3ee,inset 0 0 6px #22d3ee;animation:reticle 1.6s ease-out infinite"></div>
+                   <div style="position:absolute;top:50%;left:50%;width:6px;height:6px;background:#fff;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 2px rgba(2,6,23,0.75),0 0 6px #fff"></div>
+                   <div style="position:absolute;top:50%;left:26px;transform:translateY(-50%);white-space:nowrap;padding:2px 7px;border-radius:5px;background:rgba(2,6,23,0.86);border:1px solid rgba(34,211,238,0.55);color:#e2e8f0;font:600 11px/1.3 system-ui,sans-serif;text-shadow:0 1px 2px rgba(0,0,0,0.9)">${esc(target.name)}</div>
+                 </div>` })} />
           );
         }
 
@@ -278,6 +296,14 @@ const InnerMap = dynamic(
                     const p = f?.properties || {};
                     const gp = (p.v && gpMap[p.v] ? gpMap[p.v][0] : null) || p.g || null;
                     const col = gpColor(gp);
+                    // Hairlines tuned against the dark basemap disappear over
+                    // satellite imagery, which is bright and textured — and with
+                    // them goes the only thing telling you which village you are
+                    // looking at. Over imagery the edge is drawn in white, which
+                    // survives any terrain beneath it.
+                    if (basemap === "satellite") {
+                      return { color: "#ffffff", weight: 1.2, opacity: 0.75, fillColor: col, fillOpacity: 0.06 };
+                    }
                     return { color: col, weight: 0.6, opacity: 0.38, fillColor: col, fillOpacity: 0.04 };
                   }}
                   onEachFeature={(f: any, layer: any) => {
