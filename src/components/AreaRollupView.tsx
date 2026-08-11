@@ -472,7 +472,8 @@ export function AreaRollupView() {
             <UserX className="h-3.5 w-3.5 shrink-0 mt-px" />
             <span>
               <span className="font-medium text-foreground">{d.coverage.gpsWithWorker} of {d.coverage.acGps}</span>
-              {' '}gram panchayats have a named worker on the ground.
+              {' '}gram panchayat{d.coverage.acGps === 1 ? '' : 's'}
+              {' '}{d.coverage.gpsWithWorker === 1 ? 'has' : 'have'} a named worker on the ground.
             </span>
           </p>
         </div>
