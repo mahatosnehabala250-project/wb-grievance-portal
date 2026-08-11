@@ -61,6 +61,38 @@ function gpColor(gp: string | null): string {
 }
 const esc = (s: string) => String(s || "").replace(/[&<>]/g, (c) => (({ "&": "&amp;", "<": "&lt;", ">": "&gt;" } as Record<string, string>)[c]));
 
+/**
+ * What to call a village polygon.
+ *
+ * The boundary file used to carry `vilnam_soi`, the Survey of India name, as its
+ * `n` property, and that column is not aligned to the geometry it sits on: of
+ * the 153 villages in this seat, zero matched the name the database and every
+ * complaint uses, and the polygon carrying "Andhuli" as its SOI name lies 20 km
+ * from the actual Andhuli. It was only ever a fallback — purulia-gp.json
+ * answered first and answered correctly — but it covered 55 polygons, which were
+ * therefore labelled with an unrelated village's name, with no GP and no AC.
+ *
+ * The file now carries `n` = the LGD name, `g` = gram panchayat and `b` = block,
+ * straight from the official shapefile, so the fallback is right and the GP shows
+ * even where gpMap has no row.
+ *
+ * 51 polygons have no LGD identity at all — the source shapefile has a blank
+ * village code, blank name and blank GP for them. They are drawn, because they
+ * are real ground, and they say so rather than borrowing a name.
+ */
+function villageLabel(p: Record<string, string | undefined>, gpMap: Record<string, string[]>): string {
+  const m = p.v && gpMap[p.v] ? gpMap[p.v] : null;
+  const name = (m && m[2]) || p.n;
+  const gp = (m && m[0]) || p.g;
+  const ac = m && m[1];
+  if (!name) {
+    return esc(`Unnamed parcel${p.b ? ` · ${p.b}` : ""} · not in the village register`);
+  }
+  return esc(
+    `${name}${gp ? ` · GP: ${gp}` : ""}${p.b ? ` · ${p.b}` : ""}${ac ? ` · ${ac} AC` : ""}`
+  );
+}
+
 const MODES: { key: Mode; label: string; icon: string }[] = [
   { key: "density", label: "Density", icon: "◍" },
   { key: "active", label: "Active", icon: "▲" },
@@ -237,18 +269,14 @@ const InnerMap = dynamic(
               {!polByAc && showBoundaries && zoom >= 12 && boundaries && (
                 <GeoJSON key={"v" + Object.keys(gpMap).length} data={boundaries}
                   style={(f: any) => {
-                    const code = f?.properties?.v;
-                    const gp = code && gpMap[code] ? gpMap[code][0] : null;
+                    const p = f?.properties || {};
+                    const gp = (p.v && gpMap[p.v] ? gpMap[p.v][0] : null) || p.g || null;
                     const col = gpColor(gp);
                     return { color: col, weight: 0.6, opacity: 0.38, fillColor: col, fillOpacity: 0.04 };
                   }}
                   onEachFeature={(f: any, layer: any) => {
                     const p = f?.properties || {};
-                    const m = p.v && gpMap[p.v] ? gpMap[p.v] : null;
-                    layer.bindTooltip(
-                      `${(m && m[2]) || p.n || "Village"}${m ? ` · GP: ${m[0]}` : ""}${p.b ? ` · ${p.b}` : ""}${m && m[1] ? ` · ${m[1]} AC` : ""}`,
-                      { sticky: true }
-                    );
+                    layer.bindTooltip(villageLabel(p, gpMap), { sticky: true });
                   }} />
               )}
 
@@ -426,7 +454,15 @@ export function MapView() {
       let sx = 0, sy = 0; for (const c of ring) { sx += c[0]; sy += c[1]; }
       const code = f.properties?.v || "";
       const meta = code ? gpMap[code] : null;
-      out.push({ code, name: (meta && meta[2]) || f.properties?.n || "", gp: meta ? meta[0] : null, lat: sy / ring.length, lng: sx / ring.length });
+      // Same precedence as the tooltip: gpMap first, then the file's own LGD
+      // name and GP. A parcel with no identity is left unnamed rather than
+      // borrowing the misaligned Survey of India name it used to show.
+      out.push({
+        code,
+        name: (meta && meta[2]) || f.properties?.n || "",
+        gp: (meta && meta[0]) || f.properties?.g || null,
+        lat: sy / ring.length, lng: sx / ring.length,
+      });
     }
     return out;
   }, [boundaries, gpMap]);
