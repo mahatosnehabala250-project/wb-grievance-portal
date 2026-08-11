@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { resolveCategory } from '@/lib/categorise';
 
 /**
  * POST /api/complaints/register  (n8n internal — Complaint Agent tool)
@@ -50,7 +51,22 @@ export async function POST(request: NextRequest) {
     const district = pick(body, 'jela', 'district');
     const issue = pick(body, 'samasya', 'issue');
     const description = pick(body, 'description', 'samasya', 'issue');
-    const category = pick(body, 'category') || 'other';
+    /**
+     * What the complaint is about.
+     *
+     * This line used to read `pick(body, 'category') || 'other'`, and the value
+     * was then never passed anywhere: register_complaint had no category
+     * parameter and hardcoded 'OTHER' into its INSERT, so the category was
+     * assembled and thrown away on every call. Forty-three percent of real
+     * WhatsApp complaints in the database still read OTHER, including ones whose
+     * whole text is "drinking water".
+     *
+     * Now: the agent's category if it is one we recognise — it also arrives as
+     * free text like 'Flood Control' and 'Ration/Food', which matched no label
+     * and no colour and rendered as a grey raw string — otherwise read it out of
+     * what the citizen actually wrote, otherwise OTHER.
+     */
+    const category = resolveCategory(pick(body, 'category'), issue, description);
     const language = pick(body, 'language') || 'bn';
 
     // Minimum required to file a routable complaint.
@@ -75,6 +91,7 @@ export async function POST(request: NextRequest) {
       p_description: description,
       p_source: 'WHATSAPP',
       p_language: language,
+      p_category: category,
     });
 
     if (!rpc.error && rpc.data) {
