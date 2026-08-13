@@ -44,6 +44,7 @@ interface MLAStats {
   windows?: Record<'today'|'week'|'month', {
     filed: number; resolved: number; net: number; clearedPct: number | null; since: string;
   }>;
+  daily?: { date:string; label:string; filed:number; resolved:number }[];
   resolution_rate: number; avg_rating: number | null;
   by_category: { category:string; total:number; resolved:number; active:number }[];
   by_block:    { block:string; total:number; active:number; resolved:number }[];
@@ -68,6 +69,66 @@ const WINDOW_TABS: { key: WindowKey; label: string; noun: string }[] = [
   { key: 'week',  label: 'This week',  noun: 'this week' },
   { key: 'month', label: 'This month', noun: 'this month' },
 ];
+
+/**
+ * Fourteen days of arrivals and closures, as a mirrored column chart.
+ *
+ * A total cannot tell six-in-one-bad-Tuesday from a steady trickle, and those
+ * two months ask completely different things of an office. Arrivals rise from
+ * the centre line, closures fall from it, so a day where the office kept up is
+ * visibly symmetrical and a day it did not is lopsided — readable without
+ * counting anything.
+ *
+ * Both halves share one scale, or a day with four arrivals and one closure
+ * would draw two bars of equal height. Today is marked, because "the last bar"
+ * is otherwise ambiguous on a chart that ends mid-day.
+ */
+function DailyRhythm({ days, accent }: {
+  days: { date:string; label:string; filed:number; resolved:number }[];
+  accent: string;
+}) {
+  const peak = Math.max(1, ...days.map(d => Math.max(d.filed, d.resolved)));
+  const H = 22;
+  return (
+    <div>
+      <div className="flex items-end justify-between gap-[3px]">
+        {days.map((d, i) => {
+          const isToday = i === days.length - 1;
+          return (
+            <div key={d.date} className="flex-1 flex flex-col items-center gap-0"
+                 title={`${d.date} — ${d.filed} in, ${d.resolved} closed`}>
+              <div className="w-full flex flex-col justify-end" style={{ height: H }}>
+                {d.filed > 0 && (
+                  <div className="w-full rounded-t-[2px]"
+                       style={{ height: Math.max(2, (d.filed / peak) * H), background: accent, opacity: isToday ? 1 : 0.75 }} />
+                )}
+              </div>
+              <div className="w-full" style={{ height: 1, background: 'currentColor', opacity: 0.15 }} />
+              <div className="w-full flex flex-col justify-start" style={{ height: H }}>
+                {d.resolved > 0 && (
+                  <div className="w-full rounded-b-[2px]"
+                       style={{ height: Math.max(2, (d.resolved / peak) * H), background: '#10B981', opacity: isToday ? 1 : 0.75 }} />
+                )}
+              </div>
+              <div className={`text-[8px] mt-0.5 tabular-nums ${isToday ? 'font-bold text-foreground' : 'text-muted-foreground'}`}>
+                {d.label}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-[2px]" style={{ background: accent }} />came in
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-[2px] bg-emerald-500" />closed
+        </span>
+        <span className="ml-auto">last 14 days</span>
+      </div>
+    </div>
+  );
+}
 
 /**
  * The day's ledger — what came in, what went out, and which way the pile moved.
@@ -508,6 +569,11 @@ export function MLADashboardView() {
                     noun={WINDOW_TABS.find(t => t.key === win)!.noun}
                     accent={theme.color}
                   />
+                  {d.daily && d.daily.length > 0 && (
+                    <div className="mt-4 pt-4 border-t">
+                      <DailyRhythm days={d.daily} accent={theme.color} />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}

@@ -130,6 +130,49 @@ export async function GET(request: NextRequest) {
       month: { ...windowStats(startOfIstMonth), since: startOfIstMonth.toISOString() },
     };
 
+    /**
+     * The last fourteen IST days, one bucket each.
+     *
+     * A window total says six came in this month; it cannot say whether that was
+     * six on one bad Tuesday or a steady trickle, and those two months need
+     * completely different responses from an office. The monthly `trend` above
+     * is too coarse to show it — five points across five months.
+     *
+     * Days are labelled from the IST date, so a complaint filed at 11pm local
+     * belongs to that evening rather than to the following morning.
+     */
+    const DAILY_DAYS = 14;
+    const daily: { date: string; label: string; filed: number; resolved: number }[] = [];
+    const dayIndex = new Map<string, number>();
+    for (let i = DAILY_DAYS - 1; i >= 0; i--) {
+      const start = new Date(startOfIstDay.getTime() - i * 86400000);
+      const istDate = new Date(start.getTime() + IST_OFFSET_MS);
+      const key = istDate.toISOString().slice(0, 10);
+      dayIndex.set(key, daily.length);
+      daily.push({
+        date: key,
+        label: String(istDate.getUTCDate()),
+        filed: 0,
+        resolved: 0,
+      });
+    }
+    const istDayKey = (ms: number) =>
+      new Date(ms + IST_OFFSET_MS).toISOString().slice(0, 10);
+    for (const c of all) {
+      const created = dbTime(c.createdAt as string | Date);
+      if (!Number.isNaN(created)) {
+        const i = dayIndex.get(istDayKey(created));
+        if (i !== undefined) daily[i].filed++;
+      }
+      if (c.resolvedAt) {
+        const closed = dbTime(c.resolvedAt as string | Date);
+        if (!Number.isNaN(closed)) {
+          const i = dayIndex.get(istDayKey(closed));
+          if (i !== undefined) daily[i].resolved++;
+        }
+      }
+    }
+
     const resRate = all.length > 0 ? (resolved.length / all.length) * 100 : 0;
 
     // Ratings
@@ -353,6 +396,7 @@ export async function GET(request: NextRequest) {
         last_7d:  last7d.length,
         last_30d: last30d.length,
         windows,
+        daily,
         // Rates
         resolution_rate: Math.round(resRate * 10) / 10,
         avg_rating: avgRating,
