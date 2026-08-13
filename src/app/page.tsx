@@ -56,7 +56,6 @@ import { HydrationGate } from '@/components/HydrationGate';
 import { NavProvider, type NavApi } from '@/lib/nav-context';
 import { CommandAssistant } from '@/components/CommandAssistant';
 import { CommandPalette, KeyboardShortcutsDialog, KeyboardShortcutHandler } from '@/components/CommandPalette';
-import { AnnouncementBanner } from '@/components/AnnouncementBanner';
 import { TicketTrackerDialog } from '@/components/TicketTrackerDialog';
 import { AuditLogView } from '@/components/AuditLogView';
 import { PublicStatusPage } from '@/components/PublicStatusPage';
@@ -677,11 +676,15 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* ═══ ANNOUNCEMENT BANNER ═══ */}
-      <AnnouncementBanner
-        message="বাংলার সহায়ক পোর্টালে আপনাকে স্বাগতম। অভিযোগ ব্যবস্থাপনা ড্যাশবোর্ড সক্রিয় আছে।"
-        type="warning"
-      />
+      {/* The announcement banner used to sit here carrying a fixed line of
+          text — "welcome to the portal, the complaint dashboard is active" —
+          told to someone who has just signed in and is looking at that
+          dashboard. It ran the full width above the constituency masthead, the
+          most valuable strip on the page, and it was styled `warning`: amber,
+          the colour this app uses everywhere else to mean something needs
+          attention. Nothing needed attention. A banner that cries wolf on every
+          load is how a reader learns to skip the row where a real notice would
+          appear. The component stays for when there is something to announce. */}
 
       {/* ═══ LAYOUT ═══ */}
       <div className="flex flex-1">

@@ -1030,33 +1030,72 @@ export function MLADashboardView() {
                     <BarChart3 className="w-3.5 h-3.5" /> Issue Types — {constituency}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="px-4 pb-3 space-y-2.5">
-                  {d.by_category.length > 0 ? d.by_category.slice(0,6).map((cat, i) => {
-                    const cfg = CAT_CFG[cat.category] || CAT_CFG.OTHER;
-                    const rate = Math.round((cat.resolved / Math.max(cat.total,1)) * 100);
+                {/* Six stacked bars became a ring with its total in the middle
+                    and the categories listed beside it — the arrangement the
+                    owner picked out of a mockup, drawn from this seat's own
+                    by_category figures.
+                    The bars measured resolution rate per category, which the
+                    ring cannot show, so that number did not go anywhere: it sits
+                    on each legend row as resolved-of-total. The ring answers the
+                    question the bars could not — what this constituency is
+                    actually about — and it answers it in one glance. */}
+                <CardContent className="px-4 pb-3">
+                  {d.by_category.length > 0 ? (() => {
+                    const top = d.by_category.slice(0, 6);
+                    const shown = top.reduce((s, c) => s + c.total, 0);
+                    const rest = d.total - shown;
+                    const slices = rest > 0
+                      ? [...top, { category: '__rest', total: rest, resolved: 0, active: 0 }]
+                      : top;
+                    const R = 42, C = 2 * Math.PI * R;
+                    let offset = 0;
                     return (
-                      <motion.div key={cat.category}
-                        initial={{opacity:0,x:-6}} animate={{opacity:1,x:0}} transition={{delay:i*0.05}}
-                        className="flex items-center gap-3">
-                        <div className={`w-7 h-7 rounded-lg ${cfg.bg} flex items-center justify-center flex-shrink-0`}>
-                          <cfg.icon className="w-3.5 h-3.5" style={{ color: cfg.color }} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between text-xs mb-1">
-                            <span className="font-medium">{cfg.label}</span>
-                            <span className="text-muted-foreground font-mono">{cat.resolved}/{cat.total}</span>
+                      <div className="flex items-center gap-4">
+                        <div className="relative w-[104px] h-[104px] shrink-0">
+                          <svg viewBox="0 0 110 110" className="w-full h-full -rotate-90">
+                            {slices.map(s => {
+                              const frac = s.total / Math.max(d.total, 1);
+                              const col = s.category === '__rest'
+                                ? '#CBD5E1' : (CAT_CFG[s.category] || CAT_CFG.OTHER).color;
+                              const el = (
+                                <circle key={s.category} cx="55" cy="55" r={R} fill="none"
+                                  stroke={col} strokeWidth="15"
+                                  strokeDasharray={`${frac * C} ${C}`}
+                                  strokeDashoffset={-offset} />
+                              );
+                              offset += frac * C;
+                              return el;
+                            })}
+                          </svg>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <span className="text-xl font-black tabular-nums leading-none">{d.total}</span>
+                            <span className="text-[9px] text-muted-foreground">total</span>
                           </div>
-                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                            <motion.div className="h-full rounded-full"
-                              style={{ background: cfg.color }}
-                              initial={{width:0}} animate={{width:`${rate}%`}}
-                              transition={{duration:0.7,delay:i*0.05}} />
-                          </div>
                         </div>
-                        <span className="text-[10px] font-mono text-muted-foreground w-7 text-right">{rate}%</span>
-                      </motion.div>
+                        <div className="flex-1 min-w-0 space-y-1">
+                          {slices.map(s => {
+                            const isRest = s.category === '__rest';
+                            const cfg = isRest ? null : (CAT_CFG[s.category] || CAT_CFG.OTHER);
+                            const pct = Math.round((s.total / Math.max(d.total, 1)) * 100);
+                            return (
+                              <div key={s.category} className="flex items-center gap-2 text-[11px]">
+                                <span className="h-2 w-2 rounded-full shrink-0"
+                                      style={{ background: isRest ? '#CBD5E1' : cfg!.color }} />
+                                <span className="flex-1 truncate">{isRest ? 'Everything else' : cfg!.label}</span>
+                                <span className="tabular-nums text-muted-foreground w-8 text-right">{pct}%</span>
+                                <span className="tabular-nums font-medium w-10 text-right">
+                                  {isRest ? s.total : `${s.resolved}/${s.total}`}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          <p className="text-[10px] text-muted-foreground pt-1">
+                            Right-hand figure is resolved of filed.
+                          </p>
+                        </div>
+                      </div>
                     );
-                  }) : (
+                  })() : (
                     <div className="text-center py-6 text-sm text-muted-foreground">No complaints yet</div>
                   )}
                 </CardContent>
