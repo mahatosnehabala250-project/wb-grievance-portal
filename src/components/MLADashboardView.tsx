@@ -10,7 +10,9 @@ import {
   ShieldAlert, CircleDot, ChevronDown, ChevronUp,
   CalendarRange, BarChart3, Sparkles, BadgeCheck,
   ArrowUpRight, Flame, CheckCircle, AlertCircle, Repeat,
+  Megaphone, UserCheck, HardHat, Download,
 } from 'lucide-react';
+import { useNav } from '@/lib/nav-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -62,6 +64,22 @@ interface MLAStats {
 }
 
 interface Assignee { id:string; name:string; role:string; block:string|null }
+
+/**
+ * The five things an MLA leaves this screen to do.
+ *
+ * Every one goes to a view that exists and works — messaging, letters,
+ * visitors, works and the complaint list. A quick-action row is only worth the
+ * space if pressing a tile does something; tiles that open nothing are worse
+ * than no row at all, because a client presses them in a demo.
+ */
+const QUICK_ACTIONS: { view: string; icon: React.ElementType; label: string; sub: string }[] = [
+  { view: 'outreach', icon: Megaphone,     label: 'Broadcast',    sub: 'Message citizens' },
+  { view: 'letters',  icon: FileText,      label: 'Write letter', sub: 'To a department' },
+  { view: 'visits',   icon: UserCheck,     label: 'Visitors',     sub: "Today's register" },
+  { view: 'works',    icon: HardHat,       label: 'Works & fund', sub: 'Sanctioned work' },
+  { view: 'complaints', icon: Download,    label: 'Full list',    sub: 'Filter and export' },
+];
 
 type WindowKey = 'today' | 'week' | 'month';
 const WINDOW_TABS: { key: WindowKey; label: string; noun: string }[] = [
@@ -348,6 +366,7 @@ export function MLADashboardView() {
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab]     = useState<'home'|'complaints'|'blocks'|'officers'|'intel'>('home');
   const [win, setWin]     = useState<WindowKey>('today');
+  const nav = useNav();
   const [search, setSearch] = useState('');
   const [statusF, setStatusF] = useState('ALL');
   const [catF, setCatF]   = useState('ALL');
@@ -798,6 +817,30 @@ export function MLADashboardView() {
               </Card>
             </div>
 
+            {/* ── Where you go from here ─────────────────
+                Placed after the numbers and before the case list: by this point
+                a reader knows what is wrong, and these are the five places the
+                office actually acts from. Each opens a working view — a tile
+                that opens nothing is worse than no tile, because a client
+                presses it in a demo. */}
+            {nav && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                {QUICK_ACTIONS.map(a => (
+                  <button key={a.view} type="button" onClick={() => nav.goTo(a.view)}
+                    className="group rounded-xl border bg-card p-3 text-left transition-all hover:shadow-sm hover:-translate-y-px">
+                    <a.icon className="h-4 w-4 mb-2 transition-colors" style={{ color: theme.color }} />
+                    <div className="text-[12px] font-semibold leading-tight">{a.label}</div>
+                    <div className="text-[10px] text-muted-foreground leading-tight mt-0.5">{a.sub}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Two short lists that were stacked full width, so a desktop
+                reader scrolled past a half-empty screen to reach the second.
+                Side by side above `lg`, still stacked on a phone. */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+
             {/* ── Where it is stuck ──────────────────────
                 Ranked by how long the oldest case has waited, not by volume.
                 Three complaints untouched for six weeks need the MLA more than
@@ -876,6 +919,8 @@ export function MLADashboardView() {
                 </CardContent>
               </Card>
             )}
+
+            </div>
 
             {/* ── The waiting list, with a way to act on it ──
                 Everything above this point describes the backlog; none of it
