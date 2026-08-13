@@ -40,6 +40,10 @@ interface MLAStats {
   registered: number; in_progress: number; assigned: number;
   critical: number; sla_breached: number;
   last_24h: number; last_7d: number; last_30d: number;
+  /** Calendar today / this week / this month in IST — not rolling windows. */
+  windows?: Record<'today'|'week'|'month', {
+    filed: number; resolved: number; net: number; clearedPct: number | null; since: string;
+  }>;
   resolution_rate: number; avg_rating: number | null;
   by_category: { category:string; total:number; resolved:number; active:number }[];
   by_block:    { block:string; total:number; active:number; resolved:number }[];
@@ -57,6 +61,86 @@ interface MLAStats {
 }
 
 interface Assignee { id:string; name:string; role:string; block:string|null }
+
+type WindowKey = 'today' | 'week' | 'month';
+const WINDOW_TABS: { key: WindowKey; label: string; noun: string }[] = [
+  { key: 'today', label: 'Today',      noun: 'today' },
+  { key: 'week',  label: 'This week',  noun: 'this week' },
+  { key: 'month', label: 'This month', noun: 'this month' },
+];
+
+/**
+ * The day's ledger — what came in, what went out, and which way the pile moved.
+ *
+ * This is the first question anyone in a constituency office asks, and the
+ * dashboard could not answer it: the API had the arrival counts all along and
+ * the screen showed one of them, as five grey words at the bottom of a stat
+ * strip. Nothing said how much of it had been dealt with.
+ *
+ * Three rules keep it honest at the small numbers a single seat actually sees:
+ *
+ *  - No arrivals means no bar. A progress bar over zero is a divide by zero
+ *    dressed up as information, and "0% cleared" is a lie on a day when nothing
+ *    needed clearing.
+ *  - Closing more than arrived is the good case, not an overflow. The bar fills
+ *    and says so, rather than drawing 300%.
+ *  - The net figure is coloured by direction, not by size — one case either way
+ *    is a real answer when a seat sees nine a month.
+ */
+function DayLedger({ w, noun, accent }: {
+  w: { filed: number; resolved: number; net: number; clearedPct: number | null };
+  noun: string;
+  accent: string;
+}) {
+  const cleared = w.clearedPct;
+  const shrank = w.net < 0;
+  const flat = w.net === 0;
+  return (
+    <div className="grid grid-cols-3 gap-3 sm:gap-4">
+      <div>
+        <div className="text-3xl sm:text-4xl font-black tabular-nums leading-none" style={{ color: accent }}>
+          {w.filed}
+        </div>
+        <div className="text-[11px] text-muted-foreground mt-1">came in {noun}</div>
+      </div>
+      <div>
+        <div className="text-3xl sm:text-4xl font-black tabular-nums leading-none text-emerald-600">
+          {w.resolved}
+        </div>
+        <div className="text-[11px] text-muted-foreground mt-1">closed {noun}</div>
+      </div>
+      <div>
+        <div className={`text-3xl sm:text-4xl font-black tabular-nums leading-none ${
+          flat ? 'text-muted-foreground' : shrank ? 'text-emerald-600' : 'text-amber-600'}`}>
+          {flat ? '0' : `${shrank ? '−' : '+'}${Math.abs(w.net)}`}
+        </div>
+        <div className="text-[11px] text-muted-foreground mt-1">
+          {flat ? 'pile unchanged' : shrank ? 'pile shrank' : 'pile grew'}
+        </div>
+      </div>
+
+      <div className="col-span-3 mt-1">
+        {cleared === null ? (
+          <p className="text-[11px] text-muted-foreground">
+            Nothing new {noun}.{w.resolved > 0 && ` ${w.resolved} older case${w.resolved === 1 ? '' : 's'} closed.`}
+          </p>
+        ) : (
+          <>
+            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+              <div className="h-full rounded-full transition-[width] duration-500"
+                   style={{ width: `${cleared}%`, background: 'linear-gradient(90deg,#10B981,#34D399)' }} />
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              {w.resolved >= w.filed && w.filed > 0
+                ? <><span className="font-semibold text-emerald-600">Cleared everything {noun}</span>{w.resolved > w.filed && ' — and started on the backlog'}.</>
+                : <><span className="font-semibold text-foreground tabular-nums">{cleared}%</span> of what arrived {noun} is closed.</>}
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 interface Complaint {
   id: string; ticketNo: string; citizenName: string;
@@ -188,6 +272,7 @@ export function MLADashboardView() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab]     = useState<'home'|'complaints'|'blocks'|'officers'|'intel'>('home');
+  const [win, setWin]     = useState<WindowKey>('today');
   const [search, setSearch] = useState('');
   const [statusF, setStatusF] = useState('ALL');
   const [catF, setCatF]   = useState('ALL');
@@ -393,6 +478,39 @@ export function MLADashboardView() {
         {/* ══ HOME TAB ════════════════════════════ */}
         {tab==='home' && d && (
           <motion.div key="home" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0}} className="space-y-4">
+
+            {/* ── The day's ledger ──────────────────────
+                Placed above the decision cards because it answers the question
+                that gets asked first — what happened today — and because the
+                three cards below are about the backlog, which only means
+                something once you know whether it is growing. */}
+            {d.windows && (
+              <Card className="border-0 overflow-hidden" style={{ background: `linear-gradient(140deg, ${theme.color}0F, transparent 60%)` }}>
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <h3 className="text-sm font-bold flex items-center gap-1.5">
+                      <CalendarRange className="h-4 w-4" style={{ color: theme.color }} />
+                      The ledger
+                    </h3>
+                    <div className="flex gap-0.5 bg-muted/60 rounded-lg p-0.5">
+                      {WINDOW_TABS.map(t => (
+                        <button key={t.key} onClick={() => setWin(t.key)}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                            win === t.key ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
+                          }`}>
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <DayLedger
+                    w={d.windows[win]}
+                    noun={WINDOW_TABS.find(t => t.key === win)!.noun}
+                    accent={theme.color}
+                  />
+                </CardContent>
+              </Card>
+            )}
 
             {/* ── What needs a decision today ───────────
                 This used to be seven equal tiles above two equally loud alert

@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getAuthUser } from "@/lib/jwt";
 import { canAccessAssembly } from "@/lib/rbac";
 import { isBreached } from "@/lib/sla";
+import { dbTime } from "@/lib/db-time";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -73,6 +74,61 @@ export async function GET(request: NextRequest) {
     const last24h = all.filter(c => new Date(c.createdAt) > new Date(now.getTime() - 86400000));
     const last7d  = all.filter(c => new Date(c.createdAt) > new Date(now.getTime() - 7*86400000));
     const last30d = all.filter(c => new Date(c.createdAt) > new Date(now.getTime() - 30*86400000));
+
+    /**
+     * Today, this week, this month — as a constituency office means them.
+     *
+     * The three counts above are rolling windows: "last 24 hours" moves with the
+     * clock, so at 2pm it silently drops this morning's complaints and includes
+     * yesterday afternoon's. Nobody in an office thinks that way. Asked how many
+     * came in today, a PA means since midnight; asked about this week, they mean
+     * since Monday. The rolling figures are kept because other callers read
+     * them, but the dashboard uses these.
+     *
+     * Boundaries are computed in IST because the constituency runs on IST and
+     * this route runs on a UTC server — "midnight" resolved in the server's zone
+     * would roll over at 5:30am local and put five and a half hours of the new
+     * day into yesterday. IST is a fixed +5:30 with no daylight saving, so the
+     * offset arithmetic is exact.
+     */
+    const IST_OFFSET_MS = 5.5 * 3600_000;
+    const istParts = new Date(now.getTime() + IST_OFFSET_MS);
+    const startOfIstDay = new Date(Date.UTC(
+      istParts.getUTCFullYear(), istParts.getUTCMonth(), istParts.getUTCDate()) - IST_OFFSET_MS);
+    // Monday as the first day, which is how a work week is counted here.
+    const dow = (istParts.getUTCDay() + 6) % 7;
+    const startOfIstWeek = new Date(startOfIstDay.getTime() - dow * 86400000);
+    const startOfIstMonth = new Date(Date.UTC(
+      istParts.getUTCFullYear(), istParts.getUTCMonth(), 1) - IST_OFFSET_MS);
+
+    /** Filed and closed inside one window, plus how the pile moved. */
+    const windowStats = (from: Date) => {
+      const fromMs = from.getTime();
+      let filed = 0, resolvedIn = 0;
+      for (const c of all) {
+        // dbTime, not new Date: these timestamps arrive without a zone marker
+        // and would be read as local time, shifting every boundary by 5:30.
+        const created = dbTime(c.createdAt as string | Date);
+        if (!Number.isNaN(created) && created >= fromMs) filed++;
+        const closed = c.resolvedAt ? dbTime(c.resolvedAt as string | Date) : NaN;
+        if (!Number.isNaN(closed) && closed >= fromMs) resolvedIn++;
+      }
+      return {
+        filed,
+        resolved: resolvedIn,
+        net: filed - resolvedIn,
+        // Share of this window's arrivals already dealt with. Capped at 100
+        // because a day can close more than it opens — clearing a backlog is
+        // exactly what a good week looks like, and a 300% bar reads as a bug.
+        clearedPct: filed > 0 ? Math.min(100, Math.round((resolvedIn / filed) * 100)) : null,
+      };
+    };
+
+    const windows = {
+      today: { ...windowStats(startOfIstDay), since: startOfIstDay.toISOString() },
+      week:  { ...windowStats(startOfIstWeek), since: startOfIstWeek.toISOString() },
+      month: { ...windowStats(startOfIstMonth), since: startOfIstMonth.toISOString() },
+    };
 
     const resRate = all.length > 0 ? (resolved.length / all.length) * 100 : 0;
 
@@ -296,6 +352,7 @@ export async function GET(request: NextRequest) {
         last_24h: last24h.length,
         last_7d:  last7d.length,
         last_30d: last30d.length,
+        windows,
         // Rates
         resolution_rate: Math.round(resRate * 10) / 10,
         avg_rating: avgRating,
