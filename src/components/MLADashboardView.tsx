@@ -88,7 +88,14 @@ function DailyRhythm({ days, accent }: {
   accent: string;
 }) {
   const peak = Math.max(1, ...days.map(d => Math.max(d.filed, d.resolved)));
-  const H = 22;
+  const totalIn = days.reduce((s, d) => s + d.filed, 0);
+  const totalOut = days.reduce((s, d) => s + d.resolved, 0);
+  // With nothing closed in the period the lower half is empty across all
+  // fourteen columns, and a mirror with one blank side reads as a broken chart
+  // rather than as the bad fortnight it actually is. Drop to a single direction
+  // and say so in words instead.
+  const mirrored = totalOut > 0;
+  const H = mirrored ? 22 : 34;
   return (
     <div>
       <div className="flex items-end justify-between gap-[3px]">
@@ -104,12 +111,14 @@ function DailyRhythm({ days, accent }: {
                 )}
               </div>
               <div className="w-full" style={{ height: 1, background: 'currentColor', opacity: 0.15 }} />
-              <div className="w-full flex flex-col justify-start" style={{ height: H }}>
-                {d.resolved > 0 && (
-                  <div className="w-full rounded-b-[2px]"
-                       style={{ height: Math.max(2, (d.resolved / peak) * H), background: '#10B981', opacity: isToday ? 1 : 0.75 }} />
-                )}
-              </div>
+              {mirrored && (
+                <div className="w-full flex flex-col justify-start" style={{ height: H }}>
+                  {d.resolved > 0 && (
+                    <div className="w-full rounded-b-[2px]"
+                         style={{ height: Math.max(2, (d.resolved / peak) * H), background: '#10B981', opacity: isToday ? 1 : 0.75 }} />
+                  )}
+                </div>
+              )}
               <div className={`text-[8px] mt-0.5 tabular-nums ${isToday ? 'font-bold text-foreground' : 'text-muted-foreground'}`}>
                 {d.label}
               </div>
@@ -119,11 +128,16 @@ function DailyRhythm({ days, accent }: {
       </div>
       <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
         <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-[2px]" style={{ background: accent }} />came in
+          <span className="h-2 w-2 rounded-[2px]" style={{ background: accent }} />
+          came in{!mirrored && ` · ${totalIn}`}
         </span>
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-[2px] bg-emerald-500" />closed
-        </span>
+        {mirrored ? (
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-[2px] bg-emerald-500" />closed · {totalOut}
+          </span>
+        ) : (
+          <span className="text-amber-600 dark:text-amber-400 font-medium">nothing closed in 14 days</span>
+        )}
         <span className="ml-auto">last 14 days</span>
       </div>
     </div>
@@ -469,34 +483,49 @@ export function MLADashboardView() {
       <div className="flex-shrink-0 border-b bg-background/95 backdrop-blur sticky top-0 z-10">
 
         {/* Constituency banner */}
-        <div className={`bg-gradient-to-r ${theme.gradient} px-4 py-2`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="text-2xl">{theme.emoji}</span>
-              <div>
-                <div className="font-bold text-white text-base leading-tight">{constituency} Constituency</div>
-                <div className="text-white/80 text-[11px]">{user?.name} · MLA Dashboard</div>
+        {/* A flat band of colour with three small numbers on it: the loudest
+            element on the page and the one saying least. It now carries depth —
+            a diagonal wash and a soft highlight behind the crest — and the three
+            counts are ranked rather than set at one weight, with a progress rail
+            under them so the resolved share is legible without reading a digit. */}
+        <div className={`relative overflow-hidden bg-gradient-to-br ${theme.gradient} px-4 py-2.5`}>
+          <div className="absolute -top-16 -left-10 w-56 h-56 rounded-full opacity-25 pointer-events-none"
+               style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.55), transparent 68%)' }} />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-white/25 pointer-events-none" />
+          <div className="relative flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="text-2xl drop-shadow-sm">{theme.emoji}</span>
+              <div className="min-w-0">
+                <div className="font-bold text-white text-base leading-tight truncate drop-shadow-sm">
+                  {constituency} Constituency
+                </div>
+                <div className="text-white/85 text-[11px] truncate">{user?.name} · MLA Dashboard</div>
               </div>
             </div>
-            <div className="flex items-center gap-3 text-white/90 text-xs">
-              {d && (
-                <>
-                  <div className="text-center">
-                    <div className="font-bold text-lg leading-none">{d.total}</div>
-                    <div className="text-[9px] uppercase opacity-80">Total</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-bold text-lg leading-none text-red-200">{d.active}</div>
-                    <div className="text-[9px] uppercase opacity-80">Active</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-bold text-lg leading-none text-emerald-200">{d.resolved}</div>
-                    <div className="text-[9px] uppercase opacity-80">Resolved</div>
-                  </div>
-                </>
-              )}
-            </div>
+            {d && (
+              <div className="flex items-end gap-3.5 shrink-0">
+                <div className="text-right">
+                  <div className="font-black text-2xl leading-none text-white tabular-nums drop-shadow-sm">{d.total}</div>
+                  <div className="text-[9px] uppercase tracking-wide text-white/75">Total</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-bold text-lg leading-none text-white tabular-nums">{d.active}</div>
+                  <div className="text-[9px] uppercase tracking-wide text-white/75">Open</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-bold text-lg leading-none text-white tabular-nums">{d.resolved}</div>
+                  <div className="text-[9px] uppercase tracking-wide text-white/75">Done</div>
+                </div>
+              </div>
+            )}
           </div>
+          {d && d.total > 0 && (
+            <div className="relative mt-2 h-1 rounded-full bg-black/20 overflow-hidden"
+                 title={`${d.resolved} of ${d.total} resolved`}>
+              <div className="h-full rounded-full bg-white/85"
+                   style={{ width: `${Math.round((d.resolved / d.total) * 100)}%` }} />
+            </div>
+          )}
         </div>
 
         {/* Tabs + sync */}
