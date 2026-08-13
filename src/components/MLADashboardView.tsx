@@ -10,7 +10,7 @@ import {
   ShieldAlert, CircleDot, ChevronDown, ChevronUp,
   CalendarRange, BarChart3, Sparkles, BadgeCheck,
   ArrowUpRight, Flame, CheckCircle, AlertCircle, Repeat,
-  Megaphone, UserCheck, HardHat, Download,
+  Megaphone, UserCheck, HardHat, Download, ClipboardList, Gauge,
 } from 'lucide-react';
 import { useNav } from '@/lib/nav-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -80,6 +80,43 @@ const QUICK_ACTIONS: { view: string; icon: React.ElementType; label: string; sub
   { view: 'works',    icon: HardHat,       label: 'Works & fund', sub: 'Sanctioned work' },
   { view: 'complaints', icon: Download,    label: 'Full list',    sub: 'Filter and export' },
 ];
+
+/**
+ * One headline figure, in the tile language the owner picked out of a mockup:
+ * a soft tinted chip holding the icon, the label above the number, and a quiet
+ * line underneath for the one piece of context the figure needs.
+ *
+ * What the mockup put on that third line was a "↗ 12% vs last month" delta on
+ * every tile. Those are not here. This seat has forty-two complaints in total
+ * and nine in the last month; a month-over-month percentage on a base that
+ * small swings between +100% and −100% on a single case, and a figure that
+ * moves that violently teaches a reader to ignore it. The line carries a plain
+ * fact instead — what the number is out of, or what it means.
+ */
+function KpiTile({ icon: Icon, label, value, unit, sub, tint, urgent }: {
+  icon: React.ElementType; label: string; value: React.ReactNode; unit?: string;
+  sub?: string; tint: string; urgent?: boolean;
+}) {
+  return (
+    <div className={`rounded-xl border bg-card p-3.5 transition-shadow hover:shadow-sm ${
+      urgent ? 'border-amber-300 dark:border-amber-900/70' : ''}`}>
+      <div className="flex items-start gap-3">
+        <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
+             style={{ background: `${tint}1A` }}>
+          <Icon className="h-[18px] w-[18px]" style={{ color: tint }} />
+        </div>
+        <div className="min-w-0">
+          <div className="text-[11px] text-muted-foreground leading-tight">{label}</div>
+          <div className="flex items-baseline gap-1 mt-0.5">
+            <span className="text-2xl font-black tabular-nums leading-none" style={{ color: tint }}>{value}</span>
+            {unit && <span className="text-[11px] text-muted-foreground">{unit}</span>}
+          </div>
+          {sub && <div className="text-[10px] text-muted-foreground mt-1 leading-tight truncate">{sub}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type WindowKey = 'today' | 'week' | 'month';
 const WINDOW_TABS: { key: WindowKey; label: string; noun: string }[] = [
@@ -626,27 +663,33 @@ export function MLADashboardView() {
               </Card>
             )}
 
-            {/* ── What needs a decision today ───────────
-                This used to be seven equal tiles above two equally loud alert
-                bars, so nothing was ranked and the eye had no entry point. The
-                three figures below are the ones an MLA can act on; the rest of
-                the counts moved to the line under them, where they belong.
-                Three across from `sm` up: below that breakpoint they stacked
-                into a column tall enough to push the backlog off the screen. */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <Card className={`border shadow-none ${d.sla_breached > 0 ? 'border-amber-300 dark:border-amber-900' : ''}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-bold tabular-nums text-amber-600 dark:text-amber-400">{d.sla_breached}</span>
-                    <span className="text-sm text-muted-foreground">of {d.active} open</span>
-                  </div>
-                  <div className="text-sm font-semibold mt-1">Past their deadline</div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">
-                    {d.active > 0 ? `${Math.round((d.sla_breached / d.active) * 100)}% of everything still open` : 'Nothing open'}
-                  </div>
-                </CardContent>
-              </Card>
+            {/* ── The five headline figures ─────────────
+                These were a line of tiny grey words under the decision cards —
+                five real counts rendered as a footnote. They are the standing
+                state of the seat and they now read as it. */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
+              <KpiTile icon={ClipboardList} label="Total complaints" value={d.total}
+                       tint="#3B82F6" sub={`${d.last_30d} in the last 30 days`} />
+              <KpiTile icon={CheckCircle2} label="Resolved" value={d.resolved}
+                       tint="#10B981" sub={`${Math.round(d.resolution_rate)}% of everything filed`} />
+              <KpiTile icon={Timer} label="In progress" value={d.in_progress}
+                       tint="#F59E0B" sub={`${d.assigned} more assigned, not started`} />
+              <KpiTile icon={AlertTriangle} label="Past deadline" value={d.sla_breached}
+                       tint="#EF4444" urgent={d.sla_breached > 0}
+                       sub={d.active > 0 ? `${Math.round((d.sla_breached / d.active) * 100)}% of what is open` : 'Nothing open'} />
+              <KpiTile icon={Gauge} label="Typical close time"
+                       value={d.speed?.medianDays ?? '—'} unit={d.speed?.medianDays != null ? 'days' : undefined}
+                       tint="#8B5CF6"
+                       sub={d.speed?.resolvedCount ? `median of ${d.speed.resolvedCount} closed` : 'nothing closed yet'} />
+            </div>
 
+            {/* ── What needs a decision today ───────────
+                Two cards, not three. "Past their deadline" moved into the row
+                above, where it sits beside the counts it is a share of; showing
+                it in both places made the same four cases look like eight.
+                What stays here is what the row cannot say: which case escalates
+                first, and how long the worst-served citizen has been waiting. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Card className={`border shadow-none ${d.critical > 0 ? 'border-red-300 dark:border-red-900' : ''}`}>
                 <CardContent className="p-4">
                   <div className="flex items-baseline gap-2">
@@ -676,15 +719,6 @@ export function MLADashboardView() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
-
-            {/* The remaining counts, stated once rather than tiled */}
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-              <span><span className="font-semibold text-foreground tabular-nums">{d.total}</span> total</span>
-              <span><span className="font-semibold text-foreground tabular-nums">{d.resolved}</span> resolved</span>
-              <span><span className="font-semibold text-foreground tabular-nums">{d.registered}</span> registered</span>
-              <span><span className="font-semibold text-foreground tabular-nums">{d.in_progress}</span> in progress</span>
-              <span><span className="font-semibold text-foreground tabular-nums">{d.last_7d}</span> filed this week</span>
             </div>
 
             {/* ── Backlog shape + whether the pile is growing ── */}
