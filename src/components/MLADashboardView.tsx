@@ -1047,6 +1047,22 @@ export function MLADashboardView() {
                     const slices = rest > 0
                       ? [...top, { category: '__rest', total: rest, resolved: 0, active: 0 }]
                       : top;
+                    /**
+                     * Largest remainder, not seven independent Math.rounds.
+                     * Purulia's shares are 23.8, 16.7, 11.9, 11.9, 9.5, 9.5 and
+                     * 16.7; rounded one at a time they print 24, 17, 12, 12, 10,
+                     * 10, 17 — a column that visibly adds to 102% beside a ring
+                     * whose whole point is that it is the whole. Whole points
+                     * are handed out first, then the leftovers go to the slices
+                     * with the largest fractions.
+                     */
+                    const exact = slices.map(s => (s.total / Math.max(d.total, 1)) * 100);
+                    const pcts = exact.map(Math.floor);
+                    let short = 100 - pcts.reduce((a, b) => a + b, 0);
+                    exact
+                      .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+                      .sort((a, b) => b.frac - a.frac)
+                      .forEach(({ i }) => { if (short > 0) { pcts[i]++; short--; } });
                     const R = 42, C = 2 * Math.PI * R;
                     let offset = 0;
                     return (
@@ -1073,10 +1089,10 @@ export function MLADashboardView() {
                           </div>
                         </div>
                         <div className="flex-1 min-w-0 space-y-1">
-                          {slices.map(s => {
+                          {slices.map((s, si) => {
                             const isRest = s.category === '__rest';
                             const cfg = isRest ? null : (CAT_CFG[s.category] || CAT_CFG.OTHER);
-                            const pct = Math.round((s.total / Math.max(d.total, 1)) * 100);
+                            const pct = pcts[si];
                             return (
                               <div key={s.category} className="flex items-center gap-2 text-[11px]">
                                 <span className="h-2 w-2 rounded-full shrink-0"
