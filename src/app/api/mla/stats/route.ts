@@ -124,10 +124,45 @@ export async function GET(request: NextRequest) {
       };
     };
 
+    /**
+     * The same stretch, one period earlier — so "five this week" can be read
+     * against "nine last week".
+     *
+     * Stated as plain counts, never as a percentage change. A month-over-month
+     * percentage on a seat holding forty-two complaints swings between +100%
+     * and −100% on a single case; the mockup this design borrowed from put such
+     * a delta on every tile, and at this volume they would be noise wearing the
+     * costume of precision. Two numbers side by side let the reader judge the
+     * size of the difference themselves, which at these counts they can do
+     * better than any arrow.
+     *
+     * The previous window is bounded at both ends, or "last month" would run
+     * from the first of last month to now and cover six weeks.
+     */
+    const rangeStats = (from: Date, to: Date) => {
+      const fromMs = from.getTime(), toMs = to.getTime();
+      let filed = 0, resolvedIn = 0;
+      for (const c of all) {
+        const created = dbTime(c.createdAt as string | Date);
+        if (!Number.isNaN(created) && created >= fromMs && created < toMs) filed++;
+        const closed = c.resolvedAt ? dbTime(c.resolvedAt as string | Date) : NaN;
+        if (!Number.isNaN(closed) && closed >= fromMs && closed < toMs) resolvedIn++;
+      }
+      return { filed, resolved: resolvedIn };
+    };
+
+    const prevDayStart  = new Date(startOfIstDay.getTime() - 86400000);
+    const prevWeekStart = new Date(startOfIstWeek.getTime() - 7 * 86400000);
+    const prevMonthStart = new Date(Date.UTC(
+      istParts.getUTCFullYear(), istParts.getUTCMonth() - 1, 1) - IST_OFFSET_MS);
+
     const windows = {
-      today: { ...windowStats(startOfIstDay), since: startOfIstDay.toISOString() },
-      week:  { ...windowStats(startOfIstWeek), since: startOfIstWeek.toISOString() },
-      month: { ...windowStats(startOfIstMonth), since: startOfIstMonth.toISOString() },
+      today: { ...windowStats(startOfIstDay), since: startOfIstDay.toISOString(),
+               prev: rangeStats(prevDayStart, startOfIstDay), prevLabel: 'yesterday' },
+      week:  { ...windowStats(startOfIstWeek), since: startOfIstWeek.toISOString(),
+               prev: rangeStats(prevWeekStart, startOfIstWeek), prevLabel: 'last week' },
+      month: { ...windowStats(startOfIstMonth), since: startOfIstMonth.toISOString(),
+               prev: rangeStats(prevMonthStart, startOfIstMonth), prevLabel: 'last month' },
     };
 
     /**

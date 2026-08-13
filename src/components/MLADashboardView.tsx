@@ -45,6 +45,7 @@ interface MLAStats {
   /** Calendar today / this week / this month in IST — not rolling windows. */
   windows?: Record<'today'|'week'|'month', {
     filed: number; resolved: number; net: number; clearedPct: number | null; since: string;
+    prev?: { filed: number; resolved: number }; prevLabel?: string;
   }>;
   daily?: { date:string; label:string; filed:number; resolved:number }[];
   resolution_rate: number; avg_rating: number | null;
@@ -218,11 +219,17 @@ function DailyRhythm({ days, accent }: {
  *    is a real answer when a seat sees nine a month.
  */
 function DayLedger({ w, noun, accent }: {
-  w: { filed: number; resolved: number; net: number; clearedPct: number | null };
+  w: { filed: number; resolved: number; net: number; clearedPct: number | null;
+       prev?: { filed: number; resolved: number }; prevLabel?: string };
   noun: string;
   accent: string;
 }) {
   const cleared = w.clearedPct;
+  /** Plain counts, never a percentage change — see the API comment. */
+  const against = (was: number | undefined, label?: string) =>
+    was === undefined ? null : <span className="block text-[10px] text-muted-foreground/80 mt-0.5">
+      {was} {label}
+    </span>;
   const shrank = w.net < 0;
   const flat = w.net === 0;
   return (
@@ -231,13 +238,19 @@ function DayLedger({ w, noun, accent }: {
         <div className="text-3xl sm:text-4xl font-black tabular-nums leading-none" style={{ color: accent }}>
           {w.filed}
         </div>
-        <div className="text-[11px] text-muted-foreground mt-1">came in {noun}</div>
+        <div className="text-[11px] text-muted-foreground mt-1">
+          came in {noun}
+          {against(w.prev?.filed, w.prevLabel)}
+        </div>
       </div>
       <div>
         <div className="text-3xl sm:text-4xl font-black tabular-nums leading-none text-emerald-600">
           {w.resolved}
         </div>
-        <div className="text-[11px] text-muted-foreground mt-1">closed {noun}</div>
+        <div className="text-[11px] text-muted-foreground mt-1">
+          closed {noun}
+          {against(w.prev?.resolved, w.prevLabel)}
+        </div>
       </div>
       <div>
         <div className={`text-3xl sm:text-4xl font-black tabular-nums leading-none ${
@@ -1020,8 +1033,13 @@ export function MLADashboardView() {
               </Card>
             )}
 
-            {/* Category + Recent Resolved */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Category ring, and the week's closures beside it when there are
+                any. When there are none the ring takes the full width instead
+                of sitting next to a card whose only content is the word
+                "nothing" — an empty card still costs a grid slot, still asks to
+                be read, and teaches the eye to skip that corner of the page for
+                the days when something IS there. */}
+            <div className={`grid grid-cols-1 gap-4 ${d.recently_resolved.length > 0 ? 'lg:grid-cols-2' : ''}`}>
 
               {/* Category breakdown */}
               <Card className="border shadow-sm">
@@ -1117,15 +1135,15 @@ export function MLADashboardView() {
                 </CardContent>
               </Card>
 
-              {/* Recently resolved — achievement */}
+              {/* Rendered only when the week actually closed something. */}
+              {d.recently_resolved.length > 0 && (
               <Card className="border shadow-sm">
                 <CardHeader className="pb-1 pt-3 px-4">
                   <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <BadgeCheck className="w-3.5 h-3.5 text-emerald-500" /> Recently Resolved ✨
+                    <BadgeCheck className="w-3.5 h-3.5 text-emerald-500" /> Closed this week
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 pb-3">
-                  {d.recently_resolved.length > 0 ? (
                     <div className="space-y-2">
                       {d.recently_resolved.slice(0,4).map((c,i) => {
                         const cfg = CAT_CFG[c.category] || CAT_CFG.OTHER;
@@ -1143,13 +1161,9 @@ export function MLADashboardView() {
                         );
                       })}
                     </div>
-                  ) : (
-                    <div className="text-center py-6 text-sm text-muted-foreground">
-                      Nothing resolved yet this week
-                    </div>
-                  )}
                 </CardContent>
               </Card>
+              )}
             </div>
           </motion.div>
         )}
