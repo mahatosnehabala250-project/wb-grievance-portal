@@ -734,42 +734,29 @@ export function MLADashboardView() {
               </Card>
             </div>
 
-            {/* ── Backlog shape + whether the pile is growing ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <Card className="lg:col-span-2 border shadow-sm">
-                <CardHeader className="pb-1 pt-3 px-4">
-                  <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5" /> How long the open cases have been waiting
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-4">
-                  <BacklogBar bands={d.ageing || []} />
-                </CardContent>
-              </Card>
-
-              <Card className="border shadow-sm">
-                <CardHeader className="pb-1 pt-3 px-4">
-                  <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <TrendingUp className="w-3.5 h-3.5" /> Keeping up?
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-4">
-                  {d.flow ? (
-                    <>
-                      <div className={`text-3xl font-bold tabular-nums ${d.flow.net > 0 ? 'text-red-600 dark:text-red-400' : d.flow.net < 0 ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>
-                        {d.flow.net > 0 ? '+' : ''}{d.flow.net}
-                      </div>
-                      <div className="text-sm font-semibold mt-0.5">
-                        {d.flow.net > 0 ? 'The pile grew' : d.flow.net < 0 ? 'The pile shrank' : 'Holding level'}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground mt-1">
-                        {d.flow.arrived} came in, {d.flow.closed} closed — last {d.flow.windowDays} days
-                      </div>
-                    </>
-                  ) : <div className="text-xs text-muted-foreground">No flow data</div>}
-                </CardContent>
-              </Card>
-            </div>
+            {/* ── Backlog shape ─────────────────────────
+                A "Keeping up?" card used to sit beside this one, reading
+                "+6 · The pile grew · 9 came in, 3 closed — last 30 days". The
+                ledger at the top of this page now says "+6 · pile grew · 6 came
+                in, 0 closed — this month". The same conclusion drawn from
+                different numbers, a screen apart, because one counted a rolling
+                thirty days and the other the calendar month.
+                A reader who notices cannot tell which to believe, and one who
+                does not notice carries away whichever they saw last. The ledger
+                does the job better — three windows instead of one fixed
+                thirty-day span, the previous period beside each figure, and the
+                fourteen-day rhythm under it — so the card is gone rather than
+                reconciled, and the ageing bar takes the full width. */}
+            <Card className="border shadow-sm">
+              <CardHeader className="pb-1 pt-3 px-4">
+                <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5" /> How long the open cases have been waiting
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <BacklogBar bands={d.ageing || []} />
+              </CardContent>
+            </Card>
 
             {/* Main 2-col layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
