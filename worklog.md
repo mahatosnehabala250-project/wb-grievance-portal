@@ -1,233 +1,176 @@
-# WB AI Public Support System — Worklog
+# Worklog — shared between agents
+
+Two AI engineers work on this repo: **Claude Code** and **Zcode (Z.AI)**.
+Neither can see the other's chat. This file and `git log` are the only channels
+between them.
+
+New engineer? Read `HANDOFF_ZCODE.md` first. Then read the last few entries here.
+
+## Rules
+
+1. **Read before you start.** The last entries tell you what is half-finished
+   and what is already claimed. Also run `git log --oneline -20`.
+2. **Claim before you build.** If a piece of work will take more than an hour,
+   append a `CLAIMED` entry *first* and push it. That is how the other agent
+   knows not to start the same thing.
+3. **Append when you finish.** Newest at the top, directly under this line.
+   Never edit or delete someone else's entry.
+4. **Say what is not verified.** If you could not test something, write that.
+   A confident wrong claim costs the other agent a day.
+5. Commit this file together with the change it describes.
+
+## Format
+
+```
+### YYYY-MM-DD · agent · STATUS · short title
+**Changed:** files or areas touched
+**Why:** the problem, not the diff
+**Verified:** how you know it works — or "not verified, because ..."
+**Watch out:** anything the next person could break
+```
+
+`STATUS` is one of `CLAIMED` (starting), `DONE`, `BLOCKED`, `ABANDONED`.
 
 ---
-Task ID: 12
-Agent: Main Agent (JS-01 SQL Migration Verification)
-Task: Verify JS-01 Sahayak Fix SQL Migration — confirm it needs to be pasted in Supabase Dashboard
 
-Work Log:
-- User asked to confirm if JS-01 Sahayak Fix SQL needs to be pasted in Supabase Dashboard
-- Verified SQL file at `/home/z/my-project/supabase-fix-js01.sql` matches user's pasted SQL exactly
-- Found Supabase credentials in `.env` and `.env.local` (URL + Service Role Key)
-- Tested Supabase REST API connectivity — confirmed working (service role key valid)
-- Verified `check_rate_limit()` function via RPC — returns `true` ✅ (WORKING)
-- Verified `check_duplicate_complaint()` function via RPC — **BROKEN** ❌
-  - Error: "Returned type timestamp(3) without time zone does not match expected type timestamp with time zone in column 4"
-  - Confirmed this is EXACTLY the error the SQL migration fixes
-- Verified `conversation_sessions` table — EXISTS but **WRONG SCHEMA** ⚠️
-  - Current schema: session_id, state, collected_data, last_intent, language, last_activity, created_at
-  - Missing: `id` column (PRIMARY KEY), `updated_at` column
-  - Has live data: session for phone 918918213286 (Mrinmoy Mahato, collecting complaint)
-- Verified `scheme_knowledge` table — **DOES NOT EXIST** ❌ (PGRST205 error)
-- `match_schemes()` function — can't verify (depends on scheme_knowledge table)
-- `vector` extension — status unknown (needs scheme_knowledge table to test)
+### 2026-08-17 · zcode · DONE · Secret-authed rating endpoint for Sarvam voice agent
 
-Database Verification Results:
-| Item | Status | Details |
-|------|--------|---------|
-| check_duplicate_complaint() | ❌ BROKEN | Timestamp mismatch error |
-| check_rate_limit() | ✅ Working | Returns true correctly |
-| conversation_sessions | ⚠️ Wrong Schema | Missing id, updated_at columns |
-| scheme_knowledge | ❌ NOT EXISTS | Table not found |
-| match_schemes() | ❌ Can't work | Depends on scheme_knowledge |
+**Changed:** `src/app/api/complaints/field-rate/route.ts` (new)
 
-Attempted Programmatic SQL Execution:
-- ❌ psql: Not installed on system
-- ❌ Supabase /pg/query endpoint: Returns "requested path is invalid"
-- ❌ Supabase Management API: JWT failed verification (needs separate access token)
-- ❌ Supabase CLI: Needs SUPABASE_ACCESS_TOKEN env var
-- ❌ n8n MCP create_workflow: Empty response (quota may be exhausted)
-- ❌ pg npm module: No database password available
+**Why:** A Sarvam AI Bengali voice agent will call citizens whose complaints are
+closed and ask whether the fix actually worked. It cannot hit the existing
+`PATCH /api/complaints/[id]/rate` because that requires a staff JWT. Built a new
+POST endpoint that accepts `{ticketNo, rating, note, stillBroken}` behind
+`X-N8N-SECRET`, the same pattern proven in `field-update/route.ts`.
 
-Stage Summary:
-- **CONFIRMED**: JS-01 SQL migration MUST be executed in Supabase Dashboard > SQL Editor
-- All 6 items in the migration are needed and correct
-- SQL file saved at: `/home/z/my-project/supabase-fix-js01.sql`
-- User needs to: Go to Supabase Dashboard → SQL Editor → New Query → Paste → Run
-- Cannot execute programmatically without database password or Management API token
-- **Awaiting**: User to manually paste SQL in Supabase Dashboard
+Only resolved complaints can be rated. Re-ratings overwrite — the voice agent may
+re-attempt if the first call was garbled, and the activity log records both.
+The `stillBroken` flag is stored in the activity-log metadata but does not flip
+status — the office decides what to do after reading the note.
+
+**Verified:** typecheck passes — no new errors against the pre-existing baseline
+(leaderboard, db.ts, N8NWorkflowsView, WB01WorkflowDetailView, ceoRouter, tests).
+Lint clean. Not verified against the deployed site because N8N_WEBHOOK_SECRET is
+not available in this session.
+
+**Watch out:** the endpoint uses `ticketNo` (uppercase-normalised), not `id`.
+The voice agent must send the header `X-N8N-SECRET`, not `Authorization: Bearer`.
+If the agent sends a bad secret, the response is 401 with body `{ ok: false }` —
+same shape as field-update, so the caller can parse it uniformly.
 
 ---
-Task ID: 11
-Agent: Main Agent (JS-01 Sahayak Workflow Diagnosis & Fix)
-Task: Check and fix problems in JS-01: Sahayak — Citizen AI Conversational Agent (E5ne8UJ31aiqAAal)
 
-Work Log:
-- Fetched full workflow details via n8n MCP (18 nodes, versionCounter 27, ACTIVE)
-- Validated workflow: 0 errors, 41 warnings (valid connections 17/17)
-- Checked recent executions: 5 total, 2 success (WhatsApp status pings), 4 errors
-- Analyzed all 4 error executions — ALL same root cause
+### 2026-08-16 · claude · DONE · Handoff written, Zcode joining
 
-ERRORS FOUND:
-1. 🔴 CRITICAL: `CheckDuplicateComplaint` node — PostgreSQL error 42804
-   - Error: "Returned type timestamp(3) without time zone does not match expected type timestamp with time zone in column 4"
-   - Root Cause: Supabase RPC `check_duplicate_complaint` function return type declares column 4 as `timestamptz`, but the actual SQL query returns `timestamp(3)` (from complaints table which uses `TIMESTAMP(3)`)
-   - Impact: EVERY complaint registration attempt crashes the workflow (4/4 errors)
-   - Fix: Created /home/z/my-project/supabase-fix-js01.sql — recreates function with correct `TIMESTAMP(3)` return type
+**Changed:** `HANDOFF_ZCODE.md` (new), `WORKLOG.md` (new)
 
-2. 🟡 OUTDATED NODE VERSIONS (all HTTP Request nodes):
-   - Check Rate Limit: 4.2 → 4.4 ✅ Fixed
-   - Is Allowed: 2.2 → 2.3 ✅ Fixed
-   - Upsert Session State: 4.2 → 4.4 ✅ Fixed
-   - EmbedText: 4.2 → 4.4 ✅ Fixed
-   - SchemeKnowledgeSearch: 4.2 → 4.4 ✅ Fixed
-   - CheckDuplicateComplaint: 4.2 → 4.4 ✅ Fixed
-   - CheckComplaintStatus: 4.2 → 4.4 ✅ Fixed
-   - RegisterComplaint: 4.2 → 4.4 ✅ Fixed
-   - SaveSessionState: 4.2 → 4.4 ✅ Fixed
+**Why:** A second agent (Zcode) is joining with no context, no repo access and
+no MCP servers. The handoff carries the architecture, the standing rules, every
+trap that has already cost this project days, and the agreed priority order.
 
-3. 🟡 NO ERROR HANDLING ON AI TOOL NODES:
-   - All 6 httpRequestTool nodes had no `onError` property
-   - When CheckDuplicateComplaint fails, entire workflow crashes
-   - Fix: Added `onError: "continueRegularOutput"` to all 6 tool nodes ✅
+**Verified:** the facts in the handoff were read out of the live database and
+the repo today, not recalled. The public-repo exposure in section 0 was checked
+against the GitHub API (`"visibility": "public"`) and `git ls-files`.
 
-SQL FIX FILE CREATED: /home/z/my-project/supabase-fix-js01.sql
-- Fixes check_duplicate_complaint (correct TIMESTAMP(3) return type)
-- Creates/ensures check_rate_limit function
-- Creates/ensures conversation_sessions table (with RLS + index + trigger)
-- Creates/ensures match_schemes function (with vector support)
-- Creates/ensures scheme_knowledge table (with vector extension)
-
-n8n WORKFLOW UPDATED (9 operations applied):
-- 3 HTTP Request nodes: typeVersion upgraded
-- 6 httpRequestTool nodes: typeVersion upgraded + onError added
-- Validation: 0 errors, 26 warnings (down from 41)
-
-Stage Summary:
-- **CRITICAL FIX NEEDED**: User MUST run supabase-fix-js01.sql in Supabase Dashboard SQL Editor
-- **n8n workflow**: Updated with error handling + latest versions — won't crash on RPC errors anymore
-- **Workflow URL**: https://n8n.srv1347095.hstgr.cloud/workflow/E5ne8UJ31aiqAAal
-- **Remaining warnings**: "Node not reachable from trigger" (normal for AI tool nodes), "Community node as AI tool" (ensure N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true)
-- **Pending**: Run SQL fix in Supabase Dashboard
-- **Pending**: End-to-end test with real WhatsApp message after SQL fix
+**Watch out:** `FOCUS.md` and `WAR_ROOM.md` are committed to a public repo and
+`FOCUS.md` carries pricing strategy plus the phrase "Cambridge Analytica for
+panchayat". The owner has to decide what to do — do not rewrite history alone.
 
 ---
-Task ID: 10
-Agent: Main Agent (WB-01 Advanced v3.0 Builder)
-Task: Build WB-01: WhatsApp Intake + AI Router — deeply, carefully, and advanced
 
-Work Log:
-- Deep-studied ARCHITECTURE-v4.md (WB-01 section: 14 nodes), n8n-workflow-new.md (v3.0 SDK spec), types.ts (27 complaint fields), constants.ts, prisma schema
-- Analyzed existing v2 WB-01 SDK code (18 nodes) and identified all areas for advancement
-- Researched n8n MCP tools: discovered n8n-mcp.com daily quota exhausted (100/100), documented backup n8n-mcp approach
-- Designed WB-01 ADVANCED v3.0 with 24 nodes (up from 18 in v2) and 10 new advanced features
-- Wrote comprehensive SDK code in /home/z/my-project/n8n-sdk-v3/wb-01-whatsapp-intake-advanced.js
-- Fixed parenthesis balancing issue in workflow composition (6 nested IF/ELSE + chain)
-- Created deployment script /home/z/my-project/n8n-sdk-v3/deploy-wb01.sh (validate → create → publish)
-- Created dedicated WB01WorkflowDetailView.tsx component with 4 tabs (Overview, 6 Paths, Data Flow, SDK Code)
-- Integrated WB-01 view into main page.tsx (new nav item + ViewType)
+### 2026-08-16 · claude · DONE · MLA home rebuilt around a time ledger
 
-WB-01 ADVANCED v3.0 — 10 New Features:
-1. 6-Way Smart Router: Status Check (WB-XXXXX), Rating (1-5), Help Menu (hi/help), Stop/Unsubscribe, Too Short (<10 chars), New Complaint (default)
-2. Duplicate Detection (24h): Supabase query for recent complaints from same phone to prevent spam
-3. AI 12-Field Classification: GPT-4o Mini + Structured Output
-4. Multi-Language Support: Auto-detects Bengali, English, Hindi
-5. Rich Bilingual Messages: All WhatsApp messages in both Bengali + English
-6. Interactive Message Support: text, interactive list reply, button reply types
-7. Help Menu System: Comprehensive guide for citizens
-8. Stop/Unsubscribe: Graceful opt-out handling
-9. Enhanced Activity Logging: Detailed metadata JSON
-10. Error Handling & Fallbacks: AI timeout defaults, Supabase error messages
+**Changed:** `src/components/MLADashboardView.tsx`,
+`src/app/api/mla/stats/route.ts`, `src/app/page.tsx`
 
-Stage Summary:
-- **WB-01 ADVANCED v3.0 SDK code written**: 24 nodes, 6-way routing, AI classification, duplicate detection
-- **SDK file**: /home/z/my-project/n8n-sdk-v3/wb-01-whatsapp-intake-advanced.js
-- **Deploy script**: /home/z/my-project/n8n-sdk-v3/deploy-wb01.sh (ready to run when MCP quota resets)
-- **Frontend view**: WB01WorkflowDetailView.tsx integrated into main page (admin only)
-- **Pending**: Deploy to n8n when n8n-mcp.com daily quota resets
-- **Pending**: Test with simulated data
+**Why:** The home screen could not answer the first question an office asks —
+what came in today and how much of it got dealt with. Added a Today / This week
+/ This month ledger with filed, closed, net and a clearing bar; a fourteen-day
+arrivals-vs-closures chart; a five-tile KPI row; a category ring; quick actions
+that open real views. Removed the "Keeping up?" card because it contradicted the
+new ledger (rolling 30 days vs calendar month, same "+6" from different numbers)
+and removed the announcement banner, which cried wolf in amber on every load.
+
+Windows are **calendar** periods in IST, not rolling ones — "last 24 hours"
+drops this morning's complaints at 2pm, which is not how anyone thinks.
+
+**Verified:** live on the deployed site; API returns `windows` and `daily`;
+ledger, ring and quick actions read correct values in the browser; "Write
+letter" navigates to Letters. Typecheck and lint clean against baseline.
+
+**Watch out:** `d.flow` is still on the API response — the Intel tab reads
+`flow.closed`. Do not remove it. Category ring percentages use largest-remainder
+rounding so they sum to exactly 100; naive `Math.round` printed 102.
 
 ---
-Task ID: 9
-Agent: Main Agent (n8n Error Diagnosis & Fix)
-Task: Check errors in n8n workflows and solve them
 
-Stage Summary:
-- ALL 8 WORKFLOWS VERIFIED WORKING — nodes execute, Supabase queries connect, credentials linked
-- Root cause: N8N_BLOCK_ENV_ACCESS_IN_NODE blocked $env.* expressions
-- Fix: Removed ALL $env references, replaced with hardcoded values
-- 72 total nodes across 8 workflows, all with native nodes
-- 31 credentials auto-assigned by n8n MCP
-- Pending: End-to-end test with real WhatsApp message
+### 2026-08-16 · claude · DONE · Category was hardcoded to OTHER on every intake
 
----
-Task ID: 8
-Agent: Main Agent (n8n v2 Rebuild — Native Nodes)
-Task: Rebuild all 8 workflows with native WhatsApp Send, Supabase, and AI Agent nodes
+**Changed:** `src/lib/categorise.ts` (new), `tests/lib/categorise.test.ts` (new),
+`src/app/api/complaints/register/route.ts`, two migrations under
+`supabase/migrations/`
 
-Stage Summary:
-- 8/8 workflows REBUILT with NATIVE NODES (up from HTTP-based v1)
-- 72 total nodes across 8 workflows
-- ALL credentials AUTO-ASSIGNED — WhatsApp, Supabase, OpenAI all linked
-- Native WhatsApp Send Node replaces all HTTP Request calls to Meta API (13 instances)
-- Native Supabase Node replaces all HTTP Request calls to Supabase REST (17 instances)
+**Why:** `register_complaint` hardcoded the literal `'OTHER'` into its INSERT
+and took no category parameter, so the category the intake agent collected was
+computed in the route and thrown away on every call. 23 of 53 real WhatsApp
+complaints read OTHER — including ones whose whole text is "drinking water" and
+"Bidyut". Added `p_category` to the function, wrote a keyword classifier that
+handles Bengali, Hindi, English and romanised Bengali, and backfilled 22 rows.
 
----
-Task ID: 7
-Agent: Main Agent (n8n SDK Builder)
-Task: Build all 8 n8n workflows using SDK code via MCP
+**Verified:** 23 unit tests from real database rows, all passing. RPC tested
+inside a transaction and rolled back. OTHER went 43% → 6% on real complaints.
+The three that remain are honest — a mobile-network complaint and two OBC
+certificate requests, for which no category exists.
 
-Stage Summary:
-- 8/8 workflows BUILT and ACTIVE (up from 0 in v2)
-- Total: 60 nodes across 8 workflows
-- SDK-based build: validate → create → publish pipeline worked perfectly
+**Watch out:** recreating the function let Supabase's default privileges grant
+EXECUTE to `anon`, which the old version never had — on a SECURITY DEFINER
+function that inserts complaints. Revoked in a follow-up migration. **If you
+ever `DROP`/`CREATE` a function in this database, re-check `proacl` afterwards.**
+The backfill ran with `trg_js12_email` disabled or it would have emailed 22 BDOs.
 
 ---
-Task ID: 6
-Agent: Senior Automation Architect (Full System Audit)
-Task: Complete architecture analysis — all 6 phases
 
-Stage Summary:
-- ARCHITECTURE-v4.md: Complete 6-phase analysis saved
-- 8 workflows designed (68 total nodes)
-- 13 critical/high issues identified with specific fixes
+### 2026-08-16 · claude · DONE · Map village layer rebuilt from the official shapefile
 
----
-Task ID: 5
-Agent: Main Agent (n8n SDK Architect)
-Task: Deep review, research n8n instance MCP, create v3.0 workflow specification
+**Changed:** `public/purulia-villages.geojson`, `src/components/MapView.tsx`,
+`src/app/api/map/villages/route.ts`; deleted `src/app/api/map/block-stats/route.ts`
 
-Stage Summary:
-- n8n Instance MCP: Connected, tested, 18 tools confirmed working
-- v3.0 Spec: Complete rewrite using n8n Workflow SDK approach
-- Key Decision: Archive all broken workflows, rebuild using create_workflow_from_code
+**Why:** The boundary file carried `vilnam_soi` (Survey of India name) as its
+label, and that column is not aligned to the geometry — the polygon carrying
+"Andhuli" as its SOI name lies 20 km from the actual Andhuli. Mostly masked by
+`purulia-gp.json`, but 55 polygons fell through and were labelled with an
+unrelated village's name. Rebuilt from the official shapefile with the LGD name,
+gram panchayat and block on every feature.
 
----
-Task ID: 4
-Agent: Main Agent (n8n Workflow Engineer)
-Task: Deep research, audit, and deploy all n8n workflows using n8n-mcp
+Also: the map now reports what it is *not* showing. Four real complaints
+(village "Purulia" ×3 and "Taltal") are not in the LGD register and were
+vanishing from the map silently.
 
-Stage Summary:
-- 7/7 workflows deployed on n8n instance
-- n8n-workflow-new.md v2.0 specification created
-- n8n-mcp daily quota (100 req) exhausted
+**Verified:** all 153 Purulia village coordinates tested point-in-polygon
+against the source shapefile — 153 inside, 0 outside. Vertex count matches the
+official file exactly (192,200); the file replaced had lost 2,118.
+
+**Watch out:** 89 villages district-wide have no coordinates and the official
+shapefile does not cover them. **Do not geocode them into the database.** The
+old `village_coordinates` table shows what happens — 30 of its 42 rows are a
+block centroid stored as a village location, all 11 that overlap official data
+disagree by more than 2 km.
 
 ---
-Task ID: 3
-Agent: Main Agent (Full-Stack Engineer Audit)
-Task: Complete Supabase ↔ Prisma ↔ Frontend schema alignment audit
 
-Stage Summary:
-- Schema: 100% aligned — Supabase ↔ Prisma ↔ TypeScript all match
-- All 5 tables + 2 views verified working
-- Zero discrepancies remaining
+### 2026-08-16 · claude · DONE · A failed load no longer reads as "you have no complaints"
 
----
-Task ID: 2
-Agent: Main Agent
-Task: Install and configure Supabase SSR client setup
+**Changed:** `src/components/ComplaintsView.tsx`, `src/components/MLADashboardView.tsx`
 
-Stage Summary:
-- Supabase SSR: Fully configured with 3 client helpers (server, browser, middleware)
-- db.ts: Clean ESM import, all 3 modes operational
+**Why:** When `/api/complaints` errored, the list kept its initial empty state
+and drew "0 total complaints — No complaints found matching your filters" over a
+seat holding 42. Watched it happen live: three identical requests returned 500,
+500, 200, and Supabase's REST logs showed a fifteen-minute run of 522s across
+every table. Failure is now its own state with one quiet retry and a Try again
+button; rows already on screen stay.
 
----
-Task ID: 1
-Agent: Main Agent (Multiple Sessions)
-Task: Complete Project Rebuild — Schema, API, Frontend, n8n Integration
+**Verified:** forced a 500 in the browser against the deployed site and
+confirmed the banner renders and the old empty-state message is gone.
 
-Stage Summary:
-- Schema: Complete with all columns matching Supabase expectations
-- API: 38 routes working, webhook cascades wired
-- Frontend: All location→block refs fixed
-- n8n Integration: Webhook paths defined, workflow prompt ready
+**Watch out:** the MLA home used `const d = data!` and threw into the error
+boundary when the first load failed. Guarded now.
