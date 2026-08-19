@@ -4,7 +4,7 @@ You are a second AI engineer joining this repo. Claude Code has been working on
 it for months. You have no context, no access and no MCP servers configured.
 This file is everything you need. Read it end to end before your first edit.
 
-The other agent reads `WORKLOG.md`. So do you. See **Working together** at the
+The other agent reads `AGENT_WORKLOG.md`. So do you. See **Working together** at the
 bottom — that is not optional, it is how we avoid overwriting each other.
 
 ---
@@ -29,6 +29,16 @@ that way. **Never `git add -A`** in this repo — it will sweep them in.
 Do not fix this silently. `git rm --cached` does not remove a file from
 history; the owner has to decide between rewriting history and making the repo
 private. Raise it, do not act alone.
+
+**a2) `worklog.md` and `AGENT_WORKLOG.md` are two different files.**
+
+`worklog.md` (lowercase) is the older task log. `AGENT_WORKLOG.md` is the shared
+log between the two agents — that is the one you read and append to.
+
+Windows treats filenames case-insensitively and git does not. Writing a file
+named `WORKLOG.md` on Windows silently overwrites `worklog.md`, which is exactly
+what happened once already. **Check `git ls-files` for an existing name before
+creating any file whose name differs only in case.**
 
 **b) Never commit secrets.** Credentials live in `.env`, which is gitignored.
 The GitHub token is also embedded in the git remote URL — so never paste the
@@ -258,7 +268,7 @@ helpline in June 2026 — intake is not sellable and not the constraint.
 
 Both agents share this repo. Coordinate through git and one file.
 
-**`WORKLOG.md`** is append-only and lives at the repo root. Before you start,
+**`AGENT_WORKLOG.md`** is append-only and lives at the repo root. Before you start,
 read the last few entries. When you finish a piece of work, append an entry in
 the format that file specifies. Commit it with your change.
 
