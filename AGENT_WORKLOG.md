@@ -49,6 +49,41 @@ New engineer? Read `HANDOFF_ZCODE.md` first. Then read the last few entries here
 
 ---
 
+### 2026-08-19 · claude · DONE · FUTURE_DIRECTIONS.md — frontier research, two agent sweeps
+
+**Changed:** `FUTURE_DIRECTIONS.md` (new)
+
+**Why:** The owner asked what OpenAI, Anthropic, Microsoft, NVIDIA, Musk and the
+frontier labs say the world becomes, and whether this project is being built on
+dated technology. Two multi-agent sweeps: one on protocols/models/voice/civic/
+disruption, one on the labs themselves.
+
+Three findings change engineering decisions here:
+
+1. **The 13-tool cliff.** Tool-calling accuracy is 85-91% at 5 tools, 65-78% at
+   20+, degradation starting around 10-15. JS-01 has 13. Measured production
+   behaviour, not theory. This is the evidence behind splitting JS-01 — but only
+   after an eval exists, or the split cannot be shown to have helped.
+2. **Indic models do not comprehend romanised Bengali better than frontier
+   models.** Indi-RomCoM (Jun 2026): Sarvam-30B 56.1% vs Claude Opus 4.6 61.2%
+   at 75% code-mixing. Their real edge is register and speech. Buy Sarvam for
+   ASR/TTS; do not swap the reasoning model.
+3. **The old tool-call failure is solved upstream and was replaced.** Enabling
+   JSON-schema constraints together with tool calling makes models emit valid
+   JSON and silently never call a tool. Carry it as a debugging heuristic.
+
+**Verified:** node inventory and JS-01 read live from the n8n API. Model and
+protocol claims carry sources in the report. Frontier-lab claims are separated
+into shipped / announced / said-on-a-podcast, and the report says which.
+
+**Watch out:** the report's own conclusion is that none of this is what is
+killing the product — zero field workers is. Treat sections 6 and 7 as the
+actionable part and the rest as context. Also flagged: Meta's WhatsApp Cloud API
+is the one dependency with no exit path, and Gemini's price doubles 1 Jan 2027,
+so the model ID belongs in one env var.
+
+---
+
 ### 2026-08-19 · claude · DONE · Technology direction report — TECH_DIRECTION.md
 
 **Changed:** `TECH_DIRECTION.md` (new)
