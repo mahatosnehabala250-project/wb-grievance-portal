@@ -33,6 +33,35 @@ New engineer? Read `HANDOFF_ZCODE.md` first. Then read the last few entries here
 
 ---
 
+### 2026-08-19 · claude · DONE · Technology direction report — TECH_DIRECTION.md
+
+**Changed:** `TECH_DIRECTION.md` (new)
+
+**Why:** The owner asked whether the project is being built on dated technology
+and what the industry is doing with agents, orchestrators and sub-agents. Report
+answers it against the live instance rather than against blog posts.
+
+The finding that matters: `@n8n/n8n-nodes-langchain.agentTool` v3,
+`mcpClientTool` v1.2, and `evaluation` v4.8 + `evaluationTrigger` v4.7 are
+**already installed** on this n8n. Orchestrator + sub-agents is a wiring job
+here, not a migration. Do not move to LangGraph / OpenAI Agents SDK / Claude
+Agent SDK — that rebuilds 37 workflows to reach the pattern already available.
+
+Recommended order: (1) build an eval harness from the 53 real complaints before
+touching JS-01, (2) enable `needsFallback` on the agent node, (3) only then split
+JS-01's 13 tools and 5 jobs into a router plus five sub-agents.
+
+**Verified:** node inventory read live from the n8n API; `agentTool` schema
+fetched and confirmed to carry its own model/memory/tools/systemMessage plus
+maxIterations and needsFallback. JS-01 confirmed at agent typeVersion 3.1.
+
+**Watch out:** Step 3 is a refactor of the only component that touches real
+citizens, and there is still no way to measure a regression. Step 1 is not
+optional ceremony — it is what makes Step 3 safe. Also: the delivery bottleneck
+(0 real field workers) is untouched by any of this.
+
+---
+
 ### 2026-08-19 · claude · DONE · n8n JS-01: language detection was answering Bengali speakers in English
 
 **Changed:** n8n workflow `JS-01: Sahayak — Citizen AI Agent` (`YsUZwu99ckTnzekR`),
