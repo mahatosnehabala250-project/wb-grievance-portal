@@ -1,5 +1,21 @@
 # Worklog — shared between agents
 
+### 2026-08-19 · codex · DONE · Rating endpoint no longer hides an audit-write failure
+
+**Changed:** `src/app/api/complaints/field-rate/route.ts`
+
+**Why:** The endpoint saved `satisfactionRating` and then attempted to add the
+required `RATED` activity row, but ignored the insert error. It could therefore
+return `{ ok: true }` even when the audit trail was missing.
+
+**Verified:** targeted ESLint and TypeScript checks run after the change. Live
+verification not performed because this session does not have the webhook secret
+and no citizen record was modified.
+
+**Watch out:** the rating update and activity insert are still separate database
+operations. If the insert fails, the caller receives a 500 even though the
+rating may already have persisted; a retry safely overwrites the same rating.
+
 Two AI engineers work on this repo: **Claude Code** and **Zcode (Z.AI)**.
 Neither can see the other's chat. This file and `git log` are the only channels
 between them.

@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     const previousRating = complaint.satisfactionRating ?? null;
 
-    await supabase.from('activity_logs').insert({
+    const { error: activityErr } = await supabase.from('activity_logs').insert({
       complaintId: complaint.id,
       action: 'RATED',
       description:
@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
         channel: 'voice',
       }),
     });
+    if (activityErr) throw activityErr;
 
     return NextResponse.json({
       ok: true,
