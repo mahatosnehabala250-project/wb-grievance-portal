@@ -142,9 +142,25 @@ Project ref: `sxdtipaspfolrpqrwadt` (region ap-south-1, Postgres 17).
 Connect the official Supabase MCP server with a read-only token. The owner has
 one working; ask him rather than minting your own.
 
-**n8n** — 36 live workflows drive every notification. A REST key exists; the
-owner knows where. Do not assume a key you find in the repo still works — one
-in `build_wb_all.js` is expired.
+**n8n** — 37 live workflows drive every notification. There is now a working
+MCP server for it **running locally in Docker**, already pointed at the live
+instance and health-checked:
+
+```
+container : n8n-mcp-server   (ghcr.io/czlonkowski/n8n-mcp)
+endpoint  : http://localhost:3000/mcp   (MCP_MODE=http)
+auth      : Bearer token — read it from the container, never from a file:
+            docker inspect n8n-mcp-server --format '{{json .Config.Env}}' | grep -o 'AUTH_TOKEN=[^"]*'
+```
+
+Registered with Claude Code as `n8n-docker` at user scope. Register it with your
+own client the same way. Do not assume a key you find in the repo still works —
+the one in `build_wb_all.js` is expired.
+
+Note: the image is 2.47.8 and 2.73.0 is out. Two other containers of the same
+image (`vigorous_euler`, `quirky_lamarr`) are running and doing nothing — one is
+in stdio mode with nothing attached to its stdin, the other predates the API key.
+They are the owner's to remove, not yours.
 
 If you cannot get MCP working, you can still read the database through the
 app's own authenticated API endpoints in a browser session, which is how a lot
