@@ -294,3 +294,218 @@ confirmed the banner renders and the old empty-state message is gone.
 
 **Watch out:** the MLA home used `const d = data!` and threw into the error
 boundary when the first load failed. Guarded now.
+
+---
+
+## 2026-08-21 — Claude — JS-04 closure message now names the MLA's office
+
+**Why.** The closure notification is the single highest-value moment in the
+product: it is when a citizen learns their pension or scholarship came through.
+It read `👤 অফিসার: <name>` — and "officer" reads to a villager as a government
+clerk, which hands the credit to the state rather than to the MLA whose worker
+actually did the work. The MLA's name appeared nowhere in the message.
+
+**Changed (both live).**
+
+1. `trigger_js04_status_update()` — migration `js04_payload_add_mla_and_category`.
+   Adds three fields to the webhook payload: `assemblyConstituency`, `mlaName`
+   (resolved in the trigger, so n8n needs no extra round trip), and `category`.
+   Additive only — every pre-existing field keeps its name and meaning.
+   The MLA lookup excludes `username LIKE '%demo%'`: Bandwan carries both a real
+   MLA (Labsen Baskey) and a "Demo MLA" row, and without the filter the winner
+   would depend on row order.
+
+2. JS-04 `zxhMcvjLPbcuEzGz`, node `Build Status Message`. RESOLVED now reads
+   "<MLA>-এর কার্যালয় থেকে <worker> আপনার পেনশন করে দিয়েছেন", carries a
+   category-aware next-step line (entitlements get "money should arrive in a few
+   days, tell us if it doesn't"), and **no longer asks for a 1-5 rating**.
+   Node output shape is unchanged, so downstream nodes were untouched.
+
+**Verified.** Workflow validates with 0 errors (14 warnings, all pre-existing).
+MLA lookup resolves correctly for all 9 Purulia ACs. 581/595 complaints carry an
+AC; the other 14 fall back to naming the worker alone. Five message variants
+rendered locally, including the no-MLA fallback. No live status change was
+fired — that would send real messages to real citizens.
+
+**Open, and it matters.** The rating ask was removed but its replacement does
+not exist yet, so satisfaction ratings stay at zero until a follow-up workflow
+lands: ~15 days after RESOLVED, ask "did the money actually arrive?" That
+follow-up is also the only way to catch cases closed on paper but not in fact.
+
+**Also fixed.** `n8n-mcp-server` container was Exited (255) with an empty error —
+killed by a host restart, with `RestartPolicy: no`, which is why it never came
+back and the MCP connection dropped. Started it and set
+`--restart=unless-stopped`. Two idle containers remain (`quirky_lamarr` exited,
+`recursing_vaughan` running but permanently "unhealthy" because it is a
+stdio-mode container whose healthcheck expects HTTP). Neither blocks anything;
+left in place pending the owner's call.
+
+---
+
+## 2026-08-21 — Claude — agent harness: action ledger, memory, MCP tool layer
+
+**The finding that set the shape.** `activity_logs` held 87 rows across 595
+complaints. Joined against `complaints.resolvedAt`, **every action type came
+back `later_resolved = 0`** — not one logged intervention was ever followed by
+a case closing. The constituency graph had nodes and no causal edges, so
+"last time this was stuck, X unstuck it" was unanswerable. Separately,
+`agent_invocations` was sitting there with 13 columns and 0 rows: logging was
+something callers had to remember, so nobody did.
+
+**Built (all live).**
+
+1. Migration `agent_harness_action_ledger` — `agent_actions` (append-only:
+   actor, verb, subject, rationale, `parent_action_id`, place, tokens) and
+   `action_outcomes` (written later by a look-back job). Split deliberately:
+   events are immutable, judgements about them are not. View `action_ledger`
+   joins the two and exposes `was_advised`.
+
+2. Migration `agent_harness_outcome_lookback` + `..._gap_guard` —
+   `record_action_outcomes(settle_days, horizon_days, min_gap_hours)`.
+   **The first cut was wrong and is worth knowing about:** it scored every
+   action against its own status notification, written in the same instant, so
+   every verb returned 0.0 days and 100% effective. Fixed with a minimum gap
+   plus `is_intervention()`, which excludes `status_changed`/`resolved`/
+   `created` — those are records *of* an outcome, so judging them by "did the
+   status change after?" is circular.
+
+3. Migration `agent_memory_institutional` — `agent_memory` (claim, evidence,
+   confidence, `last_confirmed_at`, `expires_at`, status), `decay_memory()`,
+   and `propose_memory_from_outcomes()` which grows beliefs *from* the ledger.
+   Everything it writes lands as `proposed`; `usable_memory` shows only
+   `active`, so a proposal is never served as fact.
+
+4. `mcp-constituency/` — stdio MCP server, 9 tools (under the 10–15 tool
+   cliff; JS-01 is already at 13). Two rules: **scope is enforced in
+   `scopeFilter()` from the caller's `users` row, never in a prompt** — a
+   model can be argued out of an instruction, it cannot be argued into a query
+   that was never built. And **every write goes through `logAction()`**, so the
+   ledger cannot fall behind the work. Failed tool calls are logged too.
+
+**Verified.** Backfilled the 87 `activity_logs` rows into the ledger.
+Outcome job: 17 interventions judged → 0 resolved, 5 moved, 12 nothing.
+`what_works` now reads:
+
+```
+verb        tried  resolved  moved  nothing
+assigned      12       0       1      11
+reopened       5       0       4       1
+```
+
+Assignment, the system's core mechanic, has closed nothing in twelve
+attempts. `assign_case` returns that as a reminder on every call.
+
+`smoke.mjs` boots three actors and confirms scope isolation:
+`mla_balarampur` 28 open / `mla_manbazar` 64 open / `mp_purulia` 244 open,
+three disjoint sets of villages.
+
+**Also.** Corrected a stale entry in Claude's own memory: the `.env`
+`SUPABASE_SERVICE_ROLE_KEY` was recorded as dead (401 on 2026-07-26); re-tested
+today it returns 200. It has flipped once, so re-test rather than assume.
+
+**Next, in order.** Schedule `record_action_outcomes()` + `decay_memory()`
+(daily is enough). Then the Telegram front door: staff already self-link via
+JS-12 and `users.telegram_chat_id`, so the advisor can answer in-channel with
+the caller's own scope — one MCP process per linked user, scope resolved from
+their row. Do **not** add role-specific tools for that; the same nine tools
+scoped differently is the whole design.
+
+## 2026-08-21 (later) — Claude — MCP beyond tools; sampling is deprecated
+
+Went and read the spec instead of building from memory, on the owner's
+instruction. Three things came back that would otherwise have shipped wrong.
+
+**1. Sampling is deprecated — protocol revision `2026-07-28`, SEP-2577.**
+"New implementations SHOULD NOT adopt it; existing implementations SHOULD
+migrate to integrating directly with LLM provider APIs." It stays in the spec
+twelve months from that revision before becoming eligible for removal. I had
+just built the memory auditor on `server.createMessage`. Rewritten to call
+Gemini directly — which is better regardless, because the audit now runs on
+every client rather than only ones that expose a model. **Anything in this
+repo still reaching for MCP sampling should be moved off it.**
+
+**2. Elicitation has three response actions, not two** — `accept`, `decline`,
+`cancel`. I was treating decline and cancel identically. For a ledger whose
+whole purpose is learning which advice humans trust, "said no" and "closed the
+dialog" are opposite signals; they are now logged separately.
+
+**3. `requestedSchema` is a restricted subset** — flat object, primitive
+properties only, no nesting. Also: form mode **MUST NOT** be used to request
+credentials (URL mode exists for that). Ours asks for a boolean and an optional
+note, which is fine.
+
+**Added to `mcp-constituency/`.**
+
+- **Resources** — `constituency://scope|pulse|memory|evidence`, pre-scoped.
+- **Prompts** — `morning_brief` (PA), `weekly_review` (member), `cadre_check`
+  (coordinator). This is how role-shaped advisors get built **without
+  role-specific tools**: same nine tools, different lens. A fourth audience
+  means a fourth prompt, never a tenth tool. Each carries the same house rules,
+  including "say nothing at all on a quiet day" — JS-21 has pushed a 7AM brief
+  daily for months and nobody has ever acted on it, which is what happens to a
+  brief that always looks the same.
+- **Elicitation on `assign_case`** — no mutation until a human approves, as a
+  protocol round trip rather than a prompt instruction. On a client that cannot
+  elicit the action is **refused**, not waved through; `confirm:true` is the
+  escape hatch for out-of-band approval. Declines and cancels are written to
+  the ledger too — "the advisor suggested this and a human said no" is exactly
+  as informative as a yes.
+
+**Verified — `smoke-advanced.mjs`, all gates held.**
+
+```
+2. non-eliciting client → assign_case   →  refused, nothing mutated     PASS
+3. Manbazar MLA → Balarampur ticket
+   (even with confirm:true)             →  "No case ... inside Manbazar" PASS
+4. remember("villages starting with B
+   resolve faster", 2 observations)     →  UNSUPPORTED, confidence 0.20  PASS
+```
+
+The auditor's own words on that last one: *"The observation of only two cases
+is insufficient to establish a pattern."* Test row deleted afterwards.
+
+**Zcode:** `FUTURE_STACK_REPORT.md` (yours, 19 Aug) and
+`INDEPENDENT_AGENTIC_ROADMAP.md` are both present and correctly untracked. If
+you build anything on MCP sampling, see point 1 above before you do.
+
+---
+
+## 2026-08-22 · Zcode · DONE · Three cross-screen inconsistencies found by an A-to-Z crawl, two of them numbers that disagreed
+
+**Why.** An automated pass over every MLA screen (logged in as mla_purulia,
+read-only — no submits, no assignments) caught the same facts being reported
+differently in different places, which is the one failure mode this product
+cannot afford in front of an MLA.
+
+**Changed:**
+
+1. `src/app/api/complaints/route.ts` + `src/components/ComplaintsView.tsx` —
+   the summary pills under "Complaints" counted the fifteen rows on the current
+   page while sitting beside a global "Total 42": "Resolved 9" on page 1,
+   "Resolved 14" on page 2, while the seat had closed 35. The API now returns
+   `statusCounts` (three filtered `count` queries alongside the existing one),
+   and the pills read those.
+
+2. `src/app/api/war-room/route.ts` — the War Room carried a private breach
+   rule (`pct >= 100 || urgency in {HIGH, CRITICAL}`), the urgency-blind shape
+   `src/lib/sla.ts` was written to end. Every open HIGH or CRITICAL counted as
+   breached regardless of age, so the War Room said "3" over six open cases
+   that Home, Hotspots and By Area all correctly called 6 (all six are past
+   their real 1/3/7/15-day deadlines). All four call sites now use
+   `isBreached()`/`slaLevel()` from sla.ts; "At Risk" follows the library's
+   ⅔ warning band instead of a local 75%.
+
+3. `src/components/MLADashboardView.tsx` + `src/components/ComplaintsView.tsx`
+   — at 390 px the page scrolled 131 px sideways: the five-tab strip held the
+   row at its full width, and the recent-complaints table set the page's width
+   to its own. The tab strip now scrolls within itself; the table scrolls
+   inside its card; the mobile complaint card's header row wraps.
+
+**Verified:** `npx tsc --noEmit` (only the pre-existing tests/ baseline),
+`npx eslint` clean on all four files. Post-deploy verification of the live
+numbers appears in the next entry.
+
+**Not changed (owner's call):** every complaint still shows the same Bengali
+water-tap sentence — that is the known broken `issue` string on DEMO rows, a
+data repair (or purge of test rows), not a UI tweak. Booths still paints ~5 s
+of blank rows before 307 booths arrive; Settings still says "2.2.0".

@@ -6,6 +6,7 @@ import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib
 import type { JWTPayload } from '@/lib/jwt';
 import { assembliesForLokSabha, assembliesForDistrict } from '@/lib/rbac';
 import { normBlock } from '@/lib/block-name';
+import { isBreached, slaLevel } from '@/lib/sla';
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -47,7 +48,17 @@ const dateOf = (c: C, ...keys: string[]): Date | null => {
 };
 
 const CLOSED = new Set(['RESOLVED', 'REJECTED']);
-const BREACH_URGENCY = new Set(['HIGH', 'CRITICAL']);
+
+/**
+ * One breach definition for this whole route: src/lib/sla. It used to carry a
+ * private rule here — any open HIGH or CRITICAL counts as breached, no matter
+ * its age — which is exactly the urgency-blind shape sla.ts was written to
+ * end. The War Room said "3 breached" over the same six open cases every other
+ * screen correctly called 6, because three of them happened to be HIGH or
+ * CRITICAL while all six were past their real deadlines.
+ */
+const breachOf = (c: C): boolean =>
+  isBreached(str(c, 'createdAt'), str(c, 'urgency'), str(c, 'status'));
 
 const ALL_ACS = [
   'Bandwan', 'Balarampur', 'Baghmundi', 'Joypur', 'Purulia',
@@ -152,16 +163,14 @@ export async function GET(request: NextRequest) {
     for (const c of complaints) {
       const status = str(c, 'status');
       const urgency = str(c, 'urgency');
-      const pct = num(c, 'pct');
       const isOpen = !CLOSED.has(status);
       const ac = str(c, 'assembly_constituency', 'assemblyConstituency');
       if (ac === 'Balarampur') sawBalarampur = true;
 
       if (isOpen) {
         open++;
-        const isBreach = (pct !== null && pct >= 100) || BREACH_URGENCY.has(urgency);
-        if (isBreach) breached++;
-        if (pct !== null && pct >= 75 && pct < 100) slaAtRisk++;
+        if (breachOf(c)) breached++;
+        if (slaLevel(str(c, 'createdAt'), urgency, status) === 'warning') slaAtRisk++;
         const created = dateOf(c, 'createdAt');
         if (created) openAgeDaysSum += (now.getTime() - created.getTime()) / 86400000;
       }
@@ -223,11 +232,9 @@ export async function GET(request: NextRequest) {
       const block = str(c, 'block') || 'Unknown';
       const gpName = str(c, 'gp_name', 'gpName');
       const status = str(c, 'status');
-      const urgency = str(c, 'urgency');
       const category = str(c, 'category') || 'OTHER';
-      const pct = num(c, 'pct');
       const isOpen = !CLOSED.has(status);
-      const isBreach = (pct !== null && pct >= 100) || BREACH_URGENCY.has(urgency);
+      const isBreach = breachOf(c);
 
       if (isOpen) {
         const bm = blockMap[block] || (blockMap[block] = { open: 0, breached: 0 });
@@ -355,10 +362,7 @@ export async function GET(request: NextRequest) {
     const breachedUnassignedByBlock: Record<string, number> = {};
     for (const c of complaints) {
       if (CLOSED.has(str(c, 'status'))) continue;
-      const pct = num(c, 'pct');
-      const urgency = str(c, 'urgency');
-      const isBreach = (pct !== null && pct >= 100) || BREACH_URGENCY.has(urgency);
-      if (!isBreach || str(c, 'assignedOfficerName')) continue;
+      if (!breachOf(c) || str(c, 'assignedOfficerName')) continue;
       breachedUnassignedCount++;
       const block = str(c, 'block') || 'Unknown';
       breachedUnassignedByBlock[block] = (breachedUnassignedByBlock[block] || 0) + 1;
@@ -382,10 +386,7 @@ export async function GET(request: NextRequest) {
       const updated = dateOf(c, 'updatedAt');
       if (created && created.getTime() >= since24h.getTime()) newComplaints++;
       if (str(c, 'status') === 'RESOLVED' && updated && updated.getTime() >= since24h.getTime()) resolvedLast24h++;
-      const pct = num(c, 'pct');
-      const urgency = str(c, 'urgency');
-      const isBreach = (pct !== null && pct >= 100) || BREACH_URGENCY.has(urgency);
-      if (isBreach && updated && updated.getTime() >= since24h.getTime()) newlyBreachedLast24h++;
+      if (breachOf(c) && updated && updated.getTime() >= since24h.getTime()) newlyBreachedLast24h++;
     }
     const sinceYesterday = {
       newComplaints,

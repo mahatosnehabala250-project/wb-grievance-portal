@@ -67,6 +67,13 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ page: 1, limit: 15, total: 0, totalPages: 0 });
   /**
+   * Filter-wide status counts from the server. The pills under the heading
+   * show these beside a global "Total"; counting the fifteen rows on the
+   * current page instead made "Resolved" read 9, then 14 as you paginated,
+   * while the office had closed 35.
+   */
+  const [statusCounts, setStatusCounts] = useState<{ open: number; inProgress: number; resolved: number }>({ open: 0, inProgress: 0, resolved: 0 });
+  /**
    * A load that failed is not a seat with no complaints.
    *
    * The list used to keep its initial empty state when the request errored, so
@@ -185,6 +192,7 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
         const json = await res.json();
         setComplaints(json.complaints);
         setPagination(json.pagination);
+        if (json.statusCounts) setStatusCounts(json.statusCounts);
         setLoadError(null);
         // Derive block options from fetched complaints
         const blocks = [...new Set(json.complaints.map((c: Complaint) => c.block))].sort() as string[];
@@ -407,15 +415,15 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-800/30 text-xs font-semibold">
               <span className="h-2 w-2 rounded-full bg-red-500" />
-              Open <span className="font-black text-red-700 dark:text-red-400">{complaints.filter(c => c.status === 'OPEN').length}</span>
+              Open <span className="font-black text-red-700 dark:text-red-400">{statusCounts.open}</span>
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30 text-xs font-semibold">
               <span className="h-2 w-2 rounded-full bg-amber-500" />
-              In Progress <span className="font-black text-amber-700 dark:text-amber-400">{complaints.filter(c => c.status === 'IN_PROGRESS').length}</span>
+              In Progress <span className="font-black text-amber-700 dark:text-amber-400">{statusCounts.inProgress}</span>
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30 text-xs font-semibold">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Resolved <span className="font-black text-emerald-700 dark:text-emerald-400">{complaints.filter(c => c.status === 'RESOLVED').length}</span>
+              Resolved <span className="font-black text-emerald-700 dark:text-emerald-400">{statusCounts.resolved}</span>
             </span>
           </div>
         </motion.div>
@@ -757,7 +765,7 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
                 return (
                   <Card key={c.id} className={`border-0 shadow-sm ${urgencyBorderClass} overflow-hidden hover:shadow-md hover:translate-y-[-1px] transition-all duration-200 active:scale-[0.99]`} style={{ borderLeftColor: urgencyColor }}>
                     <CardContent className="p-4 space-y-3">
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                         <div className="flex items-center gap-2 min-w-0">
                           <Checkbox checked={selectedIds.has(c.id)} onCheckedChange={() => toggleSelect(c.id)} className="shrink-0" />
                           <span className="font-mono text-xs font-bold text-foreground shrink-0">{c.ticketNo}</span>

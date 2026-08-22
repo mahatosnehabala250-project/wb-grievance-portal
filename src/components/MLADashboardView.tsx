@@ -598,8 +598,11 @@ export function MLADashboardView() {
         </div>
 
         {/* Tabs + sync */}
+        {/* The five tabs have no smaller form. On a phone they used to hold the
+            row at their combined width and push the whole page 130px sideways;
+            now the tab strip scrolls within itself, the way a phone expects. */}
         <div className="px-4 py-1.5 flex items-center justify-between gap-2">
-          <div className="flex gap-0.5 bg-muted/50 rounded-lg p-0.5">
+          <div className="flex gap-0.5 bg-muted/50 rounded-lg p-0.5 min-w-0 overflow-x-auto">
             {([
               { id:'home',       label:'🏠 Home'      },
               { id:'complaints', label:'📋 Complaints' },
@@ -608,14 +611,14 @@ export function MLADashboardView() {
               { id:'intel',      label:'🧠 Intel'     },
             ] as const).map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
-                className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all ${
+                className={`shrink-0 px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all ${
                   tab===t.id ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
                 }`}>
                 {t.label}
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             {d?.sla_breached > 0 && (
               <Badge variant="destructive" className="text-[10px] h-5 animate-pulse">
                 ⚠ {d.sla_breached} SLA breach
@@ -1200,6 +1203,11 @@ export function MLADashboardView() {
 
             {filtered.length > 0 ? (
               <Card className="border shadow-sm overflow-hidden">
+                {/* A table keeps the width its columns ask for, and on a phone
+                    that width used to become the page's width — everything
+                    scrolled sideways because one table could not shrink. The
+                    table now scrolls inside its own card instead. */}
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent border-b">
@@ -1253,6 +1261,7 @@ export function MLADashboardView() {
                     })}
                   </TableBody>
                 </Table>
+                </div>
               </Card>
             ) : (
               <div className="flex flex-col items-center justify-center py-20">

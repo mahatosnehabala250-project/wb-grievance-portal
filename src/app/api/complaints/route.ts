@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
   //    own visibility through query params (block/district/etc.) ──
   Object.assign(where, getComplaintScopeFilter(payload));
 
-  const [complaints, total] = await Promise.all([
+  const [complaints, total, open, inProgress, resolved] = await Promise.all([
     db.complaint.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -94,10 +94,19 @@ export async function GET(request: NextRequest) {
       take: limit,
     }),
     db.complaint.count({ where }),
+    // Status counts answer to the same filters the table does, not to the
+    // page — the summary pills sit beside a global "Total" figure and used to
+    // count only the fifteen rows on screen, so "Resolved 9" sat under
+    // "Total 42" while the real answer was 35. Three tiny counts on an
+    // already-running query beat one number that is quietly wrong.
+    db.complaint.count({ where: { ...where, status: 'OPEN' } }),
+    db.complaint.count({ where: { ...where, status: 'IN_PROGRESS' } }),
+    db.complaint.count({ where: { ...where, status: 'RESOLVED' } }),
   ]);
 
   return NextResponse.json({
     complaints,
+    statusCounts: { open, inProgress, resolved },
     pagination: {
       page,
       limit,
