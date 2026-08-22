@@ -17,7 +17,10 @@ import { n8nSecretOk } from '@/lib/n8nAuth';
  * complaint in another by sending its ticket number.
  *
  * Only status and a note may be set — deciding the owning officer or the
- * urgency stays with the office, exactly as it does in the portal.
+ * urgency stays with the office, exactly as it does in the portal. A booth
+ * number may also be confirmed (with or without a status): the assignment
+ * alert offers the village's booth shortlist, and the worker's tap becomes
+ * a BOOTH_CONFIRMED activity row the households ledger reads back.
  *
  * Auth: X-N8N-SECRET, the same inbound pattern as the rest of the automation.
  */
@@ -67,12 +70,24 @@ export async function POST(request: NextRequest) {
     const ticketNo = String(body.ticketNo || '').trim().toUpperCase();
     const status = String(body.status || '').trim().toUpperCase();
     const note = body.note ? String(body.note).slice(0, 1000) : null;
+    /**
+     * Booth confirmation is the same chat, a different verb: the assignment
+     * alert offers the village's booth shortlist as buttons and the worker
+     * taps one. No status changes, so `status` may be empty when `boothNo`
+     * is present — the tap is recorded as a BOOTH_CONFIRMED activity row,
+     * which the households ledger reads back as the family's exact booth.
+     */
+    const boothNo = body.boothNo != null ? String(body.boothNo).trim().slice(0, 12) : '';
 
     if (!chatId || !ticketNo) {
       return NextResponse.json(
         { ok: false, error: 'telegramChatId and ticketNo are required' }, { status: 400 });
     }
-    if (!ALLOWED_STATUS.includes(status)) {
+    if (!status && !boothNo) {
+      return NextResponse.json(
+        { ok: false, error: 'status or boothNo is required' }, { status: 400 });
+    }
+    if (status && !ALLOWED_STATUS.includes(status)) {
       return NextResponse.json(
         { ok: false, error: `status must be one of ${ALLOWED_STATUS.join(', ')}` }, { status: 400 });
     }
@@ -130,6 +145,26 @@ export async function POST(request: NextRequest) {
         { ok: false, error: 'That complaint is not in your area' }, { status: 403 });
     }
 
+    /**
+     * Booth-only tap: nothing about the case changes, only the family's
+     * place in the ledger becomes exact. Recorded and returned without
+     * touching the complaint row.
+     */
+    if (boothNo && !status) {
+      await supabase.from('activity_logs').insert({
+        complaintId: complaint.id,
+        action: 'BOOTH_CONFIRMED',
+        description: `Booth ${boothNo} confirmed for this household by ${user.name || user.username} (via Telegram)`,
+        actorId: user.id,
+        actorName: user.name || user.username,
+        metadata: JSON.stringify({ boothNo, channel: 'telegram' }),
+      });
+      return NextResponse.json({
+        ok: true,
+        data: { ticketNo, boothNo, by: user.name || user.username },
+      });
+    }
+
     const previous = String(complaint.status);
     const { error: updErr } = await supabase
       .from('complaints')
@@ -140,6 +175,19 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', complaint.id);
     if (updErr) throw updErr;
+
+    // A status tap can carry the booth too — both buttons live on the same
+    // alert, and one visit should be able to settle both facts.
+    if (boothNo) {
+      await supabase.from('activity_logs').insert({
+        complaintId: complaint.id,
+        action: 'BOOTH_CONFIRMED',
+        description: `Booth ${boothNo} confirmed for this household by ${user.name || user.username} (via Telegram)`,
+        actorId: user.id,
+        actorName: user.name || user.username,
+        metadata: JSON.stringify({ boothNo, channel: 'telegram' }),
+      });
+    }
 
     // Logged with the worker's own name — the point of letting them update at
     // all is that the office can see who said the work was done.

@@ -586,3 +586,40 @@ Summary so you don't have to guess from the file alone:
 
 **Coordination:** Zcode is taking Phase 1 (household linkage) next unless
 you have a claim on it — write a CLAIMED entry here first if so.
+
+---
+
+## 2026-08-22 · Zcode · DONE · Phase 1 backbone: the household ledger, and booth capture from the field
+
+**Why.** The approved direction (see MLA_PLATFORM_VISION.md, untracked) makes
+the household — not the complaint — the unit that compounds. Until complaints
+group into families, the data stays rows; after, every rating and repeat visit
+enriches one record no competitor can ever have. The owner also specified the
+first data-capture moment: the karyakarta already knows which booth a village
+belongs to, so the assignment alert itself should collect it.
+
+**Changed:**
+
+1. `src/lib/household.ts` (new) — pure grouping: phone-first keys (last ten
+   digits), conservative name+village fallback (honorifics stripped, Bengali
+   script untouched), unmergeable rows counted out rather than forced in.
+2. `src/app/api/households/route.ts` (new) — `GET /api/households`, scoped
+   exactly like /api/complaints. Each family carries counts, top categories,
+   ratings, the village's booth shortlist from polling_stations, and any
+   booth the field has confirmed.
+3. `src/app/api/complaints/field-update/route.ts` — accepts optional
+   `boothNo` (alone or with a status); writes a `BOOTH_CONFIRMED` activity
+   row. No schema change: the confirmation is an event in the existing log,
+   which is also the honest audit shape for it.
+4. `n8n-workflows/BOOTH_CAPTURE_SPEC.md` (new) — the two n8n changes (alert
+   buttons + `bth:` callback branch) with exact payloads; API side is live,
+   n8n side awaits import. `callback_data` stays ≤64 bytes.
+5. `tests/lib/household.test.ts` — 15 cases from real row shapes (+91
+   prefixes, honorific stacking, repeat families, unmergeable rows).
+
+**Verified:** vitest 15/15; tsc and eslint clean on all touched files; live
+verification of /api/households right after deploy (next entry).
+
+**Watch out:** `getComplaintScopeFilter` returns Prisma-style `{in}` for
+karyakartas — pass it through the db adapter (as done here), never Supabase
+`.match()`, which would silently mis-scope them.
