@@ -55,9 +55,21 @@ chat id in workflow static data) →
 reuse the same exact/containment logic notes from BOOTH_CAPTURE_SPEC):
 `callback_data: svb:<n>` (n = index into this chat's saved shortlist), plus a
 `📍 অন্য / other` fallback → `boothNo` (or null)
-**Q5** bot: `সমস্যা কী? (एक लाइन में समस्या लिखो, या - लिखो अगर कुछ नहीं)` → text → `problem`
-**Q6** bot: `MLA-র কাজ নিয়ে কী বলছেন?` → buttons: `😀 ভালো | 😐 এমনই | 😠 অসন্তুষ্ট`
-→ `leaning` (POSITIVE / NEUTRAL / NEGATIVE)
+**Q5** bot: `সমস্যা কী? (এক লাইনে সমস্যা লিখো, যা আছে, বা - লিখো)` → text → `problem`
+
+**Q6 — CONDITIONAL (the owner's rule, keep it):** `MLA-র কাজ নিয়ে কী বলছেন?`
+→ buttons: `😀 ভালো | 😐 এমনই | 😠 অসন্তুষ্ট` → `leaning`
+
+**Ask Q6 ONLY when:**
+- the survey is **cold** (started with /survey, no complaint attached), OR
+- the attached complaint is **RESOLVED** (post-outcome — now the question is
+  honest and the answer is real)
+
+**NEVER ask Q6 when the attached complaint is still OPEN/IN_PROGRESS.**
+Mid-case, "kaisa laga?" has no answer yet — families default to 😐 or feel
+pressured, and the leaning data goes dead. During a work visit the bot asks
+only voters + booth + problem; leaning returns on the follow-up visit after
+resolution (the same visit that confirms the work on the ground).
 
 → HTTP POST `/api/survey` with everything above
 → bot: `✅ সংরক্ষিত — ধন্যবাদ! পরের বাড়ি?` → reset state to Q1.

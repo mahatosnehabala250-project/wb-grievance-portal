@@ -666,3 +666,216 @@ exact recipe.
 **Verified:** tsc/eslint clean, 15/15 household tests still pass, live
 check right after deploy (next entry). The survey table itself waits on the
 owner's paste — until then /api/survey answers 503 with instructions.
+
+---
+
+## 2026-08-22 · Claude · REVIEW of Phase 1 households — one measurement to re-check
+
+**Not claiming anything in Phase 1.** Zcode owns it; this is a read-only review
+plus one number that disagrees with the commit message. No code touched.
+
+### What I verified and agree with
+
+Read `1b29846`, `947312b`, `290b8ef`, `src/lib/household.ts`,
+`src/app/api/households/route.ts`. The design calls are right, and several
+match findings I reached independently:
+
+- **Households as a derived layer, not a table.** A table would be one more
+  thing to keep in sync, and this codebase's recurring failure is exactly
+  that — things built once and never re-checked.
+- **Phone last-ten-digits as the key.** Independently measured: `complaints`
+  holds phones in three shapes (542 rows at 10 digits, 53 at 12, 12 with `+`),
+  and raw-vs-last-10 distinct counts differ by 3 — three people currently
+  counted as six. One of them files PENSION from two spellings of the same
+  village. That gap is real and this closes it.
+- **Unmergeable rows counted out rather than forced.** Right call. A wrong
+  family is worse than no family.
+- **Booth via a `BOOTH_CONFIRMED` activity row rather than a column.** Agreed,
+  and the commit message states the reason better than I would have.
+- **PostgREST's 1,000-row ceiling** — 2,802 booths, two-thirds silently
+  hidden. Good catch; that ceiling has bitten this repo before.
+- **64-byte Telegram callback budget verified.** That trap has cost this
+  project time before (`parse_mode` vs `parseMode`).
+
+### The number to re-check
+
+`947312b` and the comment in `households/route.ts` say:
+
+> "their village_code spaces barely overlap (**5 of 42** in Purulia)"
+
+and on that basis `/api/households` matches booths on **names only**
+(`village_name` / `village_raw`, exact then containment), never on
+`village_code`.
+
+Measured against the live DB just now, the code spaces overlap substantially:
+
+```
+distinct village_code in complaints        226
+distinct village_code in polling_stations 1561
+codes present in both                      133   (59% of complaint villages)
+complaint rows with a code                 561
+complaint rows resolving to a booth by code 323   (58%)
+```
+
+Per AC, rows resolving to a booth by `village_code` alone:
+
+```
+Kashipur     47/60  78%      Manbazar      46/81  57%
+Joypur       30/48  63%      Bandwan       54/101 53%
+Balarampur   25/41  61%      Purulia       20/38  53%
+Baghmundi    45/77  58%      Para          19/37  51%
+                             Raghunathpur  37/78  47%
+```
+
+I could not reproduce "5 of 42" from any table I checked —
+`village_coordinates` (42 rows) gives 11 of 13 matching, not 5 of 42. Possibly
+a different sample or an earlier state of the data; worth re-running before
+relying on it.
+
+### Why it matters, and the suggested change
+
+Two consequences of name-only matching:
+
+1. **Fuzzy work where an exact key exists** for a bit over half the rows.
+2. **Containment can be silently wrong.** "Majura → Majuramura" is correct only
+   if no separate village named Majuramura exists in that block. An exact
+   `village_code` match cannot make that error; containment can, and it will
+   not surface as a failure — it surfaces as a confident wrong booth.
+
+Suggested ordering, which keeps everything already built:
+
+```
+1. village_code exact          → ~55% of rows, no ambiguity
+2. village name exact          → existing pass
+3. containment either way      → existing pass, now only on the remainder
+4. multi-match → shortlist     → unchanged, karyakarta confirms
+```
+
+That is a smaller change than it sounds: one lookup ahead of the current two
+passes, and the containment pass then runs on roughly half as many rows, which
+also halves its chance of a silent mismatch.
+
+### Also worth knowing before building further on this stack
+
+Two live failures found today, reported to the owner, **fix declined** (his
+call — recorded so nobody re-derives it):
+
+- **JS-02 `AI Categorize`** has only a URL in its parameters — no method, no
+  body, no API key. `generateContent` is POST-only, so it returns `404` on
+  every run. **6 executions today, 0 successes.**
+- **JS-08** (the global error handler) fires and then **fails itself** —
+  `Alert Telegram` reads `$json.adminTg`, but it sits downstream of
+  `Log to DLQ`, whose output is `{}`. Telegram replies
+  `Bad Request: chat_id is empty`. **5 executions today, all errored.** Both
+  ADMIN accounts do have a `telegramChatId`; the value is simply lost between
+  nodes.
+
+Net effect for Phase 1: **anything that breaks during this build will not
+alert.** Worth knowing while wiring the survey bot.
+
+### Claude's current claims
+
+`failure_mode` capture, scope-matrix test, freshness SLA — none started, none
+claimed yet. Will write a CLAIMED entry here before touching any of them.
+
+---
+
+## 2026-08-22 · Claude · CLAIMED then mostly ABANDONED · polling_stations geo re-match
+
+**Claimed:** `polling_stations` village matching (geo layer under Phase 1, not
+Zcode's households work). **Outcome: the big fix was wrong and was not done.**
+Four rows corrected. Recorded so nobody re-derives this.
+
+### What I set out to do
+
+`polling_stations.match_score` averages 0.70 with **1,476 of 2,802 below 0.8**.
+That reads like 1,476 bad rows. Plan was to re-match village + GP + AC + block
+together and update wherever a better-scoring source was found.
+
+### Why that was wrong
+
+Measured first:
+
+```
+village_code present and valid in lgd_villages   2,802 / 2,802
+match sits inside the PS's OWN gp_code           2,802 / 2,802   (100%)
+match sits inside the PS's OWN ac                2,802 / 2,802   (100%)
+gp_code spaces overlap PS↔LGD                      170 / 170     (100%)
+average villages per GP                             15.9
+```
+
+**The existing matching is already fully GP- and AC-constrained.** Every
+polling station already resolves to a village inside its own gram panchayat,
+where the candidate set is only ~16 villages.
+
+So `match_score` is **not an error signal**. It records that the *name* looked
+different, not that the *village* is wrong. A 0.10 score inside a certain GP is
+"the ECI text does not resemble the LGD spelling", not "wrong village".
+
+I built the GP-constrained trigram re-match anyway, with variant expansion
+(full name, before/after ` Alias `, parenthetical stripped). Dry run over all
+2,802:
+
+```
+would improve by >0.05        170
+...and pick a different code    9
+average score  old 0.703  →  new 0.672     ← my matcher is WORSE
+```
+
+**Had I run the bulk update it would have degraded the table.** Not doing it.
+
+### What was actually changed — 4 rows
+
+Only where the proposed match scores **1.000** (exact hit on an alias or
+spacing variant) against a demonstrably wrong current pick:
+
+```
+Para/35          raw "Joradih"     Poradih (P)  0.31 → Lakhiara Alias Joradih  1.00
+Raghunathpur/266 raw "Manipur"     Manikpur     0.55 → Matihir Alias Manipur   1.00
+Baghmundi/148    raw "Uparjambad"  Hethjambad   0.62 → Upar Jambad             1.00
+Baghmundi/272    raw "Chirugora"   Pardi        0.63 → Chirugora Alias Chirudi 1.00
+```
+
+`Baghmundi/148` is the one that mattered: **Upar**jambad was matched to
+**Heth**jambad — upper vs lower, two different villages. `Para/35` was matched
+to *Poradih* when the GP itself is named *Joradih*.
+
+Prior values are written to `agent_actions` (verb `geo_rematch`, subject_type
+`village`) so every change is reversible from the ledger.
+
+### Deliberately left alone — 5 rows
+
+```
+Para/215, Para/209   raw "PARA"         0.158 → 0.400   not a village name
+Baghmundi/57         raw "PODDAR PARA"  0.143 → 0.250   a neighbourhood
+Bandwan/11           raw "Taltard"      0.300 → 0.455   plausible, not certain
+Para/204             raw "PARASHYA"     0.400 → 0.500   plausible, not certain
+```
+
+The first three have raw text that is not a village name at all — a *para*
+(neighbourhood) or an institution. No name matcher will fix those; only a
+person who knows the booth can. The last two are probable transliterations
+(Taltard/Taltanr, Parashya/Pareshya) but 0.45–0.50 is not confidence, and a
+silently wrong booth is worse than a low score that says "unsure".
+
+### For Zcode — the part that touches your code
+
+`/api/households` treats booth resolution as a name-matching problem. Given
+that every PS already resolves inside its own GP, the cheaper path is:
+
+```
+1. complaint.village_code = polling_stations.village_code    exact, ~55% of rows
+2. existing name passes                                      the remainder
+```
+
+And **`match_score < 0.8` should not be read as "unreliable row"** anywhere in
+the codebase. It means the names differ; the GP is certain either way. Filtering
+on it will discard good data.
+
+**Design fix (owner's real-world catch, same day).** The survey flow asked
+leaning (😀😐😠) on every visit — but mid-case the family has no answer yet:
+work started, nothing delivered, everyone defaults to neutral and the data
+dies. Q6 is now conditional in SURVEY_BOT_SPEC.md: ask leaning ONLY on cold
+surveys or AFTER the attached complaint is RESOLVED; during open-case work
+visits the bot records voters + booth + problem only. Leaning returns on the
+follow-up visit that confirms the work on the ground.
