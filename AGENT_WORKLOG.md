@@ -538,3 +538,10 @@ breakages in the manual complaint path, both now fixed or healing:
    constituency_block_mapping via normBlock, matching the rollup's
    spelling-variant handling. Miss leaves the fields NULL as before, never
    blocking the filing.
+
+**Follow-up 3.** The geography stamping first tried to write `block_norm`
+too — PostgREST rejects non-DEFAULT values for generated columns
+(428C9), which turned every create into a 500. The column computes
+itself; the commit after removes it and writes only the two
+constituency fields. Verified: create 201 → MLA can GET, escalate,
+resolve, rate, reopen, track the same row (all previously 403/404).
