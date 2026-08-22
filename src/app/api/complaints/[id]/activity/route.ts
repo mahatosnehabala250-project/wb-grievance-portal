@@ -24,7 +24,7 @@ export async function GET(
   if (payload.role === 'BLOCK' && complaint.block !== payload.block) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 });
   }
-  if (payload.role === 'DISTRICT' && complaint.district !== payload.block) {
+  if (payload.role === 'DISTRICT' && complaint.district !== (payload.district || payload.block)) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 });
   }
 
