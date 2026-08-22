@@ -545,3 +545,14 @@ too — PostgREST rejects non-DEFAULT values for generated columns
 itself; the commit after removes it and writes only the two
 constituency fields. Verified: create 201 → MLA can GET, escalate,
 resolve, rate, reopen, track the same row (all previously 403/404).
+
+**E2E pass complete (same day).** Full entry-to-end exercise finished: backend
+14/14 on the complaint lifecycle, 25 read endpoints, letters/visits/works/
+users/feedback CRUD, 7 RBAC negatives, and 12/12 UI submit flows — all on
+own test rows, all cleaned up and verified gone. Three production bugs were
+found and fixed along the way (ticket-sequence rewind; NULL
+assembly_constituency on manual creates; district-wide accounts locked out
+of /activity and /rate by a legacy block-only check) — see the commits of
+2026-08-22. Full report: the owner holds it as
+`frontend-audit/E2E_FULL_REPORT.md` (not committed — it names live credentials
+behaviour and test patterns).
