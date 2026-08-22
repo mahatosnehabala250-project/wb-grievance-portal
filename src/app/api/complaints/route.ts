@@ -193,7 +193,9 @@ export async function POST(request: NextRequest) {
         issue,
         category,
         block,
-        block_norm: blockKey,
+        // block_norm needs no stamp: it is a generated column and PostgREST
+        // rejects any non-DEFAULT value for it — writing it turned every
+        // create into a 500.
         assembly_constituency: assembly,
         parliamentary_constituency: parliament,
         district,
