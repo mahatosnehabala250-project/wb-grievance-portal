@@ -623,3 +623,12 @@ verification of /api/households right after deploy (next entry).
 **Watch out:** `getComplaintScopeFilter` returns Prisma-style `{in}` for
 karyakartas — pass it through the db adapter (as done here), never Supabase
 `.match()`, which would silently mis-scope them.
+
+**Verified live (same day, deploy 947312b).** `GET /api/households` as
+mla_purulia: 41 households from 42 complaints, 0 ungrouped, the one repeat
+family merged, 17 households booth-resolved. Majura resolves to exactly
+booth 45; Purulia town correctly yields a 4-booth shortlist. First cut
+matched no booths at all — two faults, both fixed in 947312b: the booths
+fetch was silently truncated at PostgREST's 1,000 rows (2,802 exist), and
+LGD/ECI village spellings needed exact-then-containment matching, the same
+lesson as normBlock.
