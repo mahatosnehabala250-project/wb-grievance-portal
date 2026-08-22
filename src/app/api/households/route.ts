@@ -100,31 +100,68 @@ export async function GET(request: NextRequest) {
 
 
     // Booth shortlists for every village that appears in the ledger.
+    //
+    // Complaints carry LGD spellings, polling_stations ECI ones ("Majura" vs
+    // "Majuramura"), and their village_code spaces barely overlap (5 of 42
+    // in Purulia), so names are matched in two passes: exact first, then
+    // containment either way for the suffix-heavy ECI forms (-pur, -dih,
+    // -mur). Multi-match is fine — that is a shortlist the worker confirms
+    // with one tap. Page past PostgREST's 1,000-row ceiling: 2,802 booths.
     const villages = new Set(households.map((h) => normVillage(h.village)).filter(Boolean));
     const boothByVillage = new Map<string, { ps_no: string; booth: string }[]>();
     if (villages.size) {
-      const { data: boothRows } = await supabase
-        .from('polling_stations')
-        .select('ps_no, ps_name, village_name, village_raw')
-        .range(0, 9999);
-      for (const b of boothRows || []) {
-        for (const vcol of [b.village_name, b.village_raw]) {
-          const v = normVillage(vcol as string);
-          if (!v || !villages.has(v)) continue;
-          const list = boothByVillage.get(v) || [];
-          list.push({ ps_no: String(b.ps_no), booth: String(b.ps_name || '').slice(0, 60) });
-          boothByVillage.set(v, list);
+      const boothList: { ps_no: unknown; ps_name: unknown; v1: string; v2: string }[] = [];
+      for (let off = 0; off < 4000; off += 1000) {
+        const { data: page } = await supabase
+          .from('polling_stations')
+          .select('ps_no, ps_name, village_name, village_raw')
+          .range(off, off + 999);
+        if (!page?.length) break;
+        for (const b of page) {
+          boothList.push({
+            ps_no: b.ps_no,
+            ps_name: b.ps_name,
+            v1: normVillage(b.village_name as string).replace(/[\s-]/g, ''),
+            v2: normVillage(b.village_raw as string).replace(/[\s-]/g, ''),
+          });
         }
+        if (page.length < 1000) break;
+      }
+      const compact = (s: string | null | undefined) =>
+        String(s ?? '').trim().toLowerCase().replace(/[\s-]/g, '');
+      const seen = new Set<string>();
+      for (const v of villages) {
+        const vc = compact(v);
+        if (!vc || seen.has(vc)) continue;
+        seen.add(vc);
+        let hits = boothList.filter((b) => b.v1 === vc || b.v2 === vc);
+        if (!hits.length) {
+          hits = boothList.filter(
+            (b) =>
+              (vc.length >= 4 && b.v1.length >= 4 && (b.v1.includes(vc) || vc.includes(b.v1))) ||
+              (vc.length >= 4 && b.v2.length >= 4 && (b.v2.includes(vc) || vc.includes(b.v2))),
+          );
+        }
+        const list = hits
+          .filter((x, i, arr) => arr.findIndex((y) => y.ps_no === x.ps_no) === i)
+          .slice(0, 4)
+          .map((b) => ({ ps_no: String(b.ps_no), booth: String(b.ps_name || '').slice(0, 60) }));
+        if (list.length) boothByVillage.set(v, list);
       }
     }
 
-    const out = households.map((h) => ({
-      ...h,
-      confirmedBooth: confirmedBooth.get(h.key) || null,
-      boothCandidates: (boothByVillage.get(normVillage(h.village)) || [])
-        .filter((x, i, arr) => arr.findIndex((y) => y.ps_no === x.ps_no) === i)
-        .slice(0, 4),
-    }));
+    const out = households.map((h) => {
+      // boothByVillage is keyed by normVillage, but matching above ran on
+      // compacted (space/hyphen-stripped) forms; look up with the same fold.
+      const key = normVillage(h.village);
+      const cands = boothByVillage.get(key) ||
+        boothByVillage.get(key.replace(/[\s-]/g, '')) || [];
+      return {
+        ...h,
+        confirmedBooth: confirmedBooth.get(h.key) || null,
+        boothCandidates: cands.slice(0, 4),
+      };
+    });
 
     const summary = {
       households: out.length,
