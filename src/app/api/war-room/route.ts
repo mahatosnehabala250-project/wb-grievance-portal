@@ -56,9 +56,19 @@ const CLOSED = new Set(['RESOLVED', 'REJECTED']);
  * end. The War Room said "3 breached" over the same six open cases every other
  * screen correctly called 6, because three of them happened to be HIGH or
  * CRITICAL while all six were past their real deadlines.
+ *
+ * createdAt reaches this route as a string or as an already-parsed Date
+ * depending on the adapter path; str() flattens a Date to '' and dbDate then
+ * finds no start time, so nothing would ever breach. Hand the raw value to
+ * isBreached, which accepts both shapes.
  */
+const createdAtOf = (c: C): string | Date | null => {
+  const v = c['createdAt'];
+  if (typeof v === 'string' || v instanceof Date) return v;
+  return null;
+};
 const breachOf = (c: C): boolean =>
-  isBreached(str(c, 'createdAt'), str(c, 'urgency'), str(c, 'status'));
+  isBreached(createdAtOf(c) ?? '', str(c, 'urgency'), str(c, 'status'));
 
 const ALL_ACS = [
   'Bandwan', 'Balarampur', 'Baghmundi', 'Joypur', 'Purulia',
@@ -170,7 +180,7 @@ export async function GET(request: NextRequest) {
       if (isOpen) {
         open++;
         if (breachOf(c)) breached++;
-        if (slaLevel(str(c, 'createdAt'), urgency, status) === 'warning') slaAtRisk++;
+        if (slaLevel(createdAtOf(c) ?? '', urgency, status) === 'warning') slaAtRisk++;
         const created = dateOf(c, 'createdAt');
         if (created) openAgeDaysSum += (now.getTime() - created.getTime()) / 86400000;
       }

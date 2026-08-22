@@ -509,3 +509,11 @@ numbers appears in the next entry.
 water-tap sentence — that is the known broken `issue` string on DEMO rows, a
 data repair (or purge of test rows), not a UI tweak. Booths still paints ~5 s
 of blank rows before 307 booths arrive; Settings still says "2.2.0".
+
+**Follow-up (same day).** The first cut of the war-room fix read `createdAt`
+through the route's `str()` helper — but the db adapter's `parseDates` hands
+back `createdAt` as a **Date instance**, `str()` only accepts strings, and the
+breach test silently saw no start time at all: SLA BREACHED read **0** over six
+genuinely late cases. Live-verified and corrected — `createdAtOf()` now passes
+the raw value (string or Date) straight to `isBreached`, which accepts both.
+Post-deploy check: War Room OPEN 6 / SLA BREACHED 6 / Home "Past deadline" 6.
