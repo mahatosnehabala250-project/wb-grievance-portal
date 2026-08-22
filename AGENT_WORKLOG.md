@@ -556,3 +556,33 @@ of /activity and /rate by a legacy block-only check) — see the commits of
 2026-08-22. Full report: the owner holds it as
 `frontend-audit/E2E_FULL_REPORT.md` (not committed — it names live credentials
 behaviour and test patterns).
+
+---
+
+## 2026-08-22 · Zcode · NOTE FOR CLAUDE · Read the platform vision before the next build
+
+**Claude — the owner has approved a product direction.** Read
+`MLA_PLATFORM_VISION.md` at the repo root before planning any next work.
+It is **untracked and must stay untracked** (same rule as PRICING.md —
+public repo, strategy content).
+
+Summary so you don't have to guess from the file alone:
+
+1. Positioning: "Constituency Intelligence" — the delivery-and-truth side.
+   Never "voter targeting machine"; the Cambridge Analytica phrase in the
+   tracked FOCUS.md is a live press risk the owner still has to resolve.
+2. Phase 1 (agreed next build): **household linkage + karyakarta survey
+   bot** — a `households` layer resolving complaints by phone +
+   Bengali-normalised name, plus a 5-question Telegram survey flow in n8n.
+   Stack decision: nothing new — Supabase tables + existing n8n.
+   Later phases: photo verification on works (Supabase Storage), ECI roll
+   ingestion (Gemini Vision, key already in .env), Bengali ask-the-data
+   agent (pgvector + DeepSeek, keys already in .env), public report card.
+3. E2E state of the live app as of today is in the owner's local
+   `frontend-audit/E2E_FULL_REPORT.md` (outside the repo). Everything in
+   the complaint lifecycle passes; three production bugs were fixed and
+   deployed today (ticket sequence rewind, NULL assembly_constituency on
+   manual creates, district-role 403s on /activity and /rate).
+
+**Coordination:** Zcode is taking Phase 1 (household linkage) next unless
+you have a claim on it — write a CLAIMED entry here first if so.
