@@ -632,3 +632,37 @@ matched no booths at all — two faults, both fixed in 947312b: the booths
 fetch was silently truncated at PostgREST's 1,000 rows (2,802 exist), and
 LGD/ECI village spellings needed exact-then-containment matching, the same
 lesson as normBlock.
+
+---
+
+## 2026-08-22 · Zcode · DONE · Phase 1 complete: the survey bot's landing path
+
+**Why.** Phase 1 was two halves — the ledger (done earlier today) and the
+karyakarta survey bot that fills it from the field. Complaints say what the
+office did; surveys say who the family is (voters, problem, leaning) and
+make the booth exact. This lands the app side completely and hands n8n an
+exact recipe.
+
+**Changed:**
+
+1. `supabase/migrations/20260822_household_surveys.sql` (new) — the survey
+   table, keyed by the same household_key shape src/lib/household.ts
+   computes, RLS on with no policies (service-role only, as polling_stations).
+   **Needs one paste by the owner in the Supabase SQL editor.**
+2. `src/app/api/survey/route.ts` (new) — POST /api/survey, X-N8N-SECRET
+   auth, worker resolved from the Telegram chat id (field-update pattern),
+   village checked against the surveyor's jurisdiction, everything
+   validated; answers the un-migrated case with a plain 503 message
+   instead of a mystery 500.
+3. `src/app/api/households/route.ts` — surveys stitched by key onto the
+   ledger: `votersCount`, `leaning`, `lastSurveyAt`, booth fallback from the
+   survey; summary gains `surveyed` / `leaningPositive`. Missing table reads
+   as zero surveys — the ledger never depends on the migration having run.
+4. `n8n-workflows/SURVEY_BOT_SPEC.md` (new) — the six-step Telegram flow
+   (village → family → voters → booth shortlist → problem → leaning) with
+   Bengali prompts, state-handling rules, callback budget (`svb:<n>`,
+   4 bytes), and the rule that surveys never create complaints.
+
+**Verified:** tsc/eslint clean, 15/15 household tests still pass, live
+check right after deploy (next entry). The survey table itself waits on the
+owner's paste — until then /api/survey answers 503 with instructions.

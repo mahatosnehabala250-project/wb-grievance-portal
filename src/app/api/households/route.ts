@@ -150,15 +150,43 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    /**
+     * Field surveys, stitched by the same key the survey was filed under.
+     * Newest per household wins; a missing table (migration not yet applied)
+     * simply reads as "no surveys yet" rather than sinking the ledger.
+     */
+    const { data: surveyRows, error: surveyErr } = await supabase
+      .from('household_surveys')
+      .select('household_key, voters_count, leaning, booth_no, created_at')
+      .order('created_at', { ascending: false })
+      .range(0, 4999);
+    const surveyByKey = new Map<string, { voters: number | null; leaning: string | null; booth: string | null; at: string }>();
+    if (!surveyErr && surveyRows) {
+      for (const s of surveyRows) {
+        const k = String(s.household_key || '');
+        if (!k || surveyByKey.has(k)) continue;
+        surveyByKey.set(k, {
+          voters: s.voters_count ?? null,
+          leaning: s.leaning ?? null,
+          booth: s.booth_no ?? null,
+          at: String(s.created_at || ''),
+        });
+      }
+    }
+
     const out = households.map((h) => {
       // boothByVillage is keyed by normVillage, but matching above ran on
       // compacted (space/hyphen-stripped) forms; look up with the same fold.
       const key = normVillage(h.village);
       const cands = boothByVillage.get(key) ||
         boothByVillage.get(key.replace(/[\s-]/g, '')) || [];
+      const survey = surveyByKey.get(h.key) || null;
       return {
         ...h,
-        confirmedBooth: confirmedBooth.get(h.key) || null,
+        confirmedBooth: confirmedBooth.get(h.key) || survey?.booth || null,
+        votersCount: survey?.voters ?? null,
+        leaning: survey?.leaning ?? null,
+        lastSurveyAt: survey?.at || null,
         boothCandidates: cands.slice(0, 4),
       };
     });
@@ -169,6 +197,8 @@ export async function GET(request: NextRequest) {
       withPhone: out.filter((h) => h.phone).length,
       multiCase: out.filter((h) => h.total > 1).length,
       rated: out.filter((h) => h.ratings.length > 0).length,
+      surveyed: out.filter((h) => h.lastSurveyAt).length,
+      leaningPositive: out.filter((h) => h.leaning === 'POSITIVE').length,
       boothConfirmed: out.filter((h) => h.confirmedBooth).length,
       boothResolved: out.filter((h) => h.confirmedBooth || h.boothCandidates.length === 1).length,
     };
