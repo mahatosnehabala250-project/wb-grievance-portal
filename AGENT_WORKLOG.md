@@ -517,3 +517,24 @@ breach test silently saw no start time at all: SLA BREACHED read **0** over six
 genuinely late cases. Live-verified and corrected — `createdAtOf()` now passes
 the raw value (string or Date) straight to `isBreached`, which accepts both.
 Post-deploy check: War Room OPEN 6 / SLA BREACHED 6 / Home "Past deadline" 6.
+
+**Follow-up 2 (same day, E2E pass).** A full entry-to-end exercise of every
+page's operations (own test rows, cleaned up after) surfaced two production
+breakages in the manual complaint path, both now fixed or healing:
+
+1. `ticket_seq_PUR` had rewound to 001017 while the table held tickets to
+   001081 — every new complaint drew an existing number and died on the
+   unique index (500 "Failed to create complaint"). No SQL access from this
+   session, so the sequence was advanced by calling `generate_ticket_no`
+   64 times through PostgREST until it drew past the live maximum; creation
+   verified working at 001083/001084. Root cause of the rewind not yet known
+   — worth finding which migration or restore moved it.
+2. POST /api/complaints stored NULL `assembly_constituency` (intake derives
+   it from the village; this path got only free-text block). MLA scoping
+   matches on that field, so the office could not open, update, list or
+   track a complaint it had just filed — create returned 201 and the row
+   was then invisible to everyone. The route now stamps `block_norm`,
+   `assembly_constituency` and `parliamentary_constituency` from
+   constituency_block_mapping via normBlock, matching the rollup's
+   spelling-variant handling. Miss leaves the fields NULL as before, never
+   blocking the filing.

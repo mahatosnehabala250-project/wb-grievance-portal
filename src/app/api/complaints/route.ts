@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
 import { generateTicketNo } from '@/lib/ticket-no';
+import { normBlock } from '@/lib/block-name';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // GET /api/complaints — list complaints (filtered by role)
 export async function GET(request: NextRequest) {
@@ -149,6 +156,35 @@ export async function POST(request: NextRequest) {
 
     const ticketNo = await generateTicketNo(district);
 
+    /**
+     * Stamp the geography every later screen reads. The WhatsApp intake path
+     * derives assembly_constituency from the village through the LGD tables;
+     * this path received only free-text block and district, so a complaint
+     * filed by hand stored a NULL constituency. MLA scoping matches on that
+     * field, so the office that filed the row could not open it, update it,
+     * track it, or see it in its own list — a complaint visible to no one.
+     * The block→AC map carries the same spelling variants the rollup hit, so
+     * match through normBlock, never raw text. A miss leaves the fields NULL
+     * exactly as before rather than blocking the filing.
+     */
+    const blockKey = normBlock(block);
+    let assembly: string | null = null;
+    let parliament: string | null = null;
+    try {
+      const { data: geo } = await supabase
+        .from('constituency_block_mapping')
+        .select('constituency, lok_sabha, block_name')
+        .ilike('district', district)
+        .range(0, 199);
+      const hit = (geo || []).find((g) => normBlock(String(g.block_name || '')) === blockKey);
+      if (hit) {
+        assembly = hit.constituency ?? null;
+        parliament = hit.lok_sabha ?? null;
+      }
+    } catch {
+      // an unreachable mapping must not stop a citizen being registered
+    }
+
     const complaint = await db.complaint.create({
       data: {
         ticketNo,
@@ -157,6 +193,9 @@ export async function POST(request: NextRequest) {
         issue,
         category,
         block,
+        block_norm: blockKey,
+        assembly_constituency: assembly,
+        parliamentary_constituency: parliament,
         district,
         urgency: urgency?.toUpperCase() || 'MEDIUM',
         status: 'OPEN',
