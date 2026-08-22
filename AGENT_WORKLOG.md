@@ -879,3 +879,29 @@ dies. Q6 is now conditional in SURVEY_BOT_SPEC.md: ask leaning ONLY on cold
 surveys or AFTER the attached complaint is RESOLVED; during open-case work
 visits the bot records voters + booth + problem only. Leaning returns on the
 follow-up visit that confirms the work on the ground.
+
+---
+
+## 2026-08-22 · Zcode · DONE · The karyakarta's Telegram AI agent — eyes first
+
+**Why.** The owner's design: the karyakarta should never NEED the portal —
+"mera kitna pending hai?" gets answered by an AI agent in the chat he already
+lives in, and updates/ratings/voters flow from the same conversation. This is
+the first real AI Agent of FUTURE_STACK_REPORT Phase 1, not a mockup.
+
+**Changed:**
+
+1. `src/app/api/complaints/field-list/route.ts` (new) — POST, X-N8N-SECRET,
+   chat id resolved to workers server-side (multi-account rule from
+   field-update), returns his cases (pending + recent) or one ticket's detail
+   — the agent's read-side eyes. Writes still go through field-update /
+   field-rate / survey, unchanged.
+2. `n8n-workflows/TELEGRAM_AI_AGENT_SPEC.md` (new) — the full recipe: 5 tools
+   (all live endpoints), Bengali conversation script, and the hard rules —
+   rating/voters unlock ONLY after RESOLVED (the leaning-timing lesson,
+   applied), one-confirmation-before-write, never invent ticket numbers,
+   escalation to office phone on repeated tool errors. Portal stays optional;
+   its conditional-form tweak is queued behind the bot.
+
+**Verified:** tsc/eslint clean. Live check of field-list right after deploy
+(next entry). The agent workflow itself waits on n8n build (owner/Claude).
