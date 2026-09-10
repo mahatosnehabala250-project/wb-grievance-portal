@@ -91,3 +91,12 @@ PRICING.md
 GTM_PLAN.md
 ROADMAP_ALLINDIA.md
 docs/sales/
+
+# Same reasoning, and added after a near miss: a `git add -A` swept these into a
+# commit on a public repo before it was caught and undone. Untracked is not a
+# safeguard — one broad add publishes them. Product direction, stack bets and
+# build sequence are as useful to a competitor as the price list.
+MLA_PLATFORM_VISION.md
+FUTURE_STACK_REPORT.md
+INDEPENDENT_AGENTIC_ROADMAP.md
+LEARNING_NOTES.md
