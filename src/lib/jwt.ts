@@ -95,7 +95,36 @@ export function canAccessConstituency(user: JWTPayload, targetConstituency: stri
 //   GP_COORD                 → gp_code
 //   KARYAKARTA               → village ∈ assigned_villages (fallback gp_code)
 // ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Seeded demo complaints are excluded from every scoped read.
+ *
+ * 537 of the 606 complaints in this database carry source='DEMO' — they were
+ * seeded to make the product demonstrable. While they were counted, roughly
+ * nine out of ten numbers an MLA saw were fiction: the category chart, the block
+ * ranking, the volume trend, and worst of all the SLA queue, where 338 of the
+ * 377 breached complaints were seeded rows from April. JS-05 was paging through
+ * them every three hours and messaging the office about them.
+ *
+ * They are NOT deleted. They stay in the table, and setting
+ * SHOW_DEMO_COMPLAINTS=true brings them back — which is what a demo deployment
+ * should do. It is an environment variable rather than a query parameter on
+ * purpose: it changes what every figure on the screen means, so flipping it
+ * should be a deliberate act, not something a stray URL can do.
+ */
+const SHOW_DEMO = process.env.SHOW_DEMO_COMPLAINTS === 'true';
+
+/** Exclude seeded demo rows unless this deployment is a demo. */
+export function demoFilter(): Record<string, unknown> {
+  return SHOW_DEMO ? {} : { source: { not: 'DEMO' } };
+}
+
 export function getComplaintScopeFilter(user: JWTPayload): Record<string, unknown> {
+  return { ...scopeOnly(user), ...demoFilter() };
+}
+
+/** The jurisdiction scope by itself, with no demo-data decision in it. */
+function scopeOnly(user: JWTPayload): Record<string, unknown> {
   // System admin → entire state (no filter)
   if (user.role === 'ADMIN') return {};
 
