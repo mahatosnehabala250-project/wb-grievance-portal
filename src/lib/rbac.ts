@@ -49,11 +49,18 @@ export function actorRank(user: JWTPayload): number {
 // within its own geographic scope (enforced by validateNewUserScope).
 // ─────────────────────────────────────────────────────────────────
 
+// OFFICER is absent from every list on purpose. This is a party platform: a
+// BDO or district officer has no reason to hold a login here — nobody can
+// require them to sign in, and an account never opened only makes the
+// dashboard measure a queue nobody works. The office rings the officer; the
+// software stops at the office. The string survives below as the legacy
+// fallback rank — both ADMIN logins and several real staff accounts still
+// carry role_level='OFFICER' — but no new one can be minted.
 const CREATABLE: Record<string, string[]> = {
-  ADMIN: ['MP', 'MLA', 'DISTRICT_ADMIN', 'BLOCK_COORD', 'GP_COORD', 'KARYAKARTA', 'OFFICER'],
-  MP: ['MLA', 'BLOCK_COORD', 'GP_COORD', 'KARYAKARTA', 'OFFICER'],
-  MLA: ['BLOCK_COORD', 'GP_COORD', 'KARYAKARTA', 'OFFICER'],
-  DISTRICT_ADMIN: ['BLOCK_COORD', 'GP_COORD', 'KARYAKARTA', 'OFFICER'],
+  ADMIN: ['MP', 'MLA', 'DISTRICT_ADMIN', 'BLOCK_COORD', 'GP_COORD', 'KARYAKARTA'],
+  MP: ['MLA', 'BLOCK_COORD', 'GP_COORD', 'KARYAKARTA'],
+  MLA: ['BLOCK_COORD', 'GP_COORD', 'KARYAKARTA'],
+  DISTRICT_ADMIN: ['BLOCK_COORD', 'GP_COORD', 'KARYAKARTA'],
   BLOCK_COORD: ['GP_COORD', 'KARYAKARTA'],
   GP_COORD: ['KARYAKARTA'],
   KARYAKARTA: [],

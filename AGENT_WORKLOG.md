@@ -905,3 +905,262 @@ the first real AI Agent of FUTURE_STACK_REPORT Phase 1, not a mockup.
 
 **Verified:** tsc/eslint clean. Live check of field-list right after deploy
 (next entry). The agent workflow itself waits on n8n build (owner/Claude).
+
+---
+
+## 2026-08-22 · Claude · booth_officers loaded · and a correction to my own entry above
+
+### Correction first
+
+My earlier entry today said `polling_stations` holds "273 more polling stations
+than the official SIR count" and guessed it was pre-SIR. **That was wrong, and
+nothing was stale.**
+
+```
+polling_stations   2,802   PHYSICAL polling stations
+booth_officers     2,529   ROLL PARTS (one BLO each)
+                   ─────
+                     273   stations whose ps_no is not a plain number
+```
+
+The 273 are **auxiliary stations** — `ps_no` is the parent part plus a letter
+(`8A`, `11A`, `17A`), `ps_name` ends in **R-2**, Room 2. ECI opens a second
+room when one cannot hold a part's electors; it stays the **same roll part**
+with the same BLO. Per AC the non-numeric count equals the per-AC difference
+exactly (Joypur 40, Raghunathpur 38, Baghmundi 30, Para 33, Purulia 33,
+Balarampur 29, Manbazar 24, Bandwan 23, Kashipur 23), and every numeric
+`ps_no` matches the official list. Both tables are right; they count different
+units.
+
+### An official source that needs no CAPTCHA
+
+`voters.eci.gov.in` gates the roll behind a CAPTCHA. **CEO West Bengal serves
+two files directly, no login:**
+
+```
+ceowestbengal.wb.gov.in/Downloads/BLOList/BLO.pdf    17.3 MB, 3,039 pages
+ceowestbengal.wb.gov.in/Downloads/EROlist/ERO.pdf    142 KB
+```
+
+`BLO.pdf` is "BLO LIST as on 27.07.2026" for the whole state — District, AC No,
+Assembly, **Part No, Part Name, BLO name, Mobile, Designation, Department**.
+Purulia sits on pages ~2435–2550. ERO.pdf gives one Electoral Registration
+Officer per AC with a mobile (Balarampur: KUNAL BANERJEE, 9679359146).
+
+The district's own PS lists at `purulia.gov.in/list-of-polling-station/` (18
+PDFs, no CAPTCHA) return **503/504 from Akamai** — origin problem, not access.
+URLs are in `n8n-workflows/PS_LIST_SOURCES.md` for when it clears.
+
+### What landed
+
+**`booth_officers`** — migration `booth_officers_official_blo_list`, 2,529 rows.
+Additive; `polling_stations` untouched. Parts run 1..N per AC with no gaps,
+every booth has a mobile, and every mobile is distinct — one BLO per part.
+112 rows carry `name_split_uncertain = true`: the part-name/BLO-name split had
+no institution word to cut on, so the span was left whole rather than guessed.
+
+**`booth_full`** — view joining the two by stripping the letter suffix from
+`ps_no`. **All 2,802 stations resolve to a part, so all 2,802 now carry a named
+officer and mobile.**
+
+One parser bug worth naming: the PDF page footer `-- 2456 of 3039` bleeds into
+the last field of any row on a page break, and `--` opens a SQL comment. It is
+stripped before quoting. Anything else parsing these PDFs will hit it.
+
+### What this does NOT solve
+
+`part_name` is still the building — "Gondhudi Primary School" — not a village.
+**Village→booth is unchanged at 58%** and this data cannot raise it. That
+mapping lives in the roll's *section* names, which is still behind the CAPTCHA.
+
+### Why it is worth having anyway
+
+Bussell's survey data (LEARNING_NOTES §51–52): an MLA gives **24% of the week
+to citizens and 5% to bureaucrats**, and the 5% is where the office's real
+leverage sits — over half of MLAs can transfer a bureaucrat, and 86% of those
+can move a lower-level officer in their own constituency. That channel was
+completely un-instrumented. There is now a named officer and a working number
+for every booth in the district, from an official source, free.
+
+### Claims
+
+`booth_officers` / `booth_full` — done. Still unclaimed and unstarted:
+`failure_mode` capture, scope-matrix test, freshness SLA.
+
+---
+
+## 2026-08-22 · Claude · APPLIED Zcode's survey migration + two additive changes
+
+### The migration Zcode was waiting on
+
+`supabase/migrations/20260822_household_surveys.sql` is **applied** — read in
+full first, then run through MCP rather than a paste. No editor visit needed.
+
+```
+household_surveys   0 rows · RLS on · 0 policies (service-role only, as designed)
+```
+
+`/api/survey` stops returning 503.
+
+### Two things added on top — additive only
+
+Nothing dropped, nothing renamed, no behaviour changed. `/api/survey` and
+`/api/households` keep working exactly as written.
+
+**1. Consent columns.** `MLA_PLATFORM_VISION` §10.3 states "DPDP: consent
+ledger for survey data", and the table shipped with nowhere to record it — the
+rule lived in prose and nowhere in the schema. Added `consent_given`,
+`consent_at`, `consent_purpose`, `consent_taken_by`, all nullable so nothing
+breaks.
+
+**Zcode — this needs your side:** the gate belongs in `/api/survey`, not the
+database. A NOT NULL would reject the row *after* the karyakarta has walked
+away from the door. Better to refuse the submission up front, and to send the
+consent question through the bot as its own step.
+
+`consent_given IS NULL` deliberately means "nobody asked", which is a finding,
+not a blank to ignore.
+
+**2. `survey_booth_sentiment` view** — booth-level counts of
+positive/neutral/negative, **suppressed below 5 surveys per booth** so a sparse
+booth cannot be read back to one household.
+
+### On the `leaning` column — kept, documented, not dropped
+
+Raised with the owner: `leaning` is the one field in this table that is **not
+in the electoral roll and not public anywhere**. The "rolls are public" argument
+is sound and covers everything else here — including the BLO/ERO data loaded
+today — but a roll entry is published by the state, whereas a household's
+political leaning is created by us at their door. DPDP's publicly-available
+exemption covers the former, not the latter.
+
+The stronger argument is that it does not earn its risk. Bussell's survey data
+(LEARNING_NOTES §51–53) gives **four independent nulls**: constituency service
+shows no relationship to victory margin, to visitor composition, to shared
+caste or party, and is explicitly described as given "without emphasis on
+electoral relevance". MLAs do not serve marginal seats harder. So per-household
+leaning does not improve the *service* product — it only enables the thing
+Rule 10.1 forbids describing the product as.
+
+**Kept anyway**: both endpoints already reference it, and dropping a live
+column mid-phase is worse than documenting it. A `COMMENT ON COLUMN` now states
+the boundary and points reads at the aggregate view instead.
+
+Owner's call, recorded: the column stays; the aggregate is the intended read
+path; consent gets collected.
+
+---
+
+## 23 Aug 2026 — village→booth mapping: SOURCE FOUND (Claude)
+
+**Status: solved on paper, not yet loaded. Do not start a parallel hunt.**
+
+Full detail in `n8n-workflows/NEXT_STEPS_BOOTH_MAPPING.md`. Sources corrected in
+`n8n-workflows/PS_LIST_SOURCES.md`. Raw agent returns in
+`n8n-workflows/ROLL_HUNT_FINDINGS_RAW.md`.
+
+The 58% booth-match ceiling is fixable. The carrier is the ECI **Annexure-IV /
+সংযোজনা-৬ "List of Polling Stations"**, whose **column 4 "Polling Area"** lists,
+per booth, the habitations served — each tagged `Mouza-<village>`, with
+*partial* markers where a village splits across booths. Ungated, no CAPTCHA.
+
+Purulia's own copies: 18 PDFs linked from `purulia.gov.in/list-of-polling-station/`.
+**3 of 9 ACs downloaded and preserved** at `C:\Users\mahat\Downloads\purulia-ps-lists\`
+(238 Bandwan, 242 Purulia, 245 Para — Bengali). The other 15 hit a flaky S3WAAS
+origin; retry over hours, English set first.
+
+Second independent carrier, no OCR needed: `ceowestbengal.nic.in/EROLLS/PDF/Bengali/A{AC}/a{AC}{PART}.pdf`
+— dead host, but ~210 Purulia parts archived in the Wayback Machine with a real
+text layer, part headers carrying **section + Mouza + J.L. No.** JL number is a
+clean join key into `lgd_villages`, better than name matching.
+
+### Two corrections to my own earlier claims
+
+1. I wrote that the 18 district PDFs were **permanently broken at origin**,
+   reasoning from a control file in the same directory returning 200. Wrong —
+   the 503 is a flaky origin (cache-bust returns 504; older upload paths serve
+   200; individual objects succeed on retry). Three were pulled.
+2. I wrote that CEO West Bengal gates **all** rolls. True of the current host
+   `ceowestbengal.wb.gov.in` (even its 2002 archive calls
+   `openWithImageCaptcha`), but **not** of the predecessor `ceowestbengal.nic.in`,
+   which served plain files.
+
+### For whoever loads this
+
+Booth ↔ village is **many-to-many** — it cannot become a column on
+`polling_stations`. Model it as
+`booth_polling_area(ac_no, part_no, village_name, jl_no, village_code, is_partial)`.
+Keep `is_partial`; a split village must not be silently assigned to one booth.
+
+Build the parser against the text-layer format proof (Purba Bardhaman AC-259,
+same annexure) before spending OCR on Purulia's Bengali scans.
+
+### Deliberately not used
+ECI's `bloblamom` ASD per-part PDFs are reachable as plain links but are
+elector-level personal data on a sensitive classification, outside this
+product's no-voter-database boundary, and do not answer the question. Recorded
+so nobody mistakes the pattern for a shortcut later.
+
+---
+
+## 23 Aug 2026 — the 58% booth ceiling is broken: 57.6% → 96.4% (Claude)
+
+Measured on real data, not projected:
+
+```
+complaints carrying a village_code        561
+  matched the OLD way (polling_stations)  323   57.6%
+  matched the NEW way (village_booth)     541   96.4%
+  reaching a NAMED BLO with a mobile      541
+```
+
+### Where the data came from
+
+Not the roll, and not the district PDFs. The WB CEO's own public
+polling-station search API:
+
+```
+POST https://wbceo.in/wb-pssearch/CEOService.asmx/FetchSearchResult
+{"searchparam":{"LocationLat":<lat>,"LocationLong":<lon>,"SearchText":"a"}}
+```
+
+No CAPTCHA, no auth — it is the endpoint the CEO's own public page calls.
+Every booth it returns carries `SectionName`, the roll's section list, i.e. the
+habitations that booth serves, with `(Angshik)`/`(Part)` markers for split
+villages. Names come back in English, which matches `lgd_villages` far better
+than the Bengali scans would have.
+
+Harvested by querying at each village's own coordinates (`lgd_villages` has
+2,622 of them) rather than a blind grid — fewer requests, better targeting, and
+each request asks the question we actually want answered. Sequential-ish, 12 in
+flight, ~15 min, **zero failures**. A second "ring" pass at 1.5 km rescued
+villages whose nearest booth sits beyond the service's measured 1 km radius.
+
+### The mistake worth not repeating
+
+The obvious approach — match `habitation` against `lgd_villages.village_name` —
+was measured at **1,157 / 2,711 villages = 43%**, *worse* than the 58% status
+quo. About half the habitations in a section list are paras and tolas
+(Gopepara, Majhipara, Nichpara) that are not LGD villages at all.
+
+So the mapping is built **geographically** and names only CONFIRM it. That is
+what took it to 93.6% village coverage.
+
+### Tables
+
+- `booth_geo` — 2,098 booths with real coordinates (zero echoed), pin, PO, PS
+- `booth_polling_area` — 6,568 rows, 4,507 distinct habitations, **441 flagged
+  `is_partial`** (village split across booths — do not resolve these to one
+  booth without checking)
+- `village_booth` — 6,117 candidate rows; filter `is_primary`. Confidence tiers:
+  `name_in_section` 824 (two independent signals agree), `nearest` 1,110
+  (geography only), `ring_only` 603 (0.5–2.5 km away — **do not auto-route on
+  this tier alone**)
+
+All candidates are kept, not just winners, so rejected options stay visible.
+
+### For whoever wires this into routing
+
+Use `village_booth` where `is_primary`, and treat `ring_only` as needing a
+human check. 71 villages still have no booth at all; 704 booths were never
+returned (likely urban Purulia, where sections are wards, not villages).

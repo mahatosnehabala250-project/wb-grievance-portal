@@ -2157,7 +2157,7 @@ export default function IntegrationsView() {
                         icon: FileSpreadsheet,
                         color: '#166EE1',
                         name: 'Airtable = Visual Collaboration',
-                        desc: 'Airtable serves as the visual collaboration layer for non-technical users — district officers, BDOs, and department heads can view, filter, and share complaint data without logging into the portal.',
+                        desc: 'A read-only grid for people in the office who do not want the portal — a booth agent checking their village, a coordinator sorting by block. Nobody outside the party gets a view: the constituency data stays inside it.',
                       },
                       {
                         icon: BrainCircuit,

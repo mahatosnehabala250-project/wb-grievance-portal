@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { authHeaders, fmtDate } from '@/lib/helpers';
-import { SLA_DAYS } from '@/lib/sla';
+import { SLA_DAYS, isBreached } from '@/lib/sla';
 import { useAuthStore } from '@/lib/auth-store';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -94,13 +94,28 @@ const QUICK_ACTIONS: { view: string; icon: React.ElementType; label: string; sub
  * moves that violently teaches a reader to ignore it. The line carries a plain
  * fact instead — what the number is out of, or what it means.
  */
-function KpiTile({ icon: Icon, label, value, unit, sub, tint, urgent }: {
+function KpiTile({ icon: Icon, label, value, unit, sub, tint, urgent, onClick, hint }: {
   icon: React.ElementType; label: string; value: React.ReactNode; unit?: string;
   sub?: string; tint: string; urgent?: boolean;
+  /** Opens the case list already filtered to what this number counts. */
+  onClick?: () => void;
+  /** What the reader lands on — shown on hover so the tile says where it goes. */
+  hint?: string;
 }) {
+  // A figure the office is meant to act on should be reachable. Where a tile
+  // has somewhere to go it becomes a real button — keyboard-focusable, with a
+  // pressed state — rather than a div that happens to respond to a click.
+  const Tag: React.ElementType = onClick ? 'button' : 'div';
   return (
-    <div className={`rounded-xl border bg-card p-3.5 transition-shadow hover:shadow-sm ${
-      urgent ? 'border-amber-300 dark:border-amber-900/70' : ''}`}>
+    <Tag
+      {...(onClick ? { type: 'button', onClick, title: hint } : {})}
+      className={`w-full text-left rounded-xl border bg-card p-3.5 transition-all ${
+        onClick
+          ? 'hover:shadow-sm hover:-translate-y-px cursor-pointer active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1'
+          : 'hover:shadow-sm'
+      } ${urgent ? 'border-amber-300 dark:border-amber-900/70' : ''}`}
+      style={onClick ? ({ ['--tw-ring-color' as string]: tint } as React.CSSProperties) : undefined}
+    >
       <div className="flex items-start gap-3">
         <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
              style={{ background: `${tint}1A` }}>
@@ -115,7 +130,36 @@ function KpiTile({ icon: Icon, label, value, unit, sub, tint, urgent }: {
           {sub && <div className="text-[10px] text-muted-foreground mt-1 leading-tight truncate">{sub}</div>}
         </div>
       </div>
-    </div>
+    </Tag>
+  );
+}
+
+/**
+ * Views the home figures open. Status alone cannot express them: "past
+ * deadline" and "waiting longest" are derived from age and urgency, and
+ * "nobody assigned" is the absence of a field. Each is defined once here and
+ * used both to filter the list and to label what the reader is looking at, so
+ * the tile's number and the rows underneath can never disagree.
+ */
+type Focus = 'ALL' | 'overdue' | 'critical' | 'unassigned' | 'oldest' | 'open';
+const FOCUS_LABEL: Record<Exclude<Focus,'ALL'>, string> = {
+  overdue:    'past deadline',
+  critical:   'critical and still open',
+  unassigned: 'nobody assigned yet',
+  oldest:     'still open, longest wait first',
+  open:       'still open',
+};
+
+/** One narrowing currently applied to the list, with its own way off. */
+function Chip({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-background border px-2 py-0.5 text-xs font-medium">
+      {label}
+      <button type="button" onClick={onClear} aria-label={`Remove filter: ${label}`}
+        className="text-muted-foreground hover:text-foreground rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+        <X className="w-3 h-3" />
+      </button>
+    </span>
   );
 }
 
@@ -290,6 +334,8 @@ interface Complaint {
   issue: string; status: string; urgency: string; category: string;
   block: string; createdAt: string; updatedAt: string;
   assignedOfficerName: string | null; satisfactionRating: string | null;
+  /** Present on both the stats payload and /api/complaints; often null. */
+  village?: string | null;
 }
 
 /* ─── Config ─────────────────────────────────────────────── */
@@ -309,6 +355,15 @@ const CAT_CFG: Record<string,{ icon: React.ElementType; color: string; bg: strin
 };
 
 const STATUS_CFG: Record<string,{ label:string; dot:string; text:string; bg:string }> = {
+  /**
+   * OPEN was missing, and it is the schema default — every complaint that
+   * arrives through /api/complaints/register is written as OPEN. In Balarampur
+   * that is 17 of 42 cases. The table falls back to STATUS_CFG.REGISTERED for
+   * an unknown status, so those seventeen were all labelled "Registered", and
+   * the status dropdown (built from this object's keys) offered no way to
+   * select them at all.
+   */
+  OPEN:        { label:'Open',        dot:'bg-sky-500',     text:'text-sky-600 dark:text-sky-400',      bg:'bg-sky-50 dark:bg-sky-950/40'      },
   REGISTERED:  { label:'Registered',  dot:'bg-blue-500',    text:'text-blue-600 dark:text-blue-400',    bg:'bg-blue-50 dark:bg-blue-950/40'    },
   ASSIGNED:    { label:'Assigned',    dot:'bg-violet-500',  text:'text-violet-600 dark:text-violet-400',bg:'bg-violet-50 dark:bg-violet-950/40'},
   IN_PROGRESS: { label:'In Progress', dot:'bg-amber-500',   text:'text-amber-600 dark:text-amber-400',  bg:'bg-amber-50 dark:bg-amber-950/40'  },
@@ -365,23 +420,60 @@ const AGE_TONE: Record<string, string> = {
   '16-30': '#F97316',
   '30+':   '#EF4444',
 };
-function BacklogBar({ bands }: { bands: { key:string; label:string; count:number }[] }) {
+/**
+ * The age window a band covers, derived from the server's own band keys rather
+ * than from a second copy of the thresholds here.
+ *
+ * The server assigns a case to the first band whose `max` it is under, so a
+ * band runs from the *previous* band's max (exclusive) to its own (inclusive).
+ * Reading the upper bound out of the key — "16-30" → 30, "30+" → no upper —
+ * and chaining them keeps this exactly in step if the bands are ever changed.
+ */
+function bandBounds(bands: { key:string }[]): Record<string, [number, number]> {
+  const out: Record<string, [number, number]> = {};
+  let lower = 0;
+  for (const b of bands) {
+    const max = b.key.endsWith('+') ? Infinity : Number(b.key.split('-')[1]);
+    out[b.key] = [lower, max];
+    lower = max;
+  }
+  return out;
+}
+
+function BacklogBar({ bands, active, onPick }: {
+  bands: { key:string; label:string; count:number }[];
+  /** The band currently narrowing the list, so the bar shows what it opened. */
+  active?: string | null;
+  onPick?: (key: string) => void;
+}) {
   const total = bands.reduce((s, b) => s + b.count, 0);
   if (!total) return <div className="text-xs text-muted-foreground">Nothing open right now.</div>;
   return (
     <div className="space-y-2">
       <div className="flex h-3 rounded-full overflow-hidden bg-muted">
         {bands.map(b => b.count > 0 && (
-          <div key={b.key} title={`${b.label}: ${b.count}`}
+          // p-0 border-0 matter: a default button carries a border and padding,
+          // which would put gaps and hairlines through a bar whose whole job is
+          // to be one continuous run of colour.
+          <button key={b.key} type="button" title={`${b.label}: ${b.count} — open these`}
+               onClick={onPick ? () => onPick(b.key) : undefined}
+               aria-label={`${b.count} open ${b.label.toLowerCase()}`}
+               className={`block h-full p-0 border-0 appearance-none ${
+                 onPick ? 'transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:relative' : ''
+               }`}
                style={{ width: `${(b.count / total) * 100}%`, background: AGE_TONE[b.key] }} />
         ))}
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1">
         {bands.filter(b => b.count > 0).map(b => (
-          <span key={b.key} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <button key={b.key} type="button"
+            onClick={onPick ? () => onPick(b.key) : undefined}
+            className={`flex items-center gap-1.5 text-[11px] rounded px-1 -mx-1 ${
+              active === b.key ? 'text-foreground bg-muted' : 'text-muted-foreground'
+            } ${onPick ? 'hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary' : ''}`}>
             <span className="w-2 h-2 rounded-full shrink-0" style={{ background: AGE_TONE[b.key] }} />
             <span className="tabular-nums font-semibold text-foreground">{b.count}</span> {b.label.toLowerCase()}
-          </span>
+          </button>
         ))}
       </div>
     </div>
@@ -414,16 +506,61 @@ export function MLADashboardView() {
   const [data, setData]   = useState<MLAStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [tab, setTab]     = useState<'home'|'complaints'|'blocks'|'officers'|'intel'>('home');
+  const [tab, setTab]     = useState<'home'|'complaints'|'blocks'|'team'|'intel'>('home');
   const [win, setWin]     = useState<WindowKey>('today');
   const nav = useNav();
   const [search, setSearch] = useState('');
+  const [focus, setFocus] = useState<Focus>('ALL');
   const [statusF, setStatusF] = useState('ALL');
   const [catF, setCatF]   = useState('ALL');
   const [urgF, setUrgF]   = useState('ALL');
+  // Place. A seat is three to eight blocks and a few hundred villages, so the
+  // block is a dropdown and the village is only ever set by clicking a row
+  // that names one — a list of every village would be unusable.
+  const [blockF, setBlockF] = useState('ALL');
+  const [villageF, setVillageF] = useState<string | null>(null);
+  /** Set by clicking an officer; matched on the stored name, as the rows do. */
+  const [officerF, setOfficerF] = useState<string | null>(null);
+  /** An ageing band key ('16-30', '30+'), set by clicking the backlog bar. */
+  const [ageF, setAgeF] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState(new Date());
   const [assignees, setAssignees] = useState<Assignee[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  /**
+   * The full case list, fetched separately from the stats.
+   *
+   * The complaints tab used to render `recent_complaints`, which is the newest
+   * twenty. That was survivable while the tab was only browsed, and became
+   * wrong the moment the home figures started opening it: "Total complaints 42"
+   * landed on twenty rows, and "Past deadline" — cases that are late precisely
+   * because they are old — landed on almost none of them. A figure that opens
+   * a list has to open the list it counted.
+   *
+   * Loaded when the tab is first opened rather than with the stats, so the home
+   * page is not made slower by rows nobody has asked to see yet. Scope is
+   * enforced server-side from the token; the constituency is not a parameter a
+   * caller could widen.
+   */
+  const [allComplaints, setAllComplaints] = useState<Complaint[] | null>(null);
+  const [listTotal, setListTotal] = useState(0);
+  const [listLoading, setListLoading] = useState(false);
+
+  const LIST_CAP = 500;
+  const loadList = useCallback(async () => {
+    setListLoading(true);
+    try {
+      const res = await fetch(`/api/complaints?limit=${LIST_CAP}`, { headers: authHeaders() });
+      if (!res.ok) throw new Error(String(res.status));
+      const json = await res.json();
+      setAllComplaints(json.complaints || []);
+      setListTotal(json.pagination?.total ?? (json.complaints || []).length);
+    } catch {
+      // Leave allComplaints null so the newest twenty still render and the
+      // banner below can say the list is partial, rather than showing nothing.
+      toast.error('Could not load the full case list');
+    } finally { setListLoading(false); }
+  }, []);
 
   const load = useCallback(async (silent=false) => {
     if (!constituency) return;
@@ -451,6 +588,11 @@ export function MLADashboardView() {
     const iv = setInterval(() => load(true), 60000);
     return () => clearInterval(iv);
   }, [load]);
+
+  // Fetch the full list the first time the tab is actually looked at.
+  useEffect(() => {
+    if (tab === 'complaints' && allComplaints === null && !listLoading) loadList();
+  }, [tab, allComplaints, listLoading, loadList]);
 
   // Who a case can be handed to. Loaded once; the endpoint already returns only
   // people inside the caller's jurisdiction.
@@ -532,18 +674,93 @@ export function MLADashboardView() {
   );
 
   const d = data;
-  const complaints = d?.recent_complaints || [];
+  // Falls back to the newest twenty only while the full list is in flight or
+  // failed; the banner on the tab says which of the two the reader is seeing.
+  const complaints = allComplaints ?? d?.recent_complaints ?? [];
+  const listIsPartial = allComplaints === null || listTotal > allComplaints.length;
 
   // Filtered complaints
+  // "Open" has to mean the same thing here as it does on the home figures,
+  // which count anything not closed rather than the literal OPEN status.
+  const isClosed = (s: string) => ['RESOLVED','REJECTED','CLOSED'].includes(String(s||'').toUpperCase());
+  const ageOf = (c: Complaint) => (Date.now() - new Date(c.createdAt).getTime()) / 86400000;
+
+  const matchesFocus = (c: Complaint) => {
+    switch (focus) {
+      // isBreached is the same rule the server counts with, imported rather
+      // than re-derived, so the tile and the list cannot drift apart.
+      case 'overdue':    return isBreached(c.createdAt, c.urgency, c.status);
+      case 'critical':   return c.urgency === 'CRITICAL' && !isClosed(c.status);
+      case 'unassigned': return !isClosed(c.status) && !c.assignedOfficerName;
+      // The tile says how long the worst-served citizen has waited. There is
+      // no threshold behind that number, so this is the same set as "open" —
+      // what changes is the order, below, which puts that citizen first.
+      case 'oldest':     return !isClosed(c.status);
+      case 'open':       return !isClosed(c.status);
+      default:           return true;
+    }
+  };
+
+  // The bar counts open cases only, so the band it opens must too — otherwise
+  // "12 over a month" lands on a list that includes cases closed months ago.
+  const AGE_BOUNDS = bandBounds(d?.ageing || []);
+  const matchesAge = (c: Complaint) => {
+    if (!ageF) return true;
+    const b = AGE_BOUNDS[ageF];
+    if (!b) return true;
+    const age = ageOf(c);
+    return !isClosed(c.status) && age > b[0] && age <= b[1];
+  };
+
   const filtered = complaints.filter(c => {
-    const ms = !search || c.ticketNo?.toLowerCase().includes(search.toLowerCase()) ||
-      c.citizenName?.toLowerCase().includes(search.toLowerCase()) ||
-      c.issue?.toLowerCase().includes(search.toLowerCase());
-    return ms &&
+    const q = search.trim().toLowerCase();
+    // Place is searchable too: an MLA looking for a village types its name,
+    // and until now that returned nothing because only ticket, name and issue
+    // were consulted.
+    const ms = !q || [c.ticketNo, c.citizenName, c.issue, c.block, c.village]
+      .some(f => f?.toLowerCase().includes(q));
+    return ms && matchesFocus(c) &&
       (statusF==='ALL' || c.status===statusF) &&
       (catF==='ALL' || c.category===catF) &&
-      (urgF==='ALL' || c.urgency===urgF);
-  });
+      (urgF==='ALL' || c.urgency===urgF) &&
+      (blockF==='ALL' || c.block===blockF) &&
+      (!villageF || c.village===villageF) &&
+      (!officerF || c.assignedOfficerName===officerF) &&
+      matchesAge(c);
+  })
+  // When the reader asked for the longest wait, order by it.
+  .sort((a,b) => focus === 'oldest' ? ageOf(b) - ageOf(a) : 0);
+
+  /**
+   * Open the case list already narrowed to what the thing just clicked counts.
+   * Every caller goes through here so a new narrowing always clears the old
+   * one — a reader who clicks two figures in a row must not silently end up
+   * with the intersection of both.
+   */
+  const openList = (
+    f: Focus,
+    opts?: { status?: string; urgency?: string; category?: string; block?: string; village?: string; officer?: string; age?: string },
+  ) => {
+    setFocus(f);
+    setStatusF(opts?.status ?? 'ALL');
+    setUrgF(opts?.urgency ?? 'ALL');
+    setCatF(opts?.category ?? 'ALL');
+    setBlockF(opts?.block ?? 'ALL');
+    setVillageF(opts?.village ?? null);
+    setOfficerF(opts?.officer ?? null);
+    setAgeF(opts?.age ?? null);
+    setSearch('');
+    setTab('complaints');
+  };
+
+  const clearFilters = () => {
+    setFocus('ALL'); setStatusF('ALL'); setCatF('ALL'); setUrgF('ALL');
+    setBlockF('ALL'); setVillageF(null); setOfficerF(null); setAgeF(null); setSearch('');
+  };
+
+  const anyFilter = focus !== 'ALL' || statusF !== 'ALL' || catF !== 'ALL'
+    || urgF !== 'ALL' || blockF !== 'ALL' || villageF !== null || officerF !== null
+    || ageF !== null || !!search;
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -603,26 +820,39 @@ export function MLADashboardView() {
             now the tab strip scrolls within itself, the way a phone expects. */}
         <div className="px-4 py-1.5 flex items-center justify-between gap-2">
           <div className="flex gap-0.5 bg-muted/50 rounded-lg p-0.5 min-w-0 overflow-x-auto">
+            {/* Named for what the reader will find, not for the table behind
+                it. "Intel" told nobody anything; the tab holds the cases that
+                are late, critical or repeating, so it says that. Emoji were
+                doing the work of icons — real icons do it at a legible size and
+                survive a font that has no colour glyphs. */}
             {([
-              { id:'home',       label:'🏠 Home'      },
-              { id:'complaints', label:'📋 Complaints' },
-              { id:'blocks',     label:'📍 Blocks'    },
-              { id:'officers',   label:'👤 Officers'  },
-              { id:'intel',      label:'🧠 Intel'     },
+              { id:'home',       label:'Home',       icon: Home,        hint:'The standing state of the seat' },
+              { id:'complaints', label:'Complaints', icon: ClipboardList, hint:'Every case, searchable' },
+              { id:'blocks',     label:'Areas',      icon: MapPin,      hint:'Complaints by block' },
+              { id:'team',       label:'Team',       icon: UserCheck,   hint:'Which of your own people is carrying what' },
+              { id:'intel',      label:'Needs attention', icon: ShieldAlert, hint:'Late, critical and repeat cases' },
             ] as const).map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                className={`shrink-0 px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all ${
+              <button key={t.id} onClick={() => setTab(t.id)} title={t.hint}
+                aria-current={tab===t.id ? 'page' : undefined}
+                className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all ${
                   tab===t.id ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
                 }`}>
+                <t.icon className="w-3.5 h-3.5" />
                 {t.label}
               </button>
             ))}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* "SLA breach" is helpdesk vocabulary and the pulse made it an
+                alarm nobody could act on. It now says what it means and opens
+                the cases it counts. */}
             {d?.sla_breached > 0 && (
-              <Badge variant="destructive" className="text-[10px] h-5 animate-pulse">
-                ⚠ {d.sla_breached} SLA breach
-              </Badge>
+              <button type="button" onClick={() => openList('overdue')}
+                      title="Open the cases that are past their deadline">
+                <Badge variant="destructive" className="text-[10px] h-5 cursor-pointer hover:opacity-90">
+                  {d.sla_breached} past deadline
+                </Badge>
+              </button>
             )}
             <Button variant="outline" size="sm" onClick={()=>load(true)} disabled={refreshing} className="h-7 text-[11px] px-2">
               <RefreshCw className={`w-3 h-3 mr-1 ${refreshing?'animate-spin':''}`} />
@@ -685,18 +915,28 @@ export function MLADashboardView() {
                 state of the seat and they now read as it. */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
               <KpiTile icon={ClipboardList} label="Total complaints" value={d.total}
-                       tint="#3B82F6" sub={`${d.last_30d} in the last 30 days`} />
+                       tint="#3B82F6" sub={`${d.last_30d} in the last 30 days`}
+                       onClick={() => openList('ALL')}
+                       hint="Every complaint in this seat" />
               <KpiTile icon={CheckCircle2} label="Resolved" value={d.resolved}
-                       tint="#10B981" sub={`${Math.round(d.resolution_rate)}% of everything filed`} />
+                       tint="#10B981" sub={`${Math.round(d.resolution_rate)}% of everything filed`}
+                       onClick={() => openList('ALL', { status: 'RESOLVED' })}
+                       hint="The cases marked resolved" />
               <KpiTile icon={Timer} label="In progress" value={d.in_progress}
-                       tint="#F59E0B" sub={`${d.assigned} more assigned, not started`} />
+                       tint="#F59E0B" sub={`${d.assigned} more assigned, not started`}
+                       onClick={() => openList('ALL', { status: 'IN_PROGRESS' })}
+                       hint="Cases somebody has started work on" />
               <KpiTile icon={AlertTriangle} label="Past deadline" value={d.sla_breached}
                        tint="#EF4444" urgent={d.sla_breached > 0}
-                       sub={d.active > 0 ? `${Math.round((d.sla_breached / d.active) * 100)}% of what is open` : 'Nothing open'} />
+                       sub={d.active > 0 ? `${Math.round((d.sla_breached / d.active) * 100)}% of what is open` : 'Nothing open'}
+                       onClick={() => openList('overdue')}
+                       hint="Open cases past their deadline" />
               <KpiTile icon={Gauge} label="Typical close time"
                        value={d.speed?.medianDays ?? '—'} unit={d.speed?.medianDays != null ? 'days' : undefined}
                        tint="#8B5CF6"
-                       sub={d.speed?.resolvedCount ? `median of ${d.speed.resolvedCount} closed` : 'nothing closed yet'} />
+                       sub={d.speed?.resolvedCount ? `median of ${d.speed.resolvedCount} closed` : 'nothing closed yet'}
+                       onClick={d.speed?.resolvedCount ? () => openList('ALL', { status: 'RESOLVED' }) : undefined}
+                       hint="The closed cases this median is drawn from" />
             </div>
 
             {/* ── What needs a decision today ───────────
@@ -706,7 +946,14 @@ export function MLADashboardView() {
                 What stays here is what the row cannot say: which case escalates
                 first, and how long the worst-served citizen has been waiting. */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Card className={`border shadow-none ${d.critical > 0 ? 'border-red-300 dark:border-red-900' : ''}`}>
+              {/* Both cards state a fact the office has to act on, so both open
+                  the cases behind them. A card that is dead to the touch makes
+                  the reader hunt for the same rows in the filter bar. */}
+              <button type="button" onClick={() => openList('critical')}
+                      title="The critical cases still waiting"
+                      disabled={d.critical === 0}
+                      className="text-left rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-1 disabled:cursor-default group">
+              <Card className={`border shadow-none h-full transition-all ${d.critical > 0 ? 'border-red-300 dark:border-red-900 group-hover:shadow-sm group-hover:-translate-y-px' : ''}`}>
                 <CardContent className="p-4">
                   <div className="flex items-baseline gap-2">
                     <span className={`text-4xl font-bold tabular-nums ${d.critical > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
@@ -720,8 +967,13 @@ export function MLADashboardView() {
                   </div>
                 </CardContent>
               </Card>
+              </button>
 
-              <Card className="border shadow-none">
+              <button type="button" onClick={() => openList('oldest')}
+                      title="Open cases, longest wait first"
+                      disabled={!d.active}
+                      className="text-left rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-default group">
+              <Card className={`border shadow-none h-full transition-all ${d.active ? 'group-hover:shadow-sm group-hover:-translate-y-px' : ''}`}>
                 <CardContent className="p-4">
                   <div className="flex items-baseline gap-2">
                     <span className="text-4xl font-bold tabular-nums">{d.speed?.oldestOpenDays ?? 0}</span>
@@ -735,6 +987,7 @@ export function MLADashboardView() {
                   </div>
                 </CardContent>
               </Card>
+              </button>
             </div>
 
             {/* ── Backlog shape ─────────────────────────
@@ -757,7 +1010,8 @@ export function MLADashboardView() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4">
-                <BacklogBar bands={d.ageing || []} />
+                <BacklogBar bands={d.ageing || []} active={ageF}
+                            onPick={(key) => openList('ALL', { age: key })} />
               </CardContent>
             </Card>
 
@@ -892,7 +1146,10 @@ export function MLADashboardView() {
                 <CardContent className="px-4 pb-3">
                   <div className="space-y-1.5">
                     {d.stuck.slice(0, 6).map(s => (
-                      <div key={s.block} className="flex items-center gap-3 py-1">
+                      <button key={s.block} type="button"
+                        onClick={() => openList('oldest', { block: s.block })}
+                        title={`Open cases in ${s.block}, longest wait first`}
+                        className="w-full flex items-center gap-3 py-1 px-1 -mx-1 rounded-md text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                         <span className="text-[13px] flex-1 truncate">{s.block}</span>
                         {s.overMonth > 0 && (
                           <Badge className="text-[10px] border-0 bg-red-500/12 text-red-700 dark:text-red-400">
@@ -905,7 +1162,7 @@ export function MLADashboardView() {
                         <span className="text-[13px] font-semibold tabular-nums w-20 text-right">
                           {s.oldestDays}d
                         </span>
-                      </div>
+                      </button>
                     ))}
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-2">
@@ -931,7 +1188,10 @@ export function MLADashboardView() {
                     {d.repeatVillages.slice(0, 6).map(v => {
                       const cfg = CAT_CFG[v.topCategory] || CAT_CFG.OTHER;
                       return (
-                        <div key={v.village + v.block} className="flex items-center gap-3 py-1">
+                        <button key={v.village + v.block} type="button"
+                          onClick={() => openList('ALL', { village: v.village, block: v.block })}
+                          title={`Every complaint from ${v.village}`}
+                          className="w-full flex items-center gap-3 py-1 px-1 -mx-1 rounded-md text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                           <cfg.icon className="w-3.5 h-3.5 shrink-0" style={{ color: cfg.color }} />
                           <div className="min-w-0 flex-1">
                             <div className="text-[13px] truncate">{v.village}</div>
@@ -946,7 +1206,7 @@ export function MLADashboardView() {
                             </Badge>
                           )}
                           <span className="text-[13px] font-semibold tabular-nums w-12 text-right shrink-0">{v.total}</span>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -971,9 +1231,11 @@ export function MLADashboardView() {
                     <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                       <ShieldAlert className="w-3.5 h-3.5" /> Waiting longest — hand these out first
                     </CardTitle>
-                    <span className="text-[11px] text-muted-foreground">
+                    <button type="button" onClick={() => openList('unassigned')}
+                      title="Every open case nobody has picked up"
+                      className="text-[11px] text-muted-foreground hover:text-foreground hover:underline rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                       {d.stale_list.filter(c => !c.assignedToId).length} with nobody assigned
-                    </span>
+                    </button>
                   </div>
                 </CardHeader>
                 <CardContent className="px-4 pb-3">
@@ -1014,8 +1276,11 @@ export function MLADashboardView() {
                     })}
                   </div>
                   {d.stale_list.length > 10 && (
-                    <button type="button" onClick={() => setTab('complaints')}
-                            className="text-[11px] text-muted-foreground hover:text-foreground mt-2">
+                    // Was a bare tab switch, which landed on the unfiltered
+                    // list — the reader had to rebuild the narrowing this card
+                    // was already showing them.
+                    <button type="button" onClick={() => openList('oldest')}
+                            className="text-[11px] text-muted-foreground hover:text-foreground hover:underline mt-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                       {d.stale_list.length - 10} more waiting →
                     </button>
                   )}
@@ -1101,8 +1366,21 @@ export function MLADashboardView() {
                             const isRest = s.category === '__rest';
                             const cfg = isRest ? null : (CAT_CFG[s.category] || CAT_CFG.OTHER);
                             const pct = pcts[si];
+                            // "Everything else" is a remainder, not a category
+                            // — there is no filter that reproduces it, so it
+                            // stays inert rather than opening a list that would
+                            // not match its own figure.
+                            const Row: React.ElementType = isRest ? 'div' : 'button';
                             return (
-                              <div key={s.category} className="flex items-center gap-2 text-[11px]">
+                              <Row key={s.category}
+                                {...(isRest ? {} : {
+                                  type: 'button',
+                                  onClick: () => openList('ALL', { category: s.category }),
+                                  title: `Every ${cfg!.label.toLowerCase()} complaint`,
+                                })}
+                                className={`w-full flex items-center gap-2 text-[11px] text-left rounded px-1 -mx-1 ${
+                                  isRest ? '' : 'hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+                                }`}>
                                 <span className="h-2 w-2 rounded-full shrink-0"
                                       style={{ background: isRest ? '#CBD5E1' : cfg!.color }} />
                                 <span className="flex-1 truncate">{isRest ? 'Everything else' : cfg!.label}</span>
@@ -1110,7 +1388,7 @@ export function MLADashboardView() {
                                 <span className="tabular-nums font-medium w-10 text-right">
                                   {isRest ? s.total : `${s.resolved}/${s.total}`}
                                 </span>
-                              </div>
+                              </Row>
                             );
                           })}
                           <p className="text-[10px] text-muted-foreground pt-1">
@@ -1198,8 +1476,78 @@ export function MLADashboardView() {
                   ))}
                 </SelectContent>
               </Select>
-              <span className="text-xs text-muted-foreground ml-auto font-mono">{filtered.length} complaints</span>
+              {/* Place was the one thing a constituency office cannot filter by
+                  and the one thing it always asks for. Blocks come from the
+                  seat's own data, so the list is never wrong for this seat. */}
+              {d.by_block.length > 1 && (
+                <Select value={blockF} onValueChange={setBlockF}>
+                  <SelectTrigger className="h-8 text-xs w-36"><SelectValue placeholder="Block" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All blocks</SelectItem>
+                    {d.by_block.map(b => (
+                      <SelectItem key={b.block} value={b.block}>{b.block}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <span className="text-xs text-muted-foreground ml-auto font-mono">
+                {listLoading
+                  ? 'loading…'
+                  : `${filtered.length}${filtered.length !== complaints.length ? ` of ${complaints.length}` : ''} complaints`}
+              </span>
             </div>
+
+            {/* Never let a capped or fallback list pass for the whole seat. */}
+            {!listLoading && listIsPartial && (
+              <p className="text-[11px] text-muted-foreground px-1">
+                {allComplaints === null
+                  ? `Showing the ${complaints.length} newest cases — the full list did not load.`
+                  : `Showing the ${complaints.length} newest of ${listTotal} cases. Narrow the filters to reach older ones.`}
+                {' '}
+                <button type="button" onClick={loadList} className="text-primary hover:underline">Reload</button>
+              </p>
+            )}
+
+            {/* A list that arrived here from a home figure is already narrowed.
+                Say so where the reader is looking, and give them the way back —
+                otherwise a filtered list is indistinguishable from an empty
+                seat, which is how a reader concludes there is no work. */}
+            {anyFilter && (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/25 bg-primary/[0.06] px-3 py-2">
+                <Filter className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span className="text-xs text-muted-foreground">Showing</span>
+                {focus !== 'ALL' && (
+                  <Chip label={FOCUS_LABEL[focus]} onClear={() => setFocus('ALL')} />
+                )}
+                {statusF !== 'ALL' && (
+                  <Chip label={STATUS_CFG[statusF]?.label ?? statusF} onClear={() => setStatusF('ALL')} />
+                )}
+                {catF !== 'ALL' && (
+                  <Chip label={CAT_CFG[catF]?.label ?? catF} onClear={() => setCatF('ALL')} />
+                )}
+                {urgF !== 'ALL' && (
+                  <Chip label={`${URG_CFG[urgF]?.label ?? urgF} urgency`} onClear={() => setUrgF('ALL')} />
+                )}
+                {blockF !== 'ALL' && (
+                  <Chip label={`${blockF} block`} onClear={() => setBlockF('ALL')} />
+                )}
+                {villageF && (
+                  <Chip label={villageF} onClear={() => setVillageF(null)} />
+                )}
+                {officerF && (
+                  <Chip label={`assigned to ${officerF}`} onClear={() => setOfficerF(null)} />
+                )}
+                {ageF && (
+                  <Chip label={`open ${(d.ageing.find(b => b.key === ageF)?.label || ageF).toLowerCase()}`}
+                        onClear={() => setAgeF(null)} />
+                )}
+                {search && <Chip label={`“${search}”`} onClear={() => setSearch('')} />}
+                <button type="button" onClick={clearFilters}
+                  className="ml-auto text-xs font-medium text-primary hover:underline">
+                  Show everything
+                </button>
+              </div>
+            )}
 
             {filtered.length > 0 ? (
               <Card className="border shadow-sm overflow-hidden">
@@ -1218,7 +1566,7 @@ export function MLADashboardView() {
                       <TableHead className="text-[11px]">Status</TableHead>
                       <TableHead className="text-[11px]">Urgency</TableHead>
                       <TableHead className="text-[11px]">Date</TableHead>
-                      <TableHead className="text-[11px]">Officer</TableHead>
+                      <TableHead className="text-[11px]">With</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1264,14 +1612,32 @@ export function MLADashboardView() {
                 </div>
               </Card>
             ) : (
-              <div className="flex flex-col items-center justify-center py-20">
+              // An empty list has two completely different meanings — a quiet
+              // seat, or a filter that excluded everything — and reading the
+              // wrong one is how somebody concludes there is no work waiting.
+              <div className="flex flex-col items-center justify-center py-20 text-center px-6">
                 <FileText className="w-10 h-10 text-muted-foreground mb-3" />
                 <div className="font-medium text-sm mb-1">
-                  {d.total === 0 ? `No complaints in ${constituency} yet` : 'No results found'}
+                  {d.total === 0
+                    ? `No complaints in ${constituency} yet`
+                    : listLoading ? 'Loading the case list…'
+                    : anyFilter ? 'Nothing matches these filters'
+                    : 'No complaints to show'}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {d.total > 0 ? 'Try changing filters' : 'Waiting for the first complaint to arrive over WhatsApp'}
+                <div className="text-xs text-muted-foreground max-w-sm">
+                  {d.total === 0
+                    ? 'Waiting for the first complaint to arrive over WhatsApp'
+                    : anyFilter
+                      ? `The seat has ${d.total} complaints — none of them are ${
+                          focus !== 'ALL' ? FOCUS_LABEL[focus] : 'in this selection'
+                        }.`
+                      : 'Nothing loaded. Try reloading the list.'}
                 </div>
+                {anyFilter && (
+                  <Button variant="outline" size="sm" onClick={clearFilters} className="mt-3 h-8 text-xs">
+                    Show everything
+                  </Button>
+                )}
               </div>
             )}
           </motion.div>
@@ -1288,8 +1654,11 @@ export function MLADashboardView() {
             {d.by_block.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {d.by_block.map((blk, i) => {
-                  const activeRate = (blk.active / Math.max(blk.total,1)) * 100;
                   const resolvedRate = (blk.resolved / Math.max(blk.total,1)) * 100;
+                  // The card itself stays inert: its three figures each open a
+                  // different list, and a card-wide click would have to pick
+                  // one of them arbitrarily.
+                  const tile = 'text-center rounded-lg p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
                   return (
                     <motion.div key={blk.block}
                       initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} transition={{delay:i*0.06}}>
@@ -1312,18 +1681,24 @@ export function MLADashboardView() {
                           </div>
 
                           <div className="grid grid-cols-3 gap-2 mb-3">
-                            <div className="text-center bg-muted/40 rounded-lg p-2">
+                            <button type="button" title={`Every complaint in ${blk.block}`}
+                              onClick={() => openList('ALL', { block: blk.block })}
+                              className={`${tile} bg-muted/40 hover:bg-muted`}>
                               <div className="text-base font-bold font-mono">{blk.total}</div>
                               <div className="text-[9px] text-muted-foreground">Total</div>
-                            </div>
-                            <div className="text-center bg-red-50 dark:bg-red-950/20 rounded-lg p-2">
+                            </button>
+                            <button type="button" title={`Open cases in ${blk.block}, longest wait first`}
+                              onClick={() => openList('oldest', { block: blk.block })}
+                              className={`${tile} bg-red-50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-950/40`}>
                               <div className="text-base font-bold font-mono text-red-500">{blk.active}</div>
-                              <div className="text-[9px] text-muted-foreground">Active</div>
-                            </div>
-                            <div className="text-center bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-2">
+                              <div className="text-[9px] text-muted-foreground">Still open</div>
+                            </button>
+                            <button type="button" title={`Resolved cases in ${blk.block}`}
+                              onClick={() => openList('ALL', { block: blk.block, status: 'RESOLVED' })}
+                              className={`${tile} bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-950/40`}>
                               <div className="text-base font-bold font-mono text-emerald-500">{blk.resolved}</div>
-                              <div className="text-[9px] text-muted-foreground">Done</div>
-                            </div>
+                              <div className="text-[9px] text-muted-foreground">Resolved</div>
+                            </button>
                           </div>
 
                           <div className="space-y-1.5">
@@ -1352,13 +1727,13 @@ export function MLADashboardView() {
           </motion.div>
         )}
 
-        {/* ══ OFFICERS TAB ════════════════════════ */}
-        {tab==='officers' && d && (
+        {/* ══ TEAM TAB ════════════════════════════ */}
+        {tab==='team' && d && (
           <motion.div key="off" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0}} className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold flex items-center gap-2">
                 <Award className="w-4 h-4 text-amber-500" />
-                Officer Performance — {constituency}
+                Team Workload — {constituency}
               </h2>
               <span className="text-xs text-muted-foreground">Score = Resolved / Total assigned</span>
             </div>
@@ -1369,9 +1744,11 @@ export function MLADashboardView() {
                   const medals = ['🥇','🥈','🥉'];
                   const scoreColor = off.score>=75 ? '#10B981' : off.score>=50 ? '#F59E0B' : '#EF4444';
                   return (
-                    <motion.div key={off.name}
+                    <motion.button key={off.name} type="button"
+                      onClick={() => openList('ALL', { officer: off.name })}
+                      title={`Every case ${off.name} is carrying`}
                       initial={{opacity:0,x:-10}} animate={{opacity:1,x:0}} transition={{delay:i*0.07}}
-                      className="flex items-center gap-3 p-3.5 rounded-xl border bg-card hover:bg-muted/20 transition-colors">
+                      className="w-full text-left flex items-center gap-3 p-3.5 rounded-xl border bg-card hover:bg-muted/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                       <div className="text-lg w-8 text-center">
                         {i<3 ? medals[i] : <span className="text-xs text-muted-foreground font-mono">#{i+1}</span>}
                       </div>
@@ -1404,14 +1781,14 @@ export function MLADashboardView() {
                           <div className="text-[9px] text-muted-foreground">Active</div>
                         </div>
                       </div>
-                    </motion.div>
+                    </motion.button>
                   );
                 })}
               </div>
             ) : (
               <div className="text-center py-16 text-muted-foreground">
                 <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                <div className="text-sm">Officer data appears once complaints are assigned</div>
+                <div className="text-sm">Nobody is carrying a case yet — assign one to see it here</div>
               </div>
             )}
           </motion.div>
@@ -1421,8 +1798,8 @@ export function MLADashboardView() {
         {tab==='intel' && d && (
           <motion.div key="intel" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0}} className="space-y-3">
             <h2 className="text-sm font-semibold flex items-center gap-2">
-              <BrainCircuit className="w-4 h-4 text-violet-500" />
-              Intelligence — {constituency}
+              <ShieldAlert className="w-4 h-4 text-amber-500" />
+              Needs attention — {constituency}
             </h2>
 
             {/* SLA Breached */}
@@ -1430,7 +1807,7 @@ export function MLADashboardView() {
               <Card className="border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/20 shadow-sm">
                 <CardHeader className="pb-1 pt-3 px-4">
                   <CardTitle className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-2">
-                    <Timer className="w-3.5 h-3.5" /> SLA Breached — Past Deadline
+                    <Timer className="w-3.5 h-3.5" /> Past their deadline
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 pb-3 space-y-2">
@@ -1459,7 +1836,7 @@ export function MLADashboardView() {
                       "6-hour SLA" long after the allowance became a day, so the
                       screen was contradicting the deadline it was measuring. */}
                   <p className="text-xs text-muted-foreground">
-                    A critical complaint is due within {SLA_DAYS.CRITICAL === 1 ? 'a day' : `${SLA_DAYS.CRITICAL} days`}. Call the officer, or escalate to the DM.
+                    A critical complaint is due within {SLA_DAYS.CRITICAL === 1 ? 'a day' : `${SLA_DAYS.CRITICAL} days`}. Put someone on it today, and have the office take it up with the block.
                   </p>
                 </CardContent>
               </Card>

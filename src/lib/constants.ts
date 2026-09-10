@@ -43,7 +43,9 @@ export const ROLE_LEVEL_MAP: Record<string, string> = {
   MLA: 'MLA',
   MP: 'MP',
   DISTRICT_ADMIN: 'District Leadership',
-  OFFICER: 'Officer',
+  // Not a government officer — the legacy default for accounts created before
+  // designations existed. No new account can be given this level.
+  OFFICER: 'Office Staff',
 };
 
 export const ROLE_LEVEL_COLORS: Record<string, string> = {

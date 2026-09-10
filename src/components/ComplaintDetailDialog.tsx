@@ -43,6 +43,11 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from '@/components/ui/command';
+import { ChevronsUpDown, Check } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet';
@@ -170,6 +175,55 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [reopening, setReopening] = useState(false);
 
+  /**
+   * Booth — the family's place in the ledger, confirmed from here as from the
+   * Telegram alert. Options come from the caller's own scoped /api/booths;
+   * the complaint's village is used only to order the list (its shortlist
+   * first), because LGD and ECI spellings differ and a hard filter would
+   * hide the right booth behind a spelling.
+   */
+  const [booths, setBooths] = useState<{ ps_no: string; ps_name: string; village_name?: string; gp_name?: string }[]>([]);
+  const [boothOpen, setBoothOpen] = useState(false);
+  const [savingBooth, setSavingBooth] = useState(false);
+  const currentBooth = useMemo(() => {
+    for (const a of activities) {
+      if (a.action === 'BOOTH_CONFIRMED') {
+        try {
+          const m = JSON.parse(String(a.metadata || '{}'));
+          if (m.boothNo) return String(m.boothNo);
+        } catch { /* older rows without parseable metadata */ }
+      }
+    }
+    return null;
+  }, [activities]);
+  const villageShortlist = useMemo(() => {
+    const v = String(complaint?.village || '').toLowerCase().replace(/[\s-]/g, '');
+    if (!v) return [];
+    return booths.filter((b) => {
+      const bv = String(b.village_name || '').toLowerCase().replace(/[\s-]/g, '');
+      return bv.length >= 4 && v.length >= 4 && (bv.includes(v) || v.includes(bv));
+    });
+  }, [booths, complaint?.village]);
+  const saveBooth = useCallback(async (psNo: string, psName: string) => {
+    if (!complaint) return;
+    setSavingBooth(true);
+    try {
+      const res = await fetch(`/api/complaints/${complaint.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ boothNo: psNo }),
+      });
+      if (!res.ok) throw new Error('save failed');
+      toast.success('Booth confirmed', { description: `Booth ${psNo} — ${psName}` });
+      await refreshActivity(complaint.id);
+    } catch {
+      toast.error('Could not save the booth');
+    } finally {
+      setSavingBooth(false);
+      setBoothOpen(false);
+    }
+  }, [complaint, refreshActivity]);
+
   useEffect(() => {
     if (open && initialComplaint) {
       setComplaint(initialComplaint);
@@ -204,6 +258,11 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
       .then((json) => { if (json) setComments(json.comments || []); })
       .catch(() => {})
       .finally(() => setLoadingComments(false));
+    // Booth options — the caller's own scoped directory, searched by name.
+    fetch('/api/booths?limit=500', { headers: authHeaders() })
+      .then((res) => res.ok ? res.json() : null)
+      .then((json) => { if (json) setBooths(json.booths || []); })
+      .catch(() => {});
   }, [open, complaint?.id]);
 
   const refreshActivity = useCallback(async (cid: string) => {
@@ -504,6 +563,56 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
               </div>
             </motion.div>
           )}
+
+          {/* Booth — searchable dropdown; the family's polling station, fed to
+              the same BOOTH_CONFIRMED ledger event the Telegram alert writes. */}
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5" />Booth {currentBooth
+                ? <span className="normal-case font-semibold text-emerald-600 dark:text-emerald-400">· confirmed: {currentBooth}</span>
+                : <span className="normal-case text-amber-600 dark:text-amber-400">· not set</span>}
+            </p>
+            <Popover open={boothOpen} onOpenChange={setBoothOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" disabled={savingBooth}
+                  className="w-full h-9 text-sm justify-between font-normal" role="combobox">
+                  <span className="truncate">{savingBooth ? 'Saving…' : currentBooth ? `Booth ${currentBooth} — change` : 'Search booth by name…'}</span>
+                  <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[320px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Booth ka naam ya number type karo…" />
+                  <CommandList>
+                    <CommandEmpty>Naam se booth nahi mila.</CommandEmpty>
+                    {villageShortlist.length > 0 && (
+                      <CommandGroup heading={`${complaint?.village || 'Village'} ke booths (shortlist)`}>
+                        {villageShortlist.map((b) => (
+                          <CommandItem key={b.ps_no} value={`${b.ps_no} ${b.ps_name} ${b.village_name || ''}`}
+                            onSelect={() => saveBooth(b.ps_no, b.ps_name)}>
+                            <Check className={`h-3.5 w-3.5 ${currentBooth === b.ps_no ? 'opacity-100' : 'opacity-0'}`} />
+                            <span className="font-mono text-xs font-bold">{b.ps_no}</span>
+                            <span className="truncate text-xs">{b.ps_name}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    )}
+                    <CommandGroup heading="Sab booths">
+                      {booths.map((b) => (
+                        <CommandItem key={`all-${b.ps_no}`} value={`${b.ps_no} ${b.ps_name} ${b.village_name || ''} ${b.gp_name || ''}`}
+                          onSelect={() => saveBooth(b.ps_no, b.ps_name)}>
+                          <Check className={`h-3.5 w-3.5 ${currentBooth === b.ps_no ? 'opacity-100' : 'opacity-0'}`} />
+                          <span className="font-mono text-xs font-bold">{b.ps_no}</span>
+                          <span className="truncate text-xs">{b.ps_name}</span>
+                          <span className="ml-auto text-[10px] text-muted-foreground truncate max-w-[80px]">{b.village_name}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
 
           {/* Assign To */}
           <div className="space-y-2">

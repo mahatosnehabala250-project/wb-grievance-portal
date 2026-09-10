@@ -59,12 +59,15 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const { status, resolution, assignedToId, urgency } = body;
+    const { status, resolution, assignedToId, urgency, boothNo } = body;
 
     // 3) Field gate. A karyakarta verifies on the ground, so they may close a
     //    complaint — but choosing the owning officer or the urgency is the
     //    office's judgement, not theirs. Refused explicitly rather than ignored,
     //    so a caller is never told a change succeeded when it did not.
+    //    boothNo is not a complaint field — it is a BOOTH_CONFIRMED event in
+    //    the activity log (the ledger's source of truth for the family's
+    //    booth) — so the gate has no opinion on it.
     const allowed = allowedComplaintFields(payload);
     if (allowed) {
       const attempted = ['status', 'resolution', 'assignedToId', 'urgency']
@@ -99,6 +102,29 @@ export async function PATCH(
     if (resolution !== undefined) data.resolution = resolution;
     if (assignedToId !== undefined) data.assignedToId = assignedToId || null;
     if (urgency) data.urgency = urgency.toUpperCase();
+
+    /**
+     * Booth confirmation from the portal — the same BOOTH_CONFIRMED event the
+     * Telegram alert writes, reached by whoever has the complaint open. One
+     * activity row, nothing written on the complaint itself: the households
+     * ledger resolves the family's exact booth from these rows, so portal and
+     * bot feed the same truth.
+     */
+    if (boothNo !== undefined) {
+      const bn = String(boothNo).trim().slice(0, 12);
+      if (bn) {
+        await db.activityLog.create({
+          data: {
+            complaintId: id,
+            action: 'BOOTH_CONFIRMED',
+            description: `Booth ${bn} confirmed for this household by ${payload.username || 'staff'} (via portal)`,
+            actorId: payload.userId || null,
+            actorName: payload.username || 'staff',
+            metadata: JSON.stringify({ boothNo: bn, channel: 'portal' }),
+          },
+        });
+      }
+    }
 
     const updated = await db.complaint.update({
       where: { id },
