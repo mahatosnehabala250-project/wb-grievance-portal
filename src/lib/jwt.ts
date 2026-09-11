@@ -114,9 +114,22 @@ export function canAccessConstituency(user: JWTPayload, targetConstituency: stri
  */
 const SHOW_DEMO = process.env.SHOW_DEMO_COMPLAINTS === 'true';
 
-/** Exclude seeded demo rows unless this deployment is a demo. */
+/**
+ * Test complaints are the same problem in a different coat: the owner's own
+ * WhatsApp end-to-end tests file real rows ("Gour Mahato", "Suresh Mahato"),
+ * and on 2026-09-11 they were 55 of the 72 non-demo complaints. The phones are
+ * listed in public.test_phones and exposed to PostgREST as the computed field
+ * `is_test`, which the alerting workflows already filter on. Same rule as demo
+ * rows: kept, hidden, and SHOW_TEST_COMPLAINTS=true brings them back.
+ */
+const SHOW_TEST = process.env.SHOW_TEST_COMPLAINTS === 'true';
+
+/** Exclude seeded demo rows and test-phone rows unless this deployment asks for them. */
 export function demoFilter(): Record<string, unknown> {
-  return SHOW_DEMO ? {} : { source: { not: 'DEMO' } };
+  return {
+    ...(SHOW_DEMO ? {} : { source: { not: 'DEMO' } }),
+    ...(SHOW_TEST ? {} : { is_test: false }),
+  };
 }
 
 export function getComplaintScopeFilter(user: JWTPayload): Record<string, unknown> {
