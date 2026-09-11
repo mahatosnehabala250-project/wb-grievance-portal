@@ -50,17 +50,18 @@ import { StatusBadge, UrgencyBadge, RoleBadge, StatCard, MiniStat, PieLabel, Loa
 const ROLE_LEVEL_LABELS: Record<string, string> = {
   MP: 'MP (Lok Sabha)',
   MLA: 'MLA (Assembly)',
-  DISTRICT_ADMIN: 'District Officer',
-  BLOCK_COORD: 'Block Officer',
+  DISTRICT_ADMIN: 'District President',
+  BLOCK_COORD: 'Block President',
   GP_COORD: 'GP Coordinator',
   KARYAKARTA: 'Karyakarta',
-  OFFICER: 'Officer',
+  // Legacy accounts only — no longer creatable (see CREATABLE in rbac.ts)
+  OFFICER: 'Office Staff',
 };
 
 const EMPTY_CREATE_FORM = {
   username: '', password: '', role: 'BLOCK', name: '', block: '', district: '',
   whatsappPhone: '', telegramChatId: '', email: '',
-  role_level: 'OFFICER', constituency: '', lok_sabha_constituency: '',
+  role_level: 'KARYAKARTA', constituency: '', lok_sabha_constituency: '',
   gp_code: '', gp_name: '', assigned_villages: '',
 };
 
@@ -658,7 +659,7 @@ export function UserManagementView() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-bold uppercase tracking-widest">Email (Optional)</Label>
-                <Input value={createForm.email} onChange={(e) => setCreateForm((p) => ({ ...p, email: e.target.value }))} placeholder="officer@gov.in" className="h-9 text-sm" type="email" />
+                <Input value={createForm.email} onChange={(e) => setCreateForm((p) => ({ ...p, email: e.target.value }))} placeholder="name@example.com" className="h-9 text-sm" type="email" />
               </div>
             </div>
             <div className="space-y-1.5">

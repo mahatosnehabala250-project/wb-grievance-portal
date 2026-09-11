@@ -414,7 +414,7 @@ export function MLADashboardView() {
   const [data, setData]   = useState<MLAStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [tab, setTab]     = useState<'home'|'complaints'|'blocks'|'officers'|'intel'>('home');
+  const [tab, setTab]     = useState<'home'|'complaints'|'blocks'|'team'|'intel'>('home');
   const [win, setWin]     = useState<WindowKey>('today');
   const nav = useNav();
   const [search, setSearch] = useState('');
@@ -607,7 +607,7 @@ export function MLADashboardView() {
               { id:'home',       label:'🏠 Home'      },
               { id:'complaints', label:'📋 Complaints' },
               { id:'blocks',     label:'📍 Blocks'    },
-              { id:'officers',   label:'👤 Officers'  },
+              { id:'team',       label:'👥 Team'      },
               { id:'intel',      label:'🧠 Intel'     },
             ] as const).map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
@@ -1353,12 +1353,12 @@ export function MLADashboardView() {
         )}
 
         {/* ══ OFFICERS TAB ════════════════════════ */}
-        {tab==='officers' && d && (
+        {tab==='team' && d && (
           <motion.div key="off" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0}} className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold flex items-center gap-2">
                 <Award className="w-4 h-4 text-amber-500" />
-                Officer Performance — {constituency}
+                Team Workload — {constituency}
               </h2>
               <span className="text-xs text-muted-foreground">Score = Resolved / Total assigned</span>
             </div>
@@ -1459,7 +1459,7 @@ export function MLADashboardView() {
                       "6-hour SLA" long after the allowance became a day, so the
                       screen was contradicting the deadline it was measuring. */}
                   <p className="text-xs text-muted-foreground">
-                    A critical complaint is due within {SLA_DAYS.CRITICAL === 1 ? 'a day' : `${SLA_DAYS.CRITICAL} days`}. Call the officer, or escalate to the DM.
+                    A critical complaint is due within {SLA_DAYS.CRITICAL === 1 ? 'a day' : `${SLA_DAYS.CRITICAL} days`}. Put someone on it today, and have the office take it up with the block.
                   </p>
                 </CardContent>
               </Card>

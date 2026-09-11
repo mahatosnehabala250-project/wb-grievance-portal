@@ -259,6 +259,14 @@ class SupabaseModelAdapter {
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
       const obj = value as Record<string, unknown>
       if ('not' in obj && obj.not === null) return `${field}.not.is.null`
+      // not: <scalar>. Only `not: null` was handled, so `{ source: { not: 'DEMO' } }`
+      // fell through to the eq() at the bottom and silently matched the STRING
+      // "[object Object]" instead of excluding anything — a filter that looks
+      // applied and isn't. Excluding a value is the whole point of the demo-data
+      // filter, so it has to actually work.
+      if ('not' in obj && obj.not !== null && typeof obj.not !== 'object') {
+        return `${field}.neq.${String(obj.not)}`
+      }
       if ('in' in obj && Array.isArray(obj.in)) {
         const items = (obj.in as unknown[]).map(v => String(v)).join(',')
         return `${field}.in.(${items})`
@@ -307,6 +315,13 @@ class SupabaseModelAdapter {
       // not: null
       if ('not' in obj && obj.not === null) {
         q = q.not(key, 'is', null)
+        continue
+      }
+
+      // not: <scalar> — see the note in conditionToFilterString. Without this
+      // the condition fell through to eq() and quietly filtered nothing.
+      if ('not' in obj && obj.not !== null && typeof obj.not !== 'object') {
+        q = q.neq(key, obj.not)
         continue
       }
 
