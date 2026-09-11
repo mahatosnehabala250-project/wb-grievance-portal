@@ -87,6 +87,10 @@ const SCHEMES: [string, string[]][] = [
   ['SABOOJ_SATHI',        ['সবুজ সাথী', 'sabooj sathi', 'sabuj sathi', 'সাইকেল']],
   ['SHRAMSHREE',          ['শ্রমশ্রী', 'shramshree', 'sromshree']],
   ['STUDENT_CREDIT_CARD', ['স্টুডেন্ট ক্রেডিট', 'student credit']],
+  // 100 days' work is among the commonest rural complaints in Purulia and had no
+  // category, so it landed on OTHER and could not be counted or routed.
+  ['MGNREGA',             ['১০০ দিনের কাজ', 'একশো দিনের কাজ', 'জব কার্ড', '100 din', '100 diner',
+                           'mgnrega', 'nrega', 'job card']],
   ['SCHOLARSHIP',         ['স্কলারশিপ', 'বৃত্তি', 'scholarship', 'chhatrabritti']],
 ];
 

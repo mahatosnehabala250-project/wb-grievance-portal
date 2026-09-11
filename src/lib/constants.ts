@@ -68,6 +68,8 @@ export const CATEGORIES = [
   'KANYASHREE', 'LAKSHMIR_BHANDAR', 'YUVASATHI',
   'KRISHAK_BANDHU', 'SWASTHYA_SATHI', 'RUPASHREE',
   'STUDENT_CREDIT_CARD', 'SABOOJ_SATHI', 'SHRAMSHREE', 'YUVASHREE',
+  // Work & wages
+  'MGNREGA',
   // Land & law
   'LAND', 'LAW_ORDER',
   // Other
@@ -100,6 +102,8 @@ export const CATEGORY_LABELS: Record<string, string> = {
   SABOOJ_SATHI:       'Sabooj Sathi (Cycle)',
   SHRAMSHREE:         'Shramshree',
   YUVASHREE:          'Yuvashree',
+  // Work & wages
+  MGNREGA:            '100 Days Work (MGNREGA)',
   // Land & law
   LAND:               'Land / Revenue',
   LAW_ORDER:          'Law & Order',
@@ -116,6 +120,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   SWASTHYA_SATHI: '#0F766E', RUPASHREE: '#C026D3',
   STUDENT_CREDIT_CARD: '#1D4ED8', SABOOJ_SATHI: '#16A34A',
   SHRAMSHREE: '#B45309', YUVASHREE: '#6D28D9',
+  MGNREGA: '#A16207',
   OTHER: '#6B7280',
 };
 
