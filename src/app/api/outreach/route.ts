@@ -1,7 +1,7 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
+import { verifyToken, getTokenFromRequest, getComplaintScopeFilter, applyComplaintScope, applyGeoScope } from '@/lib/jwt';
 import type { JWTPayload } from '@/lib/jwt';
 import { createClient } from '@supabase/supabase-js';
 import {
@@ -40,19 +40,7 @@ interface Filterable {
   eq(column: string, value: unknown): Filterable;
   in(column: string, values: unknown[]): Filterable;
 }
-function applyScope<T>(query: T, payload: JWTPayload): T {
-  const where = getComplaintScopeFilter(payload) as AnyRecord;
-  let q = query as unknown as Filterable;
-  for (const [key, value] of Object.entries(where)) {
-    if (value === null || value === undefined) continue;
-    if (typeof value === 'object' && 'in' in (value as AnyRecord)) {
-      q = q.in(key, (value as { in: unknown[] }).in);
-    } else {
-      q = q.eq(key, value);
-    }
-  }
-  return q as unknown as T;
-}
+// applyScope moved to lib/jwt (applyComplaintScope / applyGeoScope).
 
 function ownGeography(u: JWTPayload) {
   return {
@@ -90,7 +78,7 @@ async function fetchCandidates(payload: JWTPayload, f: AudienceFilters) {
   // Column names on this table are a mix of camelCase and snake_case; they are
   // spelled here exactly as Postgres holds them.
   let q = supabase.from('complaints').select('id, phone, citizenName, village, block, gp_name, category, status, createdAt');
-  q = applyScope(q, payload) as typeof q;
+  q = applyComplaintScope(q, payload) as typeof q;
 
   if (f.village)  q = q.ilike('village', `%${f.village}%`);
   if (f.gpName)   q = q.ilike('gp_name', `%${f.gpName}%`);
@@ -128,7 +116,7 @@ export async function GET(request: NextRequest) {
 
   try {
     let q = supabase.from('outreach_campaigns').select('*');
-    q = applyScope(q, payload) as typeof q;
+    q = applyGeoScope(q, payload) as typeof q;
     const { data, error } = await q.order('created_at', { ascending: false }).limit(100);
     if (error) throw error;
 
@@ -241,7 +229,7 @@ export async function POST(request: NextRequest) {
       if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
 
       let check = supabase.from('outreach_campaigns').select('id, status');
-      check = applyScope(check, payload) as typeof check;
+      check = applyGeoScope(check, payload) as typeof check;
       const { data: found, error: fErr } = await check.eq('id', id).maybeSingle();
       if (fErr) throw fErr;
       if (!found) return NextResponse.json({ error: 'Campaign not found in your jurisdiction' }, { status: 404 });
@@ -278,7 +266,7 @@ export async function POST(request: NextRequest) {
       if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
 
       let check = supabase.from('outreach_campaigns').select('id');
-      check = applyScope(check, payload) as typeof check;
+      check = applyGeoScope(check, payload) as typeof check;
       const { data: found } = await check.eq('id', id).maybeSingle();
       if (!found) return NextResponse.json({ error: 'Campaign not found in your jurisdiction' }, { status: 404 });
 

@@ -136,6 +136,52 @@ export function getComplaintScopeFilter(user: JWTPayload): Record<string, unknow
   return { ...scopeOnly(user), ...demoFilter() };
 }
 
+/**
+ * The same scope, applied to a supabase-js query instead of a Prisma `where`.
+ *
+ * Eight routes used to copy getComplaintScopeFilter into a hand-written loop
+ * that knew only `{ in: [...] }` and plain equality. Once demoFilter added
+ * `source: { not: 'DEMO' }` and `is_test: false`, that loop sent
+ * `source=eq.[object Object]` — so complaint reads came back empty — and put
+ * complaint-only columns on office_visits, letters and outreach_campaigns,
+ * which answered 500. Visitors, Letters and Messaging were all down.
+ *
+ * applyComplaintScope is for the complaints table; applyGeoScope is for every
+ * other table that shares the jurisdiction columns but has no demo rows.
+ */
+interface ScopeFilterable {
+  eq(column: string, value: unknown): ScopeFilterable;
+  neq(column: string, value: unknown): ScopeFilterable;
+  in(column: string, values: unknown[]): ScopeFilterable;
+  is(column: string, value: boolean | null): ScopeFilterable;
+}
+function applyWhere<T>(query: T, where: Record<string, unknown>): T {
+  let q = query as unknown as ScopeFilterable;
+  for (const [key, value] of Object.entries(where)) {
+    if (value === null || value === undefined) continue;
+    if (typeof value === 'object' && 'in' in (value as Record<string, unknown>)) {
+      q = q.in(key, (value as { in: unknown[] }).in);
+    } else if (typeof value === 'object' && 'not' in (value as Record<string, unknown>)) {
+      q = q.neq(key, (value as { not: unknown }).not);
+    } else if (typeof value === 'boolean') {
+      q = q.is(key, value);
+    } else {
+      q = q.eq(key, value);
+    }
+  }
+  return q as unknown as T;
+}
+export function applyComplaintScope<T>(query: T, user: JWTPayload): T {
+  return applyWhere(query, getComplaintScopeFilter(user));
+}
+export function applyGeoScope<T>(query: T, user: JWTPayload): T {
+  return applyWhere(query, scopeOnly(user));
+}
+/** Does this account have any geography at all? The demo filter is never empty, so test the scope alone. */
+export function hasGeoScope(user: JWTPayload): boolean {
+  return Object.keys(scopeOnly(user)).length > 0;
+}
+
 /** The jurisdiction scope by itself, with no demo-data decision in it. */
 function scopeOnly(user: JWTPayload): Record<string, unknown> {
   // System admin → entire state (no filter)

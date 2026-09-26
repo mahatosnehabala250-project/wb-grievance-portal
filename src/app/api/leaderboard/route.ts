@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
+import { verifyToken, getTokenFromRequest, demoFilter } from '@/lib/jwt';
 
 // GET /api/leaderboard — officer performance rankings (admin only)
 export async function GET(request: NextRequest) {
@@ -24,25 +24,25 @@ export async function GET(request: NextRequest) {
     // Get complaint counts per assigned officer
     const assignedAgg = await db.complaint.groupBy({
       by: ['assignedToId'],
-      where: { assignedToId: { not: null } },
+      where: { ...demoFilter(), assignedToId: { not: null } },
       _count: { id: true },
     });
 
     const resolvedAgg = await db.complaint.groupBy({
       by: ['assignedToId'],
-      where: { assignedToId: { not: null }, status: 'RESOLVED' },
+      where: { ...demoFilter(), assignedToId: { not: null }, status: 'RESOLVED' },
       _count: { id: true },
     });
 
     const inProgressAgg = await db.complaint.groupBy({
       by: ['assignedToId'],
-      where: { assignedToId: { not: null }, status: 'IN_PROGRESS' },
+      where: { ...demoFilter(), assignedToId: { not: null }, status: 'IN_PROGRESS' },
       _count: { id: true },
     });
 
-    const assignedMap = new Map(assignedAgg.map(a => [a.assignedToId, a._count.id]));
-    const resolvedMap = new Map(resolvedAgg.map(a => [a.assignedToId, a._count.id]));
-    const inProgressMap = new Map(inProgressAgg.map(a => [a.assignedToId, a._count.id]));
+    const assignedMap = new Map<string | null, number>(assignedAgg.map(a => [a.assignedToId, Number(a._count.id)]));
+    const resolvedMap = new Map<string | null, number>(resolvedAgg.map(a => [a.assignedToId, Number(a._count.id)]));
+    const inProgressMap = new Map<string | null, number>(inProgressAgg.map(a => [a.assignedToId, Number(a._count.id)]));
 
     const leaderboard = officers.map(o => {
       const assigned = assignedMap.get(o.id) || 0;
