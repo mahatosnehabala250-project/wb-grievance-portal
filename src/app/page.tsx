@@ -527,8 +527,8 @@ export default function HomePage() {
               onClick={() => setShortcutOpen(true)}
             >
               <Search className="h-3.5 w-3.5" />
-              <span>Search...</span>
-              <kbd className="text-[9px] font-mono bg-muted/80 px-1.5 py-0.5 rounded ml-4">Ctrl+K</kbd>
+              <span className="hidden lg:inline">Search...</span>
+              <kbd className="hidden xl:inline text-[9px] font-mono bg-muted/80 px-1.5 py-0.5 rounded ml-4">Ctrl+K</kbd>
             </Button>
             <Button variant="ghost" size="sm" className="sm:hidden h-8 w-8 p-0" onClick={() => setShortcutOpen(true)}>
               <Search className="h-4 w-4" />
@@ -628,8 +628,8 @@ export default function HomePage() {
                   <div className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: NAVY }}>
                     {(user?.name || 'U').charAt(0).toUpperCase()}
                   </div>
-                  <span className="hidden sm:inline text-xs font-medium">{user?.name}</span>
-                  <ChevronDown className="h-3 w-3 hidden sm:block" />
+                  <span className="hidden md:inline text-xs font-medium max-w-[9rem] truncate">{user?.name}</span>
+                  <ChevronDown className="h-3 w-3 hidden md:block" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-72">
@@ -874,77 +874,17 @@ export default function HomePage() {
       </div>
 
       {/* ═══ FOOTER ═══ */}
+      {/* It used to carry a wb.gov.in link, links that did nothing and a
+          decorative 'uptime / encrypted' panel. This is a party office's tool,
+          not a government site, so it says only what is true. */}
       <footer className="border-t border-border/50 mt-auto" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 100%)' }}>
-        <div className="px-4 py-5 sm:py-6">
-          <div className="max-w-[1400px] mx-auto">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              {/* Brand Section */}
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-white/10 border border-white/20">
-                  <Shield className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-white/95">NeuroSetu AI — Citizen Service Platform</p>
-                  <p className="text-[11px] text-white/50">AI Public Support System &middot; Grievance Portal v2.8.0</p>
-                </div>
-              </div>
-
-              {/* Quick Links */}
-              <div className="hidden sm:flex items-center gap-4 text-[11px]">
-                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1"><LayoutDashboard className="h-3 w-3" />{t('dashboard')}</span>
-                <span className="text-white/30">|</span>
-                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1" onClick={() => setTicketTrackerOpen(true)}><FileText className="h-3 w-3" />{lang === 'en' ? 'Track Status' : 'ট্র্যাক স্ট্যাটাস'}</span>
-                <span className="text-white/30">|</span>
-                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1"><BarChart2 className="h-3 w-3" />{t('analytics')}</span>
-                <span className="text-white/30">|</span>
-                <span className="text-white/40 hover:text-white/80 transition-colors cursor-pointer flex items-center gap-1"><CircleHelp className="h-3 w-3" />{lang === 'en' ? 'Help' : 'সাহায্য'}</span>
-              </div>
-
-              {/* Status Indicators */}
-              <div className="flex items-center gap-4 text-center">
-                <div className="hidden sm:block">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">{t('version')}</p>
-                  <p className="text-xs font-bold text-white/80 mt-0.5">v2.8.0</p>
-                </div>
-                <div className="hidden sm:block w-px h-8 bg-white/10" />
-                <div className="hidden sm:block">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">{t('status')}</p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-                    </span>
-                    <p className="text-xs font-bold text-emerald-300">{t('online')}</p>
-                  </div>
-                </div>
-                <div className="hidden sm:block w-px h-8 bg-white/10" />
-                <div className="hidden sm:block">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">{t('uptime')}</p>
-                  <p className="text-xs font-bold text-white/80 mt-0.5 font-mono">{uptimeDisplay}</p>
-                </div>
-                <div className="hidden sm:block w-px h-8 bg-white/10" />
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">{t('security')}</p>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <ShieldCheck className="h-3 w-3 text-emerald-300" />
-                    <p className="text-xs font-bold text-white/80">{t('encrypted')}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Copyright */}
-              <div className="flex flex-col items-start md:items-end gap-2">
-                <div className="flex items-center gap-4 text-[11px]">
-                  <span className="flex items-center gap-1 text-white/50 hover:text-white/80 transition-colors cursor-pointer"><Globe className="h-3 w-3" />wb.gov.in</span>
-                  <span className="text-white/30">|</span>
-                  <span className="flex items-center gap-1 text-white/50 hover:text-white/80 transition-colors cursor-pointer"><Mail className="h-3 w-3" />Support</span>
-                </div>
-                <p className="text-[10px] text-white/30">&copy; 2026 NeuroSetu AI &mdash; All Rights Reserved</p>
-                <p className="text-[10px] text-white/20">
-                  Powered by <span className="text-white/40 font-semibold">NeuroSetu AI</span>
-                </p>
-              </div>
-            </div>
+        <div className="px-4 py-4">
+          <div className="max-w-[1400px] mx-auto flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-[11px]">
+            <p className="font-semibold text-white/85">বাংলার সহায়ক <span className="font-normal text-white/50">· NeuroSetu AI</span></p>
+            <button type="button" className="flex items-center gap-1 text-white/60 hover:text-white transition-colors" onClick={() => setTicketTrackerOpen(true)}>
+              <FileText className="h-3 w-3" />{lang === 'en' ? 'Track status' : 'ট্র্যাক স্ট্যাটাস'}
+            </button>
+            <p className="text-white/40">A private citizen-service initiative — not a government website</p>
           </div>
         </div>
       </footer>

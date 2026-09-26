@@ -127,7 +127,7 @@ export function TicketTrackerDialog({ open, onOpenChange, initialTicket }: Ticke
             <div className="relative flex-1">
               <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="e.g. WB-01001"
+                placeholder="e.g. WB-26-PUR-001044"
                 value={ticketInput}
                 onChange={(e) => setTicketInput(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -283,7 +283,9 @@ export function TicketTrackerDialog({ open, onOpenChange, initialTicket }: Ticke
                   </div>
                 )}
 
-                {/* SLA Info */}
+                {/* SLA Info — only while the case is still open; a resolved
+                    complaint used to read "Overdue by 57 days — SLA breached". */}
+                {!['RESOLVED', 'CLOSED', 'REJECTED'].includes(String(result.status)) && (
                 <div className={`flex items-center gap-2 p-2.5 rounded-lg ${
                   result.daysOld > 7 ? 'bg-red-50 dark:bg-red-950/20 border border-red-200/50' :
                   result.daysOld > 3 ? 'bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50' :
@@ -296,6 +298,7 @@ export function TicketTrackerDialog({ open, onOpenChange, initialTicket }: Ticke
                      `On track (${result.daysOld} day${result.daysOld !== 1 ? 's' : ''} old)`}
                   </span>
                 </div>
+                )}
               </motion.div>
             </AnimatePresence>
           ) : (
@@ -304,7 +307,7 @@ export function TicketTrackerDialog({ open, onOpenChange, initialTicket }: Ticke
                 <Ticket className="h-8 w-8 text-muted-foreground/30" />
               </div>
               <p className="text-sm font-medium text-muted-foreground">Enter a ticket number above to track</p>
-              <p className="text-[11px] text-muted-foreground/60 mt-1">Ticket numbers look like WB-01001</p>
+              <p className="text-[11px] text-muted-foreground/60 mt-1">Ticket numbers look like WB-26-PUR-001044</p>
             </div>
           )}
         </div>

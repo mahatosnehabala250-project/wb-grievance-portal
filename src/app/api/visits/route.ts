@@ -1,7 +1,7 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
+import { verifyToken, getTokenFromRequest, getComplaintScopeFilter, applyComplaintScope, applyGeoScope } from '@/lib/jwt';
 import type { JWTPayload } from '@/lib/jwt';
 import { createClient } from '@supabase/supabase-js';
 import { safeSearchTerm } from '@/lib/search-term';
@@ -50,19 +50,7 @@ interface Filterable {
   eq(column: string, value: unknown): Filterable;
   in(column: string, values: unknown[]): Filterable;
 }
-function applyScope<T>(query: T, payload: JWTPayload): T {
-  const where = getComplaintScopeFilter(payload) as AnyRecord;
-  let q = query as unknown as Filterable;
-  for (const [key, value] of Object.entries(where)) {
-    if (value === null || value === undefined) continue;
-    if (typeof value === 'object' && 'in' in (value as AnyRecord)) {
-      q = q.in(key, (value as { in: unknown[] }).in);
-    } else {
-      q = q.eq(key, value);
-    }
-  }
-  return q as unknown as T;
-}
+// applyScope moved to lib/jwt (applyComplaintScope / applyGeoScope).
 
 async function auth(request: NextRequest): Promise<JWTPayload | null> {
   const token = getTokenFromRequest(request);
@@ -81,7 +69,7 @@ export async function GET(request: NextRequest) {
     const q = safeSearchTerm(searchParams.get('q'));
 
     let query = supabase.from('office_visits').select('*');
-    query = applyScope(query, payload);
+    query = applyGeoScope(query, payload);
 
     if (date) {
       query = query.gte('arrived_at', `${date}T00:00:00Z`).lte('arrived_at', `${date}T23:59:59Z`);
@@ -166,7 +154,7 @@ export async function PATCH(request: NextRequest) {
     // Re-read under the caller's scope so an id from another seat cannot be
     // patched by guessing it.
     let check = supabase.from('office_visits').select('id');
-    check = applyScope(check, payload);
+    check = applyGeoScope(check, payload);
     const { data: found, error: findErr } = await check.eq('id', id).maybeSingle();
     if (findErr) throw findErr;
     if (!found) return NextResponse.json({ error: 'Visit not found in your jurisdiction' }, { status: 404 });

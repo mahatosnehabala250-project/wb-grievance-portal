@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { getComplaintScopeFilter } from '@/lib/jwt';
+import { applyComplaintScope, hasGeoScope } from '@/lib/jwt';
 import type { JWTPayload } from '@/lib/jwt';
 import { normalisePhone } from '@/lib/outreach';
 
@@ -35,20 +35,12 @@ interface Filterable {
 export async function phonesInScope(payload: JWTPayload): Promise<Set<string> | null> {
   if (payload.role === 'ADMIN' || payload.role === 'STATE') return null;
 
-  const where = getComplaintScopeFilter(payload) as AnyRecord;
-  // An empty filter from a non-admin means the account has no geography to
-  // scope by. Fail closed rather than hand over every citizen in the state.
-  if (Object.keys(where).length === 0) return new Set<string>();
+  // No geography on a non-admin account: fail closed rather than hand over every
+  // citizen in the state. Tested on the scope alone — the demo filter is never
+  // empty, so testing the full filter would never fail closed.
+  if (!hasGeoScope(payload)) return new Set<string>();
 
-  let q = supabase.from('complaints').select('phone') as unknown as Filterable;
-  for (const [key, value] of Object.entries(where)) {
-    if (value === null || value === undefined) continue;
-    if (typeof value === 'object' && 'in' in (value as AnyRecord)) {
-      q = q.in(key, (value as { in: unknown[] }).in);
-    } else {
-      q = q.eq(key, value);
-    }
-  }
+  const q = applyComplaintScope(supabase.from('complaints').select('phone'), payload) as unknown as Filterable;
 
   const { data, error } = await (q as unknown as {
     limit(n: number): Promise<{ data: AnyRecord[] | null; error: unknown }>;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { isAdminOrN8n } from '@/lib/n8nAuth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,34 +22,12 @@ const supabase = createClient(
  */
 export async function GET(request: NextRequest) {
   try {
-    // ─── Auth: verify admin JWT via cookie or Authorization header ───
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '') || '';
-
-    if (!token) {
-      return NextResponse.json(
-        { ok: false, error: 'Unauthorized — admin JWT required' },
-        { status: 401 }
-      );
-    }
-
-    // Verify the token with Supabase auth
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { ok: false, error: 'Unauthorized — invalid or expired token' },
-        { status: 401 }
-      );
-    }
-
-    // Check admin role from user metadata
-    const role = user.user_metadata?.role || user.app_metadata?.role;
-    if (role !== 'admin' && role !== 'super_admin') {
-      return NextResponse.json(
-        { ok: false, error: 'Forbidden — admin access required' },
-        { status: 403 }
-      );
+    // Portal JWT, not Supabase Auth: this used to trust user_metadata.role from a
+    // Supabase Auth token, and anyone can sign up there with the public anon key
+    // and write their own user_metadata — i.e. declare themselves admin and read
+    // any citizen's WhatsApp conversation by phone number.
+    if (!(await isAdminOrN8n(request))) {
+      return NextResponse.json({ ok: false, error: 'Admin access required' }, { status: 401 });
     }
 
     // ─── Parse query params ───

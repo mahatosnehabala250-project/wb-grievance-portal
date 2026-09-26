@@ -621,12 +621,12 @@ export function MLADashboardView() {
           <div className="flex items-center gap-1.5 shrink-0">
             {d?.sla_breached > 0 && (
               <Badge variant="destructive" className="text-[10px] h-5 animate-pulse">
-                ⚠ {d.sla_breached} SLA breach
+                ⚠ {d.sla_breached}<span className="hidden sm:inline">&nbsp;SLA breach</span>
               </Badge>
             )}
-            <Button variant="outline" size="sm" onClick={()=>load(true)} disabled={refreshing} className="h-7 text-[11px] px-2">
-              <RefreshCw className={`w-3 h-3 mr-1 ${refreshing?'animate-spin':''}`} />
-              {lastSync.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}
+            <Button variant="outline" size="sm" onClick={()=>load(true)} disabled={refreshing} className="h-7 text-[11px] px-2" title="Refresh">
+              <RefreshCw className={`w-3 h-3 sm:mr-1 ${refreshing?'animate-spin':''}`} />
+              <span className="hidden sm:inline">{lastSync.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span>
             </Button>
           </div>
         </div>
@@ -649,7 +649,7 @@ export function MLADashboardView() {
             {d.windows && (
               <Card className="border-0 overflow-hidden" style={{ background: `linear-gradient(140deg, ${theme.color}0F, transparent 60%)` }}>
                 <CardContent className="p-4 sm:p-5">
-                  <div className="flex items-center justify-between gap-2 mb-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                     <h3 className="text-sm font-bold flex items-center gap-1.5">
                       <CalendarRange className="h-4 w-4" style={{ color: theme.color }} />
                       The ledger

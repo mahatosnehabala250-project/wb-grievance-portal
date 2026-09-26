@@ -1,7 +1,7 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
+import { verifyToken, getTokenFromRequest, getComplaintScopeFilter, applyComplaintScope, applyGeoScope } from '@/lib/jwt';
 import type { JWTPayload } from '@/lib/jwt';
 import { createClient } from '@supabase/supabase-js';
 import {
@@ -37,19 +37,7 @@ interface Filterable {
   eq(column: string, value: unknown): Filterable;
   in(column: string, values: unknown[]): Filterable;
 }
-function applyScope<T>(query: T, payload: JWTPayload): T {
-  const where = getComplaintScopeFilter(payload) as AnyRecord;
-  let q = query as unknown as Filterable;
-  for (const [key, value] of Object.entries(where)) {
-    if (value === null || value === undefined) continue;
-    if (typeof value === 'object' && 'in' in (value as AnyRecord)) {
-      q = q.in(key, (value as { in: unknown[] }).in);
-    } else {
-      q = q.eq(key, value);
-    }
-  }
-  return q as unknown as T;
-}
+// applyScope moved to lib/jwt (applyComplaintScope / applyGeoScope).
 
 function ownGeography(u: JWTPayload) {
   return {
@@ -88,7 +76,7 @@ export async function GET(request: NextRequest) {
     const q = safeSearchTerm(searchParams.get('q'));
 
     let query = supabase.from('dev_works').select('*').eq('financial_year', fy);
-    query = applyScope(query, payload);
+    query = applyGeoScope(query, payload);
     if (status) query = query.eq('status', status);
     if (block) query = query.ilike('block', `%${block}%`);
     if (q) {
@@ -204,7 +192,7 @@ export async function PATCH(request: NextRequest) {
 
     // Re-read under scope so an id from another seat cannot be patched by guessing.
     let check = supabase.from('dev_works').select('id');
-    check = applyScope(check, payload) as typeof check;
+    check = applyGeoScope(check, payload) as typeof check;
     const { data: found, error: fErr } = await check.eq('id', id).maybeSingle();
     if (fErr) throw fErr;
     if (!found) return NextResponse.json({ error: 'Work not found in your jurisdiction' }, { status: 404 });

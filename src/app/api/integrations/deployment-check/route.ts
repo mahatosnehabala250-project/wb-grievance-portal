@@ -1,8 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { isAdminOrN8n } from '@/lib/n8nAuth';
 
 // GET /api/integrations/deployment-check — Check production readiness
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!(await isAdminOrN8n(request))) {
+    return NextResponse.json({ error: 'Admin access required' }, { status: 401 });
+  }
   const checks: {
     name: string;
     status: 'pass' | 'warn' | 'fail';

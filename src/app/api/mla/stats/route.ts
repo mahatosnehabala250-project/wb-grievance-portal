@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 
     // Match BOTH the new assembly_constituency column and the legacy
     // constituency column (older complaints only have the legacy one)
-    const { data: complaints, error } = await supabase
+    let query = supabase
       .from("complaints")
       .select(`
         id, status, category, urgency, block, district,
@@ -56,7 +56,12 @@ export async function GET(request: NextRequest) {
         assignedOfficerName, assignedToId, ticketNo,
         citizenName, issue, village, constituency, assembly_constituency
       `)
-      .or(`constituency.eq.${requestedConstituency},assembly_constituency.eq.${requestedConstituency}`)
+      .or(`constituency.eq.${requestedConstituency},assembly_constituency.eq.${requestedConstituency}`);
+    // Same rule as demoFilter() in lib/jwt: without it this headline read 43
+    // for a seat whose complaint list, one tab away, showed 4.
+    if (process.env.SHOW_DEMO_COMPLAINTS !== "true") query = query.neq("source", "DEMO");
+    if (process.env.SHOW_TEST_COMPLAINTS !== "true") query = query.is("is_test", false);
+    const { data: complaints, error } = await query
       .order("createdAt", { ascending: false })
       .range(offset, offset + limit - 1);
 

@@ -62,9 +62,11 @@ export function scopeLabel(user: JWTPayload): string {
   const lvl = user.role_level;
   if (lvl === 'KARYAKARTA') return (user.assigned_villages || []).join(', ') || user.gp_name || 'My villages';
   if (lvl === 'GP_COORD') return user.gp_name || `GP ${user.gp_code}`;
-  if (lvl === 'BLOCK_COORD' || user.role === 'BLOCK') return user.block;
+  // Designation before base role: the MP account carries role BLOCK with block
+  // "ALL", so checking the role first titled the MP's brief "ALL".
   if (lvl === 'MLA') return user.constituency || '';
   if (lvl === 'MP') return user.lok_sabha_constituency || '';
+  if (lvl === 'BLOCK_COORD' || user.role === 'BLOCK') return user.block;
   if (lvl === 'DISTRICT_ADMIN' || user.role === 'DISTRICT') return user.district || user.block || '';
   return 'West Bengal';
 }
@@ -1217,6 +1219,6 @@ export function formatBriefForTelegram(b: IntelligenceBrief): string {
   }
 
   L.push('');
-  L.push('<i>JanSunwai Intelligence · scope-locked brief</i>');
+  L.push('<i>Banglar Sahayak · /pending for the full list</i>');
   return L.join('\n');
 }

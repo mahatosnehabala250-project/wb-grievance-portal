@@ -1,7 +1,7 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
+import { verifyToken, getTokenFromRequest, getComplaintScopeFilter, applyComplaintScope, applyGeoScope } from '@/lib/jwt';
 import type { JWTPayload } from '@/lib/jwt';
 import { createClient } from '@supabase/supabase-js';
 import { normalisePhone } from '@/lib/outreach';
@@ -30,19 +30,7 @@ interface Filterable {
   eq(column: string, value: unknown): Filterable;
   in(column: string, values: unknown[]): Filterable;
 }
-function applyScope<T>(query: T, payload: JWTPayload): T {
-  const where = getComplaintScopeFilter(payload) as AnyRecord;
-  let q = query as unknown as Filterable;
-  for (const [key, value] of Object.entries(where)) {
-    if (value === null || value === undefined) continue;
-    if (typeof value === 'object' && 'in' in (value as AnyRecord)) {
-      q = q.in(key, (value as { in: unknown[] }).in);
-    } else {
-      q = q.eq(key, value);
-    }
-  }
-  return q as unknown as T;
-}
+// applyScope moved to lib/jwt (applyComplaintScope / applyGeoScope).
 
 /**
  * Phones are stored inconsistently — 9876543210, 919876543210, +91 98765 43210
@@ -69,17 +57,17 @@ export async function GET(request: NextRequest) {
     let cq = supabase.from('complaints')
       .select('id, "ticketNo", "citizenName", issue, category, status, village, block, "createdAt"')
       .like('phone', like);
-    cq = applyScope(cq, payload) as typeof cq;
+    cq = applyComplaintScope(cq, payload) as typeof cq;
 
     let vq = supabase.from('office_visits')
       .select('id, token_no, visitor_name, purpose, promised, promised_by_date, status, village, arrived_at')
       .like('phone', like);
-    vq = applyScope(vq, payload) as typeof vq;
+    vq = applyGeoScope(vq, payload) as typeof vq;
 
     let lq = supabase.from('letters')
       .select('id, letter_no, subject, recipient_designation, status, issued_at, replied_at, created_at')
       .like('citizen_phone', like);
-    lq = applyScope(lq, payload) as typeof lq;
+    lq = applyGeoScope(lq, payload) as typeof lq;
 
     const [complaints, visits, letters, tg, consent, optout] = await Promise.all([
       cq.order('createdAt', { ascending: false }).limit(50),

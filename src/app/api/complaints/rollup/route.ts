@@ -1,7 +1,7 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
+import { verifyToken, getTokenFromRequest, getComplaintScopeFilter, applyComplaintScope, applyGeoScope } from '@/lib/jwt';
 import type { JWTPayload } from '@/lib/jwt';
 import { createClient } from '@supabase/supabase-js';
 import { prettyBlock } from '@/lib/block-name';
@@ -54,19 +54,7 @@ interface Filterable {
   eq(column: string, value: unknown): Filterable;
   in(column: string, values: unknown[]): Filterable;
 }
-function applyScope<T>(query: T, payload: JWTPayload): T {
-  const where = getComplaintScopeFilter(payload) as AnyRecord;
-  let q = query as unknown as Filterable;
-  for (const [key, value] of Object.entries(where)) {
-    if (value === null || value === undefined) continue;
-    if (typeof value === 'object' && 'in' in (value as AnyRecord)) {
-      q = q.in(key, (value as { in: unknown[] }).in);
-    } else {
-      q = q.eq(key, value);
-    }
-  }
-  return q as unknown as T;
-}
+// applyScope moved to lib/jwt (applyComplaintScope / applyGeoScope).
 
 interface Node {
   name: string;
@@ -121,7 +109,7 @@ export async function GET(request: NextRequest) {
       // assignedToId gives "is anyone actually on this", category and issue let a
       // card say what the problem is rather than only that there is one.
       .select('id, "ticketNo", issue, block, gp_name, gp_code, village, village_code, status, urgency, category, "createdAt", "assignedToId"');
-    q = applyScope(q, payload) as typeof q;
+    q = applyComplaintScope(q, payload) as typeof q;
     const { data, error } = await q.limit(20000);
     if (error) throw error;
     const rows = (data || []) as AnyRecord[];
