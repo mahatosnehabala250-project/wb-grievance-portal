@@ -51,7 +51,7 @@ export function BrandingSettings({ open, onClose, value, onSave, onReset }: {
         <div className="px-4 py-3 space-y-3">
           <div>
             <label className="text-[11px] text-muted-foreground">Org / brand name</label>
-            <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="JanSunwai WB" className="h-9 text-sm mt-1" />
+            <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Banglar Sahayak" className="h-9 text-sm mt-1" />
           </div>
           <div>
             <label className="text-[11px] text-muted-foreground">Leader name (optional)</label>
@@ -71,7 +71,7 @@ export function BrandingSettings({ open, onClose, value, onSave, onReset }: {
         <div className="px-4 py-3 border-t flex items-center gap-2">
           <Button
             size="sm" className="flex-1 h-9 text-white" style={{ background: safeAccent }}
-            onClick={() => { onSave({ orgName: orgName.trim() || 'JanSunwai WB', leaderName: leaderName.trim(), accent: safeAccent, accentSoft: softFromAccent(safeAccent) }); onClose(); }}
+            onClick={() => { onSave({ orgName: orgName.trim() || 'Banglar Sahayak', leaderName: leaderName.trim(), accent: safeAccent, accentSoft: softFromAccent(safeAccent) }); onClose(); }}
           >
             <Check className="w-4 h-4 mr-1" /> Save
           </Button>

@@ -29,7 +29,7 @@ export interface BrandingScope {
 }
 
 const DEFAULT_BRANDING: Branding = {
-  orgName: 'JanSunwai WB',
+  orgName: 'Banglar Sahayak',
   leaderName: '',
   tagline: 'Citizen Grievance Intelligence',
   accent: '#BA7517',                 // amber-600 (premium / saffron-ish, party-neutral)

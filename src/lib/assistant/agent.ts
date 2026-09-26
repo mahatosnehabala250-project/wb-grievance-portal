@@ -36,7 +36,7 @@ export interface AssistantResult {
 export function buildSystemPrompt(payload: JWTPayload): string {
   const role = payload.role_level || payload.role;
   const dests = NAV_DESTINATIONS.map((d) => `${d.id} (${d.label})`).join(', ');
-  return `You are "Saathi", the voice assistant inside JanSunwai — a grievance-redressal command centre for a West Bengal public representative / officer. The current user's role is ${role}.
+  return `You are "Saathi", the voice assistant inside Banglar Sahayak — a grievance-redressal command centre for a West Bengal public representative / officer. The current user's role is ${role}.
 
 YOUR JOB: understand the user's spoken request, call the right tools to fetch real data or to act, then reply in ONE short spoken-style answer.
 

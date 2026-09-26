@@ -252,7 +252,7 @@ export function SettingsView() {
                 ) : (
                   <>
                     <p className="font-semibold">Manual steps:</p>
-                    <p>1. Telegram pe JanSunwai bot kholo (wahi bot jisse citizens link hote hain)</p>
+                    <p>1. Telegram pe Banglar Sahayak bot kholo (wahi bot jisse citizens link hote hain)</p>
                     <p>2. Ye message bhejo:</p>
                     <code className="block bg-background rounded px-2 py-1 font-mono select-all">/start {tgCode}</code>
                     <p>3. Bot "✅ Linked" reply karega — bas, kal subah se brief aayega</p>

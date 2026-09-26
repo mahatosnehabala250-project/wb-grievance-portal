@@ -159,7 +159,7 @@ const InnerMap = dynamic(
           const map = useMap();
           useEffect(() => {
             // Hide the default "Leaflet" attribution prefix (keep tile credits for ToS)
-            (map as any).attributionControl?.setPrefix("JanSunwai WB");
+            (map as any).attributionControl?.setPrefix("Banglar Sahayak");
             const u = () => onZoom(map.getZoom());
             u(); map.on("zoomend", u);
             return () => { map.off("zoomend", u); };
@@ -245,8 +245,15 @@ const InnerMap = dynamic(
                   <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}" maxZoom={19} />
                 </>
               ) : (
-                <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                  attribution='&copy; OpenStreetMap, &copy; CARTO' maxZoom={20} />
+                // CARTO's keyless tiles now come back as an "API KEY REQUIRED"
+                // placeholder, stamped across the whole map. Esri's dark canvas
+                // is still keyless and needs only the attribution.
+                <>
+                  <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+                    attribution="Tiles &copy; Esri" maxZoom={16} />
+                  <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
+                    maxZoom={16} />
+                </>
               )}
 
               <ZoomWatcher onZoom={setZoom} />

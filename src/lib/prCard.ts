@@ -89,7 +89,7 @@ export async function downloadVillagePrCard(d: PrCardData): Promise<void> {
 
   // footer
   ctx.fillStyle = muted; ctx.font = '400 26px sans-serif';
-  ctx.fillText('Aapke gaon ke saath — JanSunwai', 64, H - 90);
+  ctx.fillText('Aapke gaon ke saath — Banglar Sahayak', 64, H - 90);
   ctx.fillStyle = accent; ctx.font = '400 24px sans-serif';
   ctx.fillText('wb-grievance-portal.vercel.app', 64, H - 54);
 
