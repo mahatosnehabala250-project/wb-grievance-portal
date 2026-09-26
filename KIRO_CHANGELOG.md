@@ -1460,7 +1460,7 @@ Har role ka apna **curated, ordered, grouped** menu — `page.tsx` mein ek hi `n
 #### ✅ NEW n8n WORKFLOW: JS-21 (`hPDe3mQWWf9bjWj8`) — 4 nodes, validated 0 errors
 - `Every Morning 7AM` (cron 0 7 * * *, Asia/Kolkata) → `Fetch Briefs from App` (HTTP GET + x-cron-secret) → `Split Messages` (code) → `Send Brief via Telegram` (HTML, existing "Telegram account" credential `W4l40lF1yCNM5z9s`)
 - ⚠️ **ACTIVATION PENDING — 2 manual steps:**
-  1. Vercel env mein add karo: `CRON_SECRET=wbgp_cron_7f3a9d2e84c1b6f05a47e92d13c8ab60` (ye value JS-21 ke header mein hardcoded hai — change karo to dono jagah karo)
+  1. Vercel env mein add karo: `CRON_SECRET=<redacted — see Vercel env>` (ye value JS-21 ke header mein hardcoded hai — change karo to dono jagah karo)
   2. n8n mein JS-21 ACTIVATE karo (inactive create hua hai)
 
 #### ✅ NEW: "Wapas Jao" Mode (closed-loop politics — moat feature)

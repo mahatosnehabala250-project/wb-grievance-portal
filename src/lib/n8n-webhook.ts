@@ -55,12 +55,15 @@ async function post(key: string, body: Record<string, unknown>): Promise<void> {
   const url = await webhookUrl(key);
   if (!url) return;
 
+  // Same shared secret the database triggers send; n8n rejects webhook calls without it.
+  const { data: hookSecret } = await supabase.rpc('get_hook_secret');
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(hookSecret ? { 'x-hook-secret': String(hookSecret) } : {}) },
       body: JSON.stringify(body),
       signal: controller.signal,
     });

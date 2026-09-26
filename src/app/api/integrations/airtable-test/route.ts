@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isAdminOrN8n } from '@/lib/n8nAuth';
 
 // POST /api/integrations/airtable-test — Test Airtable connectivity
 export async function POST(request: NextRequest) {
+  if (!(await isAdminOrN8n(request))) {
+    return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 401 });
+  }
   try {
     const body = await request.json();
     const { token, baseId, tableName } = body;
