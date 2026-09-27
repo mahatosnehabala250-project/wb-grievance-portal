@@ -39,7 +39,9 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    // The font variables belong on <html>: Tailwind sets the default font there,
+    // and on <body> the variables did not exist yet, so the system font won.
+    <html lang="en" className={`${plexSans.variable} ${plexMono.variable} ${notoBengali.variable}`} suppressHydrationWarning>
       <head>
         <style>{`
           @media print {
@@ -51,7 +53,7 @@ export default function RootLayout({
           }
         `}</style>
       </head>
-      <body className={`${plexSans.variable} ${plexMono.variable} ${notoBengali.variable} antialiased bg-background text-foreground`}>
+      <body className="antialiased bg-background text-foreground font-sans">
         <ThemeProvider attribute="class" defaultTheme="dark" disableTransitionOnChange>
           {children}
           <Toaster position="top-right" richColors closeButton />
