@@ -60,6 +60,10 @@ export async function PATCH(
   try {
     const body = await request.json();
     const { status, resolution, assignedToId, urgency } = body;
+    const KNOWN_STATUS = ['OPEN', 'REGISTERED', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'REJECTED', 'CLOSED'];
+    if (status !== undefined && !KNOWN_STATUS.includes(String(status))) {
+      return NextResponse.json({ error: `Unknown status: ${status}` }, { status: 400 });
+    }
 
     // 3) Field gate. A karyakarta verifies on the ground, so they may close a
     //    complaint — but choosing the owning officer or the urgency is the

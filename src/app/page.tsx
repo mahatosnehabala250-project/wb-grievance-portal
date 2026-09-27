@@ -64,10 +64,10 @@ import N8NWorkflowsView from '@/components/N8NWorkflowsView';
 import WB01WorkflowDetailView from '@/components/WB01WorkflowDetailView';
 import { IntelligenceView } from '@/components/IntelligenceView';
 import { ChatDashboard } from '@/components/ChatDashboard';
-import { MLADashboardView } from '@/components/MLADashboardView';
+import { SeatHome } from '@/components/home/SeatHome';
+import { DistrictHome } from '@/components/home/DistrictHome';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MPCommandView } from '@/components/MPCommandView';
-import { DistrictCommandView } from '@/components/DistrictCommandView';
 import { CommandCenter } from '@/components/CommandCenter';
 import { GovernanceDashboardView } from '@/components/GovernanceDashboardView';
 import { MapView } from '@/components/MapView';
@@ -151,7 +151,7 @@ export default function HomePage() {
     const item = (id: ViewType, label: string, icon: React.ElementType): NavItem => ({ id, label, icon });
 
     const homeItem =
-      isAdmin ? item('dashboard', t('dashboard'), LayoutDashboard)
+      isAdmin ? item('district_command', 'District', Landmark)
       : lvl === 'MP' ? item('mp_command', 'Home', Crown)
       : lvl === 'MLA' ? item('mla_dashboard', 'Home', Building2)
       : lvl === 'DISTRICT_ADMIN' ? item('district_command', 'Home', Landmark)
@@ -162,33 +162,52 @@ export default function HomePage() {
     // STATE) — so gate on BOTH, never on role_level alone.
     const showTeam = isAdmin || ['MP', 'MLA', 'DISTRICT_ADMIN', 'BLOCK_COORD', 'GP_COORD'].includes(lvl);
     const showWarRoom = isAdmin || ['MP', 'MLA', 'DISTRICT_ADMIN'].includes(lvl);
-    const core: NavSection = {
-      title: null,
-      items: [
-        homeItem,
-        item('complaints', t('complaints'), FileText),
-        // Front-desk work sits next to complaints: most visits become one,
-        // and most of those end in a letter to the officer who can act.
-        item('visits', 'Visitors', DoorOpen),
-        item('letters', 'Letters', Mail),
-        item('outreach', 'Messaging', Megaphone),
-        item('works', 'Works & Fund', HardHat),
-        item('area', 'By Area', Layers),
-        item('map', 'Map', MapPin),
-        item('booths', 'Booths', Vote),
-        item('hotspots', 'Hotspots', Flame),
-        ...(showWarRoom ? [item('war_room', 'War Room', Swords)] : []),
-        item('intel_command', 'Intelligence', BrainCircuit),
-        ...(showTeam ? [item('users', 'Team', Users)] : []),
-        item('settings', t('settings'), Settings),
-      ],
-    };
+    // Fourteen destinations in one flat list read as noise; grouped by what the
+    // office is doing, the same items are findable at a glance.
+    const isLegacyOfficer = (lvl === 'OFFICER') && (user?.role === 'BLOCK' || user?.role === 'DISTRICT' || user?.role === 'STATE');
+    const core: NavSection[] = [
+      { title: null, items: [homeItem] },
+      {
+        title: 'Work', items: [
+          item('complaints', t('complaints'), FileText),
+          // Legacy officers keep WhatsApp Chats — it is their operational tool.
+          ...(isLegacyOfficer ? [item('chat', 'WhatsApp Chats', MessageSquare)] : []),
+          // Front-desk work sits next to complaints: most visits become one,
+          // and most of those end in a letter to the officer who can act.
+          item('visits', 'Visitors', DoorOpen),
+          item('letters', 'Letters', Mail),
+          item('outreach', 'Messaging', Megaphone),
+        ],
+      },
+      {
+        title: 'Places', items: [
+          item('booths', 'Booths', Vote),
+          item('area', 'By Area', Layers),
+          item('map', 'Map', MapPin),
+          item('hotspots', 'Hotspots', Flame),
+        ],
+      },
+      {
+        title: 'Organisation', items: [
+          ...(showTeam ? [item('users', 'Team', Users)] : []),
+          item('works', 'Works & Fund', HardHat),
+        ],
+      },
+      {
+        title: 'Insight', items: [
+          ...(showWarRoom ? [item('war_room', 'War Room', Swords)] : []),
+          item('intel_command', 'Intelligence', BrainCircuit),
+        ],
+      },
+      { title: null, items: [item('settings', t('settings'), Settings)] },
+    ];
 
     if (isAdmin) {
       return [
-        core,
+        ...core,
         {
           title: 'System', items: [
+            item('dashboard', 'Operations', LayoutDashboard),
             item('chat', 'WhatsApp Chats', MessageSquare), item('handoffs', 'Handoffs & Consent', HeartHandshake),
             item('analytics', t('analytics'), BarChart2),
             item('intelligence', 'Alert Engine', ShieldAlert), item('schemes', 'Schemes', BookOpen),
@@ -201,18 +220,12 @@ export default function HomePage() {
         },
       ];
     }
-    // Legacy/base officers (BLOCK/DISTRICT/STATE with no governance designation
-    // beyond 'OFFICER') keep WhatsApp Chats — it's their operational tool.
-    const isLegacyOfficer = (lvl === 'OFFICER') && (user?.role === 'BLOCK' || user?.role === 'DISTRICT' || user?.role === 'STATE');
-    if (isLegacyOfficer) {
-      return [{ ...core, items: [...core.items.slice(0, 2), item('chat', 'WhatsApp Chats', MessageSquare), ...core.items.slice(2)] }];
-    }
-    return [core];
+    return core;
   })();
 
   const navItems = navSections.flatMap((s) => s.items);
   const homeView: ViewType =
-    user?.role === 'ADMIN' ? 'dashboard'
+    user?.role === 'ADMIN' ? 'district_command'
     : user?.role_level === 'MP' ? 'mp_command'
     : user?.role_level === 'MLA' ? 'mla_dashboard'
     : user?.role_level === 'DISTRICT_ADMIN' ? 'district_command'
@@ -471,9 +484,7 @@ export default function HomePage() {
       />
 
       {/* ═══ HEADER ═══ */}
-      <header className="sticky top-0 z-50 glass-header border-b border-border/50">
-        {/* Animated vivid gradient ribbon at bottom — 3px with shimmer */}
-        <div className="absolute bottom-0 left-0 right-0 header-ribbon" />
+      <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur">
 
         <div className="flex items-center justify-between h-14 px-4">
           <div className="flex items-center gap-3">
@@ -486,16 +497,7 @@ export default function HomePage() {
               </div>
               <div className="hidden sm:block">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-sm font-black tracking-tight truncate max-w-[220px]" style={{ color: branding.accent }}>{branding.orgName}</h1>
-                  {user?.role === 'ADMIN' && (
-                    <span className="live-badge">
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
-                      </span>
-                      LIVE
-                    </span>
-                  )}
+                  <h1 className="text-sm font-semibold text-foreground truncate max-w-[220px]">{branding.orgName}</h1>
                 </div>
                 <p className="text-[10px] text-muted-foreground -mt-0.5 truncate max-w-[220px]">{branding.leaderName || branding.tagline}</p>
               </div>
@@ -512,7 +514,7 @@ export default function HomePage() {
                   className="flex items-center gap-1.5"
                 >
                   <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
-                  <span className="text-xs font-semibold gradient-text">{navItems.find(n => n.id === view)?.label || 'Dashboard'}</span>
+                  <span className="text-sm text-muted-foreground">{navItems.find(n => n.id === view)?.label || 'Dashboard'}</span>
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -523,7 +525,7 @@ export default function HomePage() {
             <Button
               variant="outline"
               size="sm"
-              className="hidden sm:flex h-8 gap-2 px-3 text-xs text-muted-foreground hover:text-foreground font-normal search-btn-gradient"
+              className="hidden sm:flex h-8 gap-2 px-3 text-xs text-muted-foreground hover:text-foreground font-normal"
               onClick={() => setShortcutOpen(true)}
             >
               <Search className="h-3.5 w-3.5" />
@@ -625,7 +627,7 @@ export default function HomePage() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2">
-                  <div className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: NAVY }}>
+                  <div className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}>
                     {(user?.name || 'U').charAt(0).toUpperCase()}
                   </div>
                   <span className="hidden md:inline text-xs font-medium max-w-[9rem] truncate">{user?.name}</span>
@@ -636,7 +638,7 @@ export default function HomePage() {
                 {/* Profile Card Section */}
                 <div className="p-3">
                   <div className="flex items-center gap-3">
-                    <div className="h-11 w-11 rounded-full flex items-center justify-center text-white text-base font-bold shrink-0 relative" style={{ backgroundColor: NAVY }}>
+                    <div className="h-11 w-11 rounded-full flex items-center justify-center text-white text-base font-bold shrink-0 relative" style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}>
                       {(user?.name || 'U').charAt(0).toUpperCase()}
                       <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-gray-800" />
                     </div>
@@ -689,11 +691,11 @@ export default function HomePage() {
       {/* ═══ LAYOUT ═══ */}
       <div className="flex flex-1">
         {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex flex-col w-56 border-r border-border/50 glass-sidebar min-h-0 sidebar-accent">
+        <aside className="hidden lg:flex flex-col w-56 border-r border-sidebar-border bg-sidebar min-h-0">
           {/* User Avatar Section */}
           <div className="p-4 pb-3 border-b border-border/30">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm" style={{ backgroundColor: NAVY }}>
+              <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm" style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}>
                 {(user?.name || 'U').charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
@@ -706,7 +708,7 @@ export default function HomePage() {
             {navSections.map((section, si) => (
               <div key={si} className={si > 0 ? 'pt-3' : ''}>
                 {section.title && (
-                  <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                  <p className="px-3 pb-1 text-xs font-medium text-muted-foreground">
                     {section.title}
                   </p>
                 )}
@@ -715,13 +717,13 @@ export default function HomePage() {
                     <button
                       key={item.id}
                       onClick={() => handleNavigate(item.id)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border-l-[3px] btn-press group ${
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors border-l-2 group ${
                         view === item.id
-                          ? 'nav-active-gradient shadow-sm text-foreground border-l-[#0A2463]'
-                          : 'text-muted-foreground hover:bg-gradient-to-r hover:from-muted/80 hover:to-transparent hover:text-foreground hover:scale-[1.02] border-l-transparent'
+                          ? 'bg-sidebar-accent text-foreground border-l-primary'
+                          : 'text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground border-l-transparent'
                       }`}
                     >
-                      <item.icon className={`h-4 w-4 transition-transform duration-200 ${view === item.id ? 'text-[#0A2463]' : 'group-hover:scale-110'}`} />
+                      <item.icon className={`h-4 w-4 ${view === item.id ? 'text-primary' : ''}`} />
                       <span className="flex-1 text-left">{item.label}</span>
                       {item.id === 'complaints' && criticalCount > 0 && (
                         <span className="min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold animate-badge-in">
@@ -736,16 +738,9 @@ export default function HomePage() {
           </nav>
           {/* Session + Sign Out */}
           <div className="p-3 border-t border-border/50">
-            <div className="p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border border-border/50">
-              <div className="flex items-center gap-2 mb-2">
-                <ShieldCheck className="h-4 w-4" style={{ color: NAVY }} />
-                <span className="text-[10px] font-bold uppercase tracking-widest">Secured</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground">{t('sessionActive')}</p>
-              <Button variant="ghost" size="sm" onClick={() => logout()} className="w-full mt-2 h-7 text-xs text-red-600 dark:text-red-400 gap-1 hover:bg-red-50 dark:hover:bg-red-950/30">
-                <LogOut className="h-3 w-3" /> {t('signOut')}
-              </Button>
-            </div>
+            <Button variant="ghost" size="sm" onClick={() => logout()} className="w-full h-8 justify-start text-xs text-muted-foreground hover:text-late gap-2">
+              <LogOut className="h-3.5 w-3.5" /> {t('signOut')}
+            </Button>
           </div>
         </aside>
 
@@ -833,11 +828,11 @@ export default function HomePage() {
                 {view === 'mp_command' && (user?.role_level === 'MP' || user?.role === 'ADMIN') && (
                   <MPCommandView />
                 )}
-                {view === 'mla_dashboard' && (user?.role_level === 'MLA' || user?.role_level === 'MP' || user?.role === 'ADMIN') && (
-                  <MLADashboardView />
+                {view === 'mla_dashboard' && (user?.role_level === 'MLA' || user?.role === 'ADMIN') && (
+                  user?.role_level === 'MLA' ? <SeatHome /> : <DistrictHome />
                 )}
                 {view === 'district_command' && (user?.role_level === 'DISTRICT_ADMIN' || user?.role === 'DISTRICT' || user?.role === 'ADMIN') && (
-                  <DistrictCommandView />
+                  <DistrictHome />
                 )}
                 {view === 'governance' && (user?.role_level === 'KARYAKARTA' || user?.role_level === 'GP_COORD' || user?.role_level === 'BLOCK_COORD' || user?.role === 'ADMIN') && (
                   <GovernanceDashboardView />
@@ -877,14 +872,14 @@ export default function HomePage() {
       {/* It used to carry a wb.gov.in link, links that did nothing and a
           decorative 'uptime / encrypted' panel. This is a party office's tool,
           not a government site, so it says only what is true. */}
-      <footer className="border-t border-border/50 mt-auto" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 100%)' }}>
+      <footer className="border-t border-border mt-auto bg-card">
         <div className="px-4 py-4">
           <div className="max-w-[1400px] mx-auto flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-[11px]">
-            <p className="font-semibold text-white/85">বাংলার সহায়ক <span className="font-normal text-white/50">· NeuroSetu AI</span></p>
-            <button type="button" className="flex items-center gap-1 text-white/60 hover:text-white transition-colors" onClick={() => setTicketTrackerOpen(true)}>
+            <p className="font-semibold text-foreground">বাংলার সহায়ক <span className="font-normal text-muted-foreground">· NeuroSetu AI</span></p>
+            <button type="button" className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors" onClick={() => setTicketTrackerOpen(true)}>
               <FileText className="h-3 w-3" />{lang === 'en' ? 'Track status' : 'ট্র্যাক স্ট্যাটাস'}
             </button>
-            <p className="text-white/40">A private citizen-service initiative — not a government website</p>
+            <p className="text-muted-foreground">A private citizen-service initiative — not a government website</p>
           </div>
         </div>
       </footer>
@@ -895,7 +890,7 @@ export default function HomePage() {
           <SheetHeader className="p-4 pb-3 border-b border-border/50">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: NAVY }}>
+                <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}>
                   <Megaphone className="h-4 w-4 text-white" />
                 </div>
                 <div>
@@ -984,7 +979,7 @@ export default function HomePage() {
       />
 
       {/* ═══ MOBILE BOTTOM NAVIGATION ═══ */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 mobile-bottom-nav-glass border-t border-border/50 print:hidden">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur border-t border-border print:hidden">
         <div className="flex items-center justify-around px-2 py-1.5" style={{ paddingBottom: 'max(0.375rem, env(safe-area-inset-bottom))' }}>
           {/* Home goes to THIS role's home. It was hardcoded to 'dashboard',
               which an MLA's nav does not contain — so the guard bounced them
@@ -1037,7 +1032,7 @@ export default function HomePage() {
             onClick={() => setNewComplaintOpen(true)}
             className="flex flex-col items-center gap-0.5 px-3 py-1.5"
           >
-            <div className="h-10 w-10 -mt-5 rounded-full flex items-center justify-center shadow-lg" style={{ backgroundColor: NAVY }}>
+            <div className="h-10 w-10 -mt-5 rounded-full flex items-center justify-center shadow-lg" style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}>
               <Plus className="h-5 w-5 text-white" />
             </div>
             <span className="text-[10px] font-medium text-muted-foreground">New</span>
@@ -1056,10 +1051,10 @@ export default function HomePage() {
 
       {/* ═══ MOBILE SIDEBAR ═══ */}
       <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-        <SheetContent side="left" className="w-72 p-0" style={{ backgroundColor: isDark ? '#1E293B' : 'white' }}>
+        <SheetContent side="left" className="w-72 p-0 bg-sidebar">
           <SheetHeader className="p-4 pb-2">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: NAVY }}>
+              <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}>
                 <Shield className="h-4 w-4 text-white" />
               </div>
               <div>
@@ -1071,7 +1066,7 @@ export default function HomePage() {
           <div className="px-3 py-2">
             <div className="p-3 rounded-lg bg-muted/50 border border-border/50 mb-3">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ backgroundColor: NAVY }}>
+                <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}>
                   {(user?.name || 'U').charAt(0).toUpperCase()}
                 </div>
                 <div>
@@ -1091,7 +1086,7 @@ export default function HomePage() {
             {navSections.map((section, si) => (
               <div key={si} className={si > 0 ? 'pt-3' : ''}>
                 {section.title && (
-                  <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                  <p className="px-3 pb-1 text-xs font-medium text-muted-foreground">
                     {section.title}
                   </p>
                 )}
@@ -1102,7 +1097,7 @@ export default function HomePage() {
                       onClick={() => handleNavigate(item.id)}
                       className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border-l-[3px] ${
                         view === item.id
-                          ? 'bg-muted text-foreground shadow-sm border-l-[#0A2463]'
+                          ? 'bg-sidebar-accent text-foreground border-l-primary'
                           : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground border-l-transparent'
                       }`}
                     >
