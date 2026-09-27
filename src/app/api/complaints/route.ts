@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     sevenDaysAgo.setHours(0, 0, 0, 0);
-    where.status = { in: ['OPEN', 'IN_PROGRESS'] };
+    where.status = { in: ['OPEN', 'REGISTERED', 'ASSIGNED', 'IN_PROGRESS'] };
     const existingDateFilter = (where.createdAt && typeof where.createdAt === 'object' ? where.createdAt : {}) as Record<string, unknown>;
     existingDateFilter.lte = sevenDaysAgo;
     where.createdAt = existingDateFilter;
@@ -106,9 +106,11 @@ export async function GET(request: NextRequest) {
     // count only the fifteen rows on screen, so "Resolved 9" sat under
     // "Total 42" while the real answer was 35. Three tiny counts on an
     // already-running query beat one number that is quietly wrong.
-    db.complaint.count({ where: { ...where, status: 'OPEN' } }),
+    // 'Open' means not started yet. WhatsApp complaints arrive as REGISTERED or
+    // ASSIGNED, never OPEN, so counting OPEN alone showed 0 while cases waited.
+    db.complaint.count({ where: { ...where, status: { in: ['OPEN', 'REGISTERED', 'ASSIGNED'] } } }),
     db.complaint.count({ where: { ...where, status: 'IN_PROGRESS' } }),
-    db.complaint.count({ where: { ...where, status: 'RESOLVED' } }),
+    db.complaint.count({ where: { ...where, status: { in: ['RESOLVED', 'CLOSED'] } } }),
   ]);
 
   return NextResponse.json({

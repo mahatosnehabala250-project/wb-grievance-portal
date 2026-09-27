@@ -1,17 +1,28 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { IBM_Plex_Sans, IBM_Plex_Mono, Noto_Sans_Bengali } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Geist has no Bengali glyphs, so every complaint written in Bengali fell back
+// to whatever the device had. Plex carries the Latin UI; Noto Sans Bengali is
+// second in the stack and picks up every Bengali character.
+const plexSans = IBM_Plex_Sans({
+  variable: "--font-plex",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
   subsets: ["latin"],
+  weight: ["400", "500"],
+});
+
+const notoBengali = Noto_Sans_Bengali({
+  variable: "--font-bengali",
+  subsets: ["bengali"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -21,8 +32,7 @@ export const metadata: Metadata = {
   keywords: [
     "West Bengal", "CivicTech", "Grievance Portal", "Complaints", "Dashboard", "AI Support",
   ],
-  authors: [{ name: "District Administration, West Bengal" }],
-  icons: { icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg" },
+  authors: [{ name: "Banglar Sahayak" }],
 };
 
 export default function RootLayout({
@@ -41,8 +51,8 @@ export default function RootLayout({
           }
         `}</style>
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
-        <ThemeProvider attribute="class" defaultTheme="light" disableTransitionOnChange>
+      <body className={`${plexSans.variable} ${plexMono.variable} ${notoBengali.variable} antialiased bg-background text-foreground`}>
+        <ThemeProvider attribute="class" defaultTheme="dark" disableTransitionOnChange>
           {children}
           <Toaster position="top-right" richColors closeButton />
         </ThemeProvider>
