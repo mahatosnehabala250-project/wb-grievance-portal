@@ -1,0 +1,29 @@
+name: Sync AI Context to Supabase
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'PROJECT_CONTEXT.md'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - '.cursorrules'
+      - '.github/copilot-instructions.md'
+      - '.ai-context/**'
+  workflow_dispatch: # allow manual run
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Sync to Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node scripts/sync-context-to-supabase.js
