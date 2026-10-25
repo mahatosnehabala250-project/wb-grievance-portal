@@ -81,14 +81,9 @@ bun run dev
 
 The application will be available at **http://localhost:3000**
 
-### Test Credentials
+### Demo accounts
 
-| Role | Username | Password |
-|------|----------|----------|
-| **Admin** | admin | admin123 |
-| **State** | state_wb | state123 |
-| **District (Nadia)** | district_nadia | nadia123 |
-| **Block (Krishnanagar)** | block_krishnanagar | krish123 |
+Running `bun run db:seed` creates local demo users for each role (Admin, State, District, Block). See `prisma/seed.ts`.
 
 ---
 
@@ -209,8 +204,6 @@ This project is licensed under the MIT License.
 
 ---
 
-## 🙏 Acknowledgments
+## 🙏 About
 
-Built for the **Government of West Bengal** — Department of Public Grievances.
-
-*পশ্চিমবঙ্গ সরকার — জন অভিযোগ নিষ্পত্তি পোর্টাল*
+Built by Mrinmoy Mahato (NeuroSetu AI) as a concept for West Bengal's public grievance system. This is an independent project, not an official Government of West Bengal product.
