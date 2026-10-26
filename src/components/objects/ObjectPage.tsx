@@ -107,7 +107,7 @@ function ChildrenPanel({ v }: { v: ObjectView }) {
         <div className="border-b border-border px-4 py-2.5">
           <label className="flex items-center gap-2 rounded-md border border-border bg-background px-2.5 focus-within:ring-2 focus-within:ring-ring">
             <Search className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Find a ${noun} in ${v.title}`}
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Find a ${noun} in ${v.title}`} data-bare-focus
               aria-label={`Find a ${noun}`} className="h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
           </label>
         </div>
@@ -115,7 +115,7 @@ function ChildrenPanel({ v }: { v: ObjectView }) {
       {items.length === 0 ? <Empty>No {noun} here matches “{q}”.</Empty> : (
         <ul>
           {shown.map((r: ChildRow) => (
-            <li key={r.key} className="grid grid-cols-[minmax(0,1fr)_96px_72px] items-center gap-3 border-t border-border px-4 py-2.5 first:border-t-0">
+            <li key={r.key} className="grid grid-cols-[minmax(0,1fr)_48px_60px] items-center gap-3 border-t border-border px-4 py-2.5 first:border-t-0 sm:grid-cols-[minmax(0,1fr)_96px_72px]">
               <div className="min-w-0">
                 <ObjectLink type={r.type} id={r.key} className="font-medium text-foreground">
                   <PlaceName label={r.label} bn={r.label_bn} />
@@ -165,13 +165,14 @@ function ComplaintRow({ c, v, onOpen }: { c: ObjectComplaint; v: ObjectView; onO
           </span>
           <span className={`mt-0.5 block text-[15px] leading-snug line-clamp-2 ${closed ? 'text-muted-foreground' : 'text-foreground/90'}`}>{c.issue}</span>
         </button>
-        <p className="mt-1 flex flex-wrap gap-x-1 text-xs text-muted-foreground">
-          <span>{CATEGORY_LABEL(c.category)}</span>
-          {showVillage && <><span>in</span><ObjectLink type="village" id={c.village_code}>{c.village}</ObjectLink></>}
-          {showBlock && <><span>,</span><ObjectLink type="block" id={c.block_code || c.block}>{c.block}</ObjectLink></>}
+        {/* One sentence, so the punctuation sits where it belongs: "Water in Paharpur, Hura. With Biswajit." */}
+        <p className="mt-1 text-xs text-muted-foreground">
+          {CATEGORY_LABEL(c.category)}
+          {showVillage && <> in <ObjectLink type="village" id={c.village_code}>{c.village}</ObjectLink></>}
+          {showBlock && <>, <ObjectLink type="block" id={c.block_code || c.block}>{c.block}</ObjectLink></>}
           {v.type !== 'person' && (c.owner_id
-            ? <><span>. With</span><ObjectLink type="person" id={c.owner_id}>{c.owner_name || 'someone'}</ObjectLink></>
-            : !closed && <span className="text-late">. Nobody on it</span>)}
+            ? <>. With <ObjectLink type="person" id={c.owner_id}>{c.owner_name || 'someone'}</ObjectLink></>
+            : !closed && <>. <span className="text-late">Nobody on it yet</span></>)}
         </p>
       </div>
       <div className="flex items-baseline gap-3 sm:block sm:text-right">
@@ -190,13 +191,16 @@ function ComplaintsPanel({ v, onOpen }: { v: ObjectView; onOpen: (id: string) =>
   const open = v.complaints.filter((c) => c.is_open);
   const [tab, setTab] = useState<'open' | 'all'>(open.length ? 'open' : 'all');
   const list = tab === 'open' ? open : v.complaints;
-  const capped = v.figures.total > v.complaints.length;
+  // The list holds the most pressing 60; the tabs count everything, so a district
+  // with 348 open never reads "Open 60".
+  const shownOf = tab === 'open' ? v.figures.open : v.figures.total;
+  const capped = shownOf > list.length;
   const tabs = (
     <div role="tablist" aria-label="Which complaints" className="flex rounded-md border border-border p-0.5 text-[13px]">
       {(['open', 'all'] as const).map((t) => (
         <button key={t} role="tab" aria-selected={tab === t} type="button" onClick={() => setTab(t)}
-          className={`rounded px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${tab === t ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-          {t === 'open' ? `Open ${open.length}` : `All ${v.figures.total}`}
+          className={`rounded px-2.5 py-1 tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${tab === t ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+          {t === 'open' ? `Open ${v.figures.open.toLocaleString('en-IN')}` : `All ${v.figures.total.toLocaleString('en-IN')}`}
         </button>
       ))}
     </div>
@@ -207,9 +211,9 @@ function ComplaintsPanel({ v, onOpen }: { v: ObjectView; onOpen: (id: string) =>
         : list.length === 0 ? <Empty>Nothing is open. Switch to All to see what was closed.</Empty> : (
           <ul>{list.map((c) => <ComplaintRow key={c.id} c={c} v={v} onOpen={onOpen} />)}</ul>
         )}
-      {capped && tab === 'all' && (
+      {capped && list.length > 0 && (
         <p className="border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
-          Showing the {v.complaints.length} most pressing of {v.figures.total}. The full list is under Complaints.
+          Showing the {list.length} most pressing of {shownOf.toLocaleString('en-IN')}. The full list is under Complaints.
         </p>
       )}
     </Panel>
