@@ -528,7 +528,7 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
             <div className="flex items-center gap-2">
               <Select value={selectedAssignee} onValueChange={setSelectedAssignee} disabled={assigning}>
                 <SelectTrigger className="h-9 text-sm flex-1">
-                  <SelectValue placeholder="Select officer..." />
+                  <SelectValue placeholder="Choose who handles it" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__unassign__">— Unassign —</SelectItem>
@@ -627,7 +627,7 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
               { label: 'Village', val: complaint.village || '—', link: { type: 'village' as ObjectType, id: complaint.villageCode } },
               { label: 'Gram Panchayat', val: complaint.gpName || '—', link: { type: 'gp' as ObjectType, id: complaint.gpCode } },
               { label: 'Block', val: complaint.block, link: { type: 'block' as ObjectType, id: complaint.block } },
-              { label: 'District', val: complaint.district },
+              { label: 'District', val: complaint.district, link: { type: 'district' as ObjectType, id: complaint.district } },
               { label: 'Assembly Constituency', val: complaint.assemblyConstituency || '—', link: { type: 'seat' as ObjectType, id: complaint.assemblyConstituency } },
               { label: 'Lok Sabha', val: complaint.parliamentaryConstituency || '—' },
               { label: 'Filed On', val: fmtDateTime(complaint.createdAt) },
