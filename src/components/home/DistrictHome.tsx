@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ChevronRight, RotateCcw } from 'lucide-react';
+import { ChevronRight, Compass, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { authHeaders } from '@/lib/helpers';
 import {
@@ -86,8 +86,11 @@ export function DistrictHome() {
       <PageHead
         title={`${data.district} district`}
         meta={`${plural(f.seats, 'assembly seat')}, ${f.booths.toLocaleString('en-IN')} booths`}
-        right={<Button variant="outline" size="sm" onClick={load}><RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-          {loadedAt ? loadedAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : 'Refresh'}</Button>}
+        right={<div className="flex gap-2">
+          <Button asChild variant="outline" size="sm"><a href="#/district/home"><Compass className="mr-1.5 h-3.5 w-3.5" />Explore every place</a></Button>
+          <Button variant="outline" size="sm" onClick={load}><RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+            {loadedAt ? loadedAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : 'Refresh'}</Button>
+        </div>}
       />
       <Headline text={h.text} sub={h.sub} tone={h.tone} />
       <Figures items={[

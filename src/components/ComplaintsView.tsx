@@ -60,6 +60,7 @@ import { fmtDate, fmtDateTime, fmtStatus, fmtUrgency, fmtRole, safeGetLocalStora
 import { StatusBadge, UrgencyBadge, RoleBadge, StatCard, MiniStat, PieLabel, LoadingSkeleton, EmptyState } from '@/components/common';
 import { ComplaintDetailDialog } from '@/components/ComplaintDetailDialog';
 import { NewComplaintDialog } from '@/components/NewComplaintDialog';
+import { ObjectLink } from '@/components/objects/ObjectLink';
 
 export function ComplaintsView({ initialComplaint, initialFilterStatus }: { initialComplaint?: Complaint; initialFilterStatus?: string }) {
   const user = useAuthStore((s) => s.user);
@@ -695,11 +696,22 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
                         </TableCell>
                         <TableCell className="text-xs">{c.category}</TableCell>
                         <TableCell className="text-xs">
-                          <div className="flex flex-col leading-tight">
-                            <span className="font-medium">{c.block}{c.district ? `, ${c.district}` : ''}</span>
-                            {c.gpName && <span className="text-[10px] text-muted-foreground">GP: {c.gpName}</span>}
-                            {c.village && <span className="text-[10px] text-muted-foreground">Vil: {c.village}</span>}
-                            {c.assemblyConstituency && <span className="text-[10px] text-sky-600 dark:text-sky-400">AC: {c.assemblyConstituency}</span>}
+                          <div className="flex flex-col gap-0.5 leading-tight">
+                            <span className="font-medium">
+                              {c.village
+                                ? <ObjectLink type="village" id={c.villageCode}>{c.village}</ObjectLink>
+                                : <ObjectLink type="block" id={c.block}>{c.block}</ObjectLink>}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {c.gpName && <><ObjectLink type="gp" id={c.gpCode}>{c.gpName}</ObjectLink>, </>}
+                              {c.village && <ObjectLink type="block" id={c.block}>{c.block}</ObjectLink>}
+                              {!c.village && c.district}
+                            </span>
+                            {c.assemblyConstituency && (
+                              <span className="text-[11px] text-muted-foreground">
+                                <ObjectLink type="seat" id={c.assemblyConstituency}>{c.assemblyConstituency}</ObjectLink> seat
+                              </span>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell><UrgencyBadge urgency={c.urgency} /></TableCell>
@@ -783,12 +795,18 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-[11px] text-muted-foreground">{c.citizenName || 'Anonymous'}</span>
                           <span className="text-muted-foreground/40 text-[10px]">&middot;</span>
-                          <span className="text-[11px] text-muted-foreground">{c.gpName ? `${c.gpName}, ` : ''}{c.block}, {c.district}</span>
+                          <span className="text-[11px] text-muted-foreground">
+                            {c.village && <><ObjectLink type="village" id={c.villageCode}>{c.village}</ObjectLink>, </>}
+                            {c.gpName && <><ObjectLink type="gp" id={c.gpCode}>{c.gpName}</ObjectLink>, </>}
+                            <ObjectLink type="block" id={c.block}>{c.block}</ObjectLink>
+                          </span>
                           <span className="text-muted-foreground/40 text-[10px]">&middot;</span>
                           <span className="text-[11px] text-muted-foreground">{c.category}</span>
                         </div>
                         {c.assemblyConstituency && (
-                          <span className="text-[10px] text-sky-600 dark:text-sky-400">AC: {c.assemblyConstituency}</span>
+                          <span className="text-[11px] text-muted-foreground">
+                            <ObjectLink type="seat" id={c.assemblyConstituency}>{c.assemblyConstituency}</ObjectLink> seat
+                          </span>
                         )}
                       </div>
                       <div className="flex items-center justify-between pt-2.5 border-t border-border/40">

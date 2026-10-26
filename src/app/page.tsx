@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  Shield, Crown, LayoutDashboard, FileText, Users, Bell, Sun, Moon, Menu, Search, Plus, ChevronRight, Clock, AlertTriangle, Activity, MapPin, LogOut, Building2, RotateCcw, Zap, ChevronDown, MessageSquare, ShieldCheck, Globe, BarChart2, Settings, CircleHelp, Mail, Keyboard, History, AlertCircle, Info, CheckCircle2 as CheckCircleFill, Megaphone, Flame, Server, Radio, Workflow, BookOpen, BrainCircuit, ShieldAlert, HeartHandshake, Vote, Swords, Landmark, DoorOpen, HardHat, Layers,
+  Shield, Crown, LayoutDashboard, FileText, Users, Bell, Sun, Moon, Menu, Search, Plus, ChevronRight, Clock, AlertTriangle, Activity, MapPin, LogOut, Building2, RotateCcw, Zap, ChevronDown, MessageSquare, ShieldCheck, Globe, BarChart2, Settings, CircleHelp, Mail, Keyboard, History, AlertCircle, Info, CheckCircle2 as CheckCircleFill, Megaphone, Flame, Server, Radio, Workflow, BookOpen, BrainCircuit, ShieldAlert, HeartHandshake, Vote, Swords, Landmark, DoorOpen, HardHat, Layers, Compass,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -85,6 +85,8 @@ import { WorksView } from '@/components/WorksView';
 import { AreaRollupView } from '@/components/AreaRollupView';
 import { HotspotsView } from '@/components/HotspotsView';
 import { WarRoomView } from '@/components/WarRoomView';
+import { ObjectPage } from '@/components/objects/ObjectPage';
+import { parseObjectHash, type ObjectRef } from '@/lib/objects';
 /**
  * What to call this user on screen.
  *
@@ -107,6 +109,11 @@ function scopeOf(u?: { constituency?: string | null; lok_sabha_constituency?: st
   const first = [u?.constituency, u?.lok_sabha_constituency, u?.district, u?.block]
     .find((v) => v && v.trim() && v.trim().toUpperCase() !== 'ALL');
   return first || '';
+}
+
+/** Go to a place or person address; the hash listener in HomePage opens the page. */
+function openAddress(hash: string) {
+  window.location.hash = hash;
 }
 
 export default function HomePage() {
@@ -181,6 +188,8 @@ export default function HomePage() {
       },
       {
         title: 'Places', items: [
+          // Every seat, block, panchayat, village, booth and person, each linked to the rest.
+          item('object', 'Explore', Compass),
           item('booths', 'Booths', Vote),
           item('area', 'By Area', Layers),
           item('map', 'Map', MapPin),
@@ -247,6 +256,39 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, view]);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Places and people live at #/<type>/<key>, so a name anywhere is a link, the
+  // back button walks the trail, and an address can be sent to someone. Explore
+  // opens an MLA's own seat and everyone else's district.
+  const [objectRef, setObjectRef] = useState<ObjectRef | null>(null);
+  const rootObjectHash = user?.role_level === 'MLA' && user?.constituency
+    ? `#/seat/${encodeURIComponent(user.constituency)}` : '#/district/home';
+  useEffect(() => {
+    if (!user) return;
+    const sync = () => {
+      const ref = parseObjectHash(window.location.hash);
+      if (ref) {
+        setObjectRef(ref);
+        setView('object');
+        setMobileSidebarOpen(false);
+        window.scrollTo({ top: 0 });
+      } else {
+        setView((v) => (v === 'object' ? homeView : v));
+      }
+    };
+    sync();
+    window.addEventListener('hashchange', sync);
+    return () => window.removeEventListener('hashchange', sync);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+  // Leaving a place page for another screen drops its address — pushed, not
+  // replaced, so Back returns to the place.
+  useEffect(() => {
+    if (view !== 'object' && parseObjectHash(window.location.hash)) {
+      window.history.pushState(null, '', `${window.location.pathname}${window.location.search}`);
+    }
+  }, [view]);
+
   const [pendingRoom, setPendingRoom] = useState<string | null>(null);
   const [newComplaintOpen, setNewComplaintOpen] = useState(false);
   const [initialComplaint, setInitialComplaint] = useState<Complaint | undefined>(undefined);
@@ -381,16 +423,19 @@ export default function HomePage() {
   }, [isAuthenticated, fetchNotifications]);
 
   const handleNavigate = useCallback((targetView: string, complaint?: Complaint, filterStatus?: string) => {
+    setMobileSidebarOpen(false);
+    // Explore is an address, not a screen: the hash listener opens the page.
+    if (targetView === 'object') { openAddress(rootObjectHash); return; }
     setView(targetView as ViewType);
     setInitialComplaint(complaint);
     setInitialFilterStatus(filterStatus || '');
-    setMobileSidebarOpen(false);
-  }, []);
+  }, [rootObjectHash]);
 
   // Assistant-driven navigation (role-gated). CommandCenter consumes pendingRoom.
   const allowedViews = new Set<string>([...navItems.map((i) => i.id), 'governance']);
   const goTo = (v: string, room?: string): boolean => {
     if (!allowedViews.has(v)) return false;
+    if (v === 'object') { openAddress(rootObjectHash); setMobileSidebarOpen(false); return true; }
     setView(v as ViewType);
     if (room) setPendingRoom(room);
     setMobileSidebarOpen(false);
@@ -481,6 +526,7 @@ export default function HomePage() {
         onOpenChange={setShortcutOpen}
         onNavigate={handleNavigate}
         currentView={view}
+        destinations={navItems}
       />
 
       {/* ═══ HEADER ═══ */}
@@ -756,6 +802,9 @@ export default function HomePage() {
                 transition={{ duration: 0.2 }}
               >
                 <ErrorBoundary key={refreshKey}>
+                {view === 'object' && objectRef && (
+                  <ObjectPage key={`${objectRef.type}/${objectRef.key}`} objectRef={objectRef} />
+                )}
               {view === 'dashboard' && (
                   (user?.role_level === 'KARYAKARTA' || user?.role_level === 'GP_COORD' || user?.role_level === 'BLOCK_COORD')
                     ? <GovernanceDashboardView />

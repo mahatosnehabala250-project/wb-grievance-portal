@@ -46,6 +46,7 @@ import type { Complaint, ActivityLogEntry, AssignableUser, AppUser, DashboardDat
 import { NAVY, NAVY_DARK, STATUS_MAP, URGENCY_MAP, URGENCY_BORDER_MAP, ROLE_MAP, ROLE_COLORS, CATEGORIES, CATEGORY_COLORS } from '@/lib/constants';
 import { fmtDate, fmtDateTime, fmtStatus, fmtUrgency, fmtRole, safeGetLocalStorage, safeSetLocalStorage, authHeaders, getDaysOld, getSLAInfo, playNotificationSound } from '@/lib/helpers';
 import { StatusBadge, UrgencyBadge, RoleBadge, StatCard, MiniStat, PieLabel, LoadingSkeleton, EmptyState } from '@/components/common';
+import { ObjectLink } from '@/components/objects/ObjectLink';
 
 const ROLE_LEVEL_LABELS: Record<string, string> = {
   MP: 'MP (Lok Sabha)',
@@ -411,7 +412,7 @@ export function UserManagementView() {
                 users.map((u) => (
                   <TableRow key={u.id} className="hover:bg-muted/30">
                     <TableCell className="font-mono text-xs font-bold">{u.username}</TableCell>
-                    <TableCell className="text-sm font-medium">{u.name}</TableCell>
+                    <TableCell className="text-sm font-medium"><ObjectLink type="person" id={u.id}>{u.name}</ObjectLink></TableCell>
                     <TableCell><RoleBadge role={u.role} /></TableCell>
                     <TableCell className="text-xs">
                       {ROLE_LEVEL_LABELS[(u as unknown as Record<string, string>).role_level] || (u as unknown as Record<string, string>).role_level || '—'}
@@ -466,7 +467,7 @@ export function UserManagementView() {
             <div key={u.id} className="p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold">{u.name}</p>
+                  <p className="text-sm font-semibold"><ObjectLink type="person" id={u.id}>{u.name}</ObjectLink></p>
                   <p className="text-[11px] font-mono text-muted-foreground">{u.username}</p>
                 </div>
                 <RoleBadge role={u.role} />
