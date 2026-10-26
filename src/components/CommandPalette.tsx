@@ -166,6 +166,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate, currentView, de
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
+          showCloseButton={false}
           className="sm:max-w-xl gap-0 overflow-hidden border-border bg-popover p-0 shadow-2xl"
           // The dialog would focus the first result; typing then went to a button and
           // fired the app's one-letter shortcuts. Typing always belongs in the field.
@@ -245,14 +246,16 @@ export function CommandPalette({ open, onOpenChange, onNavigate, currentView, de
   );
 }
 
-export function KeyboardShortcutsDialog({ open, onOpenChange, onNavigate, onNewComplaint, onRefresh, onToggleTheme }: {
+export function KeyboardShortcutsDialog({ open, onOpenChange, onNavigate, onNewComplaint, onRefresh, onToggleTheme, onFind }: {
   open: boolean; onOpenChange: (v: boolean) => void;
+  onFind?: () => void;
   onNavigate?: (view: ViewType) => void;
   onNewComplaint?: () => void;
   onRefresh?: () => void;
   onToggleTheme?: () => void;
 }) {
   const shortcuts = [
+    { key: 'Ctrl K', label: 'Find a village, person or ticket', action: onFind },
     { key: 'D', label: 'Go to Dashboard', action: () => onNavigate?.('dashboard') },
     { key: 'C', label: 'Go to Complaints', action: () => onNavigate?.('complaints') },
     { key: 'A', label: 'Go to Analytics', action: () => onNavigate?.('analytics') },
@@ -269,7 +272,7 @@ export function KeyboardShortcutsDialog({ open, onOpenChange, onNavigate, onNewC
         <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.15 }}>
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2">
-              <Keyboard className="h-5 w-5" style={{ color: NAVY }} />
+              <Keyboard className="h-5 w-5 text-primary" />
               Keyboard Shortcuts
             </DialogTitle>
             <DialogDescription className="text-xs">Quick navigation and actions</DialogDescription>
@@ -290,7 +293,7 @@ export function KeyboardShortcutsDialog({ open, onOpenChange, onNavigate, onNewC
           </div>
           <div className="mt-4 pt-3 border-t">
             <p className="text-[11px] text-muted-foreground text-center">
-              Press <kbd className="inline-flex h-5 px-1.5 rounded bg-muted border border-border/60 text-[10px] font-mono font-bold">?</kbd> or <kbd className="inline-flex h-5 px-1.5 rounded bg-muted border border-border/60 text-[10px] font-mono font-bold">Ctrl+K</kbd> to toggle this dialog
+              Press <kbd className="inline-flex h-5 px-1.5 rounded bg-muted border border-border/60 text-[10px] font-mono font-bold">?</kbd> for this list, <kbd className="inline-flex h-5 px-1.5 rounded bg-muted border border-border/60 text-[10px] font-mono font-bold">Ctrl K</kbd> to search
             </p>
           </div>
         </motion.div>
@@ -299,9 +302,11 @@ export function KeyboardShortcutsDialog({ open, onOpenChange, onNavigate, onNewC
   );
 }
 
-export function KeyboardShortcutHandler({ shortcutOpen, setShortcutOpen, setNewComplaintOpen, setMobileSidebarOpen, handleNavigate, handleRefresh, isDark, setTheme, currentView }: {
+export function KeyboardShortcutHandler({ shortcutOpen, setShortcutOpen, setHelpOpen, setNewComplaintOpen, setMobileSidebarOpen, handleNavigate, handleRefresh, isDark, setTheme, currentView }: {
   shortcutOpen: boolean;
   setShortcutOpen: (v: boolean | ((prev: boolean) => boolean)) => void;
+  /** Opens the shortcuts help; without it, ? falls back to the search box. */
+  setHelpOpen?: (v: boolean) => void;
   setNewComplaintOpen: (v: boolean) => void;
   currentView: string;
   setMobileSidebarOpen: (v: boolean) => void;
@@ -318,11 +323,16 @@ export function KeyboardShortcutHandler({ shortcutOpen, setShortcutOpen, setNewC
 
       const key = e.key.toLowerCase();
 
-      if (key === '?' || (e.ctrlKey && key === 'k')) {
+      if ((e.ctrlKey || e.metaKey) && key === 'k') {
         e.preventDefault();
+        setHelpOpen?.(false);
         setShortcutOpen((v) => !v);
+      } else if (key === '?') {
+        e.preventDefault();
+        if (setHelpOpen) { setShortcutOpen(false); setHelpOpen(true); } else setShortcutOpen((v) => !v);
       } else if (key === 'escape') {
         setShortcutOpen(false);
+        setHelpOpen?.(false);
         setNewComplaintOpen(false);
         setMobileSidebarOpen(false);
       } else if (key === 'a' && e.ctrlKey) {
@@ -354,7 +364,7 @@ export function KeyboardShortcutHandler({ shortcutOpen, setShortcutOpen, setNewC
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [shortcutOpen, isDark, handleNavigate, handleRefresh, setTheme, setShortcutOpen, setNewComplaintOpen, setMobileSidebarOpen]);
+  }, [shortcutOpen, isDark, handleNavigate, handleRefresh, setTheme, setShortcutOpen, setHelpOpen, setNewComplaintOpen, setMobileSidebarOpen]);
 
   return null;
 }

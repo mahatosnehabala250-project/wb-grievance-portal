@@ -308,6 +308,9 @@ export default function HomePage() {
 
   // Keyboard shortcut dialog
   const [shortcutOpen, setShortcutOpen] = useState(false);
+  // The shortcuts help has its own switch: sharing shortcutOpen made Ctrl K open
+  // the help on top of the search box, and the help took the keyboard.
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
 
   // Notification Center
   const [notifCenterOpen, setNotifCenterOpen] = useState(false);
@@ -514,8 +517,9 @@ export default function HomePage() {
       <CommandAssistant />
       {/* Keyboard shortcut listener - placed after all variable declarations */}
       <KeyboardShortcutHandler
-        shortcutOpen={shortcutOpen}
+        shortcutOpen={shortcutOpen || shortcutsHelpOpen}
         setShortcutOpen={setShortcutOpen}
+        setHelpOpen={setShortcutsHelpOpen}
         setNewComplaintOpen={setNewComplaintOpen}
         setMobileSidebarOpen={setMobileSidebarOpen}
         handleNavigate={handleNavigate}
@@ -1180,8 +1184,9 @@ export default function HomePage() {
 
       {/* Keyboard Shortcuts Dialog */}
       <KeyboardShortcutsDialog
-        open={shortcutOpen}
-        onOpenChange={setShortcutOpen}
+        open={shortcutsHelpOpen}
+        onOpenChange={setShortcutsHelpOpen}
+        onFind={() => setShortcutOpen(true)}
         onNavigate={handleNavigate}
         onNewComplaint={() => setNewComplaintOpen(true)}
         onRefresh={handleRefresh}
