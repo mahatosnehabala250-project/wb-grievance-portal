@@ -33,7 +33,7 @@ export function UrgencyBadge({ urgency }: { urgency: string }) {
 
 export function RoleBadge({ role }: { role: string }) {
   return (
-    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[role] || 'bg-gray-100 text-gray-600'}`}>
+    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[role] || 'bg-muted text-muted-foreground'}`}>
       {fmtRole(role)}
     </span>
   );
@@ -155,8 +155,8 @@ export function EmptyState({ message, icon: Icon, action, onAction }: { message:
         transition={{ duration: 3, ease: 'easeInOut', repeat: Infinity }}
         className="mb-4"
       >
-        <div className="h-16 w-16 rounded-full flex items-center justify-center border-2 border-dashed border-muted-foreground/20" style={{ background: 'linear-gradient(135deg, #E3F2FD, #F3E8FF, #FEF3C7)' }}>
-          <Ic className="h-8 w-8" style={{ color: NAVY }} />
+        <div className="h-16 w-16 rounded-full flex items-center justify-center border-2 border-dashed border-muted-foreground/20 bg-muted">
+          <Ic className="h-8 w-8 text-muted-foreground" />
         </div>
       </motion.div>
       <p className="text-muted-foreground text-sm font-medium max-w-xs">{message}</p>

@@ -100,7 +100,7 @@ export function AnalyticsView() {
   const sourceMap: Record<string, number> = {};
   complaints.forEach((c) => { sourceMap[c.source || 'Unknown'] = (sourceMap[c.source || 'Unknown'] || 0) + 1; });
   const sourceData = Object.entries(sourceMap).map(([name, value]) => ({ name, value }));
-  const sourceColors = ['#0A2463', '#16A34A', '#D97706', '#DC2626', '#7C3AED', '#0284C7'];
+  const sourceColors = ['#C2560C', '#16A34A', '#D97706', '#DC2626', '#7C3AED', '#0284C7'];
 
   // Average resolution time
   const resolvedComplaints = complaints.filter((c) => c.status === 'RESOLVED' && c.createdAt && c.updatedAt);
@@ -237,8 +237,8 @@ export function AnalyticsView() {
           <Card className="border-0 shadow-sm" style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
-                <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#E3F2FD' }}>
-                  <Timer className="h-4 w-4" style={{ color: NAVY }} />
+                <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-primary/10">
+                  <Timer className="h-4 w-4 text-primary" />
                 </div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Avg Resolution</p>
               </div>
@@ -252,7 +252,7 @@ export function AnalyticsView() {
           <Card className="border-0 shadow-sm" style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
-                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
                   <ShieldCheck className="h-4 w-4 text-emerald-600" />
                 </div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">SLA Compliance</p>
@@ -267,7 +267,7 @@ export function AnalyticsView() {
           <Card className="border-0 shadow-sm" style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
-                <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                <div className="h-8 w-8 rounded-lg bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center">
                   <Activity className="h-4 w-4 text-amber-600" />
                 </div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Total Resolved</p>
@@ -282,7 +282,7 @@ export function AnalyticsView() {
           <Card className="border-0 shadow-sm" style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.08)' }}>
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
-                <div className="h-8 w-8 rounded-lg bg-red-50 flex items-center justify-center">
+                <div className="h-8 w-8 rounded-lg bg-red-50 dark:bg-red-500/10 flex items-center justify-center">
                   <AlertTriangle className="h-4 w-4 text-red-600" />
                 </div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Critical Open</p>

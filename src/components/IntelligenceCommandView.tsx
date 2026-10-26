@@ -536,7 +536,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
 
   const { riskIndex, kpis, scope } = brief;
   const riskStyle = RISK_COLORS[riskIndex.grade] || RISK_COLORS.ELEVATED;
-  const title = LEVEL_TITLES[scope.level] || 'Intelligence Command';
+  const title = LEVEL_TITLES[scope.level] || 'Intelligence';
   const pieData = brief.categoryShare.slice(0, 6).map(c => ({ name: c.category, value: c.count }));
 
   return (
@@ -554,12 +554,9 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                 <Badge className="text-[9px] h-4 px-1.5 bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400 border-0 uppercase">
                   {scope.label}
                 </Badge>
-                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground tracking-widest">
-                  RESTRICTED · EYES ONLY
-                </span>
               </div>
-              <p className="text-[10px] text-muted-foreground font-mono">
-                BRIEF GENERATED {new Date(scope.generatedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} IST
+              <p className="text-[11px] text-muted-foreground">
+                Updated {new Date(scope.generatedAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
           </div>
@@ -577,8 +574,8 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
           <Card className="border shadow-sm bg-gradient-to-br from-indigo-500/5 to-violet-500/5 border-indigo-500/20">
             <CardHeader className="pb-1 pt-3 px-4">
               <CardTitle className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider">
-                <Bot className="w-3.5 h-3.5 text-indigo-500" /> AI Chief-of-Staff
-                <span className="text-[9px] normal-case font-normal">(ask anything about your area — Bengali, Hindi or English)</span>
+                <Bot className="w-3.5 h-3.5 text-indigo-500" /> Ask about your area
+                <span className="text-[9px] normal-case font-normal">(in Bengali, Hindi or English)</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-3 space-y-2.5">
@@ -622,7 +619,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
               {advError && (
                 <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-2.5 text-[11px] text-amber-700 dark:text-amber-400">
                   {advError === 'Advisor not configured — set DEEPSEEK_API_KEY'
-                    ? 'AI Chief-of-Staff is off. An admin needs to set DEEPSEEK_API_KEY in Vercel.'
+                    ? 'Answers are switched off for now. Ask the office admin to turn them on.'
                     : advError}
                 </div>
               )}
@@ -1517,7 +1514,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
             <CardHeader className="pb-1 pt-3 px-4">
               <CardTitle className="text-xs font-semibold flex items-center justify-between text-foreground tracking-tight">
                 <span className="flex flex-col gap-0.5">
-                  <span className="flex items-center gap-1.5 text-[13px] font-bold"><Sparkles className="w-4 h-4 text-fuchsia-500" /> NLP Brain — AI Text Intelligence</span>
+                  <span className="flex items-center gap-1.5 text-[13px] font-bold"><Sparkles className="w-4 h-4 text-fuchsia-500" /> What the complaints say</span>
                   <span className="text-[10px] font-normal text-muted-foreground">from the complaint text: root cause, anger, recurring names</span>
                 </span>
                 {!nlp ? (
@@ -1531,7 +1528,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                       <circle cx="18" cy="18" r="15" fill="none" stroke="#d946ef" strokeWidth="4" strokeLinecap="round"
                         strokeDasharray={2 * Math.PI * 15} strokeDashoffset={2 * Math.PI * 15 * (1 - (nlp.coverage.total ? nlp.coverage.enriched / nlp.coverage.total : 0))} transform="rotate(-90 18 18)" />
                     </svg>
-                    <span className="text-[9px] text-muted-foreground leading-tight">{Math.round((nlp.coverage.total ? nlp.coverage.enriched / nlp.coverage.total : 0) * 100)}%<br />AI-read</span>
+                    <span className="text-[9px] text-muted-foreground leading-tight">{Math.round((nlp.coverage.total ? nlp.coverage.enriched / nlp.coverage.total : 0) * 100)}%<br />read</span>
                   </span>
                 )}
               </CardTitle>
@@ -1540,7 +1537,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
               <CardContent className="px-4 pb-3 space-y-3">
                 {nlp.coverage.enriched === 0 ? (
                   <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
-                    Abhi tak koi complaint analyze nahi hui ({nlp.coverage.total} in scope). n8n JS-22 (NLP Brain enrichment) har 30 min chalta hai — thodi der mein data aayega.
+                    None of the {nlp.coverage.total} complaints here has been read yet. Reading runs every 30 minutes, so this fills in shortly.
                   </div>
                 ) : (() => {
                   const cl0 = nlp.clusters[0];
@@ -1677,7 +1674,7 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
                     <details className="text-[10px] text-muted-foreground">
                       <summary className="cursor-pointer font-medium flex items-center gap-1"><Lock className="w-3 h-3" /> ⓘ How this was built</summary>
                       <div className="mt-1 pl-4 space-y-0.5">
-                        <div>AI ne <span className="font-mono text-foreground">{nlp.coverage.enriched}/{nlp.coverage.total}</span> read the complaint text.</div>
+                        <div>Read from the text of <span className="font-mono text-foreground">{nlp.coverage.enriched}</span> of {nlp.coverage.total} complaints.</div>
                         <div>Aggregate only · no individual profiling · DPDP/ECI-safe.</div>
                       </div>
                     </details>
@@ -1770,8 +1767,8 @@ export function IntelligenceCommandView({ room }: { room?: string } = {}) {
             )}
           </Card>
 
-          <p className="text-center text-[9px] text-muted-foreground font-mono pb-2">
-            JANSUNWAI INTELLIGENCE ENGINE · SCOPE-LOCKED TO {scope.label.toUpperCase()} · AGGREGATE PEER DATA ONLY
+          <p className="text-center text-[11px] text-muted-foreground pb-2">
+            Only {scope.label} is shown here. Comparisons with other areas use their totals, never individual complaints.
           </p>
         </div>
       </ScrollArea>

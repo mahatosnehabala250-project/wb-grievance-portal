@@ -30,26 +30,26 @@ export interface SessionStateInspectorProps {
 // ─── Intent badge color mapping ───
 
 const INTENT_COLORS: Record<string, string> = {
-  idle: 'bg-gray-100 text-gray-700 border-gray-200',
-  welcome: 'bg-blue-100 text-blue-700 border-blue-200',
-  complaint_collecting: 'bg-orange-100 text-orange-700 border-orange-200',
-  complaint_confirming: 'bg-orange-100 text-orange-700 border-orange-200',
-  blood_collecting: 'bg-red-100 text-red-700 border-red-200',
-  blood_confirming: 'bg-red-100 text-red-700 border-red-200',
-  donor_pending_response: 'bg-rose-100 text-rose-700 border-rose-200',
-  seeker_confirming: 'bg-rose-100 text-rose-700 border-rose-200',
-  donor_registration: 'bg-purple-100 text-purple-700 border-purple-200',
-  donor_confirming: 'bg-purple-100 text-purple-700 border-purple-200',
-  status_check: 'bg-cyan-100 text-cyan-700 border-cyan-200',
-  info_query: 'bg-teal-100 text-teal-700 border-teal-200',
+  idle: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-muted dark:text-muted-foreground',
+  welcome: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300',
+  complaint_collecting: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/15 dark:text-orange-300',
+  complaint_confirming: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/15 dark:text-orange-300',
+  blood_collecting: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300',
+  blood_confirming: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300',
+  donor_pending_response: 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/15 dark:text-rose-300',
+  seeker_confirming: 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/15 dark:text-rose-300',
+  donor_registration: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-500/15 dark:text-purple-300',
+  donor_confirming: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-500/15 dark:text-purple-300',
+  status_check: 'bg-cyan-100 text-cyan-700 border-cyan-200 dark:bg-cyan-500/15 dark:text-cyan-300',
+  info_query: 'bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-500/15 dark:text-teal-300',
 };
 
 const AGENT_COLORS: Record<string, string> = {
-  ceo: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  complaint: 'bg-orange-100 text-orange-700 border-orange-200',
-  blood: 'bg-red-100 text-red-700 border-red-200',
-  donor: 'bg-purple-100 text-purple-700 border-purple-200',
-  info: 'bg-teal-100 text-teal-700 border-teal-200',
+  ceo: 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-500/15 dark:text-yellow-300',
+  complaint: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/15 dark:text-orange-300',
+  blood: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300',
+  donor: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-500/15 dark:text-purple-300',
+  info: 'bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-500/15 dark:text-teal-300',
 };
 
 const LANGUAGE_LABELS: Record<string, string> = {
@@ -186,11 +186,11 @@ export function SessionStateInspector({
   // ─── Render ───
 
   const intentColor = session?.last_intent
-    ? INTENT_COLORS[session.last_intent] || 'bg-gray-100 text-gray-700 border-gray-200'
+    ? INTENT_COLORS[session.last_intent] || 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-muted dark:text-muted-foreground'
     : '';
 
   const agentColor = session?.active_agent
-    ? AGENT_COLORS[session.active_agent] || 'bg-gray-100 text-gray-700 border-gray-200'
+    ? AGENT_COLORS[session.active_agent] || 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-muted dark:text-muted-foreground'
     : '';
 
   const hasCollectedData =

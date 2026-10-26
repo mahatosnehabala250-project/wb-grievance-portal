@@ -28,9 +28,9 @@ const notoBengali = Noto_Sans_Bengali({
 export const metadata: Metadata = {
   title: "বাংলার সহায়ক — Citizen Grievance Portal",
   description:
-    "Banglar Sahayak — AI-powered citizen grievance management and constituency service platform for West Bengal. Built by NeuroSetu AI.",
+    "Banglar Sahayak — every citizen complaint from your constituency, who is working on it, and what has waited too long. Built by NeuroSetu.",
   keywords: [
-    "West Bengal", "CivicTech", "Grievance Portal", "Complaints", "Dashboard", "AI Support",
+    "West Bengal", "CivicTech", "Grievance Portal", "Complaints", "Dashboard", "Constituency",
   ],
   authors: [{ name: "Banglar Sahayak" }],
 };

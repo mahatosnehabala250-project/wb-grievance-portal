@@ -169,7 +169,7 @@ export function PublicStatusPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <Card className="border-0 shadow-sm overflow-hidden" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 100%)' }}>
+        <Card className="border-0 shadow-sm overflow-hidden" style={{ background: 'linear-gradient(135deg, #C2560C 0%, #9A440A 100%)' }}>
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">

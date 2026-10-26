@@ -49,11 +49,11 @@ const PRESETS = [
 
 /** Agent badge color mapping */
 const AGENT_COLORS: Record<string, string> = {
-  complaint: 'bg-orange-100 text-orange-800 border-orange-200',
-  blood: 'bg-red-100 text-red-800 border-red-200',
-  donor: 'bg-green-100 text-green-800 border-green-200',
-  info: 'bg-blue-100 text-blue-800 border-blue-200',
-  welcome: 'bg-purple-100 text-purple-800 border-purple-200',
+  complaint: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-500/15 dark:text-orange-300',
+  blood: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-500/15 dark:text-red-300',
+  donor: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-500/15 dark:text-green-300',
+  info: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300',
+  welcome: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-500/15 dark:text-purple-300',
 };
 
 interface TestResult {

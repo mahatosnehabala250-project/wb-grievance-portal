@@ -159,7 +159,7 @@ export function FeedbackDialog({ complaint, open, onOpenChange }: FeedbackDialog
         >
           {/* Header */}
           <div className="relative -mx-6 -mt-6 mb-4 px-6 py-5 overflow-hidden text-center" style={{ background: 'linear-gradient(135deg, rgba(10,36,99,0.06) 0%, rgba(22,163,74,0.06) 100%)' }}>
-            <div className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-10" style={{ background: 'radial-gradient(circle, #0A2463, transparent)', transform: 'translate(30%, -30%)' }} />
+            <div className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-10" style={{ background: 'radial-gradient(circle, #C2560C, transparent)', transform: 'translate(30%, -30%)' }} />
             <DialogHeader className="relative">
               <div className="mx-auto mb-2 h-12 w-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: NAVY }}>
                 <ThumbsUp className="h-6 w-6 text-white" />

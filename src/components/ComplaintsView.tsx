@@ -564,7 +564,7 @@ export function ComplaintsView({ initialComplaint, initialFilterStatus }: { init
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className="fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-50"
           >
-            <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-2xl border border-white/10" style={{ background: 'linear-gradient(135deg, #0A2463 0%, #1a3a7a 100%)' }}>
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-2xl border border-white/10" style={{ background: 'linear-gradient(135deg, #C2560C 0%, #9A440A 100%)' }}>
               <div className="flex items-center gap-2 mr-2">
                 <div className="h-8 w-8 rounded-lg bg-white/15 flex items-center justify-center">
                   <ClipboardList className="h-4 w-4 text-white" />
