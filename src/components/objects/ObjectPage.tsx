@@ -303,7 +303,11 @@ function TeamPanel({ v }: { v: ObjectView }) {
             <li key={m.key} className="flex items-center justify-between gap-3 border-t border-border px-4 py-2.5 first:border-t-0">
               <div className="min-w-0">
                 <ObjectLink type="person" id={m.key} className="truncate text-sm font-medium text-foreground">{m.label}</ObjectLink>
-                <p className="text-xs text-muted-foreground">{ROLE_NOUN[m.role_level || ''] || 'Office'}{m.block ? `, ${m.block}` : ''}</p>
+                <p className="text-xs text-muted-foreground">
+                  {ROLE_NOUN[m.role_level || ''] || 'Office'}
+                  {/* "ALL" is a stored sentinel and "West Bengal" a state, not a block. */}
+                  {m.block && !['ALL', 'WEST BENGAL'].includes(m.block.toUpperCase()) ? `, ${m.block}` : ''}
+                </p>
               </div>
               <div className="shrink-0 text-right">
                 <p className={`text-sm tabular-nums ${m.open ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{m.open} open here</p>
