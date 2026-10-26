@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest } from '@/lib/jwt';
 import { complaintInScope, canMutateComplaints, allowedComplaintFields, userInManageScope } from '@/lib/rbac';
 import { notifyN8NAssignment } from '@/lib/n8n-webhook';
+import { withPlaceAliases } from '@/lib/complaint-shape';
 
 // GET /api/complaints/[id]
 export async function GET(
@@ -27,7 +28,7 @@ export async function GET(
     return NextResponse.json({ error: 'Access denied — outside your jurisdiction' }, { status: 403 });
   }
 
-  return NextResponse.json({ complaint });
+  return NextResponse.json({ complaint: withPlaceAliases(complaint as unknown as Record<string, unknown>) });
 }
 
 // PATCH /api/complaints/[id] — update status/resolution/assignment
@@ -200,7 +201,7 @@ export async function PATCH(
       }
     }
 
-    return NextResponse.json({ complaint: updated, success: true });
+    return NextResponse.json({ complaint: withPlaceAliases(updated as unknown as Record<string, unknown>), success: true });
   } catch (error) {
     console.error('Update complaint error:', error instanceof Error ? error.message : error);
     return NextResponse.json({ error: 'Failed to update complaint' }, { status: 500 });

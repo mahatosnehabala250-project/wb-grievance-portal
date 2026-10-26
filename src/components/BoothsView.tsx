@@ -24,10 +24,12 @@ import { authHeaders } from '@/lib/helpers';
 import { prettyBlock } from '@/lib/block-name';
 import { useNav } from '@/lib/nav-context';
 import { EmptyState } from '@/components/common';
+import { ObjectLink } from '@/components/objects/ObjectLink';
 
 interface Booth {
   id: number;
   ac: string;
+  ac_no: number | null;
   ps_no: string;
   ps_name: string;
   village_raw: string | null;
@@ -487,16 +489,18 @@ export function BoothsView() {
                   const tier = matchTier(b.match_score);
                   return (
                     <TableRow key={b.id} className="hover:bg-muted/30">
-                      <TableCell className="font-mono text-xs font-bold">{b.ps_no}</TableCell>
+                      <TableCell className="font-mono text-xs font-bold">
+                        <ObjectLink type="booth" id={b.ac_no != null ? `${b.ac_no}-${b.ps_no}` : null}>{b.ps_no}</ObjectLink>
+                      </TableCell>
                       <TableCell className="text-sm max-w-[220px] truncate" title={b.ps_name}>{b.ps_name}</TableCell>
                       <TableCell className="text-xs">
-                        {b.village_name || '—'}
+                        {b.village_name ? <ObjectLink type="village" id={b.village_code}>{b.village_name}</ObjectLink> : '—'}
                         {b.village_raw && b.village_raw !== b.village_name && (
                           <span className="block text-[10px] text-muted-foreground">{b.village_raw}</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-xs">{b.gp_name || '—'}</TableCell>
-                      <TableCell className="text-xs">{prettyBlock(b.block_name) || '—'}</TableCell>
+                      <TableCell className="text-xs">{b.gp_name ? <ObjectLink type="gp" id={b.gp_code}>{b.gp_name}</ObjectLink> : '—'}</TableCell>
+                      <TableCell className="text-xs">{b.block_name ? <ObjectLink type="block" id={b.block_name}>{prettyBlock(b.block_name)}</ObjectLink> : '—'}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={`text-[11px] font-semibold px-2 py-0.5 ${tier.className}`}>
                           {tier.label}

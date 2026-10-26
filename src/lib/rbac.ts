@@ -186,6 +186,30 @@ export function hasDistrictWideScope(user: JWTPayload): boolean {
   return user.role === 'DISTRICT' && (!lvl || lvl === 'OFFICER');
 }
 
+/**
+ * The assembly seats this account may open on a place or person page.
+ * `null` means every seat in the served district; `[]` means none.
+ *
+ * Mirrors canAccessAssembly seat by seat, so a page can never show a seat that
+ * the seat home would refuse.
+ */
+export async function seatsInScope(user: JWTPayload): Promise<string[] | null> {
+  if (user.role === 'ADMIN' || user.role === 'STATE') return null;
+  const lvl = user.role_level;
+  if (lvl === 'MLA') return user.constituency ? [user.constituency] : [];
+  if (lvl === 'MP') return user.lok_sabha_constituency ? assembliesForLokSabha(user.lok_sabha_constituency) : [];
+  if (lvl === 'DISTRICT_ADMIN' || user.role === 'DISTRICT') {
+    const district = user.district || user.block;
+    if (district) {
+      const seats = await assembliesForDistrict(district);
+      if (seats.length) return seats;
+    }
+    // A legacy district account without a district on file has always seen the district.
+    return hasDistrictWideScope(user) ? null : [];
+  }
+  return user.constituency ? [user.constituency] : [];
+}
+
 // ─────────────────────────────────────────────────────────────────
 // Per-record complaint scope check (mirror of getComplaintScopeFilter
 // in jwt.ts, but applied to a single fetched record — used by

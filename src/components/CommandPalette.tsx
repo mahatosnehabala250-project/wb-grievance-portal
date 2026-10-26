@@ -58,183 +58,185 @@ import type { Complaint, ActivityLogEntry, AssignableUser, AppUser, DashboardDat
 import { NAVY, NAVY_DARK, STATUS_MAP, URGENCY_MAP, URGENCY_BORDER_MAP, ROLE_MAP, ROLE_COLORS, CATEGORIES, CATEGORY_COLORS } from '@/lib/constants';
 import { fmtDate, fmtDateTime, fmtStatus, fmtUrgency, fmtRole, safeGetLocalStorage, safeSetLocalStorage, authHeaders, getDaysOld, getSLAInfo, playNotificationSound } from '@/lib/helpers';
 import { StatusBadge, UrgencyBadge, RoleBadge, StatCard, MiniStat, PieLabel, LoadingSkeleton, EmptyState } from '@/components/common';
-export function CommandPalette({ open, onOpenChange, onNavigate, currentView }: {
+import { Landmark, Layers, Home, Vote, User, Map as MapIcon, CornerDownLeft } from 'lucide-react';
+import { useComplaintOpener } from '@/components/home/useComplaintOpener';
+import { objectHref, type ObjectType, type SearchHit } from '@/lib/objects';
+import { recentObjects, type RecentObject } from '@/components/objects/recent';
+const HIT_ICON: Record<string, React.ElementType> = {
+  complaint: FileText, district: MapIcon, seat: Landmark, block: Layers, gp: Building2,
+  village: Home, booth: Vote, person: User,
+};
+const HIT_GROUP: Record<string, string> = {
+  complaint: 'Tickets', district: 'District', seat: 'Assembly seats', block: 'Blocks', gp: 'Panchayats',
+  village: 'Villages', booth: 'Booths', person: 'People',
+};
+const GROUP_ORDER = ['complaint', 'district', 'seat', 'block', 'gp', 'village', 'booth', 'person'];
+
+type PaletteItem = {
+  id: string; group: string; icon: React.ElementType; label: string; labelBn?: string | null; sub?: string | null;
+  run: () => void;
+};
+
+/**
+ * Find anything: every seat, block, panchayat, village, booth, person and ticket
+ * the account may see, by English or Bengali name. Opening a place goes to its
+ * page; a ticket opens the complaint where you are. With nothing typed it offers
+ * the places opened last and the screens this role can open.
+ */
+export function CommandPalette({ open, onOpenChange, onNavigate, currentView, destinations = [] }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   onNavigate: (view: string, complaint?: Complaint) => void;
   currentView: string;
+  destinations?: { id: string; label: string; icon: React.ElementType }[];
 }) {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<{ complaints: Complaint[]; users: AppUser[] }>({ complaints: [], users: [] });
-  const [loading, setLoading] = useState(false);
+  const [hits, setHits] = useState<SearchHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [active, setActive] = useState(0);
+  const [recent, setRecent] = useState<RecentObject[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const { openComplaint, dialog } = useComplaintOpener(() => {});
 
   useEffect(() => {
-    if (open) {
-      setQuery('');
-      setResults({ complaints: [], users: [] });
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
+    if (!open) return;
+    setQuery(''); setHits([]); setActive(0); setFailed(false);
+    setRecent(recentObjects());
+    setTimeout(() => inputRef.current?.focus(), 50);
   }, [open]);
 
   useEffect(() => {
-    if (!query.trim()) { setResults({ complaints: [], users: [] }); return; }
+    const q = query.trim();
+    if (q.length < 2) { setHits([]); setSearching(false); setFailed(false); return; }
+    setSearching(true);
+    const ctl = new AbortController();
     const t = setTimeout(async () => {
-      setLoading(true);
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { headers: authHeaders() });
-        if (res.ok) {
-          const json = await res.json();
-          setResults(json);
-        }
-      } catch { /* silent */ }
-      setLoading(false);
-    }, 250);
-    return () => clearTimeout(t);
+        const res = await fetch(`/api/objects/search?q=${encodeURIComponent(q)}`, { headers: authHeaders(), signal: ctl.signal });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error || 'Search failed');
+        setHits(json.results || []); setFailed(false); setActive(0);
+      } catch (e) {
+        if ((e as Error).name !== 'AbortError') { setHits([]); setFailed(true); }
+      } finally {
+        if (!ctl.signal.aborted) setSearching(false);
+      }
+    }, 200);
+    return () => { clearTimeout(t); ctl.abort(); };
   }, [query]);
 
-  const navCommands = [
-    { id: 'dashboard', label: 'Go to Dashboard', icon: LayoutDashboard, shortcut: 'D' },
-    { id: 'complaints', label: 'Go to Complaints', icon: FileText, shortcut: 'C' },
-    { id: 'analytics', label: 'Go to Analytics', icon: BarChart2, shortcut: 'A' },
-    { id: 'settings', label: 'Go to Settings', icon: Settings, shortcut: 'S' },
-  ].filter(c => c.id !== currentView);
+  const close = () => onOpenChange(false);
+  const items: PaletteItem[] = useMemo(() => {
+    if (query.trim().length >= 2) {
+      return [...hits]
+        .sort((a, b) => GROUP_ORDER.indexOf(a.type) - GROUP_ORDER.indexOf(b.type))
+        .map((h) => ({
+          id: `${h.type}:${h.key}`, group: HIT_GROUP[h.type] || 'Results', icon: HIT_ICON[h.type] || FileText,
+          label: h.label, labelBn: h.label_bn, sub: h.sub,
+          run: h.type === 'complaint'
+            ? () => { close(); openComplaint(h.key); }
+            : () => { close(); window.location.hash = objectHref({ type: h.type as ObjectType, key: h.key }); },
+        }));
+    }
+    const recents: PaletteItem[] = recent.map((r) => ({
+      id: `recent:${r.type}:${r.key}`, group: 'Opened recently', icon: HIT_ICON[r.type] || Clock,
+      label: r.label, labelBn: r.label_bn, sub: r.kind,
+      run: () => { close(); window.location.hash = objectHref({ type: r.type, key: r.key }); },
+    }));
+    const screens: PaletteItem[] = destinations.filter((d) => d.id !== currentView).map((d) => ({
+      id: `go:${d.id}`, group: 'Go to', icon: d.icon, label: d.label,
+      run: () => { close(); onNavigate(d.id); },
+    }));
+    return [...recents, ...screens];
+  }, [hits, query, recent, destinations, currentView]);
 
-  const actionCommands = [
-    { label: 'File New Complaint', icon: Plus, action: 'newComplaint' },
-    { label: 'Refresh Dashboard', icon: RotateCcw, action: 'refresh' },
-  ];
+  useEffect(() => {
+    listRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [active]);
 
-  const hasResults = results.complaints.length > 0 || results.users.length > 0;
+  function onKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((i) => Math.min(items.length - 1, i + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(0, i - 1)); }
+    else if (e.key === 'Enter') { e.preventDefault(); items[active]?.run(); }
+  }
+
+  const q = query.trim();
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl p-0 gap-0 border-0 shadow-2xl overflow-hidden" style={{ background: 'linear-gradient(180deg, white 0%, #f8fafc 100%)' }}>
-        {/* Search Input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50">
-          <Search className="h-5 w-5 text-muted-foreground shrink-0" />
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search complaints, citizens, users..."
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-          />
-          <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 text-[10px] font-mono text-muted-foreground">ESC</kbd>
-        </div>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-xl gap-0 overflow-hidden border-border bg-popover p-0 shadow-2xl">
+          <DialogTitle className="sr-only">Find anything</DialogTitle>
+          <DialogDescription className="sr-only">Search places, people and tickets. Use the arrow keys to move and Enter to open.</DialogDescription>
+          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+            <Search className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="Find a village, panchayat, booth, person or ticket"
+              aria-label="Find anything"
+              role="combobox"
+              aria-expanded={items.length > 0}
+              aria-controls="find-anything-list"
+              aria-activedescendant={items[active] ? `find-${items[active].id}` : undefined}
+              className="flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
+            />
+            {searching && <span className="text-xs text-muted-foreground" aria-live="polite">Searching</span>}
+          </div>
 
-        {/* Results */}
-        <div className="max-h-[360px] overflow-y-auto custom-scrollbar">
-          {/* Navigation Commands */}
-          {query.trim() === '' && (
-            <div>
-              <div className="px-3 py-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Navigation</p>
+          <div ref={listRef} id="find-anything-list" role="listbox" aria-label="Results" className="max-h-[400px] overflow-y-auto py-1.5 custom-scrollbar">
+            {q.length >= 2 && !searching && failed && (
+              <p className="px-4 py-8 text-center text-sm text-muted-foreground">Search did not answer. Try again in a moment.</p>
+            )}
+            {q.length >= 2 && !searching && !failed && items.length === 0 && (
+              <div className="px-4 py-8 text-center">
+                <p className="text-sm text-foreground">Nothing matches “{q}”.</p>
+                <p className="mt-1 text-xs text-muted-foreground">Try the English or the Bengali spelling, a booth number, or part of a ticket number.</p>
               </div>
-              {navCommands.map((cmd) => (
-                <button
-                  key={cmd.id}
-                  onClick={() => { onNavigate(cmd.id); onOpenChange(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/70 transition-colors text-left group"
-                >
-                  <cmd.icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  <span className="text-sm flex-1">{cmd.label}</span>
-                  <kbd className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{cmd.shortcut}</kbd>
-                </button>
-              ))}
-
-              {/* Action Commands */}
-              <div className="px-3 py-2 mt-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Actions</p>
-              </div>
-              {actionCommands.map((cmd) => (
-                <button
-                  key={cmd.label}
-                  onClick={() => { onOpenChange(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/70 transition-colors text-left group"
-                >
-                  <cmd.icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  <span className="text-sm">{cmd.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Search Results */}
-          {query.trim() !== '' && !loading && !hasResults && (
-            <div className="py-10 text-center">
-              <Search className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No results found for &ldquo;{query}&rdquo;</p>
-            </div>
-          )}
-
-          {loading && (
-            <div className="flex items-center justify-center py-8">
-              <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          )}
-
-          {/* Complaint Results */}
-          {results.complaints.length > 0 && (
-            <div>
-              <div className="px-3 py-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Complaints <span className="text-muted-foreground/60">({results.complaints.length})</span>
-                </p>
-              </div>
-              {results.complaints.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => { onNavigate('complaints', c as Complaint); onOpenChange(false); }}
-                  className="w-full flex items-start gap-3 px-4 py-2.5 hover:bg-muted/70 transition-colors text-left group"
-                >
-                  <div className="h-8 w-8 rounded-lg bg-red-50 dark:bg-red-950/30 flex items-center justify-center shrink-0 mt-0.5">
-                    <FileText className="h-4 w-4 text-red-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono font-bold">{c.ticketNo}</span>
-                      <StatusBadge status={c.status} />
-                    </div>
-                    <p className="text-sm font-medium text-foreground truncate">{c.issue}</p>
-                    <p className="text-[11px] text-muted-foreground">{c.citizenName || 'Anonymous'} &middot; {c.block}, {c.district}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* User Results */}
-          {results.users.length > 0 && (
-            <div>
-              <div className="px-3 py-2 mt-1 border-t border-border/30">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Users <span className="text-muted-foreground/60">({results.users.length})</span>
-                </p>
-              </div>
-              {results.users.map((u) => (
-                <div key={u.id} className="flex items-center gap-3 px-4 py-2.5 text-left">
-                  <div className="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ backgroundColor: NAVY }}>
-                    {(u.name || 'U').charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">{u.name}</p>
-                    <p className="text-[11px] text-muted-foreground">@{u.username} &middot; {u.role}</p>
-                  </div>
-                  <RoleBadge role={u.role} />
+            )}
+            {q.length === 1 && <p className="px-4 py-6 text-center text-sm text-muted-foreground">Keep typing. Two letters are enough.</p>}
+            {items.map((it, i) => {
+              const header = i === 0 || items[i - 1].group !== it.group ? it.group : null;
+              const Icon = it.icon;
+              return (
+                <div key={it.id}>
+                  {header && <p className="px-4 pb-1 pt-2.5 text-xs font-medium text-muted-foreground">{header}</p>}
+                  <button
+                    type="button"
+                    id={`find-${it.id}`}
+                    role="option"
+                    aria-selected={i === active}
+                    data-index={i}
+                    onMouseMove={() => setActive(i)}
+                    onClick={() => it.run()}
+                    className={`flex w-full items-center gap-3 px-4 py-2 text-left transition-colors ${i === active ? 'bg-muted' : ''}`}
+                  >
+                    <Icon className={`h-4 w-4 shrink-0 ${i === active ? 'text-primary' : 'text-muted-foreground'}`} aria-hidden />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm text-foreground">
+                        {it.labelBn && it.labelBn !== it.label ? <><span lang="bn">{it.labelBn}</span><span className="ml-1.5 text-muted-foreground">{it.label}</span></> : it.label}
+                      </span>
+                      {it.sub && <span className="block truncate text-xs text-muted-foreground">{it.sub}</span>}
+                    </span>
+                    {i === active && <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />}
+                  </button>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              );
+            })}
+          </div>
 
-        {/* Footer */}
-        <div className="px-4 py-2 border-t border-border/50 flex items-center gap-4 text-[10px] text-muted-foreground">
-          <span className="flex items-center gap-1"><kbd className="text-[9px] font-mono bg-muted px-1 py-0.5 rounded">↑↓</kbd> Navigate</span>
-          <span className="flex items-center gap-1"><kbd className="text-[9px] font-mono bg-muted px-1 py-0.5 rounded">↵</kbd> Open</span>
-          <span className="flex items-center gap-1"><kbd className="text-[9px] font-mono bg-muted px-1 py-0.5 rounded">ESC</kbd> Close</span>
-        </div>
-      </DialogContent>
-    </Dialog>
+          <div className="flex items-center gap-4 border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1"><kbd className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">↑</kbd><kbd className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">↓</kbd> move</span>
+            <span className="flex items-center gap-1"><kbd className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">Enter</kbd> open</span>
+            <span className="flex items-center gap-1"><kbd className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">Esc</kbd> close</span>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {dialog}
+    </>
   );
 }
 

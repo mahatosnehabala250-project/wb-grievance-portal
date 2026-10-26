@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { verifyToken, getTokenFromRequest, getComplaintScopeFilter } from '@/lib/jwt';
 import { generateTicketNo } from '@/lib/ticket-no';
 import { normBlock } from '@/lib/block-name';
+import { withPlaceAliases } from '@/lib/complaint-shape';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -114,7 +115,7 @@ export async function GET(request: NextRequest) {
   ]);
 
   return NextResponse.json({
-    complaints,
+    complaints: (complaints as unknown as Record<string, unknown>[]).map(withPlaceAliases),
     statusCounts: { open, inProgress, resolved },
     pagination: {
       page,

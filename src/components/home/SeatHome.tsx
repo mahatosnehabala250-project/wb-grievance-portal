@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { ArrowLeft, RotateCcw, UserPlus } from 'lucide-react';
+import { ArrowLeft, Compass, RotateCcw, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -13,6 +13,7 @@ import {
   CATEGORY_LABEL, Empty, Figures, Headline, LoadingRows, PageHead, Panel, Ticket, WaitBar, daysSince, dueFor, plural,
 } from './homeKit';
 import { useComplaintOpener } from './useComplaintOpener';
+import { ObjectLink } from '@/components/objects/ObjectLink';
 
 type Row = {
   id: string; ticket: string; citizen: string | null; village: string | null; block: string | null;
@@ -180,8 +181,11 @@ export function SeatHome({ ac, onBack }: { ac?: string; onBack?: () => void }) {
         back={onBack && <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2 mb-1 text-muted-foreground"><ArrowLeft className="mr-1 h-4 w-4" />All seats</Button>}
         title={seat.ac}
         meta={[seat.ac_no ? `Assembly seat ${seat.ac_no}` : null, seat.mla ? `MLA ${seat.mla}` : null, seat.blocks.length ? `Blocks: ${seat.blocks.join(', ')}` : null].filter(Boolean).join('. ')}
-        right={<Button variant="outline" size="sm" onClick={load}><RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-          {loadedAt ? loadedAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : 'Refresh'}</Button>}
+        right={<div className="flex gap-2">
+          <Button asChild variant="outline" size="sm"><a href={`#/seat/${encodeURIComponent(seat.ac)}`}><Compass className="mr-1.5 h-3.5 w-3.5" />Explore {seat.ac}</a></Button>
+          <Button variant="outline" size="sm" onClick={load}><RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+            {loadedAt ? loadedAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : 'Refresh'}</Button>
+        </div>}
       />
       <Headline text={h.text} sub={h.sub} tone={h.tone} />
       <Figures items={[
@@ -267,7 +271,7 @@ export function SeatHome({ ac, onBack }: { ac?: string; onBack?: () => void }) {
                 {data.by_block.map((b) => (
                   <li key={b.block}>
                     <div className="flex items-baseline justify-between">
-                      <span className="text-sm font-medium text-foreground">{b.block}</span>
+                      <ObjectLink type="block" id={b.block} className="text-sm font-medium text-foreground">{b.block}</ObjectLink>
                       <span className="text-sm tabular-nums text-muted-foreground"><span className="font-semibold text-foreground">{b.open}</span> open of {b.total}</span>
                     </div>
                     <div className="mt-1.5 h-1.5 rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${b.open / maxBlock * 100}%` }} /></div>
@@ -289,7 +293,7 @@ export function SeatHome({ ac, onBack }: { ac?: string; onBack?: () => void }) {
                 {data.team.map((m) => (
                   <li key={m.id} className="flex items-center justify-between gap-3 border-t border-border px-4 py-2.5 first:border-t-0">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">{m.name}</p>
+                      <ObjectLink type="person" id={m.id} className="block truncate text-sm font-medium text-foreground">{m.name}</ObjectLink>
                       <p className="text-xs text-muted-foreground">{ROLE[m.role_level || ''] || 'Office'}{m.block ? `, ${m.block}` : ''}</p>
                     </div>
                     <div className="text-right">

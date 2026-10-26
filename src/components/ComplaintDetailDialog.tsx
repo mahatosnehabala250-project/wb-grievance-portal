@@ -59,6 +59,8 @@ import { NAVY, NAVY_DARK, STATUS_MAP, URGENCY_MAP, URGENCY_BORDER_MAP, ROLE_MAP,
 import { fmtDate, fmtDateTime, fmtStatus, fmtUrgency, fmtRole, safeGetLocalStorage, safeSetLocalStorage, authHeaders, getDaysOld, getSLAInfo, playNotificationSound } from '@/lib/helpers';
 import { StatusBadge, UrgencyBadge, RoleBadge, StatCard, MiniStat, PieLabel, LoadingSkeleton, EmptyState } from '@/components/common';
 import { FeedbackDialog } from '@/components/FeedbackDialog';
+import { ObjectLink } from '@/components/objects/ObjectLink';
+import type { ObjectType } from '@/lib/objects';
 
 // ─── Inline Satisfaction Rating Widget (API-backed) ───
 function SatisfactionRating({ complaintId, currentRating }: { complaintId: string; currentRating: number | null }) {
@@ -159,6 +161,14 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
   const [assigning, setAssigning] = useState(false);
   const [activities, setActivities] = useState<ActivityLogEntry[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
+
+  // Following a place or person link from inside this window opens that page; the window steps aside.
+  useEffect(() => {
+    if (!open) return;
+    const close = () => onOpenChange(false);
+    window.addEventListener('hashchange', close);
+    return () => window.removeEventListener('hashchange', close);
+  }, [open, onOpenChange]);
   const [internalNotes, setInternalNotes] = useState<string[]>([]);
   const [newNote, setNewNote] = useState('');
   const [addingNote, setAddingNote] = useState(false);
@@ -424,7 +434,12 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
             </span>
             {complaint.assignedToId ? (
               <Badge variant="outline" className="text-[11px] gap-1 bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
-                <UserCheck className="h-3 w-3" />Assigned
+                <UserCheck className="h-3 w-3" />
+                {(() => {
+                  const who = complaint.assignedUser?.name || complaint.assignedOfficerName
+                    || assignableUsers.find((u) => u.id === complaint.assignedToId)?.name;
+                  return who ? <>With <ObjectLink type="person" id={complaint.assignedToId}>{who}</ObjectLink></> : 'Assigned';
+                })()}
               </Badge>
             ) : (
               <Badge variant="outline" className="text-[11px] gap-1 bg-gray-50 dark:bg-gray-900/30 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700">
@@ -609,11 +624,11 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
             {[
               { label: 'Category', val: complaint.category },
               { label: 'Priority', val: fmtUrgency(complaint.urgency) },
-              { label: 'Village', val: complaint.village || '—' },
-              { label: 'Gram Panchayat', val: complaint.gpName || '—' },
-              { label: 'Block', val: complaint.block },
+              { label: 'Village', val: complaint.village || '—', link: { type: 'village' as ObjectType, id: complaint.villageCode } },
+              { label: 'Gram Panchayat', val: complaint.gpName || '—', link: { type: 'gp' as ObjectType, id: complaint.gpCode } },
+              { label: 'Block', val: complaint.block, link: { type: 'block' as ObjectType, id: complaint.block } },
               { label: 'District', val: complaint.district },
-              { label: 'Assembly Constituency', val: complaint.assemblyConstituency || '—' },
+              { label: 'Assembly Constituency', val: complaint.assemblyConstituency || '—', link: { type: 'seat' as ObjectType, id: complaint.assemblyConstituency } },
               { label: 'Lok Sabha', val: complaint.parliamentaryConstituency || '—' },
               { label: 'Filed On', val: fmtDateTime(complaint.createdAt) },
               { label: 'Updated', val: fmtDateTime(complaint.updatedAt) },
@@ -622,7 +637,7 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
             ].filter(f => f.val !== '—' || ['Village','Gram Panchayat','Assembly Constituency','Lok Sabha'].includes(f.label) === false).map((f) => (
               <div key={f.label} className="p-3 rounded-xl bg-muted/50 border border-border/50">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">{f.label}</p>
-                <p className="text-sm font-medium text-foreground">{f.val}</p>
+                <p className="text-sm font-medium text-foreground">{'link' in f && f.link?.id && f.val !== '—' ? <ObjectLink type={f.link.type} id={f.link.id}>{f.val}</ObjectLink> : f.val}</p>
               </div>
             ))}
           </div>
