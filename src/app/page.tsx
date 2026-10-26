@@ -282,11 +282,15 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
   // Leaving a place page for another screen drops its address — pushed, not
-  // replaced, so Back returns to the place.
+  // replaced, so Back returns to the place. Only on the way out of a place page:
+  // on a fresh load the app sits on its default screen until the session is
+  // restored, and clearing the address then threw away every shared link.
+  const previousView = useRef(view);
   useEffect(() => {
-    if (view !== 'object' && parseObjectHash(window.location.hash)) {
+    if (previousView.current === 'object' && view !== 'object' && parseObjectHash(window.location.hash)) {
       window.history.pushState(null, '', `${window.location.pathname}${window.location.search}`);
     }
+    previousView.current = view;
   }, [view]);
 
   const [pendingRoom, setPendingRoom] = useState<string | null>(null);
@@ -575,10 +579,10 @@ export default function HomePage() {
               onClick={() => setShortcutOpen(true)}
             >
               <Search className="h-3.5 w-3.5" />
-              <span className="hidden lg:inline">Search...</span>
-              <kbd className="hidden xl:inline text-[9px] font-mono bg-muted/80 px-1.5 py-0.5 rounded ml-4">Ctrl+K</kbd>
+              <span className="hidden lg:inline">Find a village, person or ticket</span>
+              <kbd className="hidden xl:inline text-[10px] font-mono bg-muted/80 px-1.5 py-0.5 rounded ml-4">Ctrl K</kbd>
             </Button>
-            <Button variant="ghost" size="sm" className="sm:hidden h-8 w-8 p-0" onClick={() => setShortcutOpen(true)}>
+            <Button variant="ghost" size="sm" className="sm:hidden h-8 w-8 p-0" aria-label="Find a village, person or ticket" onClick={() => setShortcutOpen(true)}>
               <Search className="h-4 w-4" />
             </Button>
 
