@@ -103,7 +103,6 @@ export function CommandPalette({ open, onOpenChange, onNavigate, currentView, de
     if (!open) return;
     setQuery(''); setHits([]); setActive(0); setFailed(false);
     setRecent(recentObjects());
-    setTimeout(() => inputRef.current?.focus(), 50);
   }, [open]);
 
   useEffect(() => {
@@ -166,7 +165,12 @@ export function CommandPalette({ open, onOpenChange, onNavigate, currentView, de
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-xl gap-0 overflow-hidden border-border bg-popover p-0 shadow-2xl">
+        <DialogContent
+          className="sm:max-w-xl gap-0 overflow-hidden border-border bg-popover p-0 shadow-2xl"
+          // The dialog would focus the first result; typing then went to a button and
+          // fired the app's one-letter shortcuts. Typing always belongs in the field.
+          onOpenAutoFocus={(e) => { e.preventDefault(); inputRef.current?.focus(); }}
+        >
           <DialogTitle className="sr-only">Find anything</DialogTitle>
           <DialogDescription className="sr-only">Search places, people and tickets. Use the arrow keys to move and Enter to open.</DialogDescription>
           <div className="flex items-center gap-3 border-b border-border px-4 py-3">
@@ -207,6 +211,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate, currentView, de
                   <button
                     type="button"
                     id={`find-${it.id}`}
+                    tabIndex={-1}
                     role="option"
                     aria-selected={i === active}
                     data-index={i}
