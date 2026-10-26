@@ -183,6 +183,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate, currentView, de
               onKeyDown={onKeyDown}
               placeholder="Find a village, panchayat, booth, person or ticket"
               aria-label="Find anything"
+              data-bare-focus
               role="combobox"
               aria-expanded={items.length > 0}
               aria-controls="find-anything-list"
