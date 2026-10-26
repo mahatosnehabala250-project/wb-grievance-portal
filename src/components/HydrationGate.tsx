@@ -70,38 +70,20 @@ export function HydrationGate({ children }: { children: React.ReactNode }) {
   }, []);
 
   if (!mounted) {
-    const steps = ['Initializing...', 'Authenticating...', 'Ready'];
+    // The app's own mark on the app's own ground, with a quiet bar that fills as
+    // the page gets ready. (It used to announce "Authenticating..." on a timer
+    // that knew nothing about authentication, under the wrong product name.)
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #061539 0%, #0A2463 40%, #1a3a7a 100%)' }}>
-        {/* Subtle animated gradient overlay */}
-        <div className="absolute inset-0 opacity-15" style={{ background: 'radial-gradient(ellipse at 30% 50%, rgba(99,102,241,0.4) 0%, transparent 50%), radial-gradient(ellipse at 70% 30%, rgba(16,185,129,0.3) 0%, transparent 50%)' }} />
-        <div className="relative z-10 flex flex-col items-center gap-6">
-          <motion.div
-            className="h-16 w-16 rounded-2xl flex items-center justify-center shadow-lg bg-white/15 backdrop-blur-sm border border-white/20"
-            animate={{ scale: [1, 1.05, 1], y: [0, -4, 0] }}
-            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-          >
-            <Shield className="h-8 w-8 text-white" />
-          </motion.div>
-          <div className="text-center space-y-3">
-            <p className="text-sm font-semibold text-white">Loading WB Grievance Portal</p>
-            {/* 3-step animated progress bar */}
-            <div className="w-64 h-1.5 rounded-full bg-white/10 overflow-hidden">
-              <motion.div
-                className="h-full rounded-full"
-                style={{ background: 'linear-gradient(90deg, #16A34A, #22D3EE)' }}
-                animate={{ width: `${((loadStep + 1) / 3) * 100}%` }}
-                transition={{ duration: 0.3 }}
-              />
-            </div>
-            <div className="flex items-center justify-center gap-4 mt-1">
-              {steps.map((step, i) => (
-                <span key={i} className={`text-[10px] font-medium transition-all duration-300 ${i <= loadStep ? 'text-white' : 'text-white/30'}`}>
-                  {step}
-                </span>
-              ))}
-            </div>
-            <p className="text-[10px] text-white/40 mt-1">v2.5.0</p>
+      <div className="flex min-h-screen items-center justify-center bg-background" role="status" aria-label="Loading">
+        <div className="flex flex-col items-center gap-5">
+          <span aria-hidden className="flex h-12 w-12 items-center justify-center rounded-md bg-primary text-2xl font-semibold text-primary-foreground" lang="bn">ব</span>
+          <p className="text-sm font-medium text-foreground" lang="bn">বাংলার সহায়ক</p>
+          <div className="h-1 w-40 overflow-hidden rounded-full bg-muted">
+            <motion.div
+              className="h-full rounded-full bg-primary"
+              animate={{ width: `${((loadStep + 1) / 3) * 100}%` }}
+              transition={{ duration: 0.3 }}
+            />
           </div>
         </div>
       </div>

@@ -197,7 +197,7 @@ export default function AgentRoutingPage() {
                     <Badge
                       variant="outline"
                       className={`text-[10px] font-semibold min-w-[70px] justify-center ${
-                        AGENT_BADGE_STYLES[item.agent] || 'bg-gray-100 text-gray-600'
+                        AGENT_BADGE_STYLES[item.agent] || 'bg-gray-100 text-gray-600 dark:bg-muted dark:text-muted-foreground'
                       }`}
                     >
                       {item.agent.charAt(0).toUpperCase() + item.agent.slice(1)}
@@ -283,7 +283,7 @@ export default function AgentRoutingPage() {
                   variant="outline"
                   className={`text-xs font-semibold ${
                     AGENT_BADGE_STYLES[selectedDecision.agent_dispatched || ''] ||
-                    'bg-gray-100 text-gray-600'
+                    'bg-gray-100 text-gray-600 dark:bg-muted dark:text-muted-foreground'
                   }`}
                 >
                   {selectedDecision.agent_dispatched

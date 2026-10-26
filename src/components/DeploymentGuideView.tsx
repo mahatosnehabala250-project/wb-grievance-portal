@@ -582,7 +582,7 @@ export default function DeploymentGuideView() {
   const readinessPercent = Math.round((readyCount / totalCount) * 100);
 
   const infraCards = [
-    { icon: Server, title: 'Server', description: 'Minimum 2 vCPU, 4GB RAM, 50GB SSD (AWS EC2 t3.medium or equivalent)', color: '#0A2463' },
+    { icon: Server, title: 'Server', description: 'Minimum 2 vCPU, 4GB RAM, 50GB SSD (AWS EC2 t3.medium or equivalent)', color: '#C2560C' },
     { icon: Database, title: 'Database', description: 'PostgreSQL 14+ (recommended) or MySQL 8+ with 10GB storage', color: '#16A34A' },
     { icon: Box, title: 'Runtime', description: 'Node.js 20+, npm or bun for package management', color: '#EA580C' },
     { icon: Globe, title: 'Web Server', description: 'Nginx or Caddy as reverse proxy with SSL termination', color: '#0284C7' },
@@ -611,7 +611,7 @@ export default function DeploymentGuideView() {
     { icon: Shield, title: 'Sentry Error Tracking', description: 'Capture and track JavaScript errors with source maps for production debugging', color: '#7C3AED' },
     { icon: FileText, title: 'ELK Stack / CloudWatch', description: 'Centralized log aggregation for API requests, errors, and system events', color: '#0284C7' },
     { icon: Database, title: 'Daily Database Backups', description: 'Automated pg_dump to S3-compatible storage with 30-day retention', color: '#EA580C' },
-    { icon: Network, title: 'Uptime Monitoring', description: 'UptimeRobot or Pingdom — alert on downtime > 2 minutes via email/Slack', color: '#0A2463' },
+    { icon: Network, title: 'Uptime Monitoring', description: 'UptimeRobot or Pingdom — alert on downtime > 2 minutes via email/Slack', color: '#C2560C' },
     { icon: Lock, title: 'SSL Auto-Renewal', description: 'Certbot cron job for automatic Let\'s Encrypt certificate renewal', color: '#D97706' },
   ];
 

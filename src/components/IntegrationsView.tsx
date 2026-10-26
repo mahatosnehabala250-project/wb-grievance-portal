@@ -87,7 +87,7 @@ function N8NFlowDiagram() {
     { icon: Smartphone, label: 'WhatsApp / SMS', color: '#25D366', sublabel: 'Citizen Report' },
     { icon: PhoneCall, label: 'Phone Call', color: '#0EA5E9', sublabel: 'IVR Input' },
     { icon: GitBranch, label: 'n8n Workflow', color: '#EA580C', sublabel: 'AI Processing' },
-    { icon: Webhook, label: 'Portal API', color: '#0A2463', sublabel: 'Webhook POST' },
+    { icon: Webhook, label: 'Portal API', color: '#C2560C', sublabel: 'Webhook POST' },
     { icon: Database, label: 'Database', color: '#7C3AED', sublabel: 'SQLite Store' },
     { icon: Monitor, label: 'Dashboard', color: '#16A34A', sublabel: 'Analytics & Status' },
   ];
@@ -264,7 +264,7 @@ const FIELD_MAPPINGS = [
 /* ──────────────── Airtable Data Flow Diagram ──────────────── */
 function AirtableFlowDiagram() {
   const nodes = [
-    { icon: Monitor, label: 'WB Portal', color: '#0A2463', sublabel: 'PostgreSQL DB' },
+    { icon: Monitor, label: 'WB Portal', color: '#C2560C', sublabel: 'PostgreSQL DB' },
     { icon: ArrowLeftRight, label: '↔ Two-Way Sync', color: '#0EA5E9', sublabel: 'REST API', isWide: true },
     { icon: FileSpreadsheet, label: 'Airtable', color: '#166EE1', sublabel: 'Spreadsheet DB' },
   ];
@@ -340,7 +340,7 @@ function AIBrainFlowDiagram() {
   const mainNodes = [
     { icon: Smartphone, label: 'WhatsApp', color: '#25D366', sublabel: '"No water supply"' },
     { icon: BrainCircuit, label: 'AI Brain', color: '#10B981', sublabel: 'Smart Analysis' },
-    { icon: FileText, label: 'Portal', color: '#0A2463', sublabel: 'Ticket Created' },
+    { icon: FileText, label: 'Portal', color: '#C2560C', sublabel: 'Ticket Created' },
   ];
   const aiOutputs = [
     { icon: Tag, label: 'Category', color: '#8B5CF6', value: 'Water Supply' },
@@ -697,7 +697,7 @@ export default function IntegrationsView() {
     <div className="space-y-6 max-w-5xl">
       {/* ═══ Page Header ═══ */}
       <div className="relative overflow-hidden rounded-2xl shadow-lg">
-        <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${NAVY_DARK}, ${NAVY}, #1a3a7a)` }} />
+        <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${NAVY_DARK}, ${NAVY}, #9A440A)` }} />
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 50%, white 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
         <div className="relative px-6 py-8 sm:px-8">
           <div className="flex items-center gap-3 mb-3">
@@ -1193,7 +1193,7 @@ export default function IntegrationsView() {
                       { icon: RefreshCw, title: '3. Two-Way Sync', desc: 'Any change in the portal (status, officer assignment) updates Airtable automatically, and any change in Airtable flows back to the portal. Nothing is lost either way.', color: '#0EA5E9' },
                       { icon: FileSpreadsheet, title: '4. Smart Spreadsheet', desc: 'Airtable is a smart spreadsheet — it looks like Excel but behaves like a database. Filtering, sorting, grouping and formulas are all available, and non-technical officers find it easy.', color: '#D97706' },
                       { icon: Users, title: '5. Officer Collaboration', desc: 'Several officers can work in the same Airtable base at once — add comments, update status and track changes in real time.', color: '#DC2626' },
-                      { icon: Layers, title: '6. Backup & Archive', desc: 'If the portal goes down, complaint data remains safe in Airtable. It keeps historical records, archives old complaints, and acts as a reliable backup.', color: '#0A2463' },
+                      { icon: Layers, title: '6. Backup & Archive', desc: 'If the portal goes down, complaint data remains safe in Airtable. It keeps historical records, archives old complaints, and acts as a reliable backup.', color: '#C2560C' },
                     ].map((item) => (
                       <div key={item.title} className="p-4 rounded-xl border border-border/50 hover:shadow-sm transition-shadow" style={{ background: `linear-gradient(135deg, ${item.color}05, ${item.color}12)` }}>
                         <div className="flex items-center gap-2 mb-1.5">
@@ -1523,7 +1523,7 @@ export default function IntegrationsView() {
                             return (
                               <tr key={`${ep.method}-${ep.path}`} className={`border-b border-border/30 hover:bg-muted/30 transition-colors ${i % 2 === 0 ? 'bg-background' : 'bg-muted/20'}`}>
                                 <td className="px-4 py-2.5">
-                                  <Badge className={`${methodColors[ep.method] || 'bg-gray-100 text-gray-700'} text-[10px] font-bold px-2 py-0 border-0`}>
+                                  <Badge className={`${methodColors[ep.method] || 'bg-muted text-muted-foreground'} text-[10px] font-bold px-2 py-0 border-0`}>
                                     {ep.method}
                                   </Badge>
                                 </td>
@@ -1559,7 +1559,7 @@ export default function IntegrationsView() {
                 <CardContent className="space-y-4">
                   <div>
                     <p className="text-xs font-bold text-foreground mb-2 flex items-center gap-1.5">
-                      <span className="px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 text-[10px] font-bold">POST</span>
+                      <span className="px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300 text-[10px] font-bold">POST</span>
                       /api/webhook/complaint
                     </p>
                     <CodeBlock
@@ -1759,7 +1759,7 @@ export default function IntegrationsView() {
                   <motion.div
                     variants={fadeUp}
                     className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-800"
-                    style={{ background: 'linear-gradient(135deg, #F0FDF4, #ECFDF5)' }}
+                    style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(16,185,129,0.03))' }}
                   >
                     <div className="flex items-start gap-3">
                       <div className="h-10 w-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
@@ -1828,7 +1828,7 @@ export default function IntegrationsView() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.1 }}
                       className="w-full rounded-xl border-l-4 p-4"
-                      style={{ borderColor: '#25D366', background: 'linear-gradient(135deg, #F0FDF4, #DCFCE7)' }}
+                      style={{ borderColor: '#25D366', background: 'linear-gradient(135deg, rgba(37,211,102,0.10), rgba(37,211,102,0.04))' }}
                     >
                       <div className="flex items-center gap-2 mb-3">
                         <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#25D366' }}>
@@ -1842,7 +1842,7 @@ export default function IntegrationsView() {
                       <div className="grid grid-cols-3 gap-2">
                         {[
                           { icon: MessageSquare, label: 'WhatsApp Bot', color: '#25D366', desc: 'Primary Channel' },
-                          { icon: Monitor, label: 'Web Portal', color: '#0A2463', desc: 'Admin & Citizen' },
+                          { icon: Monitor, label: 'Web Portal', color: '#C2560C', desc: 'Admin & Citizen' },
                           { icon: FileSpreadsheet, label: 'Airtable Dashboard', color: '#166EE1', desc: 'Visual Reports' },
                         ].map((item) => (
                           <div key={item.label} className="flex items-center gap-2 rounded-lg p-2 bg-white/70 border border-border/40">
@@ -1870,7 +1870,7 @@ export default function IntegrationsView() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.25 }}
                       className="w-full rounded-xl border-l-4 p-4"
-                      style={{ borderColor: '#10B981', background: 'linear-gradient(135deg, #ECFDF5, #D1FAE5)' }}
+                      style={{ borderColor: '#10B981', background: 'linear-gradient(135deg, rgba(16,185,129,0.10), rgba(16,185,129,0.04))' }}
                     >
                       <div className="flex items-center gap-2 mb-3">
                         <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#10B981' }}>
@@ -1915,22 +1915,22 @@ export default function IntegrationsView() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.4 }}
                       className="w-full rounded-xl border-l-4 p-4"
-                      style={{ borderColor: '#0A2463', background: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)' }}
+                      style={{ borderColor: '#C2560C', background: 'linear-gradient(135deg, rgba(194,86,12,0.10), rgba(194,86,12,0.04))' }}
                     >
                       <div className="flex items-center gap-2 mb-3">
-                        <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#0A2463' }}>
+                        <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#C2560C' }}>
                           <Code className="h-3.5 w-3.5 text-white" />
                         </div>
                         <div>
                           <p className="text-xs font-bold text-foreground">Layer 3 — API Layer</p>
                           <p className="text-[10px] text-muted-foreground">RESTful endpoints for all services</p>
                         </div>
-                        <Badge className="ml-auto bg-sky-100 text-sky-700 border-sky-200 text-[9px] font-semibold">REST</Badge>
+                        <Badge className="ml-auto bg-sky-100 text-sky-700 border-sky-200 text-[9px] font-semibold dark:bg-sky-500/15 dark:text-sky-300">REST</Badge>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div className="flex items-center gap-2 rounded-lg p-2 bg-white/70 border border-border/40">
-                          <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0A246315' }}>
-                            <Server className="h-4 w-4" style={{ color: '#0A2463' }} />
+                          <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#C2560C15' }}>
+                            <Server className="h-4 w-4" style={{ color: '#C2560C' }} />
                           </div>
                           <div>
                             <p className="text-[11px] font-bold text-foreground leading-tight">Next.js API Routes</p>
@@ -1961,7 +1961,7 @@ export default function IntegrationsView() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.55 }}
                       className="w-full rounded-xl border-l-4 p-4"
-                      style={{ borderColor: '#7C3AED', background: 'linear-gradient(135deg, #FAF5FF, #F3E8FF)' }}
+                      style={{ borderColor: '#7C3AED', background: 'linear-gradient(135deg, rgba(124,58,237,0.10), rgba(124,58,237,0.04))' }}
                     >
                       <div className="flex items-center gap-2 mb-3">
                         <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#7C3AED' }}>
@@ -1981,7 +1981,7 @@ export default function IntegrationsView() {
                             <p className="text-[11px] font-bold text-foreground leading-tight">Supabase PostgreSQL</p>
                             <p className="text-[9px] text-muted-foreground">Real-time data</p>
                           </div>
-                          <Badge className="ml-auto bg-emerald-100 text-emerald-700 border-emerald-200 text-[8px] font-bold px-1.5">PRIMARY</Badge>
+                          <Badge className="ml-auto bg-emerald-100 text-emerald-700 border-emerald-200 text-[8px] font-bold px-1.5 dark:bg-emerald-500/15 dark:text-emerald-300">PRIMARY</Badge>
                         </div>
                         <div className="flex items-center gap-2 rounded-lg p-2 bg-white/70 border border-border/40">
                           <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#166EE115' }}>
@@ -1991,7 +1991,7 @@ export default function IntegrationsView() {
                             <p className="text-[11px] font-bold text-foreground leading-tight">Airtable</p>
                             <p className="text-[9px] text-muted-foreground">Visual layer</p>
                           </div>
-                          <Badge className="ml-auto bg-sky-100 text-sky-700 border-sky-200 text-[8px] font-bold px-1.5">SYNC</Badge>
+                          <Badge className="ml-auto bg-sky-100 text-sky-700 border-sky-200 text-[8px] font-bold px-1.5 dark:bg-sky-500/15 dark:text-sky-300">SYNC</Badge>
                         </div>
                         <div className="flex items-center gap-2 rounded-lg p-2 bg-white/70 border border-border/40">
                           <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#64748B15' }}>
@@ -2001,7 +2001,7 @@ export default function IntegrationsView() {
                             <p className="text-[11px] font-bold text-foreground leading-tight">SQLite</p>
                             <p className="text-[9px] text-muted-foreground">Local dev</p>
                           </div>
-                          <Badge className="ml-auto bg-gray-100 text-gray-600 border-gray-200 text-[8px] font-bold px-1.5">DEV</Badge>
+                          <Badge className="ml-auto bg-gray-100 text-gray-600 border-gray-200 text-[8px] font-bold px-1.5 dark:bg-muted dark:text-muted-foreground">DEV</Badge>
                         </div>
                       </div>
                     </motion.div>
@@ -2018,7 +2018,7 @@ export default function IntegrationsView() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.7 }}
                       className="w-full rounded-xl border-l-4 p-4"
-                      style={{ borderColor: '#64748B', background: 'linear-gradient(135deg, #F8FAFC, #F1F5F9)' }}
+                      style={{ borderColor: '#64748B', background: 'linear-gradient(135deg, rgba(100,116,139,0.10), rgba(100,116,139,0.04))' }}
                     >
                       <div className="flex items-center gap-2 mb-3">
                         <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#64748B' }}>
@@ -2103,7 +2103,7 @@ export default function IntegrationsView() {
                 <CardContent>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {[
-                      { icon: Monitor, color: '#0A2463', title: 'Frontend', items: ['Next.js 16', 'React 19', 'TypeScript', 'Tailwind CSS 4', 'shadcn/ui', 'Framer Motion'] },
+                      { icon: Monitor, color: '#C2560C', title: 'Frontend', items: ['Next.js 16', 'React 19', 'TypeScript', 'Tailwind CSS 4', 'shadcn/ui', 'Framer Motion'] },
                       { icon: Server, color: '#10B981', title: 'Backend', items: ['Next.js API Routes', 'Prisma ORM', 'NextAuth.js', 'JWT Authentication', 'Server Actions'] },
                       { icon: Database, color: '#7C3AED', title: 'Database', items: ['Supabase PostgreSQL', '(Production)', 'SQLite (Dev)'] },
                       { icon: BrainCircuit, color: '#F59E0B', title: 'AI / ML', items: ['LLM (z-ai-web-dev-sdk)', '3 Languages (EN/BN/HI)', '10 Categories', 'Sentiment Analysis'] },

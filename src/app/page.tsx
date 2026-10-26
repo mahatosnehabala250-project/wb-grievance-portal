@@ -45,7 +45,7 @@ import { NAVY, NAVY_DARK, ROLE_COLORS } from '@/lib/constants';
 import { fmtDate, fmtDateTime, fmtRole, safeGetLocalStorage, authHeaders } from '@/lib/helpers';
 import { StatusBadge, UrgencyBadge } from '@/components/common';
 import { LoginView } from '@/components/LoginView';
-import { DashboardView } from '@/components/DashboardView';
+import { OperationsView } from '@/components/OperationsView';
 import { ComplaintDetailDialog } from '@/components/ComplaintDetailDialog';
 import { NewComplaintDialog } from '@/components/NewComplaintDialog';
 import { ComplaintsView } from '@/components/ComplaintsView';
@@ -700,7 +700,7 @@ export default function HomePage() {
                       <p className="text-sm font-bold text-foreground truncate">{user?.name}</p>
                       <p className="text-[11px] text-muted-foreground font-mono">@{user?.username}</p>
                       <div className="mt-1">
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[user?.role || 'BLOCK'] || 'bg-gray-100 text-gray-600'}`}>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[user?.role || 'BLOCK'] || 'bg-muted text-muted-foreground'}`}>
                           {user?.role === 'ADMIN' ? <Shield className="h-3 w-3 inline mr-0.5" /> : user?.role === 'STATE' ? <Globe className="h-3 w-3 inline mr-0.5" /> : user?.role === 'DISTRICT' ? <Building2 className="h-3 w-3 inline mr-0.5" /> : <MapPin className="h-3 w-3 inline mr-0.5" />}
                           {designationOf(user)}
                         </span>
@@ -816,7 +816,7 @@ export default function HomePage() {
               {view === 'dashboard' && (
                   (user?.role_level === 'KARYAKARTA' || user?.role_level === 'GP_COORD' || user?.role_level === 'BLOCK_COORD')
                     ? <GovernanceDashboardView />
-                    : <DashboardView onNavigate={handleNavigate} onDashboardData={handleDashboardData} />
+                    : <OperationsView onNavigate={handleNavigate} onDashboardData={handleDashboardData} />
                 )}
                 {view === 'complaints' && (
                   <ComplaintsView initialComplaint={initialComplaint} initialFilterStatus={initialFilterStatus} />
@@ -1132,7 +1132,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="mt-2 flex items-center gap-2">
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[user?.role || 'BLOCK'] || 'bg-gray-100 text-gray-600'}`}>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[user?.role || 'BLOCK'] || 'bg-muted text-muted-foreground'}`}>
                   {designationOf(user)}
                 </span>
                 <span className="text-[10px] text-muted-foreground">{scopeOf(user)}</span>

@@ -1,5 +1,9 @@
-export const NAVY = '#0A2463';
-export const NAVY_DARK = '#061539';
+// The accent older screens paint with. It was navy (#0A2463), which as text on the
+// dark page measured 1.28:1 — headings and icons drawn in it were invisible in dark
+// mode, and it fought the saffron of everything newer. Deep saffron reads on both
+// pages (4.1:1 on the dark page) and carries white text (4.5:1).
+export const NAVY = '#C2560C';
+export const NAVY_DARK = '#9A440A';
 
 export const STATUS_MAP: Record<string, { label: string; dotColor: string; bg: string; text: string; border: string }> = {
   // Legacy / portal-created statuses

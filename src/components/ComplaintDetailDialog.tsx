@@ -409,7 +409,7 @@ export function ComplaintDetailDialog({ complaint: initialComplaint, open, onOpe
         <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.15 }}>
         {/* Glassmorphism Header */}
         <div className="relative -mx-6 -mt-6 mb-4 px-6 py-5 overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(10,36,99,0.08) 0%, rgba(26,58,122,0.04) 100%)', backdropFilter: 'blur(12px)' }}>
-          <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-10" style={{ background: 'radial-gradient(circle, #0A2463, transparent)', transform: 'translate(30%, -30%)' }} />
+          <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-10" style={{ background: 'radial-gradient(circle, #C2560C, transparent)', transform: 'translate(30%, -30%)' }} />
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base font-bold">
             <Hash className="h-4 w-4" style={{ color: NAVY }} />

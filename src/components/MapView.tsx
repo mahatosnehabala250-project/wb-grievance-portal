@@ -822,7 +822,7 @@ export function MapView() {
         <div className="w-80 flex-shrink-0 overflow-y-auto" style={{ background: PANEL, borderLeft: "1px solid rgba(255,255,255,0.06)" }}>
           <div className="p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold tracking-widest" style={dim(polMode ? "#fb923c" : CYAN)}>{polMode ? "BATTLEGROUND 2021" : "AI INSIGHT"}</span>
+              <span className="text-xs font-semibold tracking-widest" style={dim(polMode ? "#fb923c" : CYAN)}>{polMode ? "BATTLEGROUND 2021" : "IN SHORT"}</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: polMode ? "rgba(249,115,22,0.12)" : "rgba(34,211,238,0.12)", color: polMode ? "#fb923c" : CYAN }}>{polMode ? "ECI" : "BETA"}</span>
             </div>
 
@@ -894,7 +894,7 @@ export function MapView() {
                 </div>
 
                 <div className="rounded-lg p-3" style={{ background: "rgba(34,211,238,0.05)", border: "1px solid rgba(34,211,238,0.12)" }}>
-                  <div className="text-xs font-medium mb-1 flex items-center gap-1" style={dim(CYAN)}>✦ AI summary</div>
+                  <div className="text-xs font-medium mb-1 flex items-center gap-1" style={dim(CYAN)}>✦ In short</div>
                   <div className="text-xs leading-relaxed" style={dim("#cbd5e1")}>{summary}</div>
 
                   {/* A complaint the map cannot place used to vanish without a

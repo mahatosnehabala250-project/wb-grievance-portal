@@ -984,7 +984,7 @@ export default function N8NWorkflowsView() {
 
       {/* ═══ BOTTOM COPY BAR ═══ */}
       <motion.div variants={fadeUp}>
-        <Card className="overflow-hidden" style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #1a3a7a 100%)` }}>
+        <Card className="overflow-hidden" style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #9A440A 100%)` }}>
           <CardContent className="p-5 sm:p-6">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
               <div className="text-white">

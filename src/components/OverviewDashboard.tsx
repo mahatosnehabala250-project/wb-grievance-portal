@@ -192,8 +192,7 @@ export function OverviewDashboard({ onOpenMap }: { onOpenMap?: () => void }) {
 
           <div className="rounded-xl p-4" style={{ background: "rgba(34,211,238,0.04)", border: "1px solid rgba(34,211,238,0.14)" }}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold tracking-widest" style={{ color: CYAN }}>AI INSIGHT</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(34,211,238,0.12)", color: CYAN }}>BETA</span>
+              <span className="text-xs font-semibold tracking-widest" style={{ color: CYAN }}>IN SHORT</span>
             </div>
             <div className="text-sm leading-relaxed" style={{ color: "#cbd5e1" }}>{summary}</div>
             <div className="mt-3">
