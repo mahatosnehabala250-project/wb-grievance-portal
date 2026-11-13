@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: home-care-cam
+    runtime: node
+    rootDir: home-care-cam
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: VIEW_PASSWORD
+        sync: false
+      - key: CAMERA_KEY
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ICE_SERVERS
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
