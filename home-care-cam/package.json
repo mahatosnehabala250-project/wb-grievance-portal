@@ -1,0 +1,10 @@
+{
+  "name": "home-care-cam",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Private live camera viewer for watching over a family member at home",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "test": "node test/e2e.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "express": "^4.19.2", "ws": "^8.18.0" }
+}

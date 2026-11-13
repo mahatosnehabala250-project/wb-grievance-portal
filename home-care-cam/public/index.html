@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0f1115">
+<title>मम्मी का कैमरा</title>
+<style>
+  :root { --bg:#0f1115; --card:#181b21; --line:#262a32; --txt:#e8eaed; --mut:#9aa0a6; --ok:#34a853; --bad:#ea4335; --warn:#f9ab00; --acc:#4c8dff; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html,body { margin:0; background:var(--bg); color:var(--txt); font-family: system-ui,-apple-system,"Noto Sans Devanagari",sans-serif; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 14px 16px 40px; }
+  h1 { font-size: 18px; margin: 4px 0 14px; font-weight: 600; }
+  .hidden { display:none !important; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; }
+  input { width:100%; font:inherit; font-size:17px; padding:14px; border-radius:12px; border:1px solid var(--line); background:#0f1115; color:var(--txt); }
+  button { font:inherit; font-size:16px; padding:13px 16px; border-radius:12px; border:1px solid var(--line); background:#20242c; color:var(--txt); cursor:pointer; touch-action: manipulation; }
+  button.primary { background:var(--acc); border-color:var(--acc); color:#fff; width:100%; margin-top:12px; }
+  button.on { background:#1d3b2a; border-color:var(--ok); }
+  button.talking { background:#4a1f1c; border-color:var(--bad); }
+  #login { max-width:380px; margin:12vh auto 0; }
+  #msg { color:#f28b82; font-size:14px; margin-top:10px; min-height:18px; }
+  .stage { position:relative; background:#000; border-radius:16px; overflow:hidden; aspect-ratio:16/9; border:1px solid var(--line); }
+  .stage video { width:100%; height:100%; object-fit:contain; background:#000; }
+  .overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; background:rgba(0,0,0,.72); font-size:17px; line-height:1.5; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+  .chip { font-size:14px; padding:7px 12px; border-radius:999px; background:var(--card); border:1px solid var(--line); color:var(--mut); }
+  .chip b { color:var(--txt); font-weight:600; }
+  .chip.ok b { color:var(--ok); } .chip.bad b { color:var(--bad); } .chip.warn b { color:var(--warn); }
+  .bar { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:6px; }
+  @media (min-width:560px){ .bar { grid-template-columns:repeat(4,1fr); } }
+  #alerts { margin:10px 0; display:flex; flex-direction:column; gap:8px; }
+  .alert { background:#3b2a05; border:1px solid var(--warn); border-radius:12px; padding:12px 14px; font-size:15px; display:flex; justify-content:space-between; gap:10px; }
+  .alert button { padding:2px 10px; font-size:14px; }
+  .foot { color:var(--mut); font-size:13px; margin-top:16px; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="login" class="card">
+    <h1>मम्मी का कैमरा</h1>
+    <input id="pw" type="password" placeholder="पासवर्ड" autocomplete="current-password">
+    <button id="loginBtn" class="primary">अंदर जाएँ</button>
+    <div id="msg"></div>
+  </div>
+
+  <div id="app" class="hidden">
+    <h1>मम्मी का कैमरा</h1>
+    <div id="alerts"></div>
+    <div class="stage">
+      <video id="v" autoplay playsinline muted></video>
+      <div id="overlay" class="overlay">जुड़ रहा है…</div>
+    </div>
+    <div class="chips">
+      <span class="chip" id="cOnline">कैमरा: <b>—</b></span>
+      <span class="chip" id="cMotion">आख़िरी हलचल: <b>—</b></span>
+      <span class="chip" id="cBattery">बैटरी: <b>—</b></span>
+      <span class="chip" id="cLens">लेंस: <b>—</b></span>
+    </div>
+    <div class="bar">
+      <button id="bSwitch">🔄 कैमरा बदलें</button>
+      <button id="bSound">🔇 आवाज़ सुनें</button>
+      <button id="bTalk">🎤 दबाकर बोलें</button>
+      <button id="bFull">⛶ फुल स्क्रीन</button>
+    </div>
+    <div class="bar" style="grid-template-columns:1fr"><button id="bNotif" class="hidden">🔔 अलर्ट नोटिफिकेशन चालू करें</button></div>
+    <div class="foot">
+      मम्मी के फ़ोन में “कैमरा चालू है” वाला पेज खुला रहता है। वहाँ मम्मी कभी भी “रोकें” दबा सकती हैं, तब यहाँ “मम्मी ने कैमरा रोका है” दिखेगा।
+      <br><a href="#" id="logout" style="color:var(--mut)">बाहर निकलें</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  let token = localStorage.getItem('hc_token') || '';
+  let ws = null, pc = null, myId = null, iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+  let audioTx = null, micTrack = null, skew = 0, st = null, retry = null, wantOpen = false;
+
+  // ---------- login ----------
+  async function login() {
+    $('msg').textContent = '';
+    try {
+      const r = await fetch('/api/login', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ password: $('pw').value }) });
+      if (r.status === 429) return $('msg').textContent = 'बहुत ज़्यादा कोशिशें। 10 मिनट बाद फिर करें।';
+      if (!r.ok) return $('msg').textContent = 'पासवर्ड गलत है।';
+      token = (await r.json()).token; localStorage.setItem('hc_token', token); enter();
+    } catch { $('msg').textContent = 'सर्वर से जुड़ नहीं पाया।'; }
+  }
+  $('loginBtn').onclick = login;
+  $('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') login(); });
+  $('logout').onclick = (e) => { e.preventDefault(); localStorage.removeItem('hc_token'); location.reload(); };
+
+  async function enter() {
+    $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+    wantOpen = true;
+    try { const r = await fetch('/api/ice', { headers: { authorization: 'Bearer ' + token } });
+      if (r.status === 401) { localStorage.removeItem('hc_token'); return location.reload(); }
+      iceServers = (await r.json()).iceServers; } catch {}
+    openWs();
+    if ('Notification' in window && Notification.permission === 'default') $('bNotif').classList.remove('hidden');
+  }
+
+  // ---------- signalling ----------
+  function openWs() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${proto}//${location.host}/ws?role=viewer&token=${encodeURIComponent(token)}`);
+    ws.onclose = () => { teardownPc(); overlay('सर्वर से कनेक्शन टूटा, दोबारा जुड़ रहा है…'); if (wantOpen) setTimeout(openWs, 2500); };
+    ws.onerror = () => { try { ws.close(); } catch {} };
+    ws.onmessage = (ev) => { let m; try { m = JSON.parse(ev.data); } catch { return; } onMsg(m); };
+  }
+  const send = (o) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); };
+
+  async function onMsg(m) {
+    if (m.type === 'hello') { myId = m.id; }
+    else if (m.type === 'state') { st = m; skew = m.now - Date.now(); render(); maybeConnect(); }
+    else if (m.type === 'motion') { if (st) { st.lastMotionAt = m.at; render(); } }
+    else if (m.type === 'alert') { addAlert(m.text); }
+    else if (m.type === 'answer') { if (pc) await pc.setRemoteDescription(m.sdp).catch(() => {}); }
+    else if (m.type === 'ice') { if (pc) pc.addIceCandidate(m.candidate).catch(() => {}); }
+    else if (m.type === 'camera-offline') { teardownPc(); }
+  }
+
+  // ---------- WebRTC ----------
+  function maybeConnect() {
+    if (!st) return;
+    if (!st.cameraOnline) { teardownPc(); return overlay('कैमरा ऑफलाइन है। फ़ोन चालू, चार्जर और इंटरनेट देखें।'); }
+    if (!pc) startPc();
+  }
+
+  async function startPc() {
+    const mine = pc = new RTCPeerConnection({ iceServers });
+    const stream = new MediaStream();
+    $('v').srcObject = stream;
+    mine.addTransceiver('video', { direction: 'recvonly' });
+    audioTx = mine.addTransceiver('audio', { direction: 'sendrecv' });   // camera mic in, push-to-talk out
+    mine.ontrack = (e) => { stream.addTrack(e.track); if (e.track.kind === 'video') e.track.onunmute = () => hideOverlay(); $('v').play().catch(() => {}); };
+    mine.onicecandidate = (e) => { if (e.candidate) send({ type: 'ice', candidate: e.candidate }); };
+    mine.onconnectionstatechange = () => {
+      if (pc !== mine) return;
+      if (mine.connectionState === 'connected') hideOverlay();
+      if (['failed', 'disconnected'].includes(mine.connectionState)) { overlay('कनेक्शन कमज़ोर है, दोबारा कोशिश हो रही है…'); teardownPc(); clearTimeout(retry); retry = setTimeout(maybeConnect, 2000); }
+    };
+    overlay('कैमरा से जुड़ रहा है…');
+    const offer = await mine.createOffer();
+    await mine.setLocalDescription(offer);
+    send({ type: 'offer', sdp: mine.localDescription });
+    setTimeout(() => { if (pc === mine && mine.connectionState !== 'connected') { teardownPc(); maybeConnect(); } }, 15000);
+  }
+
+  function teardownPc() {
+    if (pc) { try { pc.close(); } catch {} pc = null; audioTx = null; }
+    send({ type: 'bye' });
+  }
+
+  // ---------- UI ----------
+  const overlay = (t) => { $('overlay').textContent = t; $('overlay').classList.remove('hidden'); };
+  const hideOverlay = () => { if (st && st.paused) return; $('overlay').classList.add('hidden'); };
+
+  function ago(ts) {
+    if (!ts) return '—';
+    const s = Math.max(0, Math.round((Date.now() + skew - ts) / 1000));
+    if (s < 20) return 'अभी';
+    if (s < 3600) return Math.round(s / 60) + ' मिनट पहले';
+    const h = Math.floor(s / 3600), mm = Math.round((s % 3600) / 60);
+    return h + ' घंटे' + (mm ? ' ' + mm + ' मिनट' : '') + ' पहले';
+  }
+  function chip(id, label, val, cls) { const e = $(id); e.className = 'chip ' + (cls || ''); e.innerHTML = label + ': <b></b>'; e.querySelector('b').textContent = val; }
+
+  function render() {
+    if (!st) return;
+    chip('cOnline', 'कैमरा', st.cameraOnline ? (st.paused ? 'रोका गया' : 'चालू') : 'ऑफलाइन', st.cameraOnline ? (st.paused ? 'warn' : 'ok') : 'bad');
+    const stale = st.lastMotionAt && (Date.now() + skew - st.lastMotionAt) > 2 * 3600 * 1000;
+    chip('cMotion', 'आख़िरी हलचल', st.paused ? '—' : ago(st.lastMotionAt), stale ? 'warn' : '');
+    const b = st.battery;
+    chip('cBattery', 'बैटरी', b == null ? '—' : b + '%' + (st.charging ? ' ⚡' : ''), b != null && b <= 20 && !st.charging ? 'bad' : '');
+    chip('cLens', 'लेंस', st.facing === 'user' ? 'फ्रंट' : 'बैक');
+    if (st.cameraOnline && st.paused) overlay('मम्मी ने कुछ देर के लिए कैमरा रोका है 🙏');
+    else if (st.cameraOnline && pc && pc.connectionState === 'connected') $('overlay').classList.add('hidden');
+  }
+  setInterval(render, 15000);
+
+  function addAlert(text) {
+    const d = document.createElement('div'); d.className = 'alert';
+    const s = document.createElement('span'); s.textContent = text;
+    const x = document.createElement('button'); x.textContent = '✕'; x.onclick = () => d.remove();
+    d.append(s, x); $('alerts').prepend(d);
+    if ('Notification' in window && Notification.permission === 'granted') { try { new Notification('मम्मी का कैमरा', { body: text }); } catch {} }
+  }
+
+  $('bSwitch').onclick = () => send({ type: 'cmd', name: 'switch' });
+  $('bSound').onclick = () => { const v = $('v'); v.muted = !v.muted; $('bSound').textContent = v.muted ? '🔇 आवाज़ सुनें' : '🔊 आवाज़ चालू'; $('bSound').classList.toggle('on', !v.muted); };
+  $('bFull').onclick = () => { const s = document.querySelector('.stage'); (s.requestFullscreen || s.webkitRequestFullscreen || (() => $('v').webkitEnterFullscreen && $('v').webkitEnterFullscreen())).call(s); };
+  $('bNotif').onclick = async () => { try { await Notification.requestPermission(); } catch {} $('bNotif').classList.add('hidden'); };
+
+  // push-to-talk
+  async function talkStart() {
+    if (!audioTx) return;
+    try {
+      if (!micTrack || micTrack.readyState === 'ended') {
+        const ms = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+        micTrack = ms.getAudioTracks()[0];
+      }
+      await audioTx.sender.replaceTrack(micTrack);
+      $('bTalk').classList.add('talking'); $('bTalk').textContent = '🎤 बोल रहे हैं…';
+    } catch { alert('माइक की अनुमति दें।'); }
+  }
+  async function talkStop() {
+    try { if (audioTx) await audioTx.sender.replaceTrack(null); } catch {}
+    $('bTalk').classList.remove('talking'); $('bTalk').textContent = '🎤 दबाकर बोलें';
+  }
+  const tb = $('bTalk');
+  tb.addEventListener('pointerdown', (e) => { e.preventDefault(); tb.setPointerCapture(e.pointerId); talkStart(); });
+  ['pointerup', 'pointercancel'].forEach((ev) => tb.addEventListener(ev, talkStop));
+  tb.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && wantOpen && ws && ws.readyState > 1) openWs(); });
+
+  if (token) enter();
+})();
+</script>
+</body>
+</html>

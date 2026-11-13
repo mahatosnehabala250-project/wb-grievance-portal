@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#000000">
+<title>घर का कैमरा</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #000; color: #9aa0a6; font-family: system-ui, -apple-system, "Noto Sans Devanagari", sans-serif; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px; text-align: center; }
+  h1 { font-size: 20px; margin: 0; color: #c8ccd0; font-weight: 600; }
+  p { margin: 0; line-height: 1.5; max-width: 34ch; }
+  button { font: inherit; font-size: 18px; padding: 16px 28px; border-radius: 14px; border: 0; background: #1f6feb; color: #fff; min-width: 220px; }
+  button.pause { background: #2b2f33; color: #e8eaed; }
+  button.pause.on { background: #b3261e; color: #fff; }
+  .hidden { display: none !important; }
+  #status { font-size: 14px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #5f6368; margin-right: 6px; }
+  .dot.ok { background: #34a853; } .dot.bad { background: #ea4335; }
+  #probe { position: fixed; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; }
+  #err { color: #f28b82; font-size: 14px; max-width: 34ch; }
+</style>
+</head>
+<body>
+  <div id="startBox">
+    <h1>घर का कैमरा</h1>
+    <p>इस फ़ोन को चार्जर पर लगाकर, Wi-Fi चालू रखकर नीचे बटन दबाएँ। बस एक बार।</p>
+    <p style="margin-top:14px"><button id="startBtn">▶ कैमरा शुरू करें</button></p>
+    <p id="err" class="hidden"></p>
+  </div>
+
+  <div id="runBox" class="hidden">
+    <h1>कैमरा चालू है</h1>
+    <p id="status"><span class="dot" id="dot"></span><span id="statusText">जुड़ रहा है…</span></p>
+    <button id="pauseBtn" class="pause">⏸ कुछ देर के लिए रोकें</button>
+    <p style="font-size:13px">निजी समय (कपड़े बदलना, नहाना) में ये बटन दबाएँ। 30 मिनट बाद अपने आप फिर शुरू हो जाएगा।</p>
+  </div>
+
+  <video id="probe" muted playsinline autoplay></video>
+  <audio id="remoteAudio" autoplay playsinline></audio>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const qs = new URLSearchParams(location.search);
+  let KEY = qs.get('key') || localStorage.getItem('hc_cam_key') || '';
+  if (qs.get('key')) { localStorage.setItem('hc_cam_key', KEY); history.replaceState(null, '', '/camera'); }
+
+  const PAUSE_MS = 30 * 60 * 1000;
+  let stream = null, ws = null, facing = 'user', paused = false, pauseTimer = null;
+  let iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+  const peers = new Map();       // viewerId -> { pc, pending: [] }
+  let wakeLock = null, battery = null;
+
+  const videoConstraints = (f) => ({ facingMode: { ideal: f }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 15, max: 24 } });
+
+  async function start() {
+    $('err').classList.add('hidden');
+    if (!KEY) return fail('कैमरा की चाबी (key) नहीं मिली। सही लिंक से खोलें।');
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints(facing), audio: { echoCancellation: true, noiseSuppression: true } });
+    } catch (e) {
+      try { stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints(facing) }); }
+      catch (e2) { return fail('कैमरा चालू नहीं हो पाया। ब्राउज़र में कैमरा की अनुमति दें। (' + e2.name + ')'); }
+    }
+    $('probe').srcObject = stream;
+    $('startBox').classList.add('hidden'); $('runBox').classList.remove('hidden');
+    try { const r = await fetch('/api/ice', { headers: { 'x-camera-key': KEY } }); if (r.ok) iceServers = (await r.json()).iceServers; } catch {}
+    await keepAwake(); initBattery(); connect(); motionLoop();
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
+  }
+
+  function fail(msg) { const e = $('err'); e.textContent = msg; e.classList.remove('hidden'); }
+
+  async function keepAwake() {
+    try { if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); } } catch {}
+  }
+  async function initBattery() {
+    try { battery = await navigator.getBattery(); battery.addEventListener('levelchange', sendStatus); battery.addEventListener('chargingchange', sendStatus); } catch {}
+  }
+
+  // ----- signalling -----
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${proto}//${location.host}/ws?role=camera&key=${encodeURIComponent(KEY)}`);
+    ws.onopen = () => { setStatus(true, 'सर्वर से जुड़ा है'); sendStatus(); };
+    ws.onclose = (e) => { setStatus(false, 'दोबारा जुड़ रहा है…'); closeAllPeers(); if (e.code !== 4000) setTimeout(connect, 3000); };
+    ws.onerror = () => { try { ws.close(); } catch {} };
+    ws.onmessage = (ev) => { let m; try { m = JSON.parse(ev.data); } catch { return; } onMsg(m); };
+  }
+  const send = (o) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); };
+  function sendStatus() {
+    send({ type: 'status', paused, facing, mic: !!(stream && stream.getAudioTracks().length),
+      battery: battery ? battery.level * 100 : undefined, charging: battery ? battery.charging : undefined });
+  }
+  setInterval(sendStatus, 20000);
+  function setStatus(ok, text) { $('dot').className = 'dot ' + (ok ? 'ok' : 'bad'); $('statusText').textContent = text; }
+
+  async function onMsg(m) {
+    if (m.type === 'offer') return handleOffer(m);
+    if (m.type === 'ice') { const p = peers.get(m.from); if (!p) return; if (p.pc.remoteDescription) p.pc.addIceCandidate(m.candidate).catch(() => {}); else p.pending.push(m.candidate); return; }
+    if (m.type === 'bye') return closePeer(m.from);
+    if (m.type === 'cmd' && m.name === 'switch') return switchCamera();
+  }
+
+  async function handleOffer(m) {
+    closePeer(m.from);
+    const pc = new RTCPeerConnection({ iceServers });
+    const entry = { pc, pending: [] };
+    peers.set(m.from, entry);
+    pc.onicecandidate = (e) => { if (e.candidate) send({ type: 'ice', to: m.from, candidate: e.candidate }); };
+    pc.ontrack = (e) => { if (e.track.kind === 'audio') { const a = $('remoteAudio'); a.srcObject = new MediaStream([e.track]); a.play().catch(() => {}); } };
+    pc.onconnectionstatechange = () => { if (['failed', 'closed'].includes(pc.connectionState)) closePeer(m.from, pc); };
+    await pc.setRemoteDescription(m.sdp);
+    stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+    for (const c of entry.pending.splice(0)) pc.addIceCandidate(c).catch(() => {});
+    // cap bitrate so it works on weak home Wi-Fi / mobile data
+    pc.getSenders().forEach((s) => { if (s.track && s.track.kind === 'video') { const p = s.getParameters(); p.encodings = p.encodings && p.encodings.length ? p.encodings : [{}]; p.encodings[0].maxBitrate = 900000; s.setParameters(p).catch(() => {}); } });
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    send({ type: 'answer', to: m.from, sdp: pc.localDescription });
+  }
+  function closePeer(id, only) { const p = peers.get(id); if (!p || (only && p.pc !== only)) return; try { p.pc.close(); } catch {} peers.delete(id); }
+  function closeAllPeers() { [...peers.keys()].forEach((id) => closePeer(id)); }
+
+  // ----- camera switch -----
+  async function swapVideoTrack(f) {
+    const old = stream.getVideoTracks()[0];
+    old && old.stop();                       // some phones can't open two cameras at once
+    const ns = await navigator.mediaDevices.getUserMedia({ video: videoConstraints(f) });
+    const nt = ns.getVideoTracks()[0];
+    nt.enabled = !paused;
+    old && stream.removeTrack(old);
+    stream.addTrack(nt);
+    peers.forEach(({ pc }) => pc.getSenders().forEach((s) => { if (s.track === old || (s.track && s.track.kind === 'video')) s.replaceTrack(nt).catch(() => {}); }));
+    facing = f; prev = null;
+  }
+  async function switchCamera() {
+    const next = facing === 'user' ? 'environment' : 'user';
+    try { await swapVideoTrack(next); }
+    catch (e) { try { await swapVideoTrack(facing); } catch {} }   // revert to the previous camera
+    sendStatus();
+  }
+
+  // ----- pause (mom is in control) -----
+  function setPaused(p) {
+    paused = p;
+    stream.getTracks().forEach((t) => { t.enabled = !p; });
+    const b = $('pauseBtn');
+    b.classList.toggle('on', p);
+    b.textContent = p ? '▶ फिर से शुरू करें' : '⏸ कुछ देर के लिए रोकें';
+    clearTimeout(pauseTimer);
+    if (p) pauseTimer = setTimeout(() => setPaused(false), PAUSE_MS);
+    sendStatus();
+  }
+
+  // ----- motion detection (very light: 64x48 frame diff once a second) -----
+  const cv = document.createElement('canvas'); cv.width = 64; cv.height = 48;
+  const cx = cv.getContext('2d', { willReadFrequently: true });
+  let prev = null, lastSent = 0;
+  function motionLoop() {
+    setInterval(() => {
+      const v = $('probe');
+      if (paused || !v.videoWidth) { prev = null; return; }
+      cx.drawImage(v, 0, 0, 64, 48);
+      const d = cx.getImageData(0, 0, 64, 48).data;
+      const g = new Uint8Array(64 * 48);
+      for (let i = 0, j = 0; i < d.length; i += 4, j++) g[j] = (d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11) | 0;
+      if (prev) {
+        let changed = 0;
+        for (let i = 0; i < g.length; i++) if (Math.abs(g[i] - prev[i]) > 25) changed++;
+        if (changed / g.length > 0.012 && Date.now() - lastSent > 5000) { lastSent = Date.now(); send({ type: 'motion' }); }
+      }
+      prev = g;
+    }, 1000);
+  }
+
+  $('startBtn').onclick = start;
+  $('pauseBtn').onclick = () => setPaused(!paused);
+  if (KEY && qs.get('autostart') === '1') start();
+})();
+</script>
+</body>
+</html>
